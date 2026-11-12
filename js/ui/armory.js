@@ -1,0 +1,96 @@
+// Armería (menú principal): elige la skin de cada arma. Las skins se desbloquean jugando.
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const rgb = (c, k = 1) => `rgb(${c.slice(0, 3).map((v) => Math.round(Math.min(1, v * k) * 255)).join(',')})`;
+
+  const Armory = {
+    weapon: 'pistol',
+    preview: null,
+
+    open(game) {
+      this.game = game;
+      VX.Profile.load();
+      VX.Profile.checkUnlocks();
+      this.preview = null;
+      this.renderWeapons();
+      this.select(this.weapon);
+      VX.Menus.show('armory');
+    },
+
+    close() {
+      this.game.showcase = null;
+      VX.Menus.showTitle();
+    },
+
+    renderWeapons() {
+      const ids = ['knife', ...VX.Weapons.GUNS];
+      $('armoryWeapons').innerHTML = ids.map((id) => {
+        const d = VX.Weapons.DEFS[id];
+        const n = VX.Weapons.SKINS.filter((s) => VX.Profile.isUnlocked(id, s.id)).length;
+        const lock = VX.Profile.weaponUnlocked(id) ? '' : ' 🔒';
+        return `<button class="wpn ${id === this.weapon ? 'on' : ''}" data-id="${id}">${d.name.toUpperCase()}${lock}<small>Skins ${n}/${VX.Weapons.SKINS.length}</small></button>`;
+      }).join('');
+      for (const b of $('armoryWeapons').querySelectorAll('button')) {
+        b.onclick = () => { VX.Audio.click(); this.select(b.dataset.id); };
+      }
+      this.renderStats();
+    },
+
+    renderStats() {
+      const P = VX.Profile.data, w = P.wstats[this.weapon] || {};
+      $('armoryStats').innerHTML =
+        `<u>CON ESTA ARMA</u><br>Zombis: <b>${w.kills || 0}</b> · Cabezas: <b>${w.heads || 0}</b> · Élites: <b>${w.elites || 0}</b><br>` +
+        `Jefes rematados: <b>${w.bosses || 0}</b> · Mejor piso: <b>${w.floor || 0}</b><br>` +
+        `<u>TOTAL</u><br>Zombis: <b>${P.kills}</b> · Jefes: <b>${P.bosses}</b> · Mejor piso: <b>${P.bestFloor}</b> · Partidas: <b>${P.runs}</b>`;
+    },
+
+    select(id) {
+      this.weapon = id;
+      this.preview = null;
+      for (const b of $('armoryWeapons').querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === id);
+      this.renderSkins();
+      this.renderStats();
+      this.updateShowcase();
+    },
+
+    updateShowcase() {
+      const skin = this.preview || VX.Profile.skinFor(this.weapon);
+      this.game.showcase = { id: this.weapon, skin };
+      const s = VX.Weapons.SKINS.find((x) => x.id === skin);
+      const locked = !VX.Profile.isUnlocked(this.weapon, skin);
+      $('armoryCaption').innerHTML = `<b>${VX.Weapons.DEFS[this.weapon].name.toUpperCase()}</b> · ${s.name}` +
+        (locked ? `<br><span class="bad">Bloqueada: ${VX.Profile.condText(s, this.weapon)}</span>` : (skin === VX.Profile.skinFor(this.weapon) ? '<br><span class="ok">Equipada</span>' : ''));
+    },
+
+    renderSkins() {
+      const cur = VX.Profile.skinFor(this.weapon);
+      const def = VX.Weapons.DEFS[this.weapon];
+      $('armorySkins').innerHTML = VX.Weapons.SKINS.map((s) => {
+        const un = VX.Profile.isUnlocked(this.weapon, s.id);
+        const pal = s.pal || {};
+        const main = pal.main || pal.blade || [0.4, 0.4, 0.44];
+        const acc = pal.accent || pal.steel || [0.9, 0.4, 0.1];
+        const prog = VX.Profile.progress(s, this.weapon);
+        const p = s.cond ? `${Math.min(VX.Profile.statValue(s, this.weapon), s.cond.n)}/${s.cond.n}` : '';
+        return `<button class="skin ${un ? '' : 'locked'} ${s.id === cur ? 'on' : ''}" data-id="${s.id}">
+          <span class="sw" style="background:linear-gradient(135deg, ${rgb(main)} 0 55%, ${rgb(acc)} 55% 100%)"></span>
+          <span class="nm">${s.name}${un ? '' : ' 🔒'}</span>
+          <span class="ds">${un ? (s.id === cur ? 'Equipada' : 'Clic para equipar') : VX.Profile.condText(s, this.weapon)}</span>
+          ${s.cond && !un ? `<span class="pb"><i style="width:${Math.round(prog * 100)}%"></i></span><span class="pt">${p}</span>` : ''}
+        </button>`;
+      }).join('');
+      for (const b of $('armorySkins').querySelectorAll('button')) {
+        b.onclick = () => {
+          const id = b.dataset.id;
+          VX.Audio.click();
+          if (VX.Profile.isUnlocked(this.weapon, id)) { VX.Profile.setSkin(this.weapon, id); this.preview = null; this.renderSkins(); }
+          else this.preview = id;  // vista previa de una skin bloqueada
+          this.updateShowcase();
+        };
+      }
+      void def;
+    },
+  };
+
+  VX.Armory = Armory;
+})();
