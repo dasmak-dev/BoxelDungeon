@@ -121,6 +121,7 @@
     },
 
     checkUnlocks(game, onlyWeapon) {
+      if (VX.Weapons && VX.Weapons.KNIVES) this.checkKnives(game);
       const list = onlyWeapon ? [onlyWeapon] : WEAPON_IDS();
       for (const w of list) {
         for (const s of VX.Weapons.SKINS) {
@@ -133,6 +134,21 @@
               VX.Audio.upgrade();
             }
           }
+        }
+      }
+    },
+
+    // ---- formas del cuchillo ----
+    knifeUnlocked(id) { return id === 'cuchillo' || (this.data.knives || []).includes(id); },
+    knifeForm() { const f = this.data.knifeForm || 'cuchillo'; return this.knifeUnlocked(f) ? f : 'cuchillo'; },
+    setKnifeForm(id) { if (this.knifeUnlocked(id)) { this.data.knifeForm = id; this.save(); } },
+    checkKnives(game) {
+      this.data.knives = this.data.knives || [];
+      for (const k of VX.Weapons.KNIVES) {
+        if (!k.cond || this.knifeUnlocked(k.id)) continue;
+        if ((this.data[k.cond.stat] || 0) >= k.cond.n) {
+          this.data.knives.push(k.id); this.dirty = true;
+          if (game && game.hud && game.state === 'playing') { game.hud.banner('¡NUEVO CUCHILLO!', `«${k.name}» — elígelo en la Armería`, 3.5); VX.Audio.upgrade(); }
         }
       }
     },

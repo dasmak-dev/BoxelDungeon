@@ -3,6 +3,48 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.20.0] — 2026-11-13
+### Armas
+- **Mazo de demolición** (sustituye al martillo de guerra): mango largo de fibra amarilla con franjas negras y una gran cabeza de acero atravesada. Hace poco daño a los enemigos (40) pero es **brutal con el escenario**: abre boquetes enormes en paredes, suelos y estructuras, y atraviesa los muros.
+- **Cuchillo sin mano**: sólo se ve el arma.
+- **Formas del cuchillo**, que se desbloquean con misiones y se eligen en la Armería (sección «Forma», junto a los colores):
+  - Karambit: 40 bajas a cuchillo.
+  - Daga: 3 retos de sala «sólo cuchillo».
+  - Machete: 8 élites o campeones a cuchillo.
+  - Bayoneta: rematar a un jefe a cuchillo.
+  - Navaja mariposa: 150 bajas a cuchillo.
+
+### Enemigos
+- **Corredor**: ya no corre en zigzag ni se da la vuelta tras cada ataque. Va directo a por ti, te mira de cerca y esquiva bastante menos.
+- **Daño por choque**: si un enemigo se te echa encima a la carrera, también hace daño (no sólo con sus ataques).
+- **Animaciones de ataque a distancia**:
+  - el arquero levanta el arco y tensa la cuerda hasta la cara antes de soltar;
+  - el nigromante alza el bastón cargando energía morada y lo descarga;
+  - el escupidor se echa atrás babeando ácido.
+
+### Mazmorra
+- Quitado el **mercader errante**.
+- **Cajas**: todas huecas por dentro. Hay una **caja grande** de 1 m con esquinas de hierro y se generan bastantes menos cajas.
+- **Techos distintos** según el bioma y la sala: bóveda de cañón con arcos, artesonado de casetones, tablones con viguetas, roca con estalactitas (con raíces en el Jardín) o vigas.
+- **Las puertas siempre se pueden cruzar**: delante de cada entrada y salida queda un pasillo despejado de 4 × 4 m (comprobado en las 504 combinaciones de sala y bioma).
+- **Cofre de la cámara secreta**: se abre con **E**. La tapa sale volando y da oro, un botiquín y una mejora (la mitad de las veces, rara).
+- **Escalera al bioma secreto**: ahora se ve de verdad, un foso en el suelo con peldaños que bajan hacia un resplandor violeta. Se baja con E.
+- **Monedas**: más grandes y con forma de moneda (disco con canto y relieve). Giran en el aire, **caen al suelo** y se quedan tumbadas. Ya no se quedan flotando contra un obstáculo cuando las atrae el imán.
+- **Santuario**: las bendiciones van a dos columnas y todo cabe en pantalla sin desplazarse.
+
+### Modo Horda
+- **Munición infinita otra vez.**
+- **Cada 3 oleadas**, al azar: llega el vendedor o aparecen **tres mejoras gratis para elegir una**.
+- **Coliseo**:
+  - ya no se puede salir del mapa por las gradas: son más bajas y el muro de detrás no se escala;
+  - además, hay un techo invisible en los mapas grandes;
+  - se han quitado los brillos fuertes del suelo (estrado, ruinas y manchas).
+- **Ciudad**:
+  - luz de luna que ilumina de lado las fachadas, que ya no se ven negras;
+  - fachadas algo más claras;
+  - una **fila continua de edificios** detrás del perímetro para que no se vea el vacío;
+  - un edificio que cierra el final de cada calle de salida.
+
 ## [0.19.0] — 2026-11-12
 ### Ciudad nocturna, rediseñada
 - Nueva distribución con una **gran plaza central**: fuente sobre tres escalones con una estatua, ocho árboles detallados (raíces, ramas y copa en racimos) en alcorques, bancos de listones con respaldo, farolas de dos globos, un templete de música elevado, quiosco, parterres y bolardos.

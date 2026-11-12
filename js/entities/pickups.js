@@ -77,18 +77,27 @@
         const g = this.gold[i];
         g.t += dt; g.delay -= dt;
         const dx = ex - g.x, dy = ey - g.y, dz = ez - g.z, d = Math.hypot(dx, dy, dz);
-        if (g.delay <= 0 && (g.homing || d < 3.6 + game.player.magnet)) {
+        const homing = g.delay <= 0 && (g.homing || d < 3.6 + game.player.magnet);
+        if (homing) {
+          // atraída hacia el jugador: vuela directa (atraviesa lo que haya en medio, no se queda pegada en el aire)
           const pull = 14 / Math.max(d, 0.3);
           g.vx += (dx / d) * pull * dt * 6; g.vy += (dy / d) * pull * dt * 6; g.vz += (dz / d) * pull * dt * 6;
           g.vx *= 0.9; g.vy *= 0.9; g.vz *= 0.9;
-        } else g.vy -= 18 * dt;
-        const nx = g.x + g.vx * dt, nz = g.z + g.vz * dt;
-        if (!game.world.isSolidAt(nx, g.y, g.z)) g.x = nx; else g.vx *= -0.5;
-        if (!game.world.isSolidAt(g.x, g.y, nz)) g.z = nz; else g.vz *= -0.5;
-        g.y += g.vy * dt;
-        const gr = game.world.groundAt(g.x, g.z) + 0.05;
-        if (g.y < gr && gr - g.y < 0.6) { g.y = gr; g.vy *= -0.4; g.vx *= 0.8; g.vz *= 0.8; }
-        else if (g.y < 0.05) { g.y = 0.05; g.vy *= -0.4; }
+          g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt; g.rest = false;
+        } else {
+          if (!g.rest) g.vy -= 18 * dt;
+          const nx = g.x + g.vx * dt, nz = g.z + g.vz * dt;
+          if (!game.world.isSolidAt(nx, g.y, g.z)) g.x = nx; else g.vx *= -0.4;
+          if (!game.world.isSolidAt(g.x, g.y, nz)) g.z = nz; else g.vz *= -0.4;
+          g.y += g.vy * dt;
+          const gr = game.world.groundAt(g.x, g.z) + (g.heal || g.ammo ? 0.05 : 0.015);
+          if (g.y <= gr) {
+            // cae al suelo (si quedó dentro de algo, sube a su superficie) y se queda quieta
+            g.y = gr;
+            if (Math.abs(g.vy) < 2.2) { g.vy = 0; g.vx *= 0.5; g.vz *= 0.5; if (Math.hypot(g.vx, g.vz) < 0.15) { g.rest = true; g.vx = g.vz = 0; } }
+            else { g.vy *= -0.35; g.vx *= 0.7; g.vz *= 0.7; }
+          } else if (g.rest && g.y > gr + 0.02) g.rest = false;   // lo de debajo se rompió: vuelve a caer
+        }
         if (g.delay <= 0 && d < 0.7) {
           this.gold.splice(i, 1);
           if (g.heal) { game.player.heal(g.heal); VX.Audio.orb(); game.hud.toast(`+${g.heal} de vida`); continue; }
@@ -128,6 +137,20 @@
         return;
       }
       if (it.kind === 'stairs') { it.taken = true; game.enterSecret(); return; }
+      if (it.kind === 'secretChest') {
+        it.taken = true;
+        const p = it.prop, top = p.oy + p.h * VX.PV;
+        VX.Audio.reward(); VX.Audio.door && VX.Audio.door();
+        // la tapa salta por los aires
+        p.blast(p.cx, top - 0.05, p.cz, 0.22, 25, game);
+        for (let i = 0; i < 30; i++) game.particles.spawn(p.cx, top, p.cz, M.rand(-1.5, 1.5), M.rand(2, 5), M.rand(-1.5, 1.5), 1, 0.8, 0.3, 0.04, M.rand(0.6, 1.4), 1, 1);
+        this.dropGold(p.cx, top + 0.2, p.cz, M.randInt(18, 28));
+        this.dropHeart(p.cx, top + 0.3, p.cz, 25);
+        const up = VX.Upgrades.random(1, game, [], Math.random() < 0.5 ? 'rare' : 'normal')[0];
+        if (up) this.addItem({ kind: 'upgrade', up, price: 0, x: p.cx, y: top + 0.3, z: p.cz, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape });
+        game.hud.toast('¡Tesoro!');
+        return;
+      }
       if (it.kind === 'map') { it.taken = true; game.studyMap(); return; }
       if (it.kind === 'supply') { it.taken = true; VX.HordeMode.openSupply(game, it); return; }
       if (it.kind === 'chest') {
@@ -213,25 +236,43 @@
           for (let k = -2; k <= 2; k++) { M.qRot(q, k * 0.035, 0.085, 0, tmp); batch.rbox(g.x + tmp[0], by + tmp[1], g.z + tmp[2], 0.025, 0.05, 0.025, q, 0.85, 0.65, 0.25, 0.5); }
           continue;
         }
-        batch.rbox(g.x, g.y, g.z, 0.09, 0.09, 0.025, q, 1.0, 0.78, 0.15, 0.7);
+        // moneda: disco octogonal con canto y relieve; gira en el aire y reposa plana en el suelo
+        const cq = g.rest ? M.qMul(M.qY(g.spin || (g.spin = Math.random() * 6)), M.qX(Math.PI / 2)) : M.qMul(M.qY(g.t * 5), M.qX(g.t * 7));
+        const cy = g.rest ? g.y + 0.014 : g.y;
+        batch.rbox(g.x, cy, g.z, 0.17, 0.115, 0.028, cq, 0.95, 0.72, 0.14, 0.35);
+        batch.rbox(g.x, cy, g.z, 0.115, 0.17, 0.028, cq, 0.95, 0.72, 0.14, 0.35);
+        M.qRot(cq, 0, 0, 0.012, tmp);
+        batch.rbox(g.x + tmp[0], cy + tmp[1], g.z + tmp[2], 0.075, 0.075, 0.012, cq, 0.75, 0.52, 0.08, 0.25);
+        M.qRot(cq, 0, 0, -0.012, tmp);
+        batch.rbox(g.x + tmp[0], cy + tmp[1], g.z + tmp[2], 0.075, 0.075, 0.012, cq, 0.75, 0.52, 0.08, 0.25);
       }
       // Objetos flotantes
       for (const it of this.items) {
         if (it.kind === 'weapon') { this.renderWeapon(batch, it); continue; }
         if (it.kind === 'supply') { this.renderSupply(batch, it); continue; }
+        if (it.kind === 'secretChest') continue;   // se ve el propio cofre
         if (it.kind === 'stairs') {
-          // peldaños que se hunden en la oscuridad, con un resplandor violeta al fondo
-          const s = 0.125;
-          for (let i = 0; i < 4; i++) {
-            const k = 1 - i * 0.24;
-            for (let j = -5; j <= 4; j++) {
-              const ox = it.dz !== 0 ? (j + 0.5) * s : it.dx * (i - 1.5) * s, oz = it.dx !== 0 ? (j + 0.5) * s : it.dz * (i - 1.5) * s;
-              batch.box(it.x + ox, it.y + 0.02 + (3 - i) * 0.005, it.z + oz, s * 0.98, 0.04, s * 0.98, 0.22 * k, 0.2 * k, 0.24 * k, 0);
-            }
+          // foso con escalones de piedra que bajan hacia la pared y se pierden en la oscuridad
+          const dx = it.dx, dz = it.dz, L = it.L || 1.6, Wd = it.Wd || 0.8, n = 7;
+          const ax = dx !== 0 ? 0 : 1, az = dz !== 0 ? 0 : 1;
+          const Pt = (t, a) => [it.fx - dx * t + ax * a, it.fz - dz * t + az * a];
+          for (let i = 0; i < n; i++) {
+            const t = L - (i + 0.5) * (L / n), top = -0.28 * (i + 1), k = 0.75 - i * 0.09;
+            const [cx, cz] = Pt(t, 0), sl = L / n;
+            batch.box(cx, top - 1.5, cz, dx ? sl : Wd * 2, 3, dz ? sl : Wd * 2, 0.3 * k, 0.28 * k, 0.3 * k, 0);
+            const [ex, ez] = Pt(t + sl * 0.45, 0);
+            batch.box(ex, top - 0.02, ez, dx ? 0.06 : Wd * 2, 0.04, dz ? 0.06 : Wd * 2, 0.42 * k, 0.4 * k, 0.42 * k, 0);   // borde del peldaño
           }
-          const gl = 0.6 + Math.sin(it.t * 3) * 0.3;
-          batch.box(it.x + it.dx * 0.2, it.y + 0.03, it.z + it.dz * 0.2, 0.3, 0.02, 0.3, 0.6 * gl, 0.2 * gl, 1 * gl, 1);
-          if (Math.random() < 0.2 && VX.game) VX.game.particles.spawn(it.x + M.rand(-0.4, 0.4), it.y + 0.1, it.z + M.rand(-0.4, 0.4), 0, M.rand(0.3, 0.8), 0, 0.7, 0.3, 1, 0.03, 1, 1, 1);
+          // paredes del foso y fondo oscuro
+          for (const sgn of [-1, 1]) { const [sx, sz] = Pt(L / 2, sgn * (Wd + 0.06)); batch.box(sx, -1.3, sz, dx ? L : 0.12, 2.6, dz ? L : 0.12, 0.16, 0.15, 0.17, 0); }
+          { const [sx, sz] = Pt(L + 0.06, 0); batch.box(sx, -1.3, sz, dx ? 0.12 : Wd * 2, 2.6, dz ? 0.12 : Wd * 2, 0.16, 0.15, 0.17, 0); }
+          { const [bx, bz] = Pt(-0.3, 0); batch.box(bx, -2.6, bz, dx ? 0.8 : Wd * 2, 0.1, dz ? 0.8 : Wd * 2, 0.01, 0.005, 0.015, 0); }
+          // brocal alrededor y resplandor violeta que sube del fondo
+          for (const sgn of [-1, 1]) { const [sx, sz] = Pt(L / 2, sgn * (Wd + 0.12)); batch.box(sx, 0.05, sz, dx ? L + 0.24 : 0.12, 0.1, dz ? L + 0.24 : 0.12, 0.35, 0.33, 0.36, 0); }
+          { const [sx, sz] = Pt(L + 0.12, 0); batch.box(sx, 0.05, sz, dx ? 0.12 : Wd * 2 + 0.24, 0.1, dz ? 0.12 : Wd * 2 + 0.24, 0.35, 0.33, 0.36, 0); }
+          const gl = 0.5 + Math.sin(it.t * 3) * 0.3;
+          { const [gx, gz] = Pt(0.1, 0); batch.box(gx, -2.0, gz, 0.5, 0.05, 0.5, 0.6 * gl, 0.2 * gl, 1 * gl, 1); }
+          if (Math.random() < 0.3 && VX.game) { const [px, pz] = Pt(M.rand(0, L * 0.5), M.rand(-Wd, Wd)); VX.game.particles.spawn(px, -1.2, pz, 0, M.rand(0.5, 1.2), 0, 0.7, 0.3, 1, 0.03, 1.5, 1, 1); }
           continue;
         }
         const vs = 0.06;

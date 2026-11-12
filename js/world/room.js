@@ -81,6 +81,7 @@
         if (sw + 9 > this.w || sd + 13 > this.d) continue;
         const ux = VX.M.randInt(4, this.w - 5 - sw), uz = VX.M.randInt(6, this.d - 7 - sd);
         let free = true;
+        for (let x = ux; x < ux + sw && free; x++) for (let z = uz; z < uz + sd; z++) if (this.isReservedU(x, z)) { free = false; break; }
         for (let x = ux * 2; x < (ux + sw) * 2 && free; x++)
           for (let z = uz * 2; z < (uz + sd) * 2; z++) if (this.grid[this.idx(x, 0, z)]) { free = false; break; }
         if (free && this.addSpikes(ux, uz, ux + sw - 1, uz + sd - 1, kind)) i++;
@@ -89,10 +90,34 @@
 
     place(ox, oz) { this.ox = ox; this.oz = oz; }
 
+    // Despeja un pasillo de 4 × 4 m delante de cada puerta: ninguna estructura, relieve
+    // ni objeto puede tapar la entrada o la salida
+    clearDoorways() {
+      const BL = VX.Blocks, cu = Math.round(this.cu * 2), cuz = Math.round(this.cuz * 2), half = 8, depth = 16;
+      for (const s in this.doors) {
+        let x0, x1, z0, z1;
+        if (s === 'zn') { x0 = cu - half; x1 = cu + half; z0 = 2; z1 = 2 + depth; }
+        else if (s === 'zp') { x0 = cu - half; x1 = cu + half; z0 = this.D - 2 - depth; z1 = this.D - 2; }
+        else if (s === 'xn') { z0 = cuz - half; z1 = cuz + half; x0 = 2; x1 = 2 + depth; }
+        else { z0 = cuz - half; z1 = cuz + half; x0 = this.W - 2 - depth; x1 = this.W - 2; }
+        for (let y = 0; y < this.H - 4; y++)
+          for (let z = Math.max(2, z0); z < Math.min(this.D - 2, z1); z++)
+            for (let x = Math.max(2, x0); x < Math.min(this.W - 2, x1); x++) {
+              const i = this.idx(x, y, z), t = this.grid[i];
+              if (t && t !== BL.BEDROCK) { this.grid[i] = 0; this.hp[i] = 0; }
+            }
+        // los objetos ya colocados (de la plantilla) que caigan en el pasillo, fuera
+        const wx0 = (this.ox + x0) * S, wx1 = (this.ox + x1) * S, wz0 = (this.oz + z0) * S, wz1 = (this.oz + z1) * S;
+        this.pending = this.pending.filter((q) => !(q.x > wx0 - 0.3 && q.x < wx1 + 0.3 && q.z > wz0 - 0.3 && q.z < wz1 + 0.3));
+      }
+      this.walk = null;
+    }
+
     build() {
       this.buildShell();
       this.template.build(this);
       if (this.template.relief) this.template.relief(this);
+      this.clearDoorways();
       const Z = VX.ZONES[this.zone || 0];
       if (this.type === 'normal' && Z) {
         if (Z.hazard === 'spikes') { if (Math.random() < 0.3) this.addRandomHazards('spikes', VX.M.randInt(1, 2)); }
@@ -132,10 +157,10 @@
     // ---- Ayudantes de diseño (unidades de 0,5 m) ----
     isReservedU(ux, uz) {
       for (const s in this.doors) {
-        if (s === 'zn' && Math.abs(ux + 0.5 - this.cu) <= 3.5 && uz < 6) return true;
-        if (s === 'zp' && Math.abs(ux + 0.5 - this.cu) <= 3.5 && uz > this.d - 7) return true;
-        if (s === 'xn' && Math.abs(uz + 0.5 - this.cuz) <= 3.5 && ux < 6) return true;
-        if (s === 'xp' && Math.abs(uz + 0.5 - this.cuz) <= 3.5 && ux > this.w - 7) return true;
+        if (s === 'zn' && Math.abs(ux + 0.5 - this.cu) <= 4 && uz < 9) return true;
+        if (s === 'zp' && Math.abs(ux + 0.5 - this.cu) <= 4 && uz > this.d - 10) return true;
+        if (s === 'xn' && Math.abs(uz + 0.5 - this.cuz) <= 4 && ux < 9) return true;
+        if (s === 'xp' && Math.abs(uz + 0.5 - this.cuz) <= 4 && ux > this.w - 10) return true;
       }
       return false;
     }
@@ -512,11 +537,18 @@
     }
 
     // Losas del suelo de un chunk
+    inFloorHole(wx, wz) {
+      if (!this.floorHoles) return false;
+      for (const h of this.floorHoles) if (wx > h.x0 && wx < h.x1 && wz > h.z0 && wz < h.z1) return true;
+      return false;
+    }
+
     emitFloor(batch, x0, z0, x1, z1) {
       for (let z = z0; z < z1; z += K)
         for (let x = x0; x < x1; x += K) {
           if (this.solidL(x, 0, z) && this.solidL(x + 1, 0, z + 1) && this.solidL(x + 1, 0, z) && this.solidL(x, 0, z + 1)) continue;
           const gx = this.ox + x, gz = this.oz + z;
+          if (this.floorHoles && this.inFloorHole((gx + K / 2) * S, (gz + K / 2) * S)) continue;   // foso de la escalera
           const h = VX.M.hash3(gx, 3, gz), h2 = VX.M.hash3(gx >> 2, 5, gz >> 2);
           let [r, g, b] = this.floorTint(0.24 + h * 0.06 + h2 * 0.04);
           const a00 = this.floorAO(x, z), a10 = this.floorAO(x + K, z), a01 = this.floorAO(x, z + K), a11 = this.floorAO(x + K, z + K);
@@ -568,19 +600,84 @@
           }
     }
 
+    // Techo: cada sala tiene un estilo según su bioma y su tipo
     buildCeiling(R) {
-      const b = this.ceiling = R.createBatch(256, false);
-      const top = this.H * S;
-      const T = 8;
-      for (let z = 0; z < this.D; z += T)
-        for (let x = 0; x < this.W; x += T) {
-          const sx = Math.min(T, this.W - x), sz = Math.min(T, this.D - z);
-          const h = VX.M.hash3(x + this.ox, 99, z + this.oz);
-          const c = 0.14 + h * 0.04;
-          b.box((this.ox + x + sx / 2) * S, top + 0.25, (this.oz + z + sz / 2) * S, sx * S, 0.5, sz * S, c, c * 0.95, c * 1.05);
+      const b = this.ceiling = R.createBatch(512, false);
+      const top = this.H * S, M = VX.M;
+      const Z = VX.ZONES[this.zone || 0] || VX.ZONES[0], tn = Z.tint || [1, 1, 1];
+      const W = this.W * S, Dd = this.D * S, x0 = this.ox * S, z0 = this.oz * S;
+      const cxw = x0 + W / 2, czw = z0 + Dd / 2;
+      const h0 = M.hash3(this.ox, 17, this.oz);
+      const byZone = [['vault', 'coffer', 'beams'], ['vault', 'vault', 'beams'], ['planks', 'cave', 'planks'], ['coffer', 'beams', 'planks'], ['cave', 'cave', 'vault'], ['cave', 'vault', 'coffer'], ['beams'], ['beams']][this.zone || 0] || ['beams'];
+      let style = byZone[Math.floor(h0 * byZone.length) % byZone.length];
+      if (this.type === 'boss') style = h0 < 0.5 ? 'vault' : 'coffer';
+      else if (this.type === 'shop') style = 'coffer';
+      else if (this.type === 'save') style = 'vault';
+      this.ceilStyle = style;
+      const stone = (k) => { const c = (0.13 + k * 0.05); return [c * tn[0], c * 0.95 * tn[1], c * 1.02 * tn[2]]; };
+      const wood = (k) => [0.24 * (0.8 + k * 0.4), 0.15 * (0.8 + k * 0.4), 0.08 * (0.8 + k * 0.4)];
+      const BX = (x, y, z, sx, sy, sz, c, e = 0) => b.box(x, y, z, sx, sy, sz, c[0], c[1], c[2], e);
+      const flat = (y, col) => {
+        const T = 8;
+        for (let z = 0; z < this.D; z += T)
+          for (let x = 0; x < this.W; x += T) {
+            const sx = Math.min(T, this.W - x), sz = Math.min(T, this.D - z);
+            const h = M.hash3(x + this.ox, 99, z + this.oz);
+            BX((this.ox + x + sx / 2) * S, y, (this.oz + z + sz / 2) * S, sx * S, 0.5, sz * S, col(h));
+          }
+      };
+      if (style === 'vault') {
+        // bóveda de cañón escalonada a lo largo del lado largo, con arcos de refuerzo
+        const alongX = W > Dd, span = alongX ? Dd : W, len = alongX ? W : Dd, rise = Math.min(3.2, span * 0.28);
+        const strips = Math.max(6, Math.round(span / 0.75));
+        for (let k = 0; k < strips; k++) {
+          const t0 = k / strips, t1 = (k + 1) / strips, tm = (t0 + t1) / 2;
+          const y = top + Math.sin(tm * Math.PI) * rise;
+          const c = stone(0.4 + M.hash3(k, this.ox, 3) * 0.6);
+          const off = (tm - 0.5) * span;
+          if (alongX) BX(cxw, y + 0.25, czw + off, len, 0.5, span / strips + 0.02, c);
+          else BX(cxw + off, y + 0.25, czw, span / strips + 0.02, 0.5, len, c);
+          // tímpanos: cierran la bóveda en los extremos
+          const hh = y - top + 0.3;
+          if (alongX) { BX(x0 + 0.1, top + hh / 2, czw + off, 0.2, hh, span / strips + 0.02, c); BX(x0 + W - 0.1, top + hh / 2, czw + off, 0.2, hh, span / strips + 0.02, c); }
+          else { BX(cxw + off, top + hh / 2, z0 + 0.1, span / strips + 0.02, hh, 0.2, c); BX(cxw + off, top + hh / 2, z0 + Dd - 0.1, span / strips + 0.02, hh, 0.2, c); }
         }
-      for (let z = 16; z < this.D - 8; z += 32)
-        b.box((this.ox + this.cx) * S, top - 0.15, (this.oz + z) * S, (this.W - 4) * S, 0.3, 0.35, 0.3, 0.2, 0.11);
+        for (let p = 3; p < len - 2; p += 6) {
+          for (let k = 0; k < strips; k++) {
+            const tm = (k + 0.5) / strips, y = top + Math.sin(tm * Math.PI) * rise - 0.18, off = (tm - 0.5) * span;
+            const c = stone(0.15);
+            if (alongX) BX(x0 + p, y, czw + off, 0.6, 0.4, span / strips + 0.02, c);
+            else BX(cxw + off, y, z0 + p, span / strips + 0.02, 0.4, 0.6, c);
+          }
+        }
+      } else if (style === 'coffer') {
+        // artesonado: losa alta y retícula de vigas que forma casetones
+        flat(top + 0.65, (h) => stone(0.2 + h * 0.3));
+        const step = 2.4, wc = this.type === 'shop' ? wood(0.6) : stone(0.55);
+        for (let x = 1.2; x < W - 0.5; x += step) BX(x0 + x, top + 0.2, czw, 0.3, 0.4, Dd, wc);
+        for (let z = 1.2; z < Dd - 0.5; z += step) BX(cxw, top + 0.2, z0 + z, W, 0.4, 0.3, wc);
+        BX(cxw, top + 0.05, czw, 0.5, 0.1, 0.5, [0.6, 0.45, 0.15], 0.2);   // rosetón central
+      } else if (style === 'planks') {
+        // tablones con viguetas juntas (minas, talleres)
+        flat(top + 0.25, (h) => wood(0.3 + h * 0.5));
+        for (let x = 0.8; x < W; x += 1.4) BX(x0 + x, top - 0.12, czw, 0.28, 0.3, Dd, wood(0.15));
+        for (let z = 4; z < Dd - 2; z += 8) BX(cxw, top - 0.35, z0 + z, W, 0.3, 0.35, wood(0.05));
+      } else if (style === 'cave') {
+        // roca irregular con estalactitas (y raíces colgando en el Jardín)
+        flat(top + 0.25, (h) => stone(0.05 + h * 0.4));
+        const n = Math.round((W * Dd) / 9);
+        for (let i = 0; i < n; i++) {
+          const x = x0 + M.hash3(i, this.ox, 5) * W, z = z0 + M.hash3(i, this.oz, 7) * Dd, hh = 0.3 + M.hash3(i, 3, 9) * 1.4;
+          const w = 0.4 + M.hash3(i, 8, 1) * 0.9, c = stone(0.1 + M.hash3(i, 2, 2) * 0.4);
+          BX(x, top - hh / 2 + 0.1, z, w, hh, w, c);
+          BX(x, top - hh - 0.15, z, w * 0.45, 0.4, w * 0.45, c);
+          if (this.zone === 4 && i % 3 === 0) BX(x + w * 0.6, top - 1.1, z, 0.06, 2, 0.06, [0.18, 0.3, 0.12]);   // raíz
+        }
+      } else {
+        flat(top + 0.25, (h) => stone(0.1 + h * 0.4));
+        for (let z = 16; z < this.D - 8; z += 32)
+          BX((this.ox + this.cx) * S, top - 0.15, (this.oz + z) * S, (this.W - 4) * S, 0.3, 0.35, [0.3, 0.2, 0.11]);
+      }
       b.upload();
     }
 

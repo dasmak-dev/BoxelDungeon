@@ -7,10 +7,10 @@
   const DEFS = {
     knife: {
       art: 'el cuchillo', name: 'Cuchillo', melee: true, damage: 48, fireRate: 2.6, reach: 1.9,
-      price: 0, vm: { x: 0.16, y: -0.15, z: -0.26, g: 0.009 },
+      price: 0, vm: { x: 0.13, y: -0.105, z: -0.29, g: 0.009 },
     },
     hammer: {
-      art: 'el martillo', name: 'Martillo de guerra', melee: true, heavy: true, damage: 95, fireRate: 1.15, reach: 2.4,
+      art: 'el mazo', name: 'Mazo de demolición', melee: true, heavy: true, damage: 40, fireRate: 1.1, reach: 2.6, demolish: true,
       price: 85, vm: { x: 0.17, y: -0.2, z: -0.3, g: 0.0095 },
     },
     pistol: {
@@ -163,60 +163,135 @@
       addHand(add, 2, -1);
       return vox;
     },
-    // Martillo de guerra: cabeza de hierro con cara plana y pico, mango largo forrado
+    // Mazo de demolición: mango largo de fibra amarilla con franjas, empuñadura de goma
+    // y una cabeza de acero rectangular ATRAVESADA en el mango (caras de golpeo a los lados)
     hammer() {
       const { vox, add } = builder();
-      // mango (de la mano hacia delante y arriba)
-      add(-1, 0, -1, 0, -30, 10, 'grip', (x, y, z) => !(z % 5 === 0 && x === -1));
-      add(-1, 0, -1, 0, 2, 9, 'accent', (x, y, z) => z % 2 === 0);          // tiras de cuero
-      add(-2, 1, -2, 1, 10, 11, 'dark');                                      // pomo
-      // cabeza
-      add(-5, 4, -4, 3, -38, -30, 'main', (x, y, z) => !((x === -5 || x === 4) && (y === -4 || y === 3)));
-      add(-5, 4, -4, 3, -39, -39, 'steel', (x, y) => !((x === -5 || x === 4) && (y === -4 || y === 3)));   // cara plana
-      add(-3, 2, -2, 1, -40, -40, 'steel');
-      add(-6, 5, -4, 3, -34, -33, 'dark');                                    // abrazadera
-      for (let k = 0; k < 7; k++) add(-2 + Math.floor(k / 3), 1 - Math.floor(k / 3), -2 + Math.floor(k / 4), 1 - Math.floor(k / 4), -29 + k, -29 + k, 'main');   // pico trasero
-      add(-1, 0, -1, 0, -42, -41, 'dark');                                    // remate
-      // mano alrededor del mango
-      add(-3, 2, -3, 2, 1, 8, 'hand', (x, y, z) => (x === -3 || x === 2 || y === -3 || y === 2) && z % 2 === 0);
-      add(-3, 2, -4, 3, 9, 13, 'wrist', (x, y) => x === -3 || x === 2 || y === -4 || y === 3);
+      add(-1, 0, -1, 0, -31, 4, 'accent', (x, y, z) => !(Math.floor((z + 40) / 4) % 3 === 0));   // fibra amarilla
+      add(-1, 0, -1, 0, -31, 4, 'dark', (x, y, z) => Math.floor((z + 40) / 4) % 3 === 0);        // franjas negras
+      add(-2, 1, -2, 1, 2, 11, 'grip', (x, y, z) => !((x === -2 || x === 1) && (y === -2 || y === 1)) || z % 3 === 0);   // goma
+      add(-2, 1, -2, 1, 12, 12, 'dark');
+      // cabeza: bloque largo de lado a lado, con chaflanes
+      add(-10, 9, -4, 3, -40, -32, 'main', (x, y, z) => {
+        const ex = x === -10 || x === 9, ey = y === -4 || y === 3, ez = z === -40 || z === -32;
+        return !((ex && ey) || (ex && ez) || (ey && ez));
+      });
+      add(-11, -11, -3, 2, -39, -33, 'steel'); add(10, 10, -3, 2, -39, -33, 'steel');   // caras de golpeo
+      add(-3, 2, 4, 4, -38, -34, 'dark');                                                // cuña de la cabeza
+      add(-2, 1, -5, -5, -38, -34, 'dark');
+      add(-6, -5, 4, 4, -37, -35, 'steel'); add(4, 5, 4, 4, -37, -35, 'steel');            // marcas gastadas
+      // mano con guante de trabajo
+      add(-3, 2, -3, 2, 3, 9, 'hand', (x, y, z) => (x === -3 || x === 2 || y === -3 || y === 2) && z % 2 === 1);
+      add(-3, 2, -4, 3, 10, 13, 'wrist', (x, y) => x === -3 || x === 2 || y === -4 || y === 3);
       add(-4, 3, -5, 4, 13, 29, 'sleeve', (x, y) => x === -4 || x === 3 || y === -5 || y === 4);
       return vox;
     },
-    knife() {
+    // Cuchillo (sin mano: sólo se ve el arma). form: la forma desbloqueada
+    knife(form = 'cuchillo') { return KNIFE_MODELS[form] ? KNIFE_MODELS[form]() : KNIFE_MODELS.cuchillo(); },
+  };
+
+  // ---------------- Formas del cuchillo (se desbloquean con misiones) ----------------
+  const KNIVES = [
+    { id: 'cuchillo', name: 'Cuchillo de combate', desc: 'El de siempre' },
+    { id: 'karambit', name: 'Karambit', cond: { stat: 'knifeKills', n: 40 }, txt: 'Mata 40 zombis con el cuchillo' },
+    { id: 'daga', name: 'Daga', cond: { stat: 'knifeChallenges', n: 3 }, txt: 'Supera 3 retos de sala «sólo cuchillo»' },
+    { id: 'machete', name: 'Machete', cond: { stat: 'knifeElites', n: 8 }, txt: 'Mata 8 élites o campeones con el cuchillo' },
+    { id: 'bayoneta', name: 'Bayoneta', cond: { stat: 'knifeBosses', n: 1 }, txt: 'Remata a un jefe con el cuchillo' },
+    { id: 'mariposa', name: 'Navaja mariposa', cond: { stat: 'knifeKills', n: 150 }, txt: 'Mata 150 zombis con el cuchillo' },
+  ];
+  const KNIFE_MODELS = {
+    cuchillo() {
       const { vox, add } = builder();
-      // hoja (filo más claro)
       for (let z = -26; z <= -4; z++) {
         const tip = z < -21 ? Math.round((z + 26) * 0.6) : 3;
         add(0, 0, 0, Math.max(0, tip), z, z, 'blade');
         if (tip >= 1) add(0, 0, 0, 0, z, z, 'steel');
       }
-      add(-1, 1, 3, 3, -14, -5, 'dark', (x) => x === 0);   // lomo
-      add(-2, 2, -1, 4, -3, -3, 'dark');                    // guarda
-      add(-1, 1, -1, 3, -2, 8, 'grip');
-      add(-1, 1, -1, 3, 9, 9, 'accent');                    // pomo
-      // puño cerrado alrededor del mango (visto desde detrás, mano derecha):
-      // cuatro dedos que rodean el mango por abajo y por la izquierda, el pulgar
-      // cruzando por arriba y el dorso de la mano a la derecha
-      for (let f = 0; f < 4; f++) {
-        const z0 = -1 + f * 2;
-        add(-3, -2, -3, 3, z0, z0, 'hand');                 // falange que rodea por la izquierda
-        add(-3, 2, -3, -2, z0, z0, 'hand');                 // y por debajo
+      add(-1, 1, 3, 3, -14, -5, 'dark', (x) => x === 0);
+      add(-2, 2, -1, 4, -3, -3, 'dark');
+      add(-1, 1, -1, 3, -2, 8, 'grip', (x, y, z) => !(x !== 0 && y === 1 && z % 3 === 0));
+      add(-1, 1, -1, 3, 9, 10, 'accent');
+      return vox;
+    },
+    // garra curva con anilla para el dedo
+    karambit() {
+      const { vox, add } = builder();
+      for (let t = 0; t <= 16; t++) {
+        const z = -3 - t, c = -Math.round((t * t) / 16), w = Math.max(0, Math.round(3 - t * 0.17));
+        add(0, 0, c, c + w, z, z, 'blade');
+        add(0, 0, c, c, z, z, 'steel');
       }
-      add(-3, -3, -2, 3, 0, 6, 'wrist', (x, y, z) => z % 2 === 0);   // pliegues entre dedos
-      add(-2, 0, 4, 5, -1, 3, 'hand');                      // pulgar por encima
-      add(2, 3, -3, 4, -1, 8, 'hand');                      // dorso y palma
-      add(-3, 3, -3, 5, 8, 9, 'hand');                      // talón de la mano (macizo)
-      add(-3, 3, -3, 4, 10, 13, 'wrist');                   // muñeca
-      add(-3, 3, 4, 4, 4, 8, 'hand');                       // nudillos (cierra el puño por arriba)
-      add(-3, 3, -3, 4, 14, 16, 'sleeve');                  // puño de la manga
+      add(-1, 1, -1, 3, -2, -2, 'dark');
+      add(-1, 1, -1, 2, -1, 7, 'grip');
+      for (let a = 0; a < 20; a++) {
+        const th = (a / 20) * Math.PI * 2, y = 1 + Math.round(Math.sin(th) * 3), z = 11 + Math.round(Math.cos(th) * 3);
+        add(-1, 1, y, y, z, z, 'accent', (x) => x === 0 || a % 2 === 0);
+      }
+      return vox;
+    },
+    // doble filo simétrico con nervio central y guarda ancha
+    daga() {
+      const { vox, add } = builder();
+      for (let z = -24; z <= -4; z++) {
+        const w = z < -14 ? Math.round((z + 24) * 0.25) : 2;
+        add(0, 0, 1 - w, 1 + w, z, z, 'blade');
+        add(0, 0, 1, 1, z, z, 'steel');
+      }
+      add(-1, 1, -3, 5, -3, -3, 'accent'); add(-1, 1, -4, -4, -3, -3, 'accent', (x) => x === 0); add(-1, 1, 6, 6, -3, -3, 'accent', (x) => x === 0);
+      add(-1, 1, 0, 2, -2, 7, 'grip', (x, y, z) => !(z % 2 === 0 && x !== 0));
+      add(-1, 1, -1, 3, 8, 9, 'accent');
+      return vox;
+    },
+    // hoja larga y ancha con panza en la punta
+    machete() {
+      const { vox, add } = builder();
+      for (let z = -40; z <= -4; z++) {
+        const top = z < -33 ? Math.round(5 - (z + 40) * 0.0) : 4;
+        const bot = z < -32 ? -Math.round((z + 40) * 0.12) : -1;
+        const tipCut = z < -37 ? Math.round((-37 - z) * 1.6) : 0;
+        add(0, 0, bot, top - tipCut, z, z, 'blade');
+        add(0, 0, bot, bot, z, z, 'steel');
+        if (z % 6 === 0) add(0, 0, top - 1, top - 1, z, z, 'dark');
+      }
+      add(-1, 1, -1, 4, -3, -3, 'dark');
+      add(-1, 1, -1, 3, -2, 9, 'grip', (x, y, z) => !(x !== 0 && z % 4 === 0));
+      add(-1, 1, -2, 3, 10, 10, 'dark');
+      return vox;
+    },
+    // larga y estrecha, con sierra en el lomo y anilla para el cañón
+    bayoneta() {
+      const { vox, add } = builder();
+      for (let z = -32; z <= -4; z++) {
+        const tip = z < -27 ? Math.round((z + 32) * 0.5) : 2;
+        add(0, 0, 0, Math.max(0, tip), z, z, 'blade');
+        add(0, 0, 0, 0, z, z, 'steel');
+        if (z > -24 && z < -8 && z % 2 === 0) add(0, 0, 3, 3, z, z, 'dark');   // sierra
+      }
+      for (let a = 0; a < 16; a++) { const th = a / 16 * Math.PI * 2; add(Math.round(Math.cos(th) * 2), Math.round(Math.cos(th) * 2), 5 + Math.round(Math.sin(th) * 2), 5 + Math.round(Math.sin(th) * 2), -3, -3, 'dark'); }
+      add(-1, 1, -1, 3, -3, -3, 'dark');
+      add(-1, 1, -1, 3, -2, 8, 'grip');
+      add(-1, 1, 0, 2, 9, 11, 'steel');
+      return vox;
+    },
+    // dos cachas caladas que se abren alrededor de la hoja
+    mariposa() {
+      const { vox, add } = builder();
+      for (let z = -24; z <= -4; z++) {
+        const tip = z < -18 ? Math.round((z + 24) * 0.5) : 3;
+        add(0, 0, 0, Math.max(0, tip), z, z, 'blade');
+        add(0, 0, 0, 0, z, z, 'steel');
+      }
+      add(-2, 2, 0, 3, -3, -3, 'dark');
+      for (const x of [-2, 2]) add(x, x, -1, 3, -2, 10, 'grip', (xx, y, z) => !(y >= 0 && y <= 2 && z % 3 !== 0 && z > -1 && z < 9));
+      add(-2, 2, -1, -1, 10, 10, 'accent');   // pestillo
+      add(-1, 1, -1, 3, -2, -2, 'accent');
       return vox;
     },
   };
-
+  void 0;
   const DEFAULT_PAL = {
     knife: { blade: [0.75, 0.77, 0.8], steel: [0.95, 0.96, 1], dark: [0.2, 0.2, 0.22], grip: [0.3, 0.2, 0.12], accent: [0.6, 0.6, 0.62] },
-    hammer: { main: [0.3, 0.3, 0.33], steel: [0.62, 0.62, 0.66], dark: [0.14, 0.14, 0.15], grip: [0.42, 0.27, 0.13], accent: [0.25, 0.15, 0.08] },
+    hammer: { main: [0.24, 0.25, 0.27], steel: [0.66, 0.67, 0.7], dark: [0.07, 0.07, 0.08], grip: [0.09, 0.09, 0.1], accent: [0.92, 0.66, 0.08], hand: [0.62, 0.48, 0.24], wrist: [0.5, 0.38, 0.2] },
     pistol: { main: [0.36, 0.36, 0.39], dark: [0.2, 0.2, 0.22], grip: [0.24, 0.17, 0.12], steel: [0.7, 0.71, 0.75], accent: [0.9, 0.4, 0.1] },
     smg: { main: [0.25, 0.27, 0.24], dark: [0.15, 0.15, 0.16], grip: [0.2, 0.2, 0.2], steel: [0.6, 0.6, 0.64], accent: [0.9, 0.4, 0.1] },
     shotgun: { main: [0.3, 0.3, 0.33], dark: [0.15, 0.15, 0.16], grip: [0.45, 0.27, 0.13], steel: [0.5, 0.5, 0.54], accent: [0.9, 0.4, 0.1] },
@@ -226,12 +301,12 @@
 
   // Construye la lista de vóxeles coloreados para un arma y una skin
   const cache = {};
-  function coloredModel(id, skinId) {
-    const key = id + ':' + skinId;
+  function coloredModel(id, skinId, form) {
+    const key = id + ':' + skinId + ':' + (form || '');
     if (cache[key]) return cache[key];
-    const base = MODELS[id]();
+    const base = MODELS[id](form);
     const skin = SKINS.find((s) => s.id === skinId) || SKINS[0];
-    const pal = { ...DEFAULT_PAL[id], ...(skin.pal || {}), ...HAND };
+    const pal = { ...HAND, ...DEFAULT_PAL[id], ...(skin.pal || {}) };
     const out = base.map((v) => {
       let c = pal[v.tag] || [1, 0, 1];
       if (skin.pal && skin.pal.checker && (v.tag === 'main' || v.tag === 'dark') && ((v.x + v.y + v.z) & 1)) c = [c[0] * 1.6, c[1] * 1.6, c[2] * 1.7];
@@ -241,5 +316,5 @@
     return out;
   }
 
-  VX.Weapons = { DEFS, GUNS, SKINS, MODELS, coloredModel };
+  VX.Weapons = { DEFS, GUNS, SKINS, MODELS, KNIVES, coloredModel };
 })();

@@ -321,3 +321,24 @@ button.small { font-size: 16px; padding: 10px 24px; }
     radial-gradient(circle at 82% 72%, rgba(255, 140, 50, 0.5) 0 4px, transparent 16px),
     linear-gradient(#1a0f1e, #6b2d24 70%, #b8582c);
 }
+
+.armSec { grid-column: 1 / -1; width: 100%; font-size: 12px; letter-spacing: 4px; color: #e9a560; margin: 6px 0 2px; }
+#armorySkins button.form .nm { font-size: 15px; }
+/* Santuario compacto: todo cabe en pantalla sin desplazarse */
+#sanctuary { overflow-y: auto; padding-top: 2.5vh; padding-bottom: 2vh; }
+#sanctuary h2 { font-size: 38px; margin-bottom: 2px; }
+#sanctuary .tag { margin-bottom: 2px; font-size: 13px; }
+#essenceTotal { font-size: 19px; margin: 2px 0 10px; }
+.sancCols { gap: 22px; margin-bottom: 10px; }
+.sancCols h3 { font-size: 16px; margin-bottom: 6px; }
+.sancNote { font-size: 11px; margin: -2px 0 6px; max-width: 270px; line-height: 1.35; }
+.sancList { width: 270px; gap: 6px; }
+#perkList { display: grid; grid-template-columns: 1fr 1fr; width: 548px; gap: 6px 8px; }
+.sancList button { font-size: 13px; letter-spacing: 2px; padding: 6px 10px; box-shadow: 0 3px 0 #120f14; }
+.sancList button small { font-size: 11px; letter-spacing: 0.5px; line-height: 1.3; }
+.sancList button .pips { font-size: 11px; }
+@media (max-height: 720px) {
+  #sanctuary h2 { font-size: 30px; }
+  .sancList button { padding: 4px 9px; }
+  .sancNote { display: none; }
+}

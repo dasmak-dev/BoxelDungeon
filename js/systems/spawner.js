@@ -253,9 +253,9 @@
         case 'normal': {
           const D = this.difficulty(game.floor);
           const n = this.enemyCount(room, game.floor);
-          // eventos de sala: emboscada (vacía… hasta que no) o mercader errante (aparece al despejarla)
+          // evento de sala: emboscada (vacía… hasta que no)
           const ev = Math.random();
-          room.event = game.floor >= 3 && ev < 0.1 ? 'ambush' : game.floor >= 2 && ev < 0.17 ? 'merchant' : null;
+          room.event = game.floor >= 3 && ev < 0.1 ? 'ambush' : null;
           if (room.event === 'ambush') {
             room.ambushAt = game.time + 1.6;
             room.pendingWaves = 1 + (game.floor >= 10 ? 1 : 0);

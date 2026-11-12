@@ -35,7 +35,7 @@
   // ring = participa en el cerco por turnos · accel/turn = agilidad · mass = cuánto empuja a los demás
   const BEH = {
     walker: { ring: true, accel: 5, turn: 5, mass: 1 },
-    runner: { ring: true, accel: 10, turn: 9, mass: 0.8, ringAdd: 1.2, hitRun: true, eager: 1, dodge: true },
+    runner: { ring: true, accel: 9, turn: 7, mass: 0.8, ringAdd: 0.8, eager: 1, dodge: true, faceClose: 6 },
     brute: { ring: false, accel: 3, turn: 2.6, mass: 3 },
     spitter: { ring: false, accel: 5, turn: 6, mass: 1, keep: [5.5, 10] },
     archer: { ring: false, accel: 6, turn: 7, mass: 0.8, keep: [7, 13] },
@@ -161,6 +161,7 @@
     }
 
     update(dt, game) {
+      this.game = game;
       const b = this.body, P = game.player;
       b.flash = Math.max(0, b.flash - dt * 6);
       const fl = this.fl;
@@ -305,10 +306,7 @@
             // caminante, corredor, escudero y trepador: cerco por turnos
             this.approachRing(game, dist, toX, toZ, stopDist);
             gx = this.gx; gz = this.gz; want = this.want;
-            if (this.kind === 'runner' && this.token && dist > 3) {
-              const z = Math.sin(game.time * 6 + this.uid) * 0.75;   // zigzag
-              gx += -toZ * z; gz += toX * z; want *= 1.15;
-            }
+            if (this.kind === 'runner' && dist > 2) want *= 1.12;   // carrera en línea recta, sin zigzag
             if (this.kind === 'walker' && want > 0.2) {
               const z = Math.sin(this.walkT * 0.45 + this.uid) * 0.3;   // arrastra los pies, se tambalea
               gx += -gz * z; gz += gx * z;
@@ -323,12 +321,12 @@
       if (game.mode === 'horde' && !this.T.quad && !this.isBoss && P.y - this.y > 0.9 && dist < 2.6) { gx = toX; gz = toZ; want = 1; }
 
       // esquivar cuando el jugador le apunta
-      if (B.dodge && !this.crawling && this.state === 'chase' && dist > 3 && dist < 16) {
+      if (B.dodge && !this.crawling && this.state === 'chase' && dist > 6 && dist < 16) {
         this.dodgeCd -= dt;
         const cp = Math.cos(P.pitch), fx = Math.sin(P.yaw) * cp, fz = Math.cos(P.yaw) * cp;
         const aim = (-dx * fx - dz * fz) / (dist || 1);
         if (aim > 0.985 && this.dodgeCd <= 0) {
-          this.dodgeCd = M.rand(1.2, 2.5);
+          this.dodgeCd = M.rand(2.8, 4.5);
           this.sideT = 0.35; this.sideDir = M.chance(0.5) ? 1 : -1; this.dodging = 0.35;
         }
       }
@@ -415,10 +413,25 @@
         }
       } else { this.stuckT = Math.max(0, this.stuckT - dt * 2); if (moved > spd * dt * 0.6) this.stuckN = 0; }
 
+      // --- choque: si se te echa encima a la carrera, también hace daño ---
+      this.contactCd = Math.max(0, (this.contactCd || 0) - dt);
+      if (this.contactCd <= 0 && !this.isBoss && !this.crawling && this.spawnT <= 0 && Math.abs(P.y - this.y) < 1.2) {
+        const cd = Math.hypot(P.x - this.x, P.z - this.z);
+        const closing = cd > 1e-3 ? (this.vx * (P.x - this.x) + this.vz * (P.z - this.z)) / cd : 0;
+        const fast = closing > 2.2 && this.state === 'chase';
+        if (fast && cd < this.radius + 0.45) {
+          this.contactCd = 1.1;
+          const dmg = Math.max(2, Math.round(this.dmg * 0.35));
+          P.damage(dmg, this.x, this.z, game);
+          P.knock && P.knock((P.x - this.x) / (cd || 1) * 2.2, (P.z - this.z) / (cd || 1) * 2.2);
+          game.shake(0.12);
+        }
+      }
+
       // --- orientación: mira a donde camina; de cerca, al jugador ---
       let targetYaw = Math.atan2(dx, dz);
       const vl = Math.hypot(this.vx, this.vz);
-      if (!(dist < 3.2 || B.faceAlways || busy || this.state === 'chargeWind' || vl < 0.35)) targetYaw = Math.atan2(this.vx, this.vz);
+      if (!(dist < (B.faceClose || 3.2) || B.faceAlways || busy || this.state === 'chargeWind' || this.state === 'retreat' || vl < 0.35)) targetYaw = Math.atan2(this.vx, this.vz);
       if (this.state === 'charge') targetYaw = Math.atan2(this.chargeX, this.chargeZ);
       let dy = targetYaw - b.yaw;
       while (dy > Math.PI) dy -= Math.PI * 2;
@@ -457,7 +470,7 @@
         if (this.spitCd <= 0) {
           // el nigromante prefiere levantar muertos si hay restos cerca
           if (this.T.necro && game.raiseDead && game.raiseDead(this)) { this.spitCd = 6; this.windup = 1.0; this.windTotal = 1.0; this.raising = true; }
-          else { this.windup = this.T.arrow ? 0.9 : 0.7; this.windTotal = this.windup; this.spitting = true; this.spitCd = Math.max(this.T.arrow ? 1.8 : 1.6, (this.T.arrow ? 3 : 3.2) - game.floor * 0.08); }
+          else { this.windup = this.T.arrow ? 1.1 : this.T.necro ? 1.0 : 0.8; this.windTotal = this.windup; this.spitting = true; this.spitCd = Math.max(this.T.arrow ? 1.8 : 1.6, (this.T.arrow ? 3 : 3.2) - game.floor * 0.08); }
         }
       }
 
@@ -625,9 +638,24 @@
       if (this.climbing > 0) { S.pitch = -0.55; S.armL = S.armR = -2.9 + sw * 0.8; }
       if (this.dodging > 0) S.torsoZ += this.sideDir * 0.35;
       if (this.windup > 0) {
-        if (this.spitting) {
+        if (this.spitting && T.arrow) {
+          // arquero: levanta el arco, tensa la cuerda hasta la cara y suelta
+          const raise = Math.min(1, k / 0.18), draw = M.clamp((k - 0.18) / 0.62, 0, 1), rel = k > 0.86 ? (k - 0.86) / 0.14 : 0;
+          S.armR = -0.5 - raise * 1.05; S.armRz = 0.12 - raise * 0.15;                       // brazo del arco, extendido
+          S.armL = -0.5 - raise * 1.0 + draw * 0.35 - rel * 0.4; S.armLz = -0.12 - draw * 0.85 + rel * 0.7;   // mano de la cuerda
+          S.torsoZ = draw * 0.22 - rel * 0.15; S.torso = 0.08 - draw * 0.08;
+          S.head = -0.05; S.headZ = this.tilt + draw * 0.15;
+        } else if (this.spitting && T.necro) {
+          // nigromante: alza el bastón cargando energía y lo descarga hacia delante
+          const up = Math.min(1, k / 0.7), cast = k > 0.75 ? (k - 0.75) / 0.25 : 0;
+          S.armR = -0.5 - up * 2.4 + cast * 1.6; S.armRz = 0.12 + up * 0.15;
+          S.armL = -0.5 - up * 1.0 - cast * 0.3; S.armLz = -0.3;
+          S.torso = 0.1 - up * 0.3 + cast * 0.55; S.head = -up * 0.35 + cast * 0.3;
+          S.torsoZ = Math.sin(this.walkT * 6) * 0.04 * up;
+        } else if (this.spitting) {
           const e = k < 0.7 ? k / 0.7 : 1 - (k - 0.7) / 0.3;
           S.torso = 0.12 - e * 0.45 + (k > 0.7 ? 0.6 : 0); S.head = -e * 0.6 + (k > 0.7 ? 0.5 : 0);
+          S.armL = S.armR = -0.4 - e * 0.5;
         } else if (this.biter) {
           const lunge = Math.sin(k * Math.PI);
           S.torso = 0.35 + lunge * 0.55; S.head = 0.2 + lunge * 0.5; S.pitch += lunge * 0.15;
@@ -686,6 +714,21 @@
     // Mandíbula que gruñe y muerde, y piezas que cuelgan y se balancean
     animExtras(dt, k) {
       const P_ = this.body.byName;
+      if (this.windup > 0 && this.spitting && this.game) {
+        const g = this.game, tool = P_.tool, head = P_.head;
+        if (this.T.necro && tool && !tool.detached && tool.wp && Math.random() < 0.7) {
+          // energía morada que se arremolina en la punta del bastón (hombro + brazo alzado)
+          const ax = P_.armR.ax || 0, Lr = 1.15, yw = this.body.yaw;
+          const ly = -Lr * Math.cos(ax), lz = -Lr * Math.sin(ax);
+          const tx = tool.wp[0] + Math.sin(yw) * lz, ty = tool.wp[1] + ly, tz = tool.wp[2] + Math.cos(yw) * lz;
+          const a = Math.random() * 6.28, r = 0.35 * (1 - k);
+          g.particles.spawn(tx + Math.cos(a) * r, ty + Math.sin(a * 2) * 0.1, tz + Math.sin(a) * r, -Math.cos(a) * 0.8, 0.3, -Math.sin(a) * 0.8, 0.7, 0.3, 1, 0.035, 0.35, 1, 1);
+        } else if (this.T.arrow && tool && !tool.detached && tool.wp && k > 0.3 && k < 0.86 && Math.random() < 0.25) {
+          g.particles.spawn(tool.wp[0], tool.wp[1], tool.wp[2], 0, 0.2, 0, 0.9, 0.85, 0.6, 0.02, 0.2, 1, 1);   // brillo de la punta de la flecha
+        } else if (!this.T.arrow && !this.T.necro && head && !head.detached && head.wp && Math.random() < 0.35) {
+          g.particles.spawn(head.wp[0], head.wp[1] - 0.05, head.wp[2], 0, -0.5, 0, 0.45, 0.9, 0.15, 0.03, 0.6, 0.5);   // babas ácidas
+        }
+      }
       const jaw = P_.jaw;
       if (jaw && !jaw.detached) {
         const growl = 0.12 + Math.max(0, Math.sin(this.walkT * 0.9 + this.tilt * 9)) * 0.22;
@@ -878,7 +921,7 @@
       game.pickups.dropGold(this.x, this.y + 0.8, this.z, M.randInt(this.gold[0], this.gold[1]) * (game.weapon.mods.greed ? 2 : 1));
       game.stats.kills++;
       VX.Profile.add('kills', 1, game);
-      if (game.dmgSource === 'knife') VX.Profile.add('knifeKills', 1, game);
+      if (game.dmgSource === 'knife') { VX.Profile.add('knifeKills', 1, game); if (this.elite || this.champion) VX.Profile.add('knifeElites', 1, game); }
       VX.Profile.addW(this.lastW, 'kills', 1, game);
       VX.Profile.codexKill(this.kind);
       if (this.elite) VX.Profile.addW(this.lastW, 'elites', 1, game);

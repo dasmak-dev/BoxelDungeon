@@ -291,10 +291,14 @@
       const touches = wh || iy < g + 0.35 || ph;
       if (smash && !wh && !ph) { iy = Math.max(g + 0.05, iy); }
       if (touches || (smash && iy < g + 0.9)) {
-        game.world.damageSphere(ix, Math.max(iy, g + 0.1), iz, smash ? 0.65 : 0.45, smash ? 160 : 90, game);
-        for (let i = 0; i < 18; i++) game.particles.spawn(ix, Math.max(iy, g) + 0.05, iz, M.rand(-3, 3), M.rand(1, 4), M.rand(-3, 3), 0.42, 0.39, 0.35, M.rand(0.03, 0.08), M.rand(1, 2));
+        // mazo de demolición: abre boquetes enormes en paredes, suelos y estructuras
+        const rad = smash ? 1.25 : 0.9, pow = smash ? 600 : 380;
+        game.world.damageSphere(ix, Math.max(iy, g + 0.1), iz, rad, pow, game);
+        if (wh) game.world.damageSphere(ix + fx * 0.6, iy + fy * 0.6, iz + fz * 0.6, rad * 0.8, pow, game);   // atraviesa la pared
+        if (ph) ph.prop.blast(ix, iy, iz, 1.2, 200, game);
+        for (let i = 0; i < 40; i++) game.particles.spawn(ix, Math.max(iy, g) + 0.05, iz, M.rand(-4, 4), M.rand(1, 5), M.rand(-4, 4), 0.42, 0.39, 0.35, M.rand(0.04, 0.1), M.rand(1, 2.2));
         VX.Audio.slam();
-        game.shake(smash ? 0.35 : 0.2);
+        game.shake(smash ? 0.5 : 0.3);
       } else if (hits) { VX.Audio.slam(); game.shake(0.25); }
       if (hits) VX.Audio.flesh && VX.Audio.flesh();
       P.knock(-sy * 0.8, -cy * 0.8);
@@ -532,7 +536,7 @@
       const d = VX.Weapons.DEFS[id];
       const vm = d.vm;
       let g = vm.g;
-      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id));
+      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id), id === 'knife' ? (pose && pose.form) || VX.Profile.knifeForm() : null);
       let bx = vm.x, by = vm.y, bz = vm.z, q;
       let bYaw = 0, bPitch = 0, bRoll = 0;   // giro de la hoja sobre la empuñadura (sólo cuchillo)
       if (pose) {

@@ -46,7 +46,7 @@
 
     select(id) {
       this.weapon = id;
-      this.preview = null;
+      this.preview = null; this.previewForm = null;
       for (const b of $('armoryWeapons').querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === id);
       this.renderSkins();
       this.renderStats();
@@ -55,17 +55,35 @@
 
     updateShowcase() {
       const skin = this.preview || VX.Profile.skinFor(this.weapon);
-      this.game.showcase = { id: this.weapon, skin };
+      const form = this.weapon === 'knife' ? (this.previewForm || VX.Profile.knifeForm()) : null;
+      this.game.showcase = { id: this.weapon, skin, form };
+      if (form) {
+        const k = VX.Weapons.KNIVES.find((x) => x.id === form), lk = !VX.Profile.knifeUnlocked(form);
+        $('armoryCaption').innerHTML = `<b>${k.name.toUpperCase()}</b>` + (lk ? `<br><span class="bad">Bloqueado: ${k.txt}</span>` : (form === VX.Profile.knifeForm() ? '<br><span class="ok">Equipado</span>' : ''));
+        if (this.previewForm) return;
+      }
       const s = VX.Weapons.SKINS.find((x) => x.id === skin);
       const locked = !VX.Profile.isUnlocked(this.weapon, skin);
-      $('armoryCaption').innerHTML = `<b>${VX.Weapons.DEFS[this.weapon].name.toUpperCase()}</b> · ${s.name}` +
+      $('armoryCaption').innerHTML = (form ? $('armoryCaption').innerHTML + '<br>' : `<b>${VX.Weapons.DEFS[this.weapon].name.toUpperCase()}</b> · `) + s.name +
         (locked ? `<br><span class="bad">Bloqueada: ${VX.Profile.condText(s, this.weapon)}</span>` : (skin === VX.Profile.skinFor(this.weapon) ? '<br><span class="ok">Equipada</span>' : ''));
     },
 
     renderSkins() {
       const cur = VX.Profile.skinFor(this.weapon);
       const def = VX.Weapons.DEFS[this.weapon];
-      $('armorySkins').innerHTML = VX.Weapons.SKINS.map((s) => {
+      let forms = '';
+      if (this.weapon === 'knife') {
+        const curF = VX.Profile.knifeForm();
+        forms = '<div class="armSec">FORMA</div>' + VX.Weapons.KNIVES.map((k) => {
+          const un = VX.Profile.knifeUnlocked(k.id), v = k.cond ? Math.min(VX.Profile.data[k.cond.stat] || 0, k.cond.n) : 0;
+          return `<button class="skin form ${un ? '' : 'locked'} ${k.id === curF ? 'on' : ''}" data-form="${k.id}">
+            <span class="nm">${k.name}${un ? '' : ' 🔒'}</span>
+            <span class="ds">${un ? (k.id === curF ? 'Equipado' : 'Clic para equipar') : k.txt}</span>
+            ${k.cond && !un ? `<span class="pb"><i style="width:${Math.round(v / k.cond.n * 100)}%"></i></span><span class="pt">${v}/${k.cond.n}</span>` : ''}
+          </button>`;
+        }).join('') + '<div class="armSec">COLOR</div>';
+      }
+      $('armorySkins').innerHTML = forms + VX.Weapons.SKINS.map((s) => {
         const un = VX.Profile.isUnlocked(this.weapon, s.id);
         const pal = s.pal || {};
         const main = pal.main || pal.blade || [0.4, 0.4, 0.44];
@@ -79,9 +97,19 @@
           ${s.cond && !un ? `<span class="pb"><i style="width:${Math.round(prog * 100)}%"></i></span><span class="pt">${p}</span>` : ''}
         </button>`;
       }).join('');
-      for (const b of $('armorySkins').querySelectorAll('button')) {
+      for (const b of $('armorySkins').querySelectorAll('button[data-form]')) {
+        b.onclick = () => {
+          const f = b.dataset.form;
+          VX.Audio.click();
+          if (VX.Profile.knifeUnlocked(f)) { VX.Profile.setKnifeForm(f); this.previewForm = null; this.renderSkins(); }
+          else this.previewForm = f;
+          this.updateShowcase();
+        };
+      }
+      for (const b of $('armorySkins').querySelectorAll('button[data-id]')) {
         b.onclick = () => {
           const id = b.dataset.id;
+          this.previewForm = null;
           VX.Audio.click();
           if (VX.Profile.isUnlocked(this.weapon, id)) { VX.Profile.setSkin(this.weapon, id); this.preview = null; this.renderSkins(); }
           else this.preview = id;  // vista previa de una skin bloqueada

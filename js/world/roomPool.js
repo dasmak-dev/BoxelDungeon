@@ -10,9 +10,17 @@
     const n = Math.max(1, Math.round((size * 0.5) / 0.64));
     const step = (size * 0.5) / n;
     const levels = M.clamp(Math.round((h * 0.5) / 0.62), 1, 3);
+    // menos cajas: una caja grande en el centro o unas pocas pequeñas sueltas (no un muro de cajas)
+    if (n >= 2 && Math.random() < 0.55) {
+      r.queue('bigcrate', r.uX(x) + size * 0.25, r.uZ(z) + size * 0.25, { rot: 0 }, 1);
+      if (Math.random() < 0.4) r.queue('crate', r.uX(x) + 0.35, r.uZ(z) + 0.35, { rot: 0 }, 1);
+      return;
+    }
     for (let a = 0; a < n; a++)
-      for (let b = 0; b < n; b++)
-        r.queue('crate', r.uX(x) + (a + 0.5) * step, r.uZ(z) + (b + 0.5) * step, { rot: 0 }, Math.max(1, levels - (Math.random() < 0.4 ? 1 : 0)));
+      for (let b = 0; b < n; b++) {
+        if (Math.random() < 0.45) continue;
+        r.queue('crate', r.uX(x) + (a + 0.5) * step, r.uZ(z) + (b + 0.5) * step, { rot: 0 }, Math.max(1, levels - 1 - (Math.random() < 0.5 ? 1 : 0)));
+      }
   }
   function pillar(r, x, z, w, h, t) {
     r.box(x, 0, z, x + w - 1, h - 1, z + w - 1, t || BL().STONE);
@@ -115,8 +123,8 @@
     { id: 'jardin', name: 'EL JARDÍN FÚNGICO', sub: 'Hongos que brillan y esporas venenosas', tint: [0.8, 0.9, 0.95], floor: [0.75, 0.85, 0.8], fog: [0.01, 0.016, 0.02], hazard: 'spores', boss: 'reina', ceil: 13, music: 4, torch: [1.5, 2.6, 2.0], flame: [0.5, 1, 0.8], damp: 0.8 },
     { id: 'vacio', name: 'EL VACÍO', sub: 'Un lugar que no debería existir', tint: [0.75, 0.65, 1.05], floor: [0.7, 0.6, 1], fog: [0.012, 0.004, 0.024], hazard: 'void', boss: 'guardian', ceil: 16, music: 5, secret: true, torch: [2.2, 1.0, 3.3], flame: [0.75, 0.4, 1], damp: 0.2 },
     // modo Horda (no aparece en la mazmorra)
-    { id: 'ciudad', name: 'CIUDAD NOCTURNA', sub: 'La ciudad ya no duerme', tint: [1, 1, 1], floor: [1, 1, 1], fog: [0.014, 0.017, 0.03], hazard: null, boss: 'coloso', ceil: 17, music: 6, horde: true, torch: [3.2, 1.9, 0.8], flame: [1, 0.7, 0.3], damp: 0.55, ambient: [0.02, 0.023, 0.037], fogNear: 9, fogFar: 64 },
-    { id: 'coliseo', name: 'COLISEO', sub: 'La arena vuelve a llenarse', tint: [1.15, 0.98, 0.82], floor: [1.1, 0.95, 0.8], fog: [0.07, 0.04, 0.045], hazard: null, boss: 'coloso', ceil: 17, music: 7, horde: true, torch: [3.4, 1.7, 0.55], flame: [1, 0.6, 0.2], damp: 0, ambient: [0.05, 0.037, 0.04], fogNear: 22, fogFar: 88 },
+    { id: 'ciudad', name: 'CIUDAD NOCTURNA', sub: 'La ciudad ya no duerme', tint: [1, 1, 1], floor: [1, 1, 1], fog: [0.022, 0.027, 0.045], hazard: null, boss: 'coloso', ceil: 17, music: 6, horde: true, torch: [3.2, 1.9, 0.8], flame: [1, 0.7, 0.3], damp: 0.55, ambient: [0.026, 0.029, 0.044], fogNear: 10, fogFar: 66, moon: { d: [0.45, 0.72, -0.53], c: [0.17, 0.2, 0.3] } },
+    { id: 'coliseo', name: 'COLISEO', sub: 'La arena vuelve a llenarse', tint: [1.15, 0.98, 0.82], floor: [1.1, 0.95, 0.8], fog: [0.07, 0.04, 0.045], hazard: null, boss: 'coloso', ceil: 17, music: 7, horde: true, torch: [3.4, 1.7, 0.55], flame: [1, 0.6, 0.2], damp: 0, ambient: [0.05, 0.037, 0.04], fogNear: 22, fogFar: 88, moon: { d: [-0.75, 0.42, 0.5], c: [0.3, 0.15, 0.09] } },
   ];
 
   // Charcos peligrosos: color, brillo, luz y daño
@@ -448,7 +456,7 @@
         for (let i = 0; i < 4; i++) { const [x, z] = at(ca + M.randInt(-9, 8), M.randInt(10, back - 6)); r.queue('anvil', x, z, { rot: M.randInt(0, 3) }); }
         for (let i = 0; i < 3; i++) { const [x, z] = at(ca + M.randInt(-10, 9), M.randInt(8, back - 4)); r.queue('table', x, z, {}); }
         for (const a of [ca - 8, ca + 7]) { const p = F.T(a, Math.floor(back / 2)); brazier(r, p[0], p[1]); }
-        for (let i = 0; i < 4; i++) r.queue('crate', r.uX(M.randInt(4, r.w - 5)), r.uZ(M.randInt(5, r.d - 6)), { rot: 0 }, M.randInt(1, 2));
+        for (let i = 0; i < 2; i++) r.queue(Math.random() < 0.4 ? 'bigcrate' : 'crate', r.uX(M.randInt(4, r.w - 5)), r.uZ(M.randInt(5, r.d - 6)), { rot: 0 }, 1);
       },
     },
     {

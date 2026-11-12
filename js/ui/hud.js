@@ -189,7 +189,7 @@
       const f = game.pickups.focus;
       if (f) {
         const can = f.price <= game.stats.gold;
-        const price = f.price > 0 ? ` · <span class="${can ? 'price' : 'bad'}">${f.price} oro</span>` : (f.kind === 'rest' || f.kind === 'supply' ? '' : ' · <span class="price">GRATIS</span>');
+        const price = f.price > 0 ? ` · <span class="${can ? 'price' : 'bad'}">${f.price} oro</span>` : (f.kind === 'rest' || f.kind === 'supply' || f.kind === 'secretChest' || f.kind === 'stairs' ? '' : ' · <span class="price">GRATIS</span>');
         const act = f.action || (f.price > 0 ? 'Comprar' : 'Recoger');
         el.prompt.innerHTML = `<b>${f.title}</b> — ${f.desc}<br>[E] ${act}${price}`;
         el.prompt.classList.remove('hidden');

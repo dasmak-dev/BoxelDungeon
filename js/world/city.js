@@ -90,8 +90,9 @@
 
     // ------------------------------------------------------------------------
     // Ventana con piso dentro (el shader dibuja la habitación). lit: probabilidad de luz
-    const window1 = (axis, plane, n, a, y, ww, wh, seedKey, lit = 0.17) => {
+    const window1 = (axis, plane, n, a, y, ww, wh, seedKey, lit = 0.17, onlyLit = false) => {
       const h = hash(a + seedKey, y, plane * 3 + seedKey), on = h < lit;
+      if (onlyLit && !on) return false;
       const seed = on ? 0.5 + hash(a, y + 9, plane) * 0.49 : hash(a, y + 5, plane) * 0.49;
       const p = plane + n * 0.035;
       if (axis === 'x') dec(p, y + wh / 2, a, 0.07, wh, ww, 0, 0, 0, -(2 + seed));
@@ -99,10 +100,10 @@
       return on;
     };
     const STY = {
-      brick: { body: [[0.2, 0.09, 0.07], [0.17, 0.08, 0.06], [0.22, 0.12, 0.08]], trim: [0.32, 0.28, 0.24], cw: 1.8, ww: 1.0, wh: 1.55, fh: 3.1 },
-      stone: { body: [[0.26, 0.23, 0.19], [0.22, 0.2, 0.17], [0.24, 0.22, 0.2]], trim: [0.34, 0.31, 0.27], cw: 2.0, ww: 1.05, wh: 1.8, fh: 3.4 },
-      glass: { body: [[0.05, 0.065, 0.085], [0.06, 0.07, 0.08]], trim: [0.12, 0.13, 0.15], cw: 1.5, ww: 1.3, wh: 2.3, fh: 3.4 },
-      modern: { body: [[0.25, 0.25, 0.26], [0.2, 0.21, 0.22], [0.27, 0.26, 0.24]], trim: [0.16, 0.16, 0.17], cw: 2.4, ww: 1.5, wh: 1.7, fh: 3.0 },
+      brick: { body: [[0.3, 0.14, 0.1], [0.26, 0.12, 0.09], [0.32, 0.17, 0.12]], trim: [0.32, 0.28, 0.24], cw: 1.8, ww: 1.0, wh: 1.55, fh: 3.1 },
+      stone: { body: [[0.36, 0.32, 0.27], [0.31, 0.28, 0.24], [0.34, 0.31, 0.28]], trim: [0.34, 0.31, 0.27], cw: 2.0, ww: 1.05, wh: 1.8, fh: 3.4 },
+      glass: { body: [[0.1, 0.12, 0.15], [0.12, 0.13, 0.15]], trim: [0.12, 0.13, 0.15], cw: 1.5, ww: 1.3, wh: 2.3, fh: 3.4 },
+      modern: { body: [[0.34, 0.34, 0.35], [0.29, 0.3, 0.31], [0.36, 0.35, 0.33]], trim: [0.16, 0.16, 0.17], cw: 2.4, ww: 1.5, wh: 1.7, fh: 3.0 },
     };
     // Una fachada con estilo: ventanas, alféizares, cornisas, pilastras, balcones, escalera de incendios
     const facadeFace = (axis, plane, n, a0, a1, y0, y1, st, key, opts = {}) => {
@@ -113,11 +114,13 @@
       for (let y = y0; y + T.fh <= y1 + 0.01; y += T.fh) {
         const wy = y + T.fh * 0.3;
         // cornisa o banda en cada planta (más marcada en piedra y ladrillo)
-        if (st !== 'glass') P((a0 + a1) / 2, y + 0.06, 0.08, L, 0.12, 0.16, tr);
+        if (opts.far) { /* fila del fondo: sólo ventanas */ }
+        else if (st !== 'glass') P((a0 + a1) / 2, y + 0.06, 0.08, L, 0.12, 0.16, tr);
         else P((a0 + a1) / 2, y + 0.3, 0.04, L, 0.6, 0.08, [0.03, 0.035, 0.045], -0.6);
         for (let k = 0; k < cols; k++) {
           const a = a0 + pad + (k + 0.5) * T.cw;
-          window1(axis, plane, n, a, wy, T.ww, T.wh, key, opts.lit);
+          window1(axis, plane, n, a, wy, T.ww, T.wh, key, opts.lit, opts.far);
+          if (opts.far) continue;
           if (st === 'brick' || st === 'stone') {
             P(a, wy - 0.06, 0.1, T.ww + 0.25, 0.1, 0.2, tr);                  // alféizar
             P(a, wy + T.wh + 0.08, 0.06, T.ww + 0.2, 0.16, 0.12, tr);          // dintel
@@ -146,7 +149,7 @@
       dec((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0, col[0], col[1], col[2], st === 'glass' ? -0.5 : 0);
       const key = x0 * 3 + z0 * 7;
       const wy0 = Math.max(y0, opts.winFrom ?? 4.5);
-      const fo = { fireEscape: st === 'brick', lit: opts.lit ?? 0.17 };
+      const fo = { fireEscape: st === 'brick' && !opts.far, lit: opts.lit ?? 0.17, far: opts.far };
       for (const f of faces) {
         if (f === 'xn') facadeFace('x', x0, -1, z0, z1, wy0, y1 - 0.6, st, key + 1, fo);
         if (f === 'xp') facadeFace('x', x1, 1, z0, z1, wy0, y1 - 0.6, st, key + 2, fo);
@@ -775,6 +778,9 @@
         const [bx0, bz0] = along(7, d), [bx1, bz1] = along(19, d - 11);
         building(Math.min(bx0, bx1), Math.min(bz0, bz1), Math.max(bx0, bx1), Math.max(bz0, bz1), 0, hh2, m.ax ? ['xn'] : ['zn'], ['stone', 'brick', 'modern'][(i + Math.round(-d)) % 3], { winFrom: 4 });
       }
+      // la calle de salida se cierra al fondo con otro edificio
+      { const [ex0, ez0] = along(-20, -45), [ex1, ez1] = along(20, -58);
+        building(Math.min(ex0, ex1), Math.min(ez0, ez1), Math.max(ex0, ex1), Math.max(ez0, ez1), 0, 30 + hash(i, 7, 7) * 25, [m.ax ? (m.n[1] > 0 ? 'zp' : 'zn') : (m.n[0] > 0 ? 'xp' : 'xn')], 'stone', { winFrom: 4 }); }
       for (const a of [0, -4, 4]) r.spawns.push({ x: wx(along(a, 2.3)[0]), z: wz(along(a, 2.3)[1]), mouth: true });
     });
 
@@ -802,15 +808,18 @@
         else dec(a, ht / 2, plane + n * 0.06, 0.15, ht, 0.12, 0.05, 0.05, 0.05);
         a += w; k++;
       }
-      for (let t = 0; t < 4; t++) {
-        const a0 = 10 + t * 28 + hash(t, side.charCodeAt(1), 3) * 8, wd = 12 + hash(t, 2, side.charCodeAt(0)) * 8;
-        const ht = 40 + hash(side.charCodeAt(1), t, 4) * 45;
+      // segunda fila CONTINUA (sin huecos por donde se vea el vacío), más alta
+      for (let a2 = -30, t = 0; a2 < 150; t++) {
+        const wd = 10 + hash(t, 2, side.charCodeAt(0)) * 10;
+        const ht = 28 + hash(side.charCodeAt(1), t, 4) * 50;
         const face = { xn: 'xp', xp: 'xn', zn: 'zp', zp: 'zn' }[side];
-        const o = { winFrom: 10, lit: 0.14, billboard: false };
-        if (side === 'xn') building(-20, a0, -6, a0 + wd, 0, ht, [face], 'glass', o);
-        else if (side === 'xp') building(126, a0, 140, a0 + wd, 0, ht, [face], 'glass', o);
-        else if (side === 'zn') building(a0, -20, a0 + wd, -6, 0, ht, [face], 'glass', o);
-        else building(a0, 126, a0 + wd, 140, 0, ht, [face], 'glass', o);
+        const st2 = ['glass', 'stone', 'brick', 'modern'][Math.floor(hash(t, side.charCodeAt(0), 9) * 4) % 4];
+        const o = { winFrom: 6, lit: 0.18, billboard: false, far: true };
+        if (side === 'xn') building(-22, a2, 2, a2 + wd, 0, ht, [face], st2, o);
+        else if (side === 'xp') building(118, a2, 142, a2 + wd, 0, ht, [face], st2, o);
+        else if (side === 'zn') building(a2, -22, a2 + wd, 2, 0, ht, [face], st2, o);
+        else building(a2, 118, a2 + wd, 142, 0, ht, [face], st2, o);
+        a2 += wd;
       }
     }
 

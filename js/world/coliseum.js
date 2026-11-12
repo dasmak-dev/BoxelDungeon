@@ -41,7 +41,7 @@
       if (gt === G.SAND) { const k = 0.8 + h * 0.2 + h2 * 0.12; r = 0.34 * k; g = 0.27 * k; b = 0.17 * k; }
       else if (gt === G.BLOOD) { const k = 0.8 + h * 0.2; r = 0.2 * k; g = 0.06 * k; b = 0.04 * k; }
       else { const k = 0.7 + h * 0.3; r = 0.26 * k; g = 0.23 * k; b = 0.19 * k; }
-      o[0] = r; o[1] = g; o[2] = b; o[3] = gt === G.BLOOD ? -0.4 : 0; o[4] = 0;
+      o[0] = r; o[1] = g; o[2] = b; o[3] = 0; o[4] = 0;
     }
   }
 
@@ -65,7 +65,7 @@
     const topAt = (o) => {
       if (o < 0) return 0;
       if (o < PODIUM) return 16;
-      if (o < WALL) return Math.min(32, 16 + 2 * Math.ceil((o - PODIUM + 0.001) / STEP_D));
+      if (o < WALL) return Math.min(24, 16 + Math.ceil((o - PODIUM + 0.001) / STEP_D));   // gradas bajas: el muro de atrás (2,5 m) no se puede escalar
       return H;
     };
 
@@ -127,7 +127,7 @@
         let h = height;
         if (ax >= half) h = Math.max(topAt(o), height - 2 * Math.ceil((ax - half) / 0.6));   // escalones laterales
         if (h <= topAt(o) && ax >= half) continue;
-        for (let y = 0; y < h; y++) setc(cx, y, cz, y === h - 1 ? B.MARBLE : B.TRAV);
+        for (let y = 0; y < h; y++) setc(cx, y, cz, B.TRAV);
         if (o < 0.3 && ax < half) { setc(cx, h, cz, B.TRAV); if (Math.floor(ax * 2) % 3 === 0) setc(cx, h + 1, cz, B.GOLDB); }
       }
     };
@@ -166,7 +166,7 @@
       for (let z = Math.floor(Z - rad * C); z <= Z + rad * C; z++) for (let x = Math.floor(X - rad * C); x <= X + rad * C; x++)
         if ((x + 0.5 - X) ** 2 + (z + 0.5 - Z) ** 2 <= R2) for (let y = y0; y < y1; y++) setc(x, y, z, t);
     };
-    disc(CXm, CZm, 4.2, 0, 1, B.TRAV); disc(CXm, CZm, 3.4, 1, 2, B.MARBLE);
+    disc(CXm, CZm, 4.2, 0, 1, B.TRAV); disc(CXm, CZm, 3.4, 1, 2, B.TRAV);
     fm(CXm - 0.6, 0.5, CZm - 0.6, CXm + 0.6, 1, CZm + 0.6, B.TRAV);
     fm(CXm - 0.45, 1, CZm - 0.45, CXm + 0.45, 6.5, CZm + 0.45, B.MARBLE);
     fm(CXm - 0.3, 6.5, CZm - 0.3, CXm + 0.3, 7.25, CZm + 0.3, B.GOLDB);
@@ -176,7 +176,7 @@
       for (let z = Z0; z < Z1; z++) for (let x = X0; x < X1; x++) {
         const edge = x === X0 || x === X1 - 1 || z === Z0 || z === Z1 - 1;
         const broken = edge && hash(x, 3, z) < 0.12;
-        for (let y = 0; y < (broken ? HR - 2 : HR); y++) setc(x, y, z, y === HR - 1 ? B.MARBLE : B.TRAV);
+        for (let y = 0; y < (broken ? HR - 2 : HR); y++) setc(x, y, z, B.TRAV);
       }
       // escalinata: 5 escalones de 0,5 m
       for (let k = 0; k < 5; k++) for (let d = 0; d < 3; d++) {
@@ -191,8 +191,8 @@
         for (let y = HR; y < Math.min(H, HR + ch); y++) for (const [dx, dz] of [[0, 0], [1, 0], [0, 1], [1, 1]]) setc(x + dx, y, z + dz, (y - HR) % 6 === 5 ? B.TRAV : B.MARBLE);
       });
       const fx = stairSide === 'xp' ? x0 - 2.5 : x1 + 2.5, fz = (z0 + z1) / 2 + 2;
-      fm(fx - 0.5, 0, fz - 2.2, fx + 0.5, 1, fz + 2.2, B.MARBLE);
-      fm(fx - 0.5, 0, fz + 2.6, fx + 0.5, 1, fz + 3.6, B.MARBLE);
+      fm(fx - 0.5, 0, fz - 2.2, fx + 0.5, 1, fz + 2.2, B.TRAV);
+      fm(fx - 0.5, 0, fz + 2.6, fx + 0.5, 1, fz + 3.6, B.TRAV);
       chestSpot((x0 + x1) / 2, (z0 + z1) / 2);
     };
     ruin(CXm - 27, CZm - 4, CXm - 19, CZm + 4, 'xp');
@@ -294,7 +294,7 @@
     // trampillas del hipogeo (también salen zombis por aquí)
     for (const [x, z] of [[-16, -6], [16, 5], [-6, 16], [7, -16]]) {
       dec(CXm + x, 0.01, CZm + z, 2, 0.02, 2, 0.16, 0.1, 0.05);
-      for (let k = -0.75; k <= 0.75; k += 0.5) dec(CXm + x + k, 0.025, CZm + z, 0.06, 0.02, 1.9, 0.08, 0.08, 0.08, -0.4);
+      for (let k = -0.75; k <= 0.75; k += 0.5) dec(CXm + x + k, 0.025, CZm + z, 0.06, 0.02, 1.9, 0.07, 0.07, 0.07);
       r.spawns.push({ x: wx(CXm + x), z: wz(CZm + z), trap: true });
     }
 

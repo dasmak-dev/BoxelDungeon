@@ -75,6 +75,7 @@
     },
 
     // Caja de madera con marco y refuerzo en diagonal (0,6 m)
+    // Caja de madera HUECA (al romperla se ve por dentro)
     crate(v) {
       const n = 10, m = mk(n, n, n);
       for (let j = 0; j < n; j++)
@@ -82,10 +83,31 @@
           for (let i = 0; i < n; i++) {
             const ei = i === 0 || i === n - 1, ej = j === 0 || j === n - 1, ek = k === 0 || k === n - 1;
             const edges = ei + ej + ek;
+            if (!edges) continue;
             let col = j % 3 === 0 ? mul(WOOD_L, 0.86) : WOOD_L;
             if (edges >= 2) col = WOOD_D;
             else if ((ek && (i === j || i === n - 1 - j)) || (ei && (k === j || k === n - 1 - j))) col = WOOD;
             put(m, i, j, k, col, 0, 0.06, v);
+          }
+      return m;
+    },
+
+    // Caja grande de carga (1 m), hueca, con listones y esquinas de hierro
+    bigcrate(v) {
+      const n = 16, h = 14, m = mk(n, h, n);
+      for (let j = 0; j < h; j++)
+        for (let k = 0; k < n; k++)
+          for (let i = 0; i < n; i++) {
+            const ei = i === 0 || i === n - 1, ej = j === 0 || j === h - 1, ek = k === 0 || k === n - 1;
+            const edges = ei + ej + ek;
+            if (!edges) continue;
+            let col = (ek ? i : k) % 4 === 0 ? mul(WOOD, 0.8) : (v % 2 ? WOOD : mul(WOOD_L, 0.85));
+            if (j === 1 || j === h - 2 || j === Math.floor(h / 2)) col = WOOD_D;              // listones
+            const nearC = (i < 2 || i > n - 3) && (k < 2 || k > n - 3);
+            if (edges >= 2 && (nearC || j < 2 || j > h - 3)) col = IRON;                      // esquinas de hierro
+            if (edges >= 2 && !nearC && j >= 2 && j <= h - 3) col = WOOD_D;
+            if (ej && j === h - 1 && Math.abs(i - n / 2) < 3 && Math.abs(k - n / 2) < 1) col = [0.6, 0.5, 0.2];   // marca
+            put(m, i, j, k, col, 0, 0.05, v);
           }
       return m;
     },
@@ -722,6 +744,7 @@
     barrel: { model: 'barrel', collide: true, loot: 0.35, mat: 'wood' },
     xbarrel: { model: 'barrel', opt: 'x', hp: 22, collide: true, explosive: true, mat: 'wood' },
     crate: { model: 'crate', collide: true, loot: 0.5, mat: 'wood' },
+    bigcrate: { model: 'bigcrate', collide: true, loot: 0.8, mat: 'wood' },
     urn: { model: 'urn', collide: true, loot: 0.6, mat: 'clay' },
     sack: { model: 'sack', collide: true, loot: 0.3, mat: 'cloth' },
     tomb: { model: 'tomb', collide: true, loot: 0.15, mat: 'stone' },

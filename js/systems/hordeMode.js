@@ -1,10 +1,9 @@
 // Modo Horda: oleadas infinitas en un mapa grande y abierto.
 // - Antes de cada oleada se avisa de cuántos zombis vienen; salen por las alcantarillas
 //   y las barricadas, lejos de ti, y nunca hay más de unos cuantos a la vez.
-// - La munición NO es infinita: los enemigos sueltan cajas de balas al azar (más cuando
-//   vas justo) y hay cajas de suministros repartidas por los edificios.
-// - Cada 3 oleadas llega un vendedor (mejoras, botiquín y munición completa) y se marcha
-//   cuando empieza la siguiente oleada. Cada 5, un campeón; cada 10, un jefe.
+// - Hay cajas de suministros repartidas por el mapa (oro, botiquín, a veces una mejora).
+// - Cada 3 oleadas, al azar: llega un vendedor (se marcha al empezar la siguiente oleada)
+//   o aparecen tres mejoras gratis para elegir una. Cada 5, un campeón; cada 10, un jefe.
 (function () {
   const M = VX.M;
 
@@ -129,8 +128,9 @@
     endWave(game) {
       const n = this.wave, P = game.player;
       this.phase = 'break';
-      const merchant = n % 3 === 0;
-      this.timer = merchant ? 45 : 20;
+      const special = n % 3 === 0;
+      const merchant = special && Math.random() < 0.5;
+      this.timer = special ? 40 : 20;
       const bonus = 6 + n * 2;
       game.stats.gold += bonus; game.stats.totalGold += bonus;
       game.hud.pulseGold && game.hud.pulseGold();
@@ -146,7 +146,6 @@
           const gid = M.choice(notOwned), d = VX.Weapons.DEFS[gid];
           game.pickups.addItem({ kind: 'weapon', weapon: gid, price: 0, x: bx + 2, y: game.world.groundAt(bx + 2, bz) + 0.2, z: bz, title: d.name, desc: VX.weaponDesc(gid), color: [1, 0.85, 0.5], shape: 'star' });
         }
-        game.pickups.dropAmmo(bx, game.boss.y + 1, bz, 3);
         game.hud.hideBoss();
         game.boss = null;
       }
@@ -157,7 +156,10 @@
       VX.Audio.door();
       if (merchant) {
         const sp = this.spawnMerchant(game);
-        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Ha llegado el vendedor (${sp ? sp.name : 'en la ciudad'}). Se irá en cuanto empiece la oleada ${n + 1}`, 4.5);
+        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Ha llegado el vendedor (${sp ? sp.name : 'en el mapa'}). Se irá en cuanto empiece la oleada ${n + 1}`, 4.5);
+      } else if (special) {
+        this.spawnChoice(game);
+        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Elige UNA de las tres mejoras que han aparecido a tu alrededor`, 4.5);
       } else {
         game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Siguiente oleada en ${this.timer} s  ·  [G] llamarla ya`, 3.5);
       }
@@ -198,11 +200,30 @@
 
     onKill(game, z) {
       this.killed++;
-      // munición: más probable cuanto menos te queda
-      const fr = game.weapon.ammoFrac();
-      const p = (z.champion ? 1 : z.elite ? 0.6 : 0.16) + (fr < 0.25 ? 0.22 : fr < 0.45 ? 0.1 : 0);
-      if (Math.random() < p) game.pickups.dropAmmo(z.x, z.y + 0.8, z.z, z.champion ? 2.5 : z.elite ? 1.2 : 0.6);
-      else if (Math.random() < 0.04) game.pickups.dropHeart(z.x, z.y + 0.8, z.z, 12);
+      if (Math.random() < (z.elite || z.champion ? 0.25 : 0.04)) game.pickups.dropHeart(z.x, z.y + 0.8, z.z, 12);
+    },
+
+    // Tres mejoras gratis alrededor del jugador: al coger una, las otras desaparecen
+    spawnChoice(game) {
+      const P = game.player, cid = 'ch' + this.wave;
+      const ups = VX.Upgrades.random(3, game, [], 'normal');
+      if (Math.random() < 0.5 && ups.length) { const rr = VX.Upgrades.random(1, game, ups, 'rare')[0]; if (rr) ups[0] = rr; }
+      ups.forEach((up, i) => {
+        let x = P.x, z = P.z;
+        for (let tries = 0; tries < 12; tries++) {
+          const a = P.yaw + (i - 1) * 0.7 + tries * 0.5, d = 2.6;
+          const cx = P.x + Math.sin(a) * d, cz = P.z + Math.cos(a) * d, gy = game.world.groundAt(cx, cz);
+          if (!game.world.boxCollides(cx - 0.3, gy + 0.1, cz - 0.3, cx + 0.3, gy + 1.2, cz + 0.3)) { x = cx; z = cz; break; }
+        }
+        game.pickups.addItem({ kind: 'upgrade', up, price: 0, choice: cid, x, y: game.world.groundAt(x, z) + 0.3, z, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc + ' · (elige sólo una)', color: up.color, shape: up.shape,
+          onTake: (gm) => {
+            for (const o of gm.pickups.items) if (o.choice === cid && !o.taken) {
+              o.taken = true;
+              for (let k = 0; k < 14; k++) gm.particles.spawn(o.x, o.y + 0.3, o.z, M.rand(-1.5, 1.5), M.rand(0.5, 2.5), M.rand(-1.5, 1.5), 0.6, 0.55, 0.7, 0.04, 0.8, 1, 1);
+            }
+          } });
+      });
+      VX.Audio.reward();
     },
 
     // ---------- Cajas de suministros ----------
@@ -213,17 +234,16 @@
       if (!free.length) return;
       const { s, i } = M.choice(free);
       const y = game.world.groundAt(s.x, s.z);
-      const it = game.pickups.addItem({ kind: 'supply', spot: i, price: 0, x: s.x, y, z: s.z, rot: Math.random() * 6.28, title: 'Caja de suministros', desc: 'Munición, oro y a veces algo mejor', action: 'Abrir', color: [0.85, 0.75, 0.3], shape: 'chest' });
+      const it = game.pickups.addItem({ kind: 'supply', spot: i, price: 0, x: s.x, y, z: s.z, rot: Math.random() * 6.28, title: 'Caja de suministros', desc: 'Oro, y a veces un botiquín o una mejora', action: 'Abrir', color: [0.85, 0.75, 0.3], shape: 'chest' });
       this.supplies.push(it);
     },
 
     openSupply(game, it) {
       const n = Math.max(1, this.wave);
-      VX.Audio.reward(); VX.Audio.reload();
+      VX.Audio.reward();
       for (let i = 0; i < 26; i++) game.particles.spawn(it.x, it.y + 0.4, it.z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), 0.9, 0.75, 0.3, 0.05, M.rand(0.5, 1.2), 1, 1);
-      const got = game.weapon.addAmmo(1.6);
-      game.pickups.dropGold(it.x, it.y + 0.5, it.z, 5 + n);
-      let msg = got ? '+munición' : 'Munición al máximo';
+      game.pickups.dropGold(it.x, it.y + 0.5, it.z, 8 + n * 2);
+      let msg = 'oro';
       const roll = Math.random();
       if (roll < 0.33) {
         const up = VX.Upgrades.random(1, game, [], Math.random() < 0.2 ? 'rare' : 'normal')[0];
@@ -249,7 +269,6 @@
       game.npcs.push(npc);
       const n = this.wave, fx = Math.sin(body.yaw), fz = Math.cos(body.yaw);
       const goods = [];
-      goods.push({ kind: 'refill', price: 16 + n * 2, title: 'Munición completa', desc: 'Llena los cargadores y la reserva de todas tus armas', color: [0.9, 0.75, 0.3], shape: 'bullet' });
       goods.push({ kind: 'heal', amount: 50, price: 14 + n, title: 'Botiquín', desc: '+50 de vida', color: [1, 0.2, 0.25], shape: 'plus' });
       for (const up of VX.Upgrades.random(2, game, [], 'shop')) goods.push({ kind: 'upgrade', up, price: VX.Upgrades.price(game), title: up.name, desc: up.desc, color: up.color, shape: up.shape, onTake: (gm) => gm.stats.purchases++ });
       const notOwned = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));

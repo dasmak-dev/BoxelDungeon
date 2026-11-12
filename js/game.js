@@ -172,8 +172,7 @@
       this.spawner.reset();
       this.hud.hideBoss();
       this.applyPerks();
-      this.weapon.limited = true;
-      for (const sl of this.weapon.slots) if (!VX.Weapons.DEFS[sl.id].melee) sl.reserve = this.weapon.reserveStart(sl.id);
+      this.weapon.limited = false;
       this.player.dashCdBase = VX.Profile.dashCooldown();
       this.player.dashStock = this.player.dashMax;
       this.priceMul = VX.Profile.priceMul();
@@ -783,6 +782,7 @@
       this.challenge = null;
       if (!c || c.failed) return false;
       this.stats.gold += c.reward; this.stats.totalGold += c.reward;
+      if (c.type === 'knife') VX.Profile.add('knifeChallenges', 1, this);
       VX.Audio.reward();
       this.hud.banner('¡RETO SUPERADO!', `+${c.reward} de oro`, 2.8);
       return true;
@@ -1225,12 +1225,26 @@
           VX.Audio.phase && VX.Audio.phase();
           // dirección hacia el fondo del hueco (lejos de la sala)
           const dx = sc.along === 'z' ? -sc.inward : 0, dz = sc.along === 'x' ? -sc.inward : 0;
-          this.pickups.addItem({ kind: 'stairs', price: 0, x: sc.x, y: sc.y, z: sc.z, dx, dz, title: 'Escalera al Vacío', desc: 'Un bioma oculto: 3 salas y su guardián', action: 'Bajar', color: [0.75, 0.3, 1], shape: 'crystal' });
+          // se abre un foso en el suelo con la escalera que baja (pegado a la pared)
+          const fx = sc.x + dx * 0.45, fz = sc.z + dz * 0.45, L = 1.6, Wd = 0.8;
+          const ax = dx !== 0 ? 0 : 1, az = dz !== 0 ? 0 : 1;   // eje a lo largo de la pared
+          const px0 = Math.min(fx, fx - dx * L) - ax * Wd, px1 = Math.max(fx, fx - dx * L) + ax * Wd;
+          const pz0 = Math.min(fz, fz - dz * L) - az * Wd, pz1 = Math.max(fz, fz - dz * L) + az * Wd;
+          r.floorHoles = (r.floorHoles || []).concat([{ x0: px0, x1: px1, z0: pz0, z1: pz1 }]);
+          for (let x = px0 - 0.5; x <= px1 + 0.5; x += 0.25) for (let z = pz0 - 0.5; z <= pz1 + 0.5; z += 0.25) r.markDirty(Math.floor(x / VX.S) - r.ox, Math.floor(z / VX.S) - r.oz);
+          this.pickups.addItem({ kind: 'stairs', price: 0, x: fx - dx * L * 0.5, y: sc.y, z: fz - dz * L * 0.5, fx, fz, L, Wd, dx, dz, title: 'Escalera al Vacío', desc: 'Un bioma oculto: 3 salas y su guardián', action: 'Bajar [E]', color: [0.75, 0.3, 1], shape: 'crystal' });
           VX.Profile.add('secrets', 1, this);
           return;
         }
-        this.hud.banner('¡CÁMARA SECRETA!', 'Alguien escondió algo aquí', 3);
+        this.hud.banner('¡CÁMARA SECRETA!', 'Hay un cofre: ábrelo con [E]', 3);
         VX.Audio.reward();
+        // el cofre del fondo se abre con E (ya no hace falta destrozarlo)
+        let chest = null, bd = 3;
+        for (const p of r.props) if (p.type === 'chest' && !p.dead) { const d = Math.hypot(p.cx - sc.x, p.cz - sc.z); if (d < bd) { bd = d; chest = p; } }
+        if (chest) {
+          chest.looted = true;
+          this.pickups.addItem({ kind: 'secretChest', prop: chest, price: 0, x: chest.cx, y: chest.oy + 0.2, z: chest.cz, title: 'Cofre del tesoro', desc: 'Oro, un botiquín y una mejora', action: 'Abrir', color: [0.95, 0.75, 0.3], shape: 'chest' });
+        }
         VX.Profile.add('secrets', 1, this);
         this.stats.secrets = (this.stats.secrets || 0) + 1;
       }
@@ -1684,7 +1698,8 @@
       // ordenar por distancia; las que rondan el límite se atenúan poco a poco (sin "popping")
       for (const l of L) l.d = Math.sqrt((l.x - cam.x) ** 2 + (l.y - cam.y) ** 2 + (l.z - cam.z) ** 2);
       L.sort((a, b) => a.d - b.d);
-      const N = VX.MAX_LIGHTS - 2;
+      const moon = this.state !== 'title' && VX.ZONES[this.zone] && VX.ZONES[this.zone].moon;
+      const N = VX.MAX_LIGHTS - (moon ? 3 : 2);
       const target = L.length > N ? L[N].d : 60;
       this.lightCut = M.lerp(this.lightCut, target, Math.min(1, (this.frameDt || 0.016) * 3));
       const cut = Math.max(this.lightCut, 4);
@@ -1697,6 +1712,8 @@
         out.push(l);
       }
       out.push({ x: cam.x, y: cam.y + 0.2, z: cam.z, r: 3, cr: 0.035, cg: 0.032, cb: 0.042 });
+      // luz de luna (o del atardecer): muy lejana, ilumina de lado las fachadas en los mapas abiertos
+      if (moon) out.push({ x: cam.x + moon.d[0] * 300, y: cam.y + moon.d[1] * 300, z: cam.z + moon.d[2] * 300, r: 900, cr: moon.c[0], cg: moon.c[1], cb: moon.c[2] });
       const W = this.weapon;
       if (W.flash > 0.05 && W.muzzle) out.push({ x: W.muzzle[0], y: W.muzzle[1], z: W.muzzle[2], r: 9, cr: 5 * W.flash, cg: 3.2 * W.flash, cb: 1.2 * W.flash });
       return out;
@@ -1876,7 +1893,7 @@
         R.beginViewmodel(0, [0.35, 0.33, 0.38]);
         this.gun.clear();
         const q = M.qMul(M.qMul(M.qY(this.time * 0.6), M.qX(0.2)), M.qZ(0.1));
-        this.weapon.renderViewmodel(this.gun, this, sc.id, { x: 0.08, y: 0.0, z: -0.75, q, size: 0.42, noHand: true }, sc.skin);
+        this.weapon.renderViewmodel(this.gun, this, sc.id, { x: 0.08, y: 0.0, z: -0.75, q, size: 0.42, noHand: true, form: sc.form }, sc.skin);
         this.gun.upload();
         this.gun.draw();
       }

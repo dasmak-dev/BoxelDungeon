@@ -116,12 +116,10 @@
         break;
       }
       case 'crates': {
-        const n = M.randInt(1, 2);
-        for (let i = 0; i < n; i++) {
-          const [px, pz] = along(i * 0.66);
-          let c = pl(r, 'crate', px, pz, { rot: 0 });
-          for (let s = 1; c && s < M.randInt(1, 3); s++) c = pl(r, 'crate', px, pz, { rot: 0, y: c.oy + c.h * pv, noOcc: true, on: c });
-        }
+        if (Math.random() < 0.4) { const [px, pz] = along(0); pl(r, 'bigcrate', px, pz, { rot: 0 }); break; }
+        const [px, pz] = along(0);
+        let c = pl(r, 'crate', px, pz, { rot: 0 });
+        if (c && Math.random() < 0.3) pl(r, 'crate', px, pz, { rot: 0, y: c.oy + c.h * pv, noOcc: true, on: c });
         break;
       }
       case 'urns': for (let i = 0; i < M.randInt(2, 4); i++) { const [px, pz] = along(M.rand(-0.6, 0.6)); pl(r, 'urn', px + M.rand(-0.1, 0.1), pz + M.rand(-0.1, 0.1)); } break;

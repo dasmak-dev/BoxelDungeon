@@ -30,6 +30,9 @@
     }
 
     collides(x, y, z, world) {
+      // mapas grandes: techo invisible a la altura de la rejilla (no se puede subir por encima de los muros)
+      const cr = world.rooms.length === 1 && world.rooms[0].big ? world.rooms[0] : null;
+      if (cr && y + this.height > cr.H * VX.S - 0.05) return true;
       const r = this.radius;
       return world.boxCollides(x - r, y, z - r, x + r, y + this.height, z + r);
     }

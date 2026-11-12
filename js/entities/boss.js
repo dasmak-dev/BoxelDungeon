@@ -684,6 +684,7 @@
       VX.Profile.add('bosses', 1, game);
       VX.Profile.codexKill('boss:' + this.T.id);
       VX.Profile.addW(this.lastW, 'bosses', 1, game);
+      if (this.lastW === 'knife') VX.Profile.add('knifeBosses', 1, game);
       VX.Profile.addW(this.lastW, 'kills', 1, game);
       VX.Profile.add('kills', 1, game);
     }
