@@ -25,6 +25,7 @@
       this.dead = false;
       this.knockX = 0; this.knockZ = 0;
       this.dashT = 0; this.dashCd = 0; this.dashCdBase = this.dashCdBase || 0.85;
+      this.dashMax = 1; this.dashStock = 1; this.dashMul = 1; this.dashGap = 0;
       this.dashX = 0; this.dashZ = 0;
     }
 
@@ -40,7 +41,7 @@
       this.pitch -= I.dy * I.sensitivity * (I.invertY ? -1 : 1);
       this.pitch = M.clamp(this.pitch, -1.5, 1.5);
 
-      if (I.wasPressed('KeyF')) { this.flashlight = !this.flashlight; VX.Audio.click(); }
+      if (I.wasPressed(VX.Settings.key('flashlight'))) { this.flashlight = !this.flashlight; VX.Audio.click(); }
 
       // --- Moverse ---
       let fx = 0, fz = 0;
@@ -53,8 +54,11 @@
       let wx = sy * fz - cy * fx, wz = cy * fz + sy * fx;
       const l = Math.hypot(wx, wz);
       if (l > 0) { wx /= l; wz /= l; }
-      const sprint = I.isDown('ShiftLeft') || I.isDown('ShiftRight');
-      const spd = this.speed * (sprint && fz > 0 ? 1.45 : 1);
+      const shift = I.isDown('ShiftLeft') || I.isDown('ShiftRight');
+      const sprint = VX.Settings && VX.Settings.data.autoRun ? !shift : shift;
+      const wet = game.waterAt && game.waterAt(this.x, this.z) && this.y < 0.4;
+      const spd = this.speed * (sprint && fz > 0 ? 1.45 : 1) * (wet ? 0.62 : 1);
+      if (wet && Math.hypot(this.vx, this.vz) > 1 && Math.random() < 0.3) game.particles.spawn(this.x + M.rand(-0.3, 0.3), 0.12, this.z + M.rand(-0.3, 0.3), M.rand(-0.6, 0.6), M.rand(0.8, 1.6), M.rand(-0.6, 0.6), 0.45, 0.55, 0.6, 0.03, 0.6);
       const accel = this.onGround ? 14 : 4;
       if (!(this.dashT > 0)) {
         this.vx = M.lerp(this.vx, wx * spd, Math.min(1, accel * dt));
@@ -62,12 +66,24 @@
       }
 
       // esquiva / deslizamiento: [C] o clic derecho
-      this.dashCd -= dt;
-      if ((I.wasPressed('KeyC') || I.rightClicked) && this.dashCd <= 0 && this.dashT <= 0) {
+      // cargas de esquiva: se recargan de una en una
+      const cdFull = this.dashCdBase * this.dashMul;
+      if (this.dashStock < this.dashMax) {
+        this.dashCd -= dt;
+        if (this.dashCd <= 0) { this.dashStock++; this.dashCd = this.dashStock < this.dashMax ? cdFull : 0; }
+      }
+      this.dashGap -= dt;
+      if ((I.wasPressed('KeyC') || I.rightClicked) && this.dashStock > 0 && this.dashGap <= 0 && this.dashT <= 0) {
+        if (this.dashStock === this.dashMax) this.dashCd = cdFull;
+        this.dashStock--; this.dashGap = 0.22;
         let dx = wx, dz = wz;
         if (!l) { dx = sy; dz = cy; }
         this.dashX = dx; this.dashZ = dz;
-        this.dashT = 0.2; this.dashCd = this.dashCdBase;
+        this.dashT = 0.2;
+        if (game.weapon.mods.dashPush) for (const e of game.enemies) {
+          const dx = e.x - this.x, dz = e.z - this.z, d = Math.hypot(dx, dz);
+          if (!e.dead && !e.isBoss && d < 2.2) { e.kx = (e.kx || 0) + dx / (d || 1) * 9; e.kz = (e.kz || 0) + dz / (d || 1) * 9; }
+        }
         this.invuln = Math.max(this.invuln, 0.3);
         this.eyeOffset -= 0.25;
         VX.Audio.dash();
@@ -98,10 +114,11 @@
       if (this.onGround && hs > 0.5) {
         this.walkT += dt * hs * 1.9;
         this.stepAcc += dt * hs;
-        if (this.stepAcc > 2.0) { this.stepAcc = 0; VX.Audio.step(); }
+        if (this.stepAcc > 2.0) { this.stepAcc = 0; VX.Audio.step(game.surfaceAt ? game.surfaceAt(this.x, this.y, this.z) : 'stone'); }
       }
       if (!(this.dashT > 0)) this.eyeOffset = M.lerp(this.eyeOffset, 0, Math.min(1, dt * 12));
       this.recoilPitch = M.lerp(this.recoilPitch, 0, Math.min(1, dt * 10));
+      this.hurtRoll = M.lerp(this.hurtRoll || 0, 0, Math.min(1, dt * 7));
       this.invuln -= dt;
       this.hurtT = Math.max(0, this.hurtT - dt);
     }
@@ -153,13 +170,27 @@
       if (game.onPlayerHurt) game.onPlayerHurt();
       this.invuln = 0.25;
       this.hurtT = 0.5;
-      game.shake(0.25 + amount / 60);
-      VX.Audio.hurt();
-      game.hud.flashDamage(Math.min(1, 0.4 + amount / 40));
+      const k = Math.min(1, amount / 30);
+      game.shake(0.3 + amount / 45);
+      VX.Audio.hurt(k);
+      game.hud.flashDamage(Math.min(1, 0.45 + amount / 35));
+      // sacudida de cámara: la cabeza se va hacia atrás y se ladea
+      this.recoilPitch += 0.05 + k * 0.08;
+      this.hurtRoll = (Math.random() < 0.5 ? -1 : 1) * (0.05 + k * 0.08);
+      this.eyeOffset -= 0.04 + k * 0.06;
+      game.hitStop = Math.max(game.hitStop || 0, 0.035 + k * 0.05);
+      let ang = null;
       if (fromX !== undefined) {
         const dx = this.x - fromX, dz = this.z - fromZ, d = Math.hypot(dx, dz) || 1;
         this.knock((dx / d) * 4, (dz / d) * 4);
+        // dirección del golpe respecto a donde miras (0 = delante, + = derecha)
+        const sx = -dx / d, sz = -dz / d;
+        const fwd = sx * Math.sin(this.yaw) + sz * Math.cos(this.yaw);
+        const rgt = sx * -Math.cos(this.yaw) + sz * Math.sin(this.yaw);
+        ang = Math.atan2(rgt, fwd);
+        if (this.hurtRoll) this.hurtRoll = Math.abs(this.hurtRoll) * (rgt > 0 ? 1 : -1);
       }
+      game.hud.hurt(amount, ang, this.hp / this.maxHp);
       if (this.hp <= 0) {
         // «Segunda oportunidad» del Santuario
         if (game.revives > 0) {

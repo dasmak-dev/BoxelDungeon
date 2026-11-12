@@ -83,6 +83,17 @@
 
   // ---------- Cuaterniones [x, y, z, w] ----------
   M.qIdentity = () => [0, 0, 0, 1];
+  // Ruido de valor 3D suave (0..1), para el fuego
+  const vh = (x, y, z) => { const n = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return n - Math.floor(n); };
+  const sm = (t) => t * t * (3 - 2 * t);
+  VX.vnoise = (x, y, z) => {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    const xf = sm(x - xi), yf = sm(y - yi), zf = sm(z - zi);
+    const l = (a, b, t) => a + (b - a) * t;
+    return l(l(l(vh(xi, yi, zi), vh(xi + 1, yi, zi), xf), l(vh(xi, yi + 1, zi), vh(xi + 1, yi + 1, zi), xf), yf),
+      l(l(vh(xi, yi, zi + 1), vh(xi + 1, yi, zi + 1), xf), l(vh(xi, yi + 1, zi + 1), vh(xi + 1, yi + 1, zi + 1), xf), yf), zf);
+  };
+
   M.qAxis = (ax, ay, az, ang) => {
     const s = Math.sin(ang / 2);
     return [ax * s, ay * s, az * s, Math.cos(ang / 2)];

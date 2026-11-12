@@ -72,18 +72,53 @@
           p.wp[0] = bx + tmp[0]; p.wp[1] = by + tmp[1]; p.wp[2] = bz + tmp[2];
           p.q = M.qMul(rootQ, localQ(p));
         }
+        // sólo la superficie: el interior se calcula bajo demanda (ensureAll) al cortar
         const q = p.q;
         for (const vx of p.vox) {
-          if (!vx.alive) continue;
+          if (!vx.alive || !vx.exposed) continue;
           M.qRot(q, vx.x * s, vx.y * s, vx.z * s, tmp);
           vx.wx = p.wp[0] + tmp[0]; vx.wy = p.wp[1] + tmp[1]; vx.wz = p.wp[2] + tmp[2];
         }
       }
+      this._all = false;
       const tp = this.byName.torso;
       if (!tp.detached) {
         M.qRot(tp.q, 0, this.height * 0.15, 0, tmp);
         this.cx = tp.wp[0] + tmp[0]; this.cy = tp.wp[1] + tmp[1]; this.cz = tp.wp[2] + tmp[2];
       } else { this.cx = bx; this.cy = by + 0.5; this.cz = bz; }
+    }
+
+    // Posición de todos los vóxeles vivos (también los interiores)
+    ensureAll() {
+      if (this._all) return;
+      this._all = true;
+      const s = this.scale;
+      for (const p of this.parts) {
+        if (p.detached) continue;
+        const q = p.q;
+        for (const vx of p.vox) {
+          if (!vx.alive || vx.exposed) continue;
+          M.qRot(q, vx.x * s, vx.y * s, vx.z * s, tmp);
+          vx.wx = p.wp[0] + tmp[0]; vx.wy = p.wp[1] + tmp[1]; vx.wz = p.wp[2] + tmp[2];
+        }
+      }
+    }
+
+    // Si una parte se suelta, lo que cuelga de ella (mandíbula, casco, pelo…) cae también
+    cascade(gibs, res) {
+      let again = true;
+      while (again) {
+        again = false;
+        for (const c of this.parts) {
+          if (c.detached || !c.parent) continue;
+          const par = this.byName[c.parent];
+          if (par && par.detached) {
+            this.detach(c.name, gibs, M.rand(-1, 1), M.rand(0.5, 2), M.rand(-1, 1));
+            if (res) res[c.name] = 'detached';
+            again = true;
+          }
+        }
+      }
     }
 
     render(batch) {
@@ -126,6 +161,7 @@
     }
 
     carveTunnel(ox, oy, oz, dx, dy, dz, entryT, radius, particles, maxDebris = 26) {
+      this.ensureAll();
       const removed = {};
       let debris = 0;
       const tStart = entryT - radius * 1.5;
@@ -157,6 +193,7 @@
 
     // Tajo de cuchillo: corte a lo largo de un segmento (eje a) y poco profundo (dirección d)
     carveSlash(px, py, pz, ax, ay, az, dx, dy, dz, halfLen, radius, depth, particles) {
+      this.ensureAll();
       const removed = {};
       let debris = 0;
       for (const p of this.parts) {
@@ -188,6 +225,7 @@
 
     // Vóxel vivo más cercano a un punto (para explosiones)
     nearestVoxel(x, y, z) {
+      this.ensureAll();
       let best = null, bd = Infinity;
       for (const p of this.parts) {
         if (p.detached) continue;
@@ -202,6 +240,7 @@
 
     // Corte genérico según el tipo de golpe
     cutFor(hit, dmg, ray, opts, destruction, particles, radiusK = 1.1) {
+      if (opts && opts.blunt) return this.carveSphere(hit.vox.wx, hit.vox.wy, hit.vox.wz, this.v * 3.4, particles, ray.dx, ray.dy, ray.dz);
       if (opts && opts.slash) {
         const a = opts.slash;
         return this.carveSlash(hit.vox.wx, hit.vox.wy, hit.vox.wz, a[0], a[1], a[2], ray.dx, ray.dy, ray.dz, 0.22, this.v * 1.4, 0.16, particles);
@@ -211,6 +250,7 @@
     }
 
     carveSphere(px, py, pz, radius, particles, dirx, diry, dirz, maxDebris = 14) {
+      this.ensureAll();
       const r2 = radius * radius;
       const removed = {};
       let debris = 0;
@@ -236,6 +276,7 @@
     // Tras un corte: recalcula superficie y separa lo que haya quedado suelto.
     // Devuelve { nombre: 'severed' | 'detached' | 'halved' }.
     afterCarve(removed, gibs, vx, vy, vz) {
+      this.ensureAll();
       const res = {};
       // el torso primero: si se parte, arrastra brazos y cabeza
       const names = Object.keys(removed).sort((a, b) => (a === 'torso' ? -1 : b === 'torso' ? 1 : 0));
@@ -290,6 +331,7 @@
         else { res[name] = halved ? 'halved' : 'severed'; updateExposure(p); }
         p.severed = true;
       }
+      this.cascade(gibs, res);
       return res;
     }
 
@@ -307,10 +349,12 @@
     detach(name, gibs, vx, vy, vz) {
       const p = this.byName[name];
       if (!p || p.detached) return null;
+      this.ensureAll();
       p.detached = true;
       const items = p.vox.filter((x) => x.alive).map((v) => ({ v, pid: 0 }));
       const g = Gib.fromItems(items, p.q, this.v, vx, vy, vz);
       if (g && gibs) gibs.push(g);
+      this.cascade(gibs);
       return g;
     }
 

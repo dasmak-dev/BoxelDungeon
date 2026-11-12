@@ -24,6 +24,16 @@
         const sub = sel ? 'Arma inicial' : own ? 'En tiendas y jefes · clic: arma inicial' : `Bloqueada · ${w.cost} esencia`;
         return `<button data-weapon="${w.id}" class="${sel ? 'on' : ''}" ${!own && d.essence < w.cost ? 'disabled' : ''}>${name}<small>${sub}</small></button>`;
       }).join('');
+      // mercancía para las tiendas
+      $('shopUnlockList').innerHTML = VX.Upgrades.list.filter((u) => u.shop).map((u) => {
+        const own = d.shopUnlocks.includes(u.id);
+        return `<button data-shop="${u.id}" class="${own ? 'on' : ''}" ${own || d.essence < u.unlock ? 'disabled' : ''}>${u.name.toUpperCase()}` +
+          `<small>${u.desc} · ${own ? 'Ya a la venta' : u.unlock + ' esencia'}</small></button>`;
+      }).join('');
+      for (const b of document.querySelectorAll('#shopUnlockList button')) b.onclick = () => {
+        if (VX.Profile.buyShopItem(b.dataset.shop)) VX.Audio.buy(); else VX.Audio.deny();
+        this.render();
+      };
       for (const b of document.querySelectorAll('#perkList button')) b.onclick = () => {
         if (VX.Profile.buyPerk(b.dataset.perk)) VX.Audio.upgrade(); else VX.Audio.deny();
         this.render();

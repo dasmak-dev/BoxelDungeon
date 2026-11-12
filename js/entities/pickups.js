@@ -10,6 +10,7 @@
     bolt: ['...XX', '..XX.', '.XXXX', '..XX.', '.XX..'],
     arrow: ['..X..', '.XXX.', 'X.X.X', '..X..', '..X..'],
     star: ['X.X.X', '.XXX.', 'XXXXX', '.XXX.', 'X.X.X'],
+    scroll: ['XXXXX', 'X.X.X', 'XX.XX', 'X.X.X', 'XXXXX'],
     boot: ['.XX..', '.XX..', '.XX..', '.XXXX', '.XXXX'],
     clock: ['.XXX.', 'X.X.X', 'X.XXX', 'X...X', '.XXX.'],
     multi: ['X...X', '.....', '..X..', '.....', 'X...X'],
@@ -20,6 +21,7 @@
     auto: ['XXXX.', 'XX...', 'XXXX.', 'XX...', 'XXXX.'],
     skull: ['.XXX.', 'XXXXX', 'X.X.X', 'XXXXX', '.X.X.'],
     coin: ['.XXX.', 'XX.XX', 'X.X.X', 'XX.XX', '.XXX.'],
+    chest: ['.XXX.', 'XXXXX', 'XX.XX', 'XXXXX', 'XXXXX'],
   };
   // Precalcular offsets
   const SHAPE_VOX = {};
@@ -47,6 +49,16 @@
       }
     }
 
+    // Caja de munición (modo Horda): reparte balas a todas las armas
+    dropAmmo(x, y, z, frac = 1) {
+      this.gold.push({ x, y, z, vx: M.rand(-1.5, 1.5), vy: M.rand(3, 5), vz: M.rand(-1.5, 1.5), t: M.rand(0, 6), value: 0, ammo: frac, delay: 0.5 });
+    }
+
+    // Corazón pequeño (cura al recogerlo)
+    dropHeart(x, y, z, amount = 10) {
+      this.gold.push({ x, y, z, vx: M.rand(-1.5, 1.5), vy: M.rand(3, 5), vz: M.rand(-1.5, 1.5), t: 0, value: 0, heal: amount, delay: 0.5 });
+    }
+
     // item: { kind:'upgrade'|'heal', up?, price, x,y,z, title, desc, color, shape }
     addItem(item) {
       // bendición «Regateo» del Santuario
@@ -65,7 +77,7 @@
         const g = this.gold[i];
         g.t += dt; g.delay -= dt;
         const dx = ex - g.x, dy = ey - g.y, dz = ez - g.z, d = Math.hypot(dx, dy, dz);
-        if (g.delay <= 0 && d < 3.2 + game.player.magnet) {
+        if (g.delay <= 0 && (g.homing || d < 3.6 + game.player.magnet)) {
           const pull = 14 / Math.max(d, 0.3);
           g.vx += (dx / d) * pull * dt * 6; g.vy += (dy / d) * pull * dt * 6; g.vz += (dz / d) * pull * dt * 6;
           g.vx *= 0.9; g.vy *= 0.9; g.vz *= 0.9;
@@ -78,8 +90,15 @@
         if (g.y < gr && gr - g.y < 0.6) { g.y = gr; g.vy *= -0.4; g.vx *= 0.8; g.vz *= 0.8; }
         else if (g.y < 0.05) { g.y = 0.05; g.vy *= -0.4; }
         if (g.delay <= 0 && d < 0.7) {
-          game.stats.gold += g.value; game.stats.totalGold += g.value;
           this.gold.splice(i, 1);
+          if (g.heal) { game.player.heal(g.heal); VX.Audio.orb(); game.hud.toast(`+${g.heal} de vida`); continue; }
+          if (g.ammo) {
+            if (game.weapon.addAmmo(g.ammo)) { VX.Audio.reload(); game.hud.toast('+munición'); }
+            else { VX.Audio.click(); game.hud.toast('Munición al máximo'); }
+            continue;
+          }
+          game.stats.gold += g.value; game.stats.totalGold += g.value;
+          if (game.weapon.mods.goldHeal) game.player.heal(1);
           VX.Audio.gold();
           game.hud.pulseGold();
         }
@@ -108,6 +127,27 @@
           game.particles.spawn(it.x, it.y, it.z, M.rand(-3, 3), M.rand(1, 5), M.rand(-3, 3), 0.4, 0.9, 1, 0.05, M.rand(0.6, 1.4), 1);
         return;
       }
+      if (it.kind === 'stairs') { it.taken = true; game.enterSecret(); return; }
+      if (it.kind === 'map') { it.taken = true; game.studyMap(); return; }
+      if (it.kind === 'supply') { it.taken = true; VX.HordeMode.openSupply(game, it); return; }
+      if (it.kind === 'chest') {
+        it.taken = true;
+        if (it.mimic) {
+          // ¡era un mímico!
+          VX.Audio.roar(); game.shake(0.5);
+          const z = new VX.Zombie('mimic', it.x, it.z, game.floor, { y: game.world.groundAt(it.x, it.z) });
+          z.spawnT = 0; game.enemies.push(z);
+          const r = game.currentRoom; r.cleared = false; r.pendingWaves = 0;
+          game.hud.banner('¡ERA UN MÍMICO!', 'Mátalo y escupirá su tesoro', 2.5);
+        } else {
+          VX.Audio.reward();
+          const up = VX.Upgrades.random(1, game, [], Math.random() < 0.5 ? 'rare' : 'normal')[0];
+          if (up) this.addItem({ kind: 'upgrade', up, price: 0, x: it.x, y: it.y + 0.2, z: it.z, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape });
+          game.pickups.dropGold(it.x, it.y + 0.5, it.z, 8 + game.floor);
+          game.hud.banner('COFRE', 'Dentro había algo útil', 2);
+        }
+        return;
+      }
       if (it.price > game.stats.gold) {
         VX.Audio.deny();
         game.hud.toast('No tienes suficiente oro');
@@ -129,13 +169,19 @@
         else if (r === 'added') game.hud.banner('NUEVA ARMA: ' + name.toUpperCase(), 'Cambia de arma con 1·2·3, la rueda o Q');
         else game.hud.banner('NUEVA ARMA: ' + name.toUpperCase(), `Sustituye a: ${VX.Weapons.DEFS[r].name}`);
         if (it.onTake) it.onTake(game);
+      } else if (it.kind === 'refill') {
+        game.weapon.refillAll();
+        VX.Audio.buy(); VX.Audio.reload();
+        game.hud.banner('MUNICIÓN COMPLETA', 'Cargadores y reservas a tope', 2.2);
       } else if (it.kind === 'heal') {
         game.player.heal(it.amount);
         VX.Audio.buy();
         game.hud.toast(`+${it.amount} de vida`);
       } else {
         it.up.apply(game);
+        VX.Profile.codexUp(it.up.id);
         game.upgradesTaken.push(it.up);
+        VX.Upgrades.checkSynergies(game);
         game.weapon.accent = it.up.color.slice();
         if (it.price > 0) VX.Audio.buy();
         VX.Audio.upgrade();
@@ -151,11 +197,43 @@
       // Monedas
       for (const g of this.gold) {
         const q = M.qY(g.t * 4);
+        if (g.heal) {
+          // corazón de vóxeles
+          const s = 0.035, by = g.y + 0.05 + Math.sin(g.t * 3) * 0.03;
+          for (const [a, b] of [[-1, 1], [1, 1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, -1], [0, -1], [1, -1], [0, -2]]) {
+            M.qRot(q, a * s, b * s, 0, tmp);
+            batch.rbox(g.x + tmp[0], by + tmp[1], g.z + tmp[2], s, s, s, q, 1, 0.15, 0.2, 0.8);
+          }
+          continue;
+        }
+        if (g.ammo) {
+          // caja de munición: verde oliva con las puntas de las balas asomando
+          const by = g.y + 0.05 + Math.sin(g.t * 3) * 0.03;
+          batch.rbox(g.x, by, g.z, 0.2, 0.13, 0.12, q, 0.24, 0.28, 0.14, 0.12);
+          for (let k = -2; k <= 2; k++) { M.qRot(q, k * 0.035, 0.085, 0, tmp); batch.rbox(g.x + tmp[0], by + tmp[1], g.z + tmp[2], 0.025, 0.05, 0.025, q, 0.85, 0.65, 0.25, 0.5); }
+          continue;
+        }
         batch.rbox(g.x, g.y, g.z, 0.09, 0.09, 0.025, q, 1.0, 0.78, 0.15, 0.7);
       }
       // Objetos flotantes
       for (const it of this.items) {
         if (it.kind === 'weapon') { this.renderWeapon(batch, it); continue; }
+        if (it.kind === 'supply') { this.renderSupply(batch, it); continue; }
+        if (it.kind === 'stairs') {
+          // peldaños que se hunden en la oscuridad, con un resplandor violeta al fondo
+          const s = 0.125;
+          for (let i = 0; i < 4; i++) {
+            const k = 1 - i * 0.24;
+            for (let j = -5; j <= 4; j++) {
+              const ox = it.dz !== 0 ? (j + 0.5) * s : it.dx * (i - 1.5) * s, oz = it.dx !== 0 ? (j + 0.5) * s : it.dz * (i - 1.5) * s;
+              batch.box(it.x + ox, it.y + 0.02 + (3 - i) * 0.005, it.z + oz, s * 0.98, 0.04, s * 0.98, 0.22 * k, 0.2 * k, 0.24 * k, 0);
+            }
+          }
+          const gl = 0.6 + Math.sin(it.t * 3) * 0.3;
+          batch.box(it.x + it.dx * 0.2, it.y + 0.03, it.z + it.dz * 0.2, 0.3, 0.02, 0.3, 0.6 * gl, 0.2 * gl, 1 * gl, 1);
+          if (Math.random() < 0.2 && VX.game) VX.game.particles.spawn(it.x + M.rand(-0.4, 0.4), it.y + 0.1, it.z + M.rand(-0.4, 0.4), 0, M.rand(0.3, 0.8), 0, 0.7, 0.3, 1, 0.03, 1, 1, 1);
+          continue;
+        }
         const vs = 0.06;
         const q = M.qY(it.t * 1.6);
         const by = it.y + 0.55 + Math.sin(it.t * 2.2) * 0.08;
@@ -173,6 +251,29 @@
       }
     }
   }
+
+  // Caja de suministros militar (verde, con cierres y la tapa marcada)
+  Pickups.prototype.renderSupply = function (batch, it) {
+    const s = 0.05, x0 = it.x, z0 = it.z, y0 = it.y;
+    const q = M.qY(it.rot || 0);
+    const P = (a, b, c, cr, cg, cb, e = 0) => { M.qRot(q, a * s, b * s, c * s, tmp); batch.rbox(x0 + tmp[0], y0 + tmp[1], z0 + tmp[2], s, s, s, q, cr, cg, cb, e); };
+    for (let a = -7; a <= 7; a++) for (let c = -4; c <= 4; c++) for (let b = 0; b < 9; b++) {
+      const edge = Math.abs(a) === 7 || Math.abs(c) === 4 || b === 0 || b === 8;
+      if (!edge) continue;
+      let cr = 0.2, cg = 0.25, cb = 0.12;
+      if (b === 6) { cr = 0.12; cg = 0.14; cb = 0.08; }                       // junta de la tapa
+      if ((Math.abs(a) === 5 || Math.abs(a) === 6) && (b === 5 || b === 6) && Math.abs(c) === 4) { cr = 0.5; cg = 0.48; cb = 0.42; }   // cierres
+      if (b === 8 && Math.abs(a) <= 3 && c === 0) { cr = 0.75; cg = 0.6; cb = 0.15; }   // marca amarilla
+      if (b === 8 && a === 0 && Math.abs(c) <= 2) { cr = 0.75; cg = 0.6; cb = 0.15; }
+      P(a, b + 0.5, c, cr, cg, cb);
+    }
+    // resplandor para encontrarla en la oscuridad
+    const gl = 0.4 + Math.sin(it.t * 3) * 0.25;
+    for (let k = 0; k < 4; k++) {
+      const a = it.t * 1.5 + k * Math.PI / 2;
+      batch.box(x0 + Math.cos(a) * 0.55, y0 + 0.65 + Math.sin(it.t * 2 + k) * 0.1, z0 + Math.sin(a) * 0.55, 0.04, 0.04, 0.04, 1, 0.85, 0.35, gl);
+    }
+  };
 
   // Arma expuesta sobre su pedestal, girando
   Pickups.prototype.renderWeapon = function (batch, it) {

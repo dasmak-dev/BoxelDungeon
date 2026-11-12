@@ -131,7 +131,7 @@
     R.prog = program(gl, VX.Shaders.vertex, VX.Shaders.fragment);
     const names = ['u_proj', 'u_view', 'u_lights', 'u_lightCols', 'u_numLights', 'u_spotPos', 'u_spotDir', 'u_spotCol',
       'u_spotCone', 'u_shadowMat', 'u_shadowMap', 'u_shadowOn', 'u_shadowTexel', 'u_ambient', 'u_camPos',
-      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_edge'];
+      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_edge', 'u_shadowMat2', 'u_shadowMap2', 'u_shadowOn2', 'u_glass'];
     for (const n of names) R.U[n] = gl.getUniformLocation(R.prog, n);
     R.dprog = program(gl, VX.Shaders.depthVertex, VX.Shaders.depthFragment);
     R.DU.u_lightVP = gl.getUniformLocation(R.dprog, 'u_lightVP');
@@ -145,9 +145,41 @@
     gl.frontFace(gl.CCW);
 
     R.createShadowMap(R.shadowSize);
+    R.shadow2 = makeDepthTarget(gl, 1024);
+    R.initPost();
     R.resize();
     window.addEventListener('resize', R.resize);
     return true;
+  };
+
+  function makeDepthTarget(gl, size) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, size, size, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+      [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE], [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    const fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, t, 0);
+    gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return { tex: t, fbo: fb, size, mat: null, on: false };
+  }
+
+  // Sombra de la antorcha más cercana (spot muy abierto mirando hacia la sala)
+  R.torchShadowsOn = true;
+  R.beginShadow2 = function (spot) {
+    const gl = R.gl, M = VX.M, T = R.shadow2;
+    const view = M.lookAt(spot.x, spot.y, spot.z, spot.x + spot.dx, spot.y + spot.dy, spot.z + spot.dz, 0, 1, 0);
+    const proj = M.perspective(spot.fov, 1, 0.1, 14);
+    T.mat = M.multiply(proj, view);
+    R.setFrustum(T.mat);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
+    gl.viewport(0, 0, T.size, T.size);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(R.dprog);
+    gl.uniformMatrix4fv(R.DU.u_lightVP, false, T.mat);
+    gl.cullFace(gl.FRONT);
   };
 
   R.createShadowMap = function (size) {
@@ -177,6 +209,7 @@
     R.renderScale = q === 'alta' ? Math.min(dpr, 1.5) : q === 'media' ? Math.min(dpr, 1) * 0.85 : 0.6;
     const size = q === 'alta' ? 2048 : q === 'media' ? 1024 : 512;
     R.shadowsOn = !!shadows;
+    R.quality = q;
     if (size !== R.shadowSize) R.createShadowMap(size);
     R.resize();
   };
@@ -186,6 +219,7 @@
     const w = Math.max(1, Math.floor(window.innerWidth * s)), h = Math.max(1, Math.floor(window.innerHeight * s));
     R.canvas.width = w; R.canvas.height = h;
     R.width = w; R.height = h;
+    if (R.postSupported) R.resizePost();
   };
 
   R.createBatch = (cap = 1024, dynamic = false) => new Batch(R.gl, cap, dynamic);
@@ -200,6 +234,7 @@
     const proj = M.perspective(spot.fov, 1, 0.15, 45);
     R.shadowMat = M.multiply(proj, view);
     if (!R.shadowsOn) return false;
+    R.shadowPass = true;
     R.setFrustum(R.shadowMat);
     gl.bindFramebuffer(gl.FRAMEBUFFER, R.shadowFbo);
     gl.viewport(0, 0, R.shadowSize, R.shadowSize);
@@ -212,6 +247,7 @@
 
   R.endShadow = function () {
     const gl = R.gl;
+    R.shadowPass = false;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.cullFace(gl.BACK);
   };
@@ -220,6 +256,7 @@
   // cam: {x,y,z,yaw,pitch}; env: {lights:[{x,y,z,r,cr,cg,cb}], spot:{...,cr,cg,cb,on}, ambient:[r,g,b]}
   R.beginScene = function (cam, env) {
     const gl = R.gl, U = R.U, M = VX.M;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, R.postOn ? R.post.msFbo : null);
     gl.viewport(0, 0, R.width, R.height);
     const f = R.fogColor;
     gl.clearColor(f[0], f[1], f[2], 1);
@@ -230,15 +267,17 @@
     const cp = Math.cos(cam.pitch);
     const fx = Math.sin(cam.yaw) * cp, fy = Math.sin(cam.pitch), fz = Math.cos(cam.yaw) * cp;
     R.camFwd = [fx, fy, fz]; R.camPos = [cam.x, cam.y, cam.z];
-    R.view = M.lookAt(cam.x, cam.y, cam.z, cam.x + fx, cam.y + fy, cam.z + fz);
-    R.proj = M.perspective(R.fov, R.width / R.height, 0.04, 90);
+    // balanceo lateral (roll) al recibir golpes
+    const roll = cam.roll || 0, rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw);
+    R.view = M.lookAt(cam.x, cam.y, cam.z, cam.x + fx, cam.y + fy, cam.z + fz, Math.sin(roll) * rx, Math.cos(roll), Math.sin(roll) * rz);
+    R.proj = M.perspective(R.fov, R.width / R.height, 0.04, R.farPlane || 90);
     gl.uniformMatrix4fv(U.u_proj, false, R.proj);
     gl.uniformMatrix4fv(U.u_view, false, R.view);
     R.setFrustum(M.multiply(R.proj, R.view));
     gl.uniform3f(U.u_camPos, cam.x, cam.y, cam.z);
     gl.uniform3f(U.u_fogColor, f[0], f[1], f[2]);
-    gl.uniform1f(U.u_fogNear, 10);
-    gl.uniform1f(U.u_fogFar, 42);
+    gl.uniform1f(U.u_fogNear, R.fogNear || 8);
+    gl.uniform1f(U.u_fogFar, R.fogFar || 36);
     gl.uniform1f(U.u_edge, 0.02);
     const a = env.ambient;
     gl.uniform3f(U.u_ambient, a[0], a[1], a[2]);
@@ -254,6 +293,13 @@
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, R.shadowTex);
     gl.uniform1i(U.u_shadowMap, 0);
+    const T2 = R.shadow2;
+    gl.uniform1f(U.u_shadowOn2, T2 && T2.on ? 1 : 0);
+    gl.uniformMatrix4fv(U.u_shadowMat2, false, (T2 && T2.mat) || M.identity());
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, T2.tex);
+    gl.uniform1i(U.u_shadowMap2, 1);
+    gl.activeTexture(gl.TEXTURE0);
   };
 
   const lp = new Float32Array(16 * 4), lc = new Float32Array(16 * 3);
@@ -289,7 +335,8 @@
   R.visible = function (cx, cy, cz, rad) {
     const c = R.camPos;
     const dx = cx - c[0], dz = cz - c[2];
-    if (dx * dx + dz * dz > 62 * 62) return false;   // más allá de la niebla
+    const cd = (R.cullDist || 62) + rad;
+    if (dx * dx + dz * dz > cd * cd) return false;   // más allá de la niebla
     const P = R.frustum;
     if (!P) return true;
     for (let k = 0; k < 6; k++) {
@@ -317,6 +364,280 @@
     ]);
     gl.uniform3f(U.u_spotCol, 0, 0, 0);
     gl.uniform1f(U.u_shadowOn, 0);
+    gl.uniform1f(U.u_shadowOn2, 0);
+  };
+
+  // ================= Posprocesado =================
+  // Escena → FBO multimuestreo → (SSAO sobre la profundidad) → arma → resolución
+  // → resplandor (bloom) en dos niveles → pantalla.
+  const QUAD_VS = `#version 300 es
+layout(location=0) in vec2 a_p;
+out vec2 v_uv;
+void main() { v_uv = a_p * 0.5 + 0.5; gl_Position = vec4(a_p, 0.0, 1.0); }`;
+
+  const AO_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_depth;
+uniform vec2 u_px;          // tamaño de un píxel (de la textura de profundidad)
+uniform vec2 u_proj;        // P[0], P[5]
+uniform float u_near, u_far;
+out vec4 o;
+float lin(float d) { float z = d * 2.0 - 1.0; return 2.0 * u_near * u_far / (u_far + u_near - z * (u_far - u_near)); }
+vec3 pos(vec2 uv) {
+  float z = lin(texture(u_depth, uv).r);
+  vec2 ndc = uv * 2.0 - 1.0;
+  return vec3(ndc.x * z / u_proj.x, ndc.y * z / u_proj.y, -z);
+}
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void main() {
+  float d = texture(u_depth, v_uv).r;
+  if (d >= 1.0) { o = vec4(1.0); return; }
+  vec3 P = pos(v_uv);
+  vec3 N = normalize(cross(pos(v_uv + vec2(u_px.x, 0.0)) - P, pos(v_uv + vec2(0.0, u_px.y)) - P));
+  float far = -P.z;
+  if (far > 26.0) { o = vec4(1.0); return; }
+  // radio de muestreo: ~0.6 m en el mundo, proyectado a pantalla
+  float rad = 0.6 * u_proj.x / far * 0.5;
+  float occ = 0.0;
+  float a0 = hash(gl_FragCoord.xy) * 6.2832;
+  for (int i = 0; i < 10; i++) {
+    float t = (float(i) + 0.5) / 10.0;
+    float a = a0 + t * 6.2832 * 3.0;
+    vec2 off = vec2(cos(a), sin(a)) * rad * t * vec2(u_px.y / u_px.x, 1.0);
+    vec3 S = pos(v_uv + off) - P;
+    float vv = dot(S, S);
+    occ += max(0.0, dot(S, N) - 0.02 * far) / (vv + 0.01) * smoothstep(1.2, 0.2, sqrt(vv));
+  }
+  occ = clamp(occ / 10.0 * 0.8, 0.0, 1.0);
+  float fade = 1.0 - smoothstep(14.0, 26.0, far);
+  o = vec4(vec3(1.0 - occ * 0.85 * fade), 1.0);
+}`;
+
+  // Aplica la oclusión (difuminada respetando bordes) multiplicando el color
+  const AOMUL_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_ao;
+uniform vec2 u_px;
+out vec4 o;
+void main() {
+  float s = 0.0, w = 0.0;
+  for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) {
+    float k = (x == 0 && y == 0) ? 2.0 : 1.0;
+    s += texture(u_ao, v_uv + vec2(float(x), float(y)) * u_px * 1.5).r * k; w += k;
+  }
+  o = vec4(vec3(s / w), 1.0);
+}`;
+
+  const BRIGHT_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex;
+uniform vec2 u_px;
+uniform float u_thr;
+out vec4 o;
+void main() {
+  vec3 c = vec3(0.0);
+  c += texture(u_tex, v_uv + u_px * vec2(-0.5, -0.5)).rgb;
+  c += texture(u_tex, v_uv + u_px * vec2( 0.5, -0.5)).rgb;
+  c += texture(u_tex, v_uv + u_px * vec2(-0.5,  0.5)).rgb;
+  c += texture(u_tex, v_uv + u_px * vec2( 0.5,  0.5)).rgb;
+  c *= 0.25;
+  float l = max(c.r, max(c.g, c.b));
+  float k = smoothstep(u_thr, u_thr + 0.25, l);
+  o = vec4(c * k, 1.0);
+}`;
+
+  const BLUR_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex;
+uniform vec2 u_dir;
+out vec4 o;
+void main() {
+  vec3 c = texture(u_tex, v_uv).rgb * 0.227;
+  c += texture(u_tex, v_uv + u_dir * 1.385).rgb * 0.316;
+  c += texture(u_tex, v_uv - u_dir * 1.385).rgb * 0.316;
+  c += texture(u_tex, v_uv + u_dir * 3.231).rgb * 0.070;
+  c += texture(u_tex, v_uv - u_dir * 3.231).rgb * 0.070;
+  o = vec4(c, 1.0);
+}`;
+
+  const FINAL_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_tex, u_b1, u_b2;
+uniform float u_bloom;
+out vec4 o;
+void main() {
+  vec3 c = texture(u_tex, v_uv).rgb;
+  vec3 b = texture(u_b1, v_uv).rgb * 0.6 + texture(u_b2, v_uv).rgb * 0.9;
+  c += b * u_bloom;
+  // viñeta suave
+  vec2 q = v_uv - 0.5;
+  c *= 1.0 - dot(q, q) * 0.55;
+  o = vec4(c, 1.0);
+}`;
+
+  function colorTarget(gl, w, h, withDepthTex) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    let depth = null;
+    if (withDepthTex) {
+      depth = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, depth);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, w, h, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depth, 0);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return { tex, fbo, depth, w, h };
+  }
+  function freeTarget(gl, t) { if (!t) return; gl.deleteTexture(t.tex); if (t.depth) gl.deleteTexture(t.depth); gl.deleteFramebuffer(t.fbo); }
+
+  R.post = null;
+  R.postOn = false;
+  R.bloomOn = true; R.aoOn = true;
+
+  R.initPost = function () {
+    const gl = R.gl;
+    try {
+      const mk = (fs, us) => { const p = program(gl, QUAD_VS, fs); const U = {}; for (const u of us) U[u] = gl.getUniformLocation(p, u); return { p, U }; };
+      R.pp = {
+        ao: mk(AO_FS, ['u_depth', 'u_px', 'u_proj', 'u_near', 'u_far']),
+        aomul: mk(AOMUL_FS, ['u_ao', 'u_px']),
+        bright: mk(BRIGHT_FS, ['u_tex', 'u_px', 'u_thr']),
+        blur: mk(BLUR_FS, ['u_tex', 'u_dir']),
+        final: mk(FINAL_FS, ['u_tex', 'u_b1', 'u_b2', 'u_bloom']),
+      };
+      R.quadBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, R.quadBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+      R.quadVao = gl.createVertexArray();
+      gl.bindVertexArray(R.quadVao);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+      gl.bindVertexArray(null);
+      R.postSupported = true;
+    } catch (e) { console.warn('Posprocesado desactivado', e); R.postSupported = false; }
+  };
+
+  R.resizePost = function () {
+    const gl = R.gl, w = R.width, h = R.height;
+    if (!R.postSupported) return;
+    const P = R.post || (R.post = {});
+    if (P.w === w && P.h === h) return;
+    for (const k of ['resolve', 'aoT', 'b1', 'b1b', 'b2', 'b2b']) freeTarget(gl, P[k]);
+    if (P.msFbo) { gl.deleteFramebuffer(P.msFbo); gl.deleteRenderbuffer(P.msColor); gl.deleteRenderbuffer(P.msDepth); }
+    P.w = w; P.h = h;
+    const samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) || 0);
+    P.msFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, P.msFbo);
+    P.msColor = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, P.msColor);
+    if (samples > 1) gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, w, h); else gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, w, h);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, P.msColor);
+    P.msDepth = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, P.msDepth);
+    if (samples > 1) gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, w, h); else gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, P.msDepth);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    P.resolve = colorTarget(gl, w, h, true);
+    const hw = Math.max(1, w >> 1), hh = Math.max(1, h >> 1), qw = Math.max(1, w >> 2), qh = Math.max(1, h >> 2);
+    P.aoT = colorTarget(gl, hw, hh, false);
+    P.b1 = colorTarget(gl, hw, hh, false); P.b1b = colorTarget(gl, hw, hh, false);
+    P.b2 = colorTarget(gl, qw, qh, false); P.b2b = colorTarget(gl, qw, qh, false);
+  };
+
+  R.setPost = function (bloom, ao) {
+    R.bloomOn = !!bloom; R.aoOn = !!ao;
+    R.postOn = R.postSupported && (R.bloomOn || R.aoOn);
+  };
+
+  function quad(prog) { const gl = R.gl; gl.useProgram(prog.p); gl.bindVertexArray(R.quadVao); return prog.U; }
+  function drawQuad() { const gl = R.gl; gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(null); }
+  function bindTex(unit, tex, loc) { const gl = R.gl; gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(loc, unit); }
+  function target(t) { const gl = R.gl; gl.bindFramebuffer(gl.FRAMEBUFFER, t ? t.fbo : null); gl.viewport(0, 0, t ? t.w : R.width, t ? t.h : R.height); }
+
+  // Tras dibujar el mundo (antes del arma): oclusión ambiental sobre la profundidad
+  R.endWorld = function () {
+    if (!R.postOn || !R.aoOn) return;
+    const gl = R.gl, P = R.post;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, P.msFbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, P.resolve.fbo);
+    gl.blitFramebuffer(0, 0, P.w, P.h, 0, 0, P.w, P.h, gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+    target(P.aoT);
+    let U = quad(R.pp.ao);
+    bindTex(0, P.resolve.depth, U.u_depth);
+    gl.uniform2f(U.u_px, 1 / P.w, 1 / P.h);
+    gl.uniform2f(U.u_proj, R.proj[0], R.proj[5]);
+    gl.uniform1f(U.u_near, 0.04); gl.uniform1f(U.u_far, 90);
+    drawQuad();
+    // multiplicar sobre la escena
+    gl.bindFramebuffer(gl.FRAMEBUFFER, P.msFbo); gl.viewport(0, 0, P.w, P.h);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.DST_COLOR, gl.ZERO);
+    U = quad(R.pp.aomul);
+    bindTex(0, P.aoT.tex, U.u_ao);
+    gl.uniform2f(U.u_px, 1 / P.aoT.w, 1 / P.aoT.h);
+    drawQuad();
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE);
+    gl.useProgram(R.prog);
+    // devolver las texturas de sombra a sus unidades
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.shadow2.tex);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.shadowTex);
+  };
+
+  // Pasada de cristales: transparentes, sin escribir profundidad
+  R.beginGlass = function () {
+    const gl = R.gl;
+    gl.useProgram(R.prog);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.uniform1f(R.U.u_glass, 1);
+  };
+  R.endGlass = function () {
+    const gl = R.gl;
+    gl.disable(gl.BLEND); gl.depthMask(true);
+    gl.uniform1f(R.U.u_glass, 0);
+  };
+
+  // Al final del fotograma: resuelve el multimuestreo, resplandor y a pantalla
+  R.present = function () {
+    if (!R.postOn) return;
+    const gl = R.gl, P = R.post;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, P.msFbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, P.resolve.fbo);
+    gl.blitFramebuffer(0, 0, P.w, P.h, 0, 0, P.w, P.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+    let U;
+    if (R.bloomOn) {
+      // extraer lo brillante a media resolución y difuminar en dos escalas
+      target(P.b1); U = quad(R.pp.bright);
+      bindTex(0, P.resolve.tex, U.u_tex); gl.uniform2f(U.u_px, 1 / P.w, 1 / P.h); gl.uniform1f(U.u_thr, 0.8); drawQuad();
+      const blur = (src, dst, dx, dy) => { target(dst); const u = quad(R.pp.blur); bindTex(0, src.tex, u.u_tex); gl.uniform2f(u.u_dir, dx / src.w, dy / src.h); drawQuad(); };
+      blur(P.b1, P.b1b, 1, 0); blur(P.b1b, P.b1, 0, 1);
+      blur(P.b1, P.b2, 1, 0); blur(P.b2, P.b2b, 0, 1); blur(P.b2b, P.b2, 1.5, 0); blur(P.b2, P.b2b, 0, 1.5);
+    }
+    target(null);
+    U = quad(R.pp.final);
+    bindTex(0, P.resolve.tex, U.u_tex);
+    bindTex(1, P.b1.tex, U.u_b1);
+    bindTex(2, P.b2b.tex, U.u_b2);
+    gl.uniform1f(U.u_bloom, R.bloomOn ? 0.75 : 0);
+    drawQuad();
+    gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.useProgram(R.prog);
   };
 
   VX.Renderer = R;

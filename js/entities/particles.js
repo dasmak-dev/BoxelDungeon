@@ -64,7 +64,7 @@
           p[o + 1] = half;
           if (v[o + 1] < -2) v[o + 1] *= -0.3; else v[o + 1] = 0;
           v[o] *= 0.7; v[o + 2] *= 0.7;
-        } else if (!(this.flags[i] & 1) && (v[o] || v[o + 1] || v[o + 2]) && world.isSolidAt(p[o], p[o + 1] - half, p[o + 2])) {
+        } else if (!(this.flags[i] & 1) && (v[o] || v[o + 1] || v[o + 2]) && world.isSolidVisibleAt(p[o], p[o + 1] - half, p[o + 2])) {
           // choca con un bloque (relieve, cajas, paredes)
           const S = VX.S;
           const top = (Math.floor((p[o + 1] - half) / S) + 1) * S;
@@ -79,7 +79,14 @@
             v[o] *= -0.3; v[o + 2] *= -0.3;
           }
         }
-        if (Math.abs(v[o + 1]) > 0.1 || p[o + 1] > half + 0.01) this.rot[i] += dt * 8;
+        // sólo gira mientras vuela; al posarse se queda plano y se desvanece pronto
+        const moving = Math.abs(v[o]) + Math.abs(v[o + 1]) + Math.abs(v[o + 2]) > 0.15;
+        if (moving) this.rot[i] += dt * 8;
+        else if (!(this.flags[i] & 1)) {
+          const r = this.rot[i], t = Math.round(r / 6.2832) * 6.2832;
+          this.rot[i] = r + (t - r) * Math.min(1, dt * 12);
+          if (this.life[i] > 1.2) this.life[i] = 1.2;
+        }
       }
     }
 

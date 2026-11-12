@@ -3,6 +3,303 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.19.0] — 2026-11-12
+### Ciudad nocturna, rediseñada
+- Nueva distribución con una **gran plaza central**: fuente sobre tres escalones con una estatua, ocho árboles detallados (raíces, ramas y copa en racimos) en alcorques, bancos de listones con respaldo, farolas de dos globos, un templete de música elevado, quiosco, parterres y bolardos.
+- Cuatro manzanas alrededor de la plaza con **fachadas de vóxel más detalladas**: zócalo, pilastras, escaparates con montantes, rótulos de neón, cornisa y toldos. Tiendas nuevas: **bar** (con billar y botellero) y **tienda de ropa**. Un **aparcamiento** abierto con coches dentro.
+- Las plantas altas tienen **estilos**: ladrillo con escaleras de incendios, piedra con pilastras y alféizares, oficinas de cristal y bloques modernos con balcones. Además hay carteles luminosos, depósitos de agua y antenas en las azoteas.
+- **Cristales transparentes**: escaparates, vestíbulos, marquesinas y coches dejan ver el interior.
+- **Se ve el piso detrás de cada ventana**: habitaciones con profundidad, muebles, cortinas, luz encendida o apagada y el brillo de alguna tele.
+- **Menos coches** y un **autobús en el que se puede entrar**, con asientos, barras y las puertas abiertas.
+- **Ambiente más oscuro**: menos ventanas encendidas, niebla más cerrada y más farolas apagadas.
+
+### Nuevo mapa: Coliseo
+- Interior de un coliseo romano al anochecer. Empiezas en el centro de la arena, junto a un obelisco.
+- **Varios niveles de altura**:
+  - el podio de 4 m con su paseo, al que se sube por cuatro escalinatas;
+  - las gradas en escalones, por las que se puede correr;
+  - el palco imperial y las ruinas de un templo elevadas.
+- En la arena hay:
+  - una galería de tiro con arco con dianas y flechas clavadas;
+  - muñecos de entrenamiento, armeros con lanzas y escudos;
+  - jaulas de fieras, empalizadas, un carro volcado, fardos de paja y braseros.
+- Los zombis salen por las cuatro puertas y por las trampillas del hipogeo.
+- Por encima del muro, las gradas altas, el ático con arcos, los mástiles del velario y antorchas.
+- Música propia.
+
+### Arreglos
+- Un zombi que bajaba de un coche (o al que le caían escombros encima) podía quedarse metido dentro del bloque sin moverse. Ahora, si un enemigo queda atrapado dentro de algo sólido, sale al hueco libre más cercano.
+
+### Rendimiento
+- El decorado de los mapas grandes se divide en zonas y sólo se dibuja lo que se ve.
+- La distancia de dibujo se ajusta a la niebla de cada mapa.
+
+## [0.18.0] — 2026-11-12
+### Nuevo: Modo Horda
+- Nuevo modo en el menú principal: **oleadas infinitas** en mapas grandes. Eliges el mapa antes de entrar y cada mapa guarda tu récord de oleadas.
+- Antes de cada oleada se avisa de **cuántos zombis vienen**. Salen por las alcantarillas y por las barricadas, lejos de ti, y hay un máximo de zombis a la vez. El HUD muestra cuántos quedan y hacia dónde están los últimos.
+- **La munición no es infinita** en este modo: cada arma tiene su reserva. Los enemigos sueltan cajas de balas al azar (más a menudo cuando vas justo) y hay **cajas de suministros** en los edificios (munición, oro y a veces una mejora).
+- **Vendedor cada 3 oleadas**, con una columna de luz que se ve desde toda la ciudad: mejoras, botiquín, a veces un arma y **munición completa** (sólo en este modo). Se marcha cuando empieza la siguiente oleada.
+- **Campeón cada 5 oleadas y jefe cada 10.** Entre oleadas recuperas algo de vida y oro.
+- [G] llama ya a la siguiente oleada. La esencia que ganas depende de las oleadas superadas.
+- Si te subes a un coche, los zombis trepan a por ti.
+
+### Mapa: Ciudad nocturna
+- Ciudad de 120 × 120 m, de noche, con llovizna: **rascacielos** con ventanas encendidas, avenidas con pasos de cebra, **coches** aparcados y abandonados (taxis, coches de policía con sirena, chatarra en llamas), **farolas altas** que se apagan si les disparas, semáforos, **paradas de autobús**, papeleras, bocas de riego y un parque con fuente, árboles y quiosco.
+- **Se puede entrar en los edificios**: los escaparates y las puertas de cristal estallan enteros, las persianas metálicas se revientan y las paredes se pueden atravesar a tiros. En los rascacielos sólo se llega al vestíbulo de doble altura y a la entreplanta (escalera, recepción, ascensores y oficinas). Hay supermercado, cafetería, farmacia, armería y hamburguesería.
+- Las salidas están cortadas por barricadas (barreras de hormigón, sacos terreros, un autobús, coches de policía y bidones ardiendo). Detrás, la calle sigue hasta perderse en la niebla.
+- Música propia de sintetizador para la ciudad.
+
+### Cambios
+- **Las salas de jefe son siempre grandes**: antes, si estaban detrás de una puerta lateral, quedaban recortadas al fondo de la sala anterior.
+- Las pantallas bajas muestran el menú principal entero.
+- Rendimiento: en mapas grandes, la sombra de la linterna sólo calcula lo cercano.
+
+## [0.17.0] — 2026-11-12
+### Rediseños
+- **Puertas** rediseñadas: ocupan todo el hueco, de doble hoja de madera con bandas, bordes, remaches y tiradores de hierro.
+- **Fuego** de nuevo: ahora es un volumen de vóxeles con ruido que forma lenguas que suben, se estrechan y se desprenden, con el color graduado por calor (blanco-amarillo, naranja, rojo).
+- **Cuchillo**: mano nueva (dedos que rodean el mango, pulgar, nudillos, muñeca y puño), que se mueve rígida con la hoja. Solo **3 ataques** en ciclo: tajo, revés y estocada, con movimientos más contenidos para que la mano se vea bien en todos.
+
+### Nuevo
+- **Sinergias**: 10 combinaciones de mejoras con efecto extra (Napalm, Metralla, Brasas, Cadena, Pistolero, Billar, Tirador, Fiebre, Tanque, Cohete). Se anuncian al conseguirlas y se guardan con la partida.
+- **Arquero esqueleto** (dispara flechas que se quedan clavadas) y **Nigromante** (orbes que te persiguen y levanta a los muertos de la sala).
+- **Campeones**: desde el piso 6, algunas salas tienen un enemigo élite enorme con ojos dorados, aura y barra propia. Al morir deja una mejora rara y oro.
+- **Zombis que se arrastran** más a menudo: al romperles una pierna o al dispararles a las piernas cuando están malheridos.
+- **Agua** en las Cloacas (y a veces en el Jardín): charcos que te frenan a ti y a los enemigos y apagan el fuego.
+- **Sala del cartógrafo**: sala aleatoria poco frecuente con una mesa de mapas. Al estudiarla ves el tipo de las salas dos puertas por delante y las grietas secretas durante 9 salas.
+- **Mapa [M]**: tu recorrido del piso y a dónde llevan las puertas de la sala actual.
+- **Marcas permanentes**: agujeros de bala en las paredes y quemaduras en el suelo tras explosiones y fuego.
+
+### Cambios
+- **Las salas especiales no se repiten**: tras un vendedor, una recompensa o una sala de curación, las siguientes salas son de otro tipo.
+- **Más retroceso y dispersión** en todas las armas (+60 % de retroceso vertical, +30 % de dispersión): al principio se notan torpes.
+- Nuevas mejoras permanentes con esencias: **Pulso firme** (−12 % de retroceso por nivel, hasta 4) y **Puntería** (−10 % de dispersión por nivel, hasta 3).
+
+### Arreglos
+- Un campeón esqueleto ya no se recompone (perdía la recompensa y la barra).
+
+## [0.16.0] — 2026-11-12
+### Fuego
+- **Llamas de vóxeles de verdad**: lenguas de fuego que ondulan, con la base amarilla, el cuerpo naranja y las puntas rojas que se desprenden. Brasas en el suelo, pavesas y humo. Arden así el suelo, los objetos y los enemigos.
+- La luz del fuego **parpadea** con las llamas y los objetos de madera **se ennegrecen** mientras arden.
+
+### Física de la destrucción
+- **Los trozos caen enteros**: si rompes lo que sujetaba la parte de arriba de un objeto, esa parte cae de una pieza y **se queda en el suelo** como un objeto nuevo, que puedes seguir rompiendo o quemar. Sólo lo frágil (cristal, barro) o lo que cae desde muy alto se hace añicos.
+- **Derrumbes del escenario**: si rompes la base de un pilar, una columna, un arco o un muro, lo que queda sin apoyo **se viene abajo**. Lo alto y estrecho **se vuelca** hacia el lado con más hueco y se queda tumbado en el suelo. Levanta polvo, hace estruendo y **aplasta** a quien pille debajo. Los árboles grandes también pueden caer.
+
+### Enemigos
+- Los **zombis recuperan su aspecto original**, con más detalle: proporciones clásicas de cajas, piel verde, camisa turquesa y pantalón morado. Llevan mandíbula que se mueve, desgarros, heridas, rodillas gastadas, costuras y puntera en el zapato. Las variantes (corredor, escupidor, explosivo, escudero, trepador, bruto, minero, ígneo, esporado) siguen el mismo estilo.
+- **Piernas rehechas**: rectas y naturales, sin espinillas finas ni pies desproporcionados.
+- **Esqueleto**: brazos nuevos, huesos de 2×2 con cabeza del húmero, codo, muñeca y dedos.
+- **Esqueletos equipados**: cuanto más bajas, más llevan **casco de hierro**, hombrera, **rodela** y espada. El casco y la rodela **paran las balas**: se abollan con cada impacto hasta romperse y caer.
+
+### Puertas y salas secretas
+- **Rastrillo simétrico**: dos pares de barrotes en espejo y travesaños.
+- **Las puertas se abren con E**: acércate y pulsa E («Puerta — Sala infestada / Vendedor / ¡JEFE!…»).
+- Al entrar en una sala, el rastrillo **cae a tu espalda** con un golpe seco, polvo, chispas y temblor.
+- **La grieta de las cámaras secretas va a ras de la pared**: el hueco está excavado dentro del muro y desde la sala sólo se ve un trozo de pared con ladrillos agrietados.
+
+### Armas
+- **Martillo de guerra** (nuevo, en el Arsenal por 80 de esencia y luego en las tiendas). Alterna un **mazazo** de arriba abajo, que aturde y revienta el suelo y las paredes, con un **barrido** lateral que lanza lejos a todos los que tengas delante. Lento y brutal.
+- **Animación del cuchillo**: ahora el brazo acompaña el tajo, la estocada y el golpe de arriba abajo, y la hoja sigue girando sobre la empuñadura.
+
+## [0.15.0] — 2026-11-12
+### Iluminación
+- **Resplandor (bloom)**: antorchas, ojos de los enemigos, magma, cristales, setas y disparos irradian luz. Desactivable en Ajustes.
+- **Oclusión ambiental**: los rincones, la base de las paredes y el suelo bajo los objetos se oscurecen de forma natural (calidad alta; desactivable).
+- **Luz de color por bioma**: antorchas anaranjadas en la Cripta, verdosas en las Cloacas, amarillas en las Minas, rojas en la Forja, turquesas en el Jardín y violetas en el Vacío (luz y llama).
+- Viñeta suave en los bordes de la pantalla.
+
+### Materiales y escenarios
+- **Materiales brillantes**: el metal, el hierro, el oro, los barrotes y los charcos reflejan las luces; la piedra no.
+- **Charcos** en el suelo de las zonas húmedas (Cloacas, Jardín, Cripta) que reflejan las antorchas.
+- **Paredes con desgaste**: variaciones de tono a gran escala, musgo en las juntas de abajo y chorretones de humedad que bajan desde el techo.
+- **Partículas de ambiente**: polvo flotando en la Cripta, goteo del techo en las Cloacas, arenilla en las Minas, ceniza y pavesas en la Forja, esporas luminosas en el Jardín y motas en el Vacío.
+- **Nueva sala: El gran árbol**: un árbol gigante con raíces por el suelo y ramas hasta el techo. Es distinto en cada bioma: muerto y con jaulas colgando en la Cripta, con copa luminosa en el Jardín, cristalizado en el Vacío y petrificado en las Minas. Es destructible.
+
+### Sonido
+- **Sonidos de ambiente situados en la sala** (se oyen desde un punto y con dirección): goteos, cadenas, crujidos, viento, gemidos, derrumbes de piedras, burbujeo, martillos lejanos, susurros y campanillas, según el bioma.
+- **Reverberación según el tamaño de la sala**: las salas grandes resuenan, las pequeñas suenan secas.
+- **Pasos según el suelo**: piedra, madera, charco, hueso, metal, tierra y cristal.
+
+### Armas
+- **Retroceso real**: cada disparo sube la mira y la desvía un poco a un lado; si mantienes el gatillo (subfusil), el arma sube cada vez más y la dispersión crece. Al soltar, la mira vuelve sola en parte.
+- Nuevas mejoras: **Empuñadura firme** (-30 % de retroceso, en el bote normal) y **Freno de boca** (-25 % de retroceso y -15 % de dispersión, en la tienda tras desbloquearlo en el Santuario por 55 de esencia). El HUD muestra el retroceso reducido.
+
+### Equilibrio
+- **Enemigos según el tamaño de la sala**: el número depende de la superficie transitable y la densidad sube poco a poco con el piso (con un tope). Las salas pequeñas ya no se llenan de zombis. Las manadas de ratas también son menores en salas pequeñas.
+- **La Fuente de almas es más rara**: menos probable y nunca a menos de 6 salas de la anterior. Tras un jefe, la segunda salida es una Fuente sólo si hace tiempo que no visitas una (si no, Recompensa).
+
+### Correcciones
+- Los trozos que saltan al romper objetos ya no se quedan **flotando y girando** encima del objeto: ignoran la colisión invisible del objeto, dejan de girar al posarse y se desvanecen antes.
+- El jefe que **salta** ya no puede aterrizar fuera de la sala ni dentro de una pared: el punto de aterrizaje se ajusta a una zona libre de la sala, y si por cualquier motivo acaba fuera, vuelve a ella.
+
+## [0.14.0] — 2026-11-12
+### Enemigos rediseñados
+- **Siluetas esculpidas**: se acabaron los cuerpos de cajas. Cráneos redondeados, torsos con cintura y hombros caídos, espinillas más finas que los muslos, pies que sobresalen y brazos con antebrazo propio (fino en los famélicos, de gorila en el bruto).
+- **Mandíbula articulada**: los zombis gruñen abriendo y cerrando la boca y la abren del todo al morder; se puede arrancar a tiros.
+- **No hay dos iguales**: cada individuo tiene su propia semilla (heridas, manchas, ropa, pelo, ojo vacío, desgarro en la mejilla, tripas colgando…).
+- **Caminante**: camisa con botones y desgarros, herida abierta en el costado con costillas a la vista, a veces descalzo o con las tripas fuera.
+- **Corredor**: famélico y encorvado, costillas marcadas, garras, melena sucia y ojos rojos.
+- **Escupidor**: encorvado, con una **bolsa de ácido brillante** en la garganta y babeando.
+- **Explosivo**: **barriga hinchada** con pústulas y venas incandescentes.
+- **Escudero**: peto de chapas remachadas, **yelmo con visera** (los ojos brillan por la ranura), hombrera y escudo reforzado.
+- **Trepador**: pálido y alargado, brazos larguísimos con garras y **vértebras saliendo por la espalda**.
+- **Bruto**: enorme, con **joroba llena de púas de hueso**, grilletes, puntos de sutura y antebrazos gigantes.
+- **Esqueleto** rehecho desde cero: fémur, rótula, tibia y peroné, cúbito y radio, falanges, pelvis en cuenco, costillas curvas con esternón, cuello de vértebras, cráneo hueco con cuencas profundas y pómulos, ojos de luz al fondo y un **alma que brilla dentro del pecho**. Lleva taparrabos raído y a veces casco, hombrera y **espada oxidada**.
+- **Ígneo**: carne carbonizada con **grietas de magma** y **llamas** en la cabeza y los hombros.
+- **Minero**: casco con **lámpara**, barba, delantal y un pico a su medida.
+- **Esporado**: un **sombrero de seta gigante** con motas luminosas y setas brotándole de la espalda.
+- **Perro y rata**: hocico, orejas, cola (la de la rata, larga y rosada) y costillas al aire. **Mímico**: hilera de dientes, lengua y tapa que se abre.
+- Los jefes heredan las siluetas nuevas y ganan mandíbula, joroba, llamas o casco según el jefe.
+- Si vuela la cabeza, lo que cuelga de ella (mandíbula, casco, pelo, seta) cae también.
+
+### Interfaz
+- Las **flechas con la distancia (m) a los últimos enemigos** quedan **desactivadas por defecto**; se pueden activar en Ajustes.
+
+### Técnico
+- Los cuerpos sólo recalculan cada fotograma la posición de los vóxeles de superficie; el interior se calcula al cortar. Permite modelos con más del doble de detalle sin coste extra.
+
+## [0.13.0] — 2026-11-12
+### Controles
+- El **cuchillazo rápido** vuelve a la **V** y **inspeccionar el arma** pasa a **Ctrl** (ambas siguen siendo configurables; los ajustes antiguos se migran solos).
+
+### Biomas y progresión
+- **5 biomas + 1 secreto**: Cripta, Cloacas, Minas, Forja y Jardín fúngico, más **El Vacío**. Siempre empiezas en la Cripta; el orden de los otros cuatro es aleatorio en cada partida.
+- Las salas se generan **al azar dentro del pool de su bioma**: cada escenario sólo sale en los biomas donde tiene sentido (vetas de cristal y galerías mineras en las Minas, bosques de hongos en el Jardín, etc.).
+- **Jefes a partir del piso 10**: antes no puede salir ninguno. Desde el piso 10, cualquier puerta de combate puede convertirse al azar en la de un jefe (garantizado si llevas muchas salas sin jefe).
+- **Jefe final y modo infinito**: tras derrotar a los 5 jefes de bioma aparece **El Corazón de la Mazmorra**. Al vencerlo ganas esencia extra y la mazmorra vuelve a empezar, más dura (vuelta 2, 3…).
+- **El Vacío (secreto)**: en cualquier sala de combate puede haber una **pared agrietada con una escalera** detrás. Bajas [E] a 3 salas del Vacío y su guardián; después vuelves a tu bioma.
+
+### Salas nuevas
+- Formas nuevas: **salón en cruz, sala en U, sala en zigzag (N), pasillo muy largo y galería con balcón** (un segundo nivel con escaleras y barandillas).
+- Del bioma: galería minera (raíles, vagonetas, entibado con farolillos), veta de cristal, bosque de hongos, cueva de esporas y santuario del vacío. Charcos nuevos: **esporas venenosas** y **vacío**.
+
+### Eventos de sala
+- **Emboscada**: la sala parece vacía… hasta que salen del suelo a tu alrededor (con oleada extra).
+- **Mercader errante**: al despejar algunas salas aparece un vendedor con dos mejoras rebajadas.
+- **Cofre misterioso** en las salas de recompensa: puede guardar una mejora (a menudo rara) y oro… o ser un **Mímico** que, al morir, escupe su tesoro.
+
+### Enemigos
+- **Esqueleto** rehecho: pelvis, columna, costillas con huecos, articulaciones y un cráneo hueco con mandíbula, dientes y ojos brillantes.
+- **Zombi** con ropa hecha jirones, pelo ralo y mandíbula rota.
+- Nuevos enemigos de bioma: **Minero** (pico y lámpara en el casco que ilumina) y **Esporado** (revienta en una nube venenosa al morir). Nuevo **Mímico**.
+
+### Jefes: cada uno pelea a su manera
+- **El Coloso Putrefacto** (Cripta): **salta** sobre ti con onda de choque (hasta 3 saltos seguidos), golpe en el suelo, lanza rocas y levanta esqueletos.
+- **El Ancestro Hueco** (Cloacas): el *bullet hell* de siempre, flotando: espirales, lluvia y calaveras teledirigidas.
+- **El Capataz** (Minas, nuevo): lanza **cartuchos de dinamita** que chisporrotean antes de explotar, provoca **derrumbes** de rocas desde el techo y hace barridos con el pico.
+- **El Carnicero** (Forja): te **engancha con una cadena** y te arrastra hasta su **cuchilla giratoria**.
+- **La Reina Micelio** (Jardín, nueva, a cuatro patas): **pare crías** en sacos que revientan, suelta **nubes de esporas** y hace brotar **raíces** bajo tus pies (con aviso en el suelo).
+- **El Guardián del Vacío** (secreto): **rayos giratorios** que barren la sala, teletransporte y orbes.
+- **El Corazón de la Mazmorra** (final): mezcla los ataques de todos.
+
+### Presentación
+- **Sombras de las antorchas**: la antorcha más cercana proyecta sombras de verdad (calidad alta; desactivable).
+- **Polvo en el haz de la linterna** (desactivable en Ajustes).
+- **Música por bioma**: cada uno tiene tono, tempo y una capa propia (campana en la Cripta, goteos en las Cloacas, picos en las Minas, yunque en la Forja, campanillas en el Jardín, disonancias en el Vacío).
+
+### Técnico
+- **Calidad automática**: si los FPS caen por debajo de ~42 de forma sostenida baja un escalón, y vuelve a subir si sobra rendimiento (nunca por encima de la que elegiste).
+- **Exportar / importar el perfil** (esencia, Santuario, armas, skins, códice) a un archivo `.json` desde Ajustes.
+
+## [0.12.0] — 2026-11-12
+### Controles
+- La **linterna** vuelve a la **F**.
+- **Teclas configurables** en Ajustes: linterna (F), inspeccionar arma (**V** por defecto) y cuchillazo rápido (**X** por defecto). Si eliges una tecla ya usada por otra acción, se intercambian. Los textos de ayuda muestran siempre tus teclas.
+
+### Cuchillo
+- Nueva animación: la mano apenas se mueve y es la **hoja la que gira sobre la empuñadura** (tajos de muñeca, estocada con giro y golpe de arriba abajo levantando la hoja). En la inspección, el cuchillo da la voltereta en la mano.
+
+### Iluminación
+- **Muchas menos antorchas**: una cada ~11 m de pared (antes cada 6 m) y algunas faltan al azar. De media hay unas 3-4 por sala.
+
+## [0.11.0] — 2026-11-12
+### Más oscuridad
+- Entre un 28 % y un 50 % de las salas de combate (más cuanto más bajas) están **a oscuras**: sin antorchas en las paredes, sólo con tu linterna (aviso al entrar).
+- La luz ambiente y el relleno alrededor del jugador se reducen todavía más.
+
+### Puertas
+- Las salidas se abren cuando estás **mucho más cerca** (menos de 2 m).
+- **Animación de rastrillo**: los barrotes suben hacia el muro con chirrido de cadenas, polvo y un golpe final.
+
+### Armas
+- **Cuchillo con combo**: tajos alternos a izquierda y derecha, una **estocada** (×1,5 de daño) y un golpe **de arriba abajo** (×1,3), además de un ligero balanceo en reposo.
+- **[F] Inspeccionar el arma**: la acercas, la giras para ver un lado y el otro (el cuchillo da una voltereta en la mano). Se cancela al disparar, recargar o cambiar de arma.
+- La **linterna** pasa a la tecla **L**.
+
+## [0.10.0] — 2026-11-12
+### Una estructura reconocible por sala
+- Salas nuevas: **Comedor de guardia** (mesas largas con sillas y chimenea), **Herrería** (gran horno, yunques y armeros), **Río de lava / Canal de ácido** (un río cruza la sala; se pasa por puentes de piedra con pretil), **Sala del trono** (estrado, trono, estatuas y alfombra) y **Laboratorio del alquimista** (calderos burbujeantes, mesas llenas de redomas).
+- La Columnata usa columnas clásicas (basa, fuste y capitel) y el Matadero, jaulas colgantes.
+
+### El escenario como arma
+- **Física de destrucción**: si un trozo grande se queda sin apoyo cae entero y **aplasta** lo que haya debajo (lámparas de araña, jaulas colgantes, cajas apiladas…). Dispara a la cadena para dejarla caer sobre los zombis.
+- **Fuego, aceite y ácido**: la madera y la tela arden, se consumen y propagan el fuego; los barriles de madera rotos derraman **aceite** que se prende con explosiones, balas incendiarias o zombis en llamas; el ácido de los escupidores corroe los objetos.
+- **Cámaras secretas**: algunos muros de ladrillo **agrietado** esconden un hueco con un cofre (oro y corazón) y a veces una mejora rara.
+
+### Enemigos de bioma
+- **Esqueleto** (Cripta): se recompone una vez si no le rompes el cráneo.
+- **Rata gigante** (Cloacas): rápidas, en manada.
+- **Ígneo** (Forja): inmune al fuego, deja brasas a su paso y estalla en llamas al morir.
+
+### Códice y récords
+- Nuevo **Códice** en el menú: bestiario con bajas por enemigo, mejoras descubiertas y la mejor partida.
+- Puntuación al terminar cada partida (piso, bajas, jefes, oro y secretos) con aviso de **nuevo récord** y tiempo de partida.
+
+### Ambientación
+- Iluminación mucho **más oscura**: la linterna (más potente y con un leve titileo), las antorchas, los braseros y las lámparas mandan.
+- **Techos más altos** según el bioma (y aún más en la Capilla, la Sala del trono y las guaridas de jefe).
+
+### Puertas
+- Las salidas de una sala despejada ya no se abren solas: se abren **al acercarte**, y en ese momento se prepara lo que hay detrás (el vendedor, el altar…), así nunca ves la sala vacía.
+
+### Rendimiento
+- Los objetos intactos de cada zona de la sala se dibujan juntos en un solo lote; sólo los que dañas pasan a tener lote propio. Las estanterías y estatuas fusionan sus vóxeles en vertical.
+
+## [0.9.0] — 2026-11-12
+### Progresión
+- **Mercancía de la tienda** en el Santuario: Bandolera, Botiquín de campaña, Imán de oro, Piernas de gato y Doble impulso ya no salen de serie; se desbloquean con esencia y a partir de entonces pueden aparecer a la venta en las tiendas (sólo en tiendas).
+- **Esencia más escasa**: se gana bastante menos por partida (piso, jefes y bajas) y la ofrenda de las Fuentes de almas da menos y cuesta más. Las bendiciones y el arsenal son más caros.
+
+### Todo se rompe
+- Telarañas, cadenas, estandartes, velas, huesos, charcos, vigas y postes también se pueden destrozar.
+- Los objetos ya no revientan de golpe al llegar a cierto daño: se rompen vóxel a vóxel tanto como quieras. Lo que se queda sin apoyo se cae a trozos (lo de arriba de un barril, una cadena cortada, lo que había encima de una mesa…).
+- Las balas atraviesan lo blando (telarañas, paja, charcos, alfombras) rompiéndolo a su paso.
+- Los objetos sólidos ya no se pueden usar de escalón (los zombis se subían a los bancos y se atascaban).
+
+### Salas más variadas y reconocibles
+- Cada tipo de sala tiene su propio tema de decorado. Las lápidas sólo aparecen en la Cripta.
+- **Capilla**: techo de 7 m, columnas gruesas, alfombra hasta el altar, bancos orientados hacia él, estatua, vidrieras de colores y lámparas de araña (siempre se entra por el lado opuesto al altar).
+- Los "muros aleatorios" se sustituyen por estructuras reconocibles:
+  - **Templo en ruinas**: columnata con columnas partidas, tambores caídos por el suelo y estatuas de caballeros.
+  - **Claustro**: fuente central, arcada de columnas y árboles secos en parterres.
+  - **Galería de arcos**: muros con arcos de medio punto.
+  - **Barricadas**: filas de estacas de madera, sacos y cajas.
+- Biblioteca con lámparas de araña; Matadero con muchos ganchos; Celdas con paja; Polvorín lleno de barriles rojos…
+
+## [0.8.0] — 2026-11-12
+### Escenarios con detalle
+- **Objetos de vóxel fino** (1/16 m, cuatro veces más pequeños que el mundo): ahora se reconocen de un vistazo.
+  - Destructibles (las balas los van agujereando hasta que revientan, a veces sueltan oro o un corazón): barriles de madera con flejes, **barriles explosivos** rojos con franjas de peligro (al dañarlos se enciende la mecha y estallan en cadena), cajas, vasijas de barro, sacos, lápidas, sarcófagos, estanterías con libros, mesas y bancos de capilla.
+  - Decoración: velas, calaveras y huesos, escombros, charcos, paja, cadenas y ganchos colgando del techo, telarañas en las esquinas, estandartes, armeros, tuberías (cloacas), yunques (forja) y braseros de hierro.
+- **Ambientación de mazmorra**: muros de piedra gris con zócalo de sillares, entibado de madera (postes y vigas en el techo) y cada sala se "viste" según su tipo y bioma (la Cripta con sarcófagos, lápidas y velas; la Bodega con barriles y estanterías; la Biblioteca con estanterías de libros; la Capilla con bancos; las Celdas con paja y huesos…).
+
+### Sensación al recibir daño
+- Indicador rojo de la **dirección** del golpe, **salpicaduras de sangre** en los bordes de la pantalla, número de daño junto a la barra de vida (que tiembla), sacudida y ladeo de cámara y un breve **parón de impacto**.
+- Golpe sordo y pitido de oídos en los golpes fuertes; con poca vida se oye el **latido** y el mundo pierde color.
+- Opción en Ajustes para desactivar los efectos de pantalla.
+
+### Calidad de vida
+- Mejoras nuevas: **Doble impulso** (cargas de esquiva, hasta 3), **Piernas de gato** (la esquiva recarga antes), **Bandolera** y **Botiquín de campaña** (curas al despejar sala). El **Imán de oro** ahora indica su radio (+3 m) y el radio base es mayor.
+- Al despejar una sala, el oro que quede en el suelo vuela hacia ti.
+- Si quedan 3 enemigos o menos durante un rato, unas flechas indican dónde están.
+- Ajuste **Correr siempre** (Shift para andar).
+
+### Arreglos
+- Las púas ahora bajan con animación (antes desaparecían de golpe).
+
 ## [0.7.0] — 2026-11-12
 ### IA de los enemigos
 - **Cerco por turnos**: sólo unos pocos zombis (2–5 según el piso) atacan a la vez; el resto espera en un anillo alrededor del jugador que se va cerrando poco a poco. Los que llevan más rato esperando tienen prioridad para el siguiente turno.
@@ -59,4 +356,9 @@ La versión actual también se ve en la esquina de la pantalla de título (`VX.V
 ## [0.1.0]
 - Primera versión: shooter vóxel en primera persona con salas procedurales (combate, tienda, recompensa, jefe), zombis destructibles, paredes destructibles y oro.
 
+[0.12.0]: https://github.com/USUARIO/BoxelDungeon/releases/tag/v0.12.0
+[0.11.0]: https://github.com/USUARIO/BoxelDungeon/releases/tag/v0.11.0
+[0.10.0]: https://github.com/USUARIO/BoxelDungeon/releases/tag/v0.10.0
+[0.9.0]: https://github.com/USUARIO/BoxelDungeon/releases/tag/v0.9.0
+[0.8.0]: https://github.com/USUARIO/BoxelDungeon/releases/tag/v0.8.0
 [0.7.0]: https://github.com/USUARIO/BoxelDungeon/releases/tag/v0.7.0

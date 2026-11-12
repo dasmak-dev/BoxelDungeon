@@ -209,3 +209,115 @@ button.small { font-size: 16px; padding: 10px 24px; }
 .sancList button { padding: 7px 14px; }
 #versionTag { position: fixed; right: 14px; bottom: 10px; font-size: 12px; letter-spacing: 2px; opacity: .45; }
 .sancNote { font-size: 12px; opacity: .7; max-width: 340px; margin: -4px 0 10px; line-height: 1.5; }
+
+/* ---- Daño recibido ---- */
+#bloodScreen { position: absolute; inset: 0; pointer-events: none; opacity: 0; mix-blend-mode: multiply; }
+#dmgDirs { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.dmgArc { position: absolute; left: -150px; top: -150px; width: 300px; height: 300px; border-radius: 50%;
+  background: conic-gradient(from calc(var(--w) / -2), rgba(255,25,15,.95) 0, rgba(255,25,15,.95) var(--w), transparent var(--w));
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%, #000 70%, transparent 71%);
+          mask: radial-gradient(circle, transparent 62%, #000 63%, #000 70%, transparent 71%);
+  animation: dmgArc 1.1s ease-out forwards; filter: drop-shadow(0 0 6px rgba(255,0,0,.8)); }
+@keyframes dmgArc { 0% { opacity: 1; transform-origin: center; } 100% { opacity: 0; } }
+#bottomLeft.hit { animation: hpShake .35s; }
+@keyframes hpShake { 0%,100% { transform: none; } 20% { transform: translate(-6px, 2px); } 40% { transform: translate(5px, -2px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(2px, 0); } }
+#bottomLeft.hit .bar.hp { box-shadow: 0 0 14px rgba(255,40,30,.9); }
+.dmgNum { position: absolute; left: 290px; bottom: 26px; color: #ff4433; font-size: 24px; font-weight: 800; text-shadow: 2px 2px 0 #000;
+  animation: dmgNum .9s ease-out forwards; }
+@keyframes dmgNum { 0% { transform: translateY(0) scale(1.4); opacity: 1; } 100% { transform: translateY(-40px) scale(1); opacity: 0; } }
+#dashPip.multi { width: 46px; margin-left: -23px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.15) 0 calc(100% / var(--n) - 3px), transparent calc(100% / var(--n) - 3px) calc(100% / var(--n))); }
+/* localizador de enemigos rezagados */
+#locator { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+#locator i { position: absolute; left: -9px; top: -9px; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
+  border-bottom: 16px solid rgba(255, 120, 60, .85); filter: drop-shadow(0 0 4px #000); }
+#locator i b { position: absolute; top: 16px; left: -14px; width: 28px; font-size: 10px; text-align: center; color: #ffb38a; font-style: normal; }
+.sancCols { flex-wrap: wrap; justify-content: center; }
+.sancList { width: 300px; }
+.sancList button.on:disabled { opacity: .75; }
+/* ---- Códice ---- */
+#codex { overflow-y: auto; justify-content: flex-start; padding-top: 5vh; padding-bottom: 4vh; }
+#codex h2 { font-size: 46px; }
+#codexBest { font-size: 15px; letter-spacing: 1px; margin: 4px 0 16px; }
+#codexBest b { color: #ffd23f; }
+.codexList { display: flex; flex-direction: column; gap: 6px; width: 380px; max-height: 60vh; overflow-y: auto; padding-right: 6px; }
+.ce { background: #221d26; padding: 7px 12px; text-align: left; font-size: 14px; letter-spacing: 1px; }
+.ce span { float: right; color: #ffd23f; font-size: 12px; }
+.ce small { display: block; opacity: .7; font-size: 11px; margin-top: 3px; }
+.ce.locked { opacity: .45; }
+.settingsGrid .keyBind { min-width: 150px; padding: 6px 14px; font-size: 14px; letter-spacing: 2px; }
+.row.tight { margin-top: 0; gap: 8px; }
+
+/* ---------- Mapa (tecla M) ---------- */
+#mapOverlay {
+  position: absolute; left: 50%; top: 14%; transform: translateX(-50%);
+  min-width: 420px; max-width: 80vw; padding: 18px 24px;
+  background: rgba(10, 8, 12, 0.88); border: 2px solid #5b4a33; border-radius: 6px;
+  color: #e6dcc8; font-family: inherit; text-align: center; pointer-events: none;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+}
+#mapOverlay h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: 2px; color: #ffd23f; }
+#mapOverlay h3 { margin: 14px 0 6px; font-size: 14px; color: #c8b896; }
+#mapOverlay .msub { font-size: 12px; opacity: 0.8; margin-bottom: 10px; }
+#mapOverlay .mrow { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px; }
+#mapOverlay .mstep { display: inline-block; border-bottom: 3px solid; padding: 2px 3px; }
+#mapOverlay .mchip { font-size: 20px; text-shadow: 0 0 6px currentColor; }
+#mapOverlay .mcur { outline: 2px solid #fff; border-radius: 3px; padding: 0 2px; }
+#mapOverlay .mlink { opacity: 0.4; }
+#mapOverlay .mexits { display: flex; gap: 18px; justify-content: center; }
+#mapOverlay .mexit { background: rgba(255, 255, 255, 0.05); padding: 8px 12px; border-radius: 4px; font-size: 13px; }
+#mapOverlay .msecret { color: #c79bff; margin-top: 4px; }
+#mapOverlay .mnext { margin-top: 4px; opacity: 0.9; }
+#mapOverlay .mhint { margin-top: 12px; font-size: 11px; opacity: 0.6; }
+
+/* ---------- Modo Horda ---------- */
+.menuList button.horde { border-color: #c9762a; }
+.menuList button.horde small { color: #e9a560; }
+#hordeSelect { overflow-y: auto; }
+.hordeIntro { max-width: 760px; margin: 0 auto 18px; text-align: center; color: #b9b2c4; line-height: 1.55; font-size: 14px; }
+.hordeMaps { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+.hmap { width: 300px; background: rgba(20, 18, 28, 0.88); border: 2px solid #3a3346; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.hmap:not(.locked):hover { border-color: #c9762a; }
+.hmap h3 { margin: 4px 0 0; letter-spacing: 3px; color: #f2e6d8; font-size: 18px; }
+.hmap p { margin: 0; color: #a9a2b5; font-size: 13px; line-height: 1.45; min-height: 56px; }
+.hmap .hrec { color: #e9a560; font-size: 13px; }
+.hmap button { margin-top: 4px; padding: 10px; font-size: 16px; letter-spacing: 3px; background: #c9762a; color: #120f16; border: none; cursor: pointer; font-family: inherit; }
+.hmap button:disabled { background: #3a3346; color: #6c6478; cursor: default; }
+.hmap.locked { opacity: 0.6; }
+.hmapArt { height: 130px; border: 1px solid #2a2433; position: relative; overflow: hidden; }
+.hmapArt.ciudad {
+  background:
+    linear-gradient(to top, #0c0c12 0 18%, transparent 18%),
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(255, 200, 110, 0.75) 9px 13px, transparent 13px 22px) 30px 30px / 40px 70px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 8px, rgba(10, 12, 18, 1) 8px 14px) 30px 30px / 40px 70px no-repeat,
+    linear-gradient(#131722, #131722) 26px 24px / 48px 106px no-repeat,
+    linear-gradient(#0f1219, #0f1219) 92px 54px / 38px 76px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 9px, rgba(140, 190, 255, 0.55) 9px 12px) 160px 14px / 44px 116px no-repeat,
+    linear-gradient(#11141c, #11141c) 156px 10px / 52px 120px no-repeat,
+    linear-gradient(#0d1016, #0d1016) 222px 64px / 48px 66px no-repeat,
+    radial-gradient(circle at 80% 18%, rgba(220, 225, 255, 0.85) 0 8px, transparent 9px),
+    linear-gradient(#06070c, #1b2033);
+}
+.hmapArt.ciudad::after { content: ''; position: absolute; left: 0; right: 0; bottom: 8px; height: 3px; background: repeating-linear-gradient(90deg, #d8c560 0 14px, transparent 14px 28px); opacity: 0.7; }
+.hmapArt.soon { background: repeating-linear-gradient(45deg, #17141e 0 10px, #1d1925 10px 20px); }
+.hmap button { align-items: center; text-align: center; box-shadow: 0 4px 0 #6b3a0f; }
+.menuList button.horde { box-shadow: 0 6px 0 #6b3a0f, 6px 12px 0 rgba(0,0,0,.5); }
+/* pantallas bajas: el título y el menú caben sin cortarse */
+@media (max-height: 820px) {
+  .screen h1 { font-size: 64px; }
+  .titleBox { gap: 10px; }
+  .menuList { gap: 10px; }
+  .menuList button { padding: 9px 30px; font-size: 19px; }
+}
+
+.hmapArt.coliseo {
+  background:
+    linear-gradient(to top, #6b4a2a 0 16%, transparent 16%),
+    repeating-linear-gradient(90deg, #2a1a14 0 10px, transparent 10px 26px) 0 34px / 100% 34px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 4px, #4a3424 4px 22px, transparent 22px 26px) 0 30px / 100% 44px no-repeat,
+    linear-gradient(#5a3f2a, #3b281c) 0 26px / 100% 60px no-repeat,
+    radial-gradient(circle at 50% 76%, rgba(255, 150, 60, 0.6) 0 6px, transparent 22px),
+    radial-gradient(circle at 20% 72%, rgba(255, 140, 50, 0.5) 0 4px, transparent 16px),
+    radial-gradient(circle at 82% 72%, rgba(255, 140, 50, 0.5) 0 4px, transparent 16px),
+    linear-gradient(#1a0f1e, #6b2d24 70%, #b8582c);
+}

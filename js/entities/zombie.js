@@ -17,6 +17,15 @@
     shielder: { name: 'Escudero', hp: 110, speed: 1.35, dmg: 14, gold: [4, 6], reach: 1.1, lean: 0.05, shield: true },
     climber: { name: 'Trepador', hp: 50, speed: 2.6, dmg: 9, gold: [3, 4], reach: 1.0, lean: 0.35, climb: true, dodge: true },
     dog: { name: 'Perro zombi', hp: 40, speed: 5.0, dmg: 9, gold: [2, 3], reach: 1.15, lean: 0, quad: true, dodge: true },
+    // de bioma
+    archer: { name: 'Esqueleto arquero', hp: 45, speed: 1.7, dmg: 12, gold: [3, 5], reach: 1.0, lean: 0.05, ranged: true, arrow: true },
+    necro: { name: 'Nigromante', hp: 95, speed: 1.35, dmg: 10, gold: [6, 10], reach: 1.0, lean: 0.1, ranged: true, necro: true },
+    skeleton: { name: 'Esqueleto', hp: 55, speed: 2.1, dmg: 11, gold: [2, 4], reach: 1.05, lean: 0.05, reassemble: true },
+    ember: { name: 'Ígneo', hp: 85, speed: 1.6, dmg: 13, gold: [3, 5], reach: 1.05, lean: 0.1, fireImmune: true, trail: true },
+    miner: { name: 'Minero', hp: 100, speed: 1.5, dmg: 16, gold: [3, 5], reach: 1.3, lean: 0.12, tool: true, lamp: true },
+    sporeling: { name: 'Esporado', hp: 60, speed: 1.9, dmg: 9, gold: [2, 4], reach: 1.0, lean: 0.2, sporeBurst: true },
+    mimic: { name: 'Mímico', hp: 260, speed: 3.6, dmg: 20, gold: [12, 18], reach: 1.2, lean: 0, quad: true, mimic: true },
+    rat: { name: 'Rata gigante', hp: 16, speed: 4.4, dmg: 5, gold: [1, 1], reach: 0.75, lean: 0, quad: true },
   };
 
   const FALL_TIME = 0.6;
@@ -29,10 +38,18 @@
     runner: { ring: true, accel: 10, turn: 9, mass: 0.8, ringAdd: 1.2, hitRun: true, eager: 1, dodge: true },
     brute: { ring: false, accel: 3, turn: 2.6, mass: 3 },
     spitter: { ring: false, accel: 5, turn: 6, mass: 1, keep: [5.5, 10] },
+    archer: { ring: false, accel: 6, turn: 7, mass: 0.8, keep: [7, 13] },
+    necro: { ring: false, accel: 4, turn: 5, mass: 1, keep: [8, 14] },
     exploder: { ring: false, accel: 6, turn: 6, mass: 1 },
     shielder: { ring: true, accel: 4, turn: 7, mass: 1.8, ringAdd: -0.5, eager: 1.5, faceAlways: true },
     climber: { ring: true, accel: 9, turn: 9, mass: 0.8, ringAdd: 0.5, behind: true, climb: true, dodge: true },
     dog: { ring: false, accel: 11, turn: 10, mass: 0.7, dodge: true },
+    skeleton: { ring: true, accel: 7, turn: 7, mass: 0.8 },
+    ember: { ring: true, accel: 4, turn: 5, mass: 1.3 },
+    rat: { ring: false, accel: 14, turn: 14, mass: 0.3 },
+    mimic: { ring: false, accel: 9, turn: 8, mass: 2.5 },
+    miner: { ring: true, accel: 4, turn: 5, mass: 1.5, ringAdd: -0.3 },
+    sporeling: { ring: true, accel: 8, turn: 8, mass: 0.8, ringAdd: 0.8, eager: 1 },
   };
 
   class Zombie {
@@ -41,10 +58,12 @@
       this.kind = kind;
       this.T = T;
       this.isBoss = false;
-      this.elite = !!opts.elite;
+      this.elite = !!opts.elite || !!opts.champion;
+      this.champion = !!opts.champion;
       const cfg = VX.Models.zombieConfigs[kind];
       let model = T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
       if (T.shield) model = VX.Models.addShield(model, cfg);
+      if (cfg.tool) model = VX.Models.addTool(model, cfg);
       if (this.elite) {
         for (const p of model.parts) for (const v of p.vox) {
           if (p.armor) continue;
@@ -52,17 +71,22 @@
           else { v.r = v.r * 0.75 + 0.12; v.g *= 0.72; v.b *= 0.75; }
         }
       }
-      this.body = new VX.VoxelBody(model, this.elite ? 1.08 : 1);
+      this.body = new VX.VoxelBody(model, this.champion ? 1.4 : this.elite ? 1.08 : 1);
+      if (this.champion) {
+        // campeón: dorado y brillante
+        for (const p of model.parts) for (const v of p.vox) if (v.e > 0) { v.r = 1; v.g = 0.8; v.b = 0.2; v.e = 1; }
+      }
       this.x = x; this.z = z;
-      this.y = opts.y || 0; this.vy = 0;
+      this.y = opts.y || 0; this.vy = 0; this.embedN = 0;
       this.body.x = x; this.body.z = z; this.body.y = this.y;
       // ---- dificultad según el piso ----
       const f = floor;
       const eliteK = this.elite ? 1.7 : 1;
       const greed = VX.game && VX.game.weapon && VX.game.weapon.mods.greed ? 1.25 : 1;
-      this.maxHp = this.hp = T.hp * (1 + f * 0.15) * eliteK * greed;
+      this.maxHp = this.hp = T.hp * (1 + f * 0.15) * eliteK * greed * (this.champion ? 3.5 : 1);
+      if (this.champion) this.name = 'Campeón: ' + T.name;
       this.baseSpeed = Math.min(T.speed * (1 + f * 0.03), T.speed * 1.7) * M.rand(0.9, 1.1) * (this.elite ? 1.2 : 1);
-      this.dmg = Math.round(T.dmg * (1 + f * 0.08) * (this.elite ? 1.3 : 1));
+      this.dmg = Math.round(T.dmg * (1 + f * 0.08) * (this.elite ? 1.3 : 1) * (this.champion ? 1.25 : 1));
       this.cdBase = Math.max(0.55, 1.15 - f * 0.025);
       this.gold = this.elite ? [T.gold[0] * 2, T.gold[1] * 2] : T.gold;
       this.reach = T.reach;
@@ -120,6 +144,16 @@
 
     followGround(dt, world) {
       if (this.climbing > 0 || this.state === 'leap') { this.body.y = this.y; return; }
+      // desatasco: si el cuerpo ha quedado metido en algo sólido (al bajar de un coche,
+      // un trozo de pared que le cae encima…), sale al hueco libre más cercano
+      this.embedT = (this.embedT || 0) - dt;
+      if (this.embedT <= 0 && !this.isBoss) {
+        this.embedT = 0.25;
+        const r = Math.min(this.radius, 0.22), h = this.crawling ? 0.45 : (this.T.quad ? 0.75 : 1.4), yb = this.y + 0.06;
+        if (world.boxCollides(this.x - r, yb, this.z - r, this.x + r, yb + h, this.z + r)) {
+          if (++this.embedN >= 2) { this.unstick(world, r, h); this.embedN = 0; }
+        } else this.embedN = 0;
+      }
       const g = world.groundAt(this.x, this.z);
       if (this.y > g + 0.02) { this.vy -= 18 * dt; this.y = Math.max(g, this.y + this.vy * dt); if (this.y === g) this.vy = 0; }
       else { this.y = M.lerp(this.y, g, Math.min(1, dt * 22)); this.vy = 0; }
@@ -136,10 +170,18 @@
       this.climbing = Math.max(0, this.climbing - dt);
 
       // ardiendo
+      if (this.T.fireImmune) this.burn = 0;
+      // el ígneo deja un rastro de brasas
+      if (this.T.trail && this.spawnT <= 0) { this.trailT = (this.trailT || 0) - dt; if (this.trailT <= 0) { this.trailT = 0.9; game.addFire(this.x, this.z, 0.45, 2.2); } }
+      // aura del campeón
+      if (this.champion && Math.random() < 0.5) game.particles.spawn(this.x + M.rand(-0.5, 0.5), this.y + M.rand(0.2, this.body.height), this.z + M.rand(-0.5, 0.5), 0, M.rand(0.3, 0.9), 0, 1, 0.8, 0.25, 0.025, 0.7, 1, 1);
+      // el agua frena y apaga el fuego
+      this.wet = game.waterAt ? game.waterAt(this.x, this.z) : false;
+      if (this.wet) this.burn = 0;
       if (this.burn > 0) {
         this.burn -= dt;
         this.hp -= 16 * dt;
-        if (Math.random() < 0.6) game.particles.spawn(this.x + M.rand(-0.25, 0.25), this.y + M.rand(0.3, 1.5), this.z + M.rand(-0.25, 0.25), M.rand(-0.3, 0.3), M.rand(1, 2.5), M.rand(-0.3, 0.3), 1, M.rand(0.35, 0.7), 0.1, M.rand(0.04, 0.08), M.rand(0.3, 0.6), 1, 1);
+        if (Math.random() < 0.15) game.particles.spawn(this.x + M.rand(-0.25, 0.25), this.y + M.rand(0.8, 1.8), this.z + M.rand(-0.25, 0.25), M.rand(-0.3, 0.3), M.rand(1.5, 2.5), M.rand(-0.3, 0.3), 1, M.rand(0.5, 0.8), 0.15, 0.018, M.rand(0.4, 0.8), 1, 1);
         if (this.hp <= 0 && this.spawnT <= 0) { this.die([0, 1, 0], game); return; }
       }
 
@@ -277,6 +319,9 @@
         }
       }
 
+      // en la Horda, si te subes a un coche o a un muro bajo, no se quedan mirando: empujan y trepan
+      if (game.mode === 'horde' && !this.T.quad && !this.isBoss && P.y - this.y > 0.9 && dist < 2.6) { gx = toX; gz = toZ; want = 1; }
+
       // esquivar cuando el jugador le apunta
       if (B.dodge && !this.crawling && this.state === 'chase' && dist > 3 && dist < 16) {
         this.dodgeCd -= dt;
@@ -326,7 +371,7 @@
       gx = gx * want + ax; gz = gz * want + az;
       gl = Math.hypot(gx, gz);
       const mag = Math.min(gl, Math.max(want, 0.6));
-      let spd = (spdOverride || this.speed) * mag * slow;
+      let spd = (spdOverride || this.speed) * mag * slow * (this.wet ? 0.6 : 1);
       if (this.dodging > 0) spd = this.baseSpeed * 2.2;
       if (busy && !this.T.quad) spd *= 0.15;
       const dvx = gl > 1e-4 ? (gx / gl) * spd : 0, dvz = gl > 1e-4 ? (gz / gl) * spd : 0;
@@ -341,7 +386,9 @@
       const okz = this.tryMove(0, vz * dt, game.world);
       if (!okz) this.vz *= 0.3;
       // trepador: si un obstáculo le corta el paso, trepa por él
-      if (B.climb && spd > 0 && (!okx || !okz) && this.blockedH && this.blockedH - this.y < 3.2) {
+      // en la Horda cualquiera trepa a un coche o a una marquesina si te subes encima
+      const climbs = B.climb || (game.mode === 'horde' && !this.T.quad && !this.isBoss && game.player.y - this.y > 0.9 && Math.hypot(game.player.x - this.x, game.player.z - this.z) < 5);
+      if (climbs && spd > 0 && (!okx || !okz) && this.blockedH && this.blockedH - this.y < 3.2) {
         this.climbing = 0.15;
         this.y += 2.4 * dt;
         this.vy = 0;
@@ -386,6 +433,7 @@
       else if (this.windup > 0) {
         this.windup -= dt;
         if (this.windup <= 0) {
+          if (this.raising) { this.raising = false; this.attackCd = 0.5; this.windup = 0; return; }
           if (this.spitting) this.spit(game);
           else if (dist < this.attackReach + 0.45 && Math.abs(P.y - this.y) < 1.2) {
             let dmg = this.dmg;
@@ -406,7 +454,11 @@
         if (this.T.quad) { this.kx += (dx / (dist || 1)) * 4; this.kz += (dz / (dist || 1)) * 4; }  // salto
       } else if (canAttack && this.T.ranged && !this.crawling && this.los && dist > 3 && dist < 14) {
         this.spitCd -= dt;
-        if (this.spitCd <= 0) { this.windup = 0.7; this.windTotal = 0.7; this.spitting = true; this.spitCd = Math.max(1.6, 3.2 - game.floor * 0.08); }
+        if (this.spitCd <= 0) {
+          // el nigromante prefiere levantar muertos si hay restos cerca
+          if (this.T.necro && game.raiseDead && game.raiseDead(this)) { this.spitCd = 6; this.windup = 1.0; this.windTotal = 1.0; this.raising = true; }
+          else { this.windup = this.T.arrow ? 0.9 : 0.7; this.windTotal = this.windup; this.spitting = true; this.spitCd = Math.max(this.T.arrow ? 1.8 : 1.6, (this.T.arrow ? 3 : 3.2) - game.floor * 0.08); }
+        }
       }
 
       this.groanT -= dt;
@@ -492,6 +544,19 @@
 
     spit(game) {
       const P = game.player;
+      if (this.T.arrow || this.T.necro) {
+        const hd = this.body.byName.head;
+        const sx = this.x, sy = this.y + this.body.height * 0.75, sz = this.z;
+        const tx = P.x + P.vx * 0.25, tz = P.z + P.vz * 0.25, ty = P.y + 1.2;
+        const d = Math.hypot(tx - sx, ty - sy, tz - sz) || 1, spd = this.T.arrow ? 20 : 9;
+        const T = d / spd;
+        void hd;
+        game.projectiles.push(this.T.arrow
+          ? { x: sx, y: sy, z: sz, vx: (tx - sx) / T, vy: (ty - sy) / T + 0.5 * 4 * T, vz: (tz - sz) / T, g: 4, dmg: this.dmg * 1.2, life: 2, rot: 0, col: [0.55, 0.4, 0.25], glow: 0, arrow: true, acid: true, blastR: 0.15, blockDmg: 6 }
+          : { x: sx, y: sy, z: sz, vx: (tx - sx) / T, vy: (ty - sy) / T, vz: (tz - sz) / T, g: 0, home: 1.6, dmg: this.dmg * 1.4, life: 4, rot: 0, col: [0.6, 0.2, 1], glow: 1, acid: true, size: 0.05, blastR: 0.3, blockDmg: 10 });
+        VX.Audio.swish();
+        return;
+      }
       const head = this.body.byName.head;
       const sx = head.detached ? this.x : head.wp[0], sy = head.detached ? this.y + 1.3 : head.wp[1] + 0.15, sz = head.detached ? this.z : head.wp[2];
       const tx = P.x + P.vx * 0.5, tz = P.z + P.vz * 0.5;
@@ -596,6 +661,7 @@
       P_.torso.ax = mix(S.torso, C.torso) + fl.x; P_.torso.az = mix(S.torsoZ, C.torsoZ) + fl.z;
       P_.head.ax = mix(S.head, C.head) + fl.x * 1.4; P_.head.az = mix(S.headZ, C.headZ) + fl.z * 1.2;
       if (P_.shield) { P_.shield.ax = -0.05 + fl.x * 0.5; P_.shield.az = Math.sin(this.walkT) * 0.04; }
+      this.animExtras(dt, k);
       b.pitch = mix(S.pitch, C.pitch);
       if (this.spawnT <= 0) b.yOff = mix(S.yOff, C.yOff);
     }
@@ -613,7 +679,46 @@
       P_.head.ax = 0.1 + Math.sin(this.walkT * 2) * 0.06 + (this.windup > 0 ? -Math.sin(k * Math.PI) * 0.5 : 0) + fl.x;
       P_.head.az = this.tilt * 0.5;
       b.pitch = this.windup > 0 ? -Math.sin(k * Math.PI) * 0.25 : 0;
+      this.animExtras(dt, k);
       if (this.spawnT <= 0) b.yOff = moving ? Math.abs(Math.sin(this.walkT)) * 0.08 : 0;
+    }
+
+    // Mandíbula que gruñe y muerde, y piezas que cuelgan y se balancean
+    animExtras(dt, k) {
+      const P_ = this.body.byName;
+      const jaw = P_.jaw;
+      if (jaw && !jaw.detached) {
+        const growl = 0.12 + Math.max(0, Math.sin(this.walkT * 0.9 + this.tilt * 9)) * 0.22;
+        const bite = this.windup > 0 ? Math.sin(Math.min(1, k * 1.4) * Math.PI) * 0.75 : 0;
+        jaw.ax = this.dead ? 0.6 : Math.max(growl, bite) + (this.spawnT > 0 ? 0.5 : 0);
+      }
+      if (P_.teeth && !P_.teeth.detached && this.T.mimic) P_.head.ax -= 0.25 + Math.abs(Math.sin(this.walkT * 2)) * 0.5;
+      for (const p of this.body.parts) {
+        if (p.detached) continue;
+        if (p.flicker) { p.ax = Math.sin(this.walkT * 7 + p.alive) * 0.12; p.az = Math.cos(this.walkT * 5.3) * 0.08; }
+        if (p.sway) { p.ax = Math.sin(this.walkT * 1.1) * p.sway + 0.1; p.az = Math.sin(this.walkT * 0.7 + 1) * p.sway * 0.6; }
+      }
+    }
+
+    unstick(world, r, h) {
+      // hueco libre más cercano; mejor al nivel del suelo que encima de un coche
+      let best = null, bs = 1e9;
+      for (const rad of [0.25, 0.45, 0.7, 1.0, 1.4, 1.9, 2.5]) {
+        for (let k = 0; k < 12; k++) {
+          const a = (k / 12) * Math.PI * 2 + rad;
+          const nx = this.x + Math.sin(a) * rad, nz = this.z + Math.cos(a) * rad;
+          const g = world.groundAt(nx, nz);
+          if (Math.abs(g - this.y) > 2.2) continue;
+          if (world.boxCollides(nx - r, g + 0.06, nz - r, nx + r, g + 0.06 + h, nz + r)) continue;
+          const sc = rad + Math.max(0, g - this.y) * 3 + g * 0.5;
+          if (sc < bs) { bs = sc; best = [nx, nz, g]; }
+        }
+        if (best && bs < rad + 0.6) break;
+      }
+      if (!best) return false;
+      [this.x, this.z, this.y] = best; this.vy = 0;
+      this.body.x = this.x; this.body.z = this.z; this.body.y = this.y;
+      return true;
     }
 
     tryMove(dx, dz, world) {
@@ -646,14 +751,19 @@
       // el escudo para las balas: solo se abolla
       if (hit.part.armor) {
         const p = hit.part, r2 = (b.v * (1.2 + dmg / 40)) ** 2;
+        b.ensureAll();
         let n = 0;
         for (const v of p.vox) if (v.alive && (v.wx - hit.vox.wx) ** 2 + (v.wy - hit.vox.wy) ** 2 + (v.wz - hit.vox.wz) ** 2 < r2) { v.alive = false; n++; }
         p.alive -= n;
         VX.updateExposure(p);
+        if (p.alive <= 0) { p.detached = true; b.cascade(game.gibs); }
         game.particles.sparks(hit.vox.wx, hit.vox.wy, hit.vox.wz, -dir[0], 0.3, -dir[2], 6);
         VX.Audio.wall();
         this.kx += dir[0] * 0.8; this.kz += dir[2] * 0.8;
-        if (p.alive / p.total < 0.35) { b.detach('shield', game.gibs, dir[0] * 2, 1.5, dir[2] * 2); game.hud.toast('¡Escudo destrozado!'); }
+        if (p.alive / p.total < 0.35 && !p.noBreak) {
+          b.detach(p.name, game.gibs, dir[0] * 2, 1.5, dir[2] * 2);
+          game.hud.toast({ shield: '¡Escudo destrozado!', helmet: '¡Casco reventado!', buckler: '¡Rodela rota!', pauldron: '¡Hombrera arrancada!' }[p.name] || '¡Armadura rota!');
+        }
         return false;
       }
       const mult = pn === 'head' ? 2.5 : (pn.startsWith('arm') || pn.startsWith('leg') ? 0.7 : 1);
@@ -675,7 +785,7 @@
       } else VX.Audio.flesh();
       if (game.weapon.mods.fire && !(opts && opts.slash)) this.burn = 3;
       if (game.weapon.mods.lifesteal) game.player.heal(0.6);
-      return this.afterDamage(removed, dir, game);
+      return this.afterDamage(removed, dir, game, pn);
     }
 
     blast(x, y, z, R, dmg, game) {
@@ -694,7 +804,7 @@
       return this.afterDamage(removed, dir, game);
     }
 
-    afterDamage(removed, dir, game) {
+    afterDamage(removed, dir, game, pn = '') {
       const b = this.body;
       const res = b.afterCarve(removed, game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5);
       if (Object.keys(res).length) VX.Audio.snap();
@@ -706,7 +816,8 @@
         VX.Profile.addW(this.lastW, 'heads', 1, game);
         this.hp = 0;
       }
-      const legGone = b.broken('legL', 0.45) || b.broken('legR', 0.45);
+      const legHit = pn.startsWith('leg');
+      const legGone = b.broken('legL', 0.6) || b.broken('legR', 0.6) || (legHit && this.hp < this.maxHp * 0.55 && !this.T.bones && Math.random() < 0.4);
       if (this.T.quad) {
         // el perro cojea con cualquier pata rota
         if (legGone || b.broken('armL', 0.45) || b.broken('armR', 0.45)) this.limp = true;
@@ -729,9 +840,34 @@
       if (this.dead) return;
       this.dead = true;
       const b = this.body;
+      // el esqueleto se recompone una vez si no le rompes el cráneo
+      if (this.T.reassemble && !this.champion && !this.risen && !(b.byName.head.detached || b.broken('head', 0.55))) {
+        b.collapse(game.gibs, dir[0], dir[2], 1.5);
+        VX.Audio.crumble();
+        game.queueRise(this.x, this.z, this.elite);
+        game.hud.toast('Los huesos tiemblan… ¡apunta a la cabeza!');
+        return;
+      }
+      if (this.T.trail) game.addFire(this.x, this.z, 1.4, 4);
+      if (this.T.mimic) {
+        // el mímico suelta lo que guardaba de verdad
+        const up = VX.Upgrades.random(1, game, [], 'rare')[0];
+        if (up) game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: this.x, y: game.world.groundAt(this.x, this.z) + 0.3, z: this.z, title: up.name + ' ★ RARA', desc: up.desc, color: up.color, shape: up.shape });
+        game.hud.banner('MÍMICO DERROTADO', 'Ha escupido su tesoro', 2.5);
+      }
+      if (this.T.sporeBurst) { game.addFire(this.x, this.z, 1.5, 4, 'poison'); VX.Audio.splat && VX.Audio.splat(); }
       // el explosivo revienta también al morir (reacción en cadena)
       if (this.T.explode) game.queueExplosion({ x: this.x, y: this.y + 0.8, z: this.z, R: 2.6, dmg: 42 + game.floor * 2, selfK: 1, delay: 0.25 });
-      else if (game.weapon.mods.corpseBlast) game.queueExplosion({ x: this.x, y: this.y + 0.7, z: this.z, R: 1.7, dmg: 40, selfK: 0, delay: 0.3 });
+      else if (game.weapon.mods.corpseBlast) game.queueExplosion({ x: this.x, y: this.y + 0.7, z: this.z, R: game.weapon.mods.bigCorpse ? 2.8 : 1.7, dmg: game.weapon.mods.bigCorpse ? 70 : 40, selfK: 0, delay: 0.3 });
+      if (game.weapon.mods.burnHeal && this.burn > 0) game.player.heal(5);
+      if (!this.T.quad && game.remains) { game.remains.push({ x: this.x, z: this.z, kind: this.kind === 'necro' ? 'walker' : this.kind, t: game.time }); if (game.remains.length > 24) game.remains.shift(); }
+      if (this.champion) {
+        const up = VX.Upgrades.random(1, game, [], 'rare')[0];
+        if (up) game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: this.x, y: game.world.groundAt(this.x, this.z) + 0.3, z: this.z, title: up.name + ' ★ RARA', desc: up.desc, color: up.color, shape: up.shape });
+        game.pickups.dropGold(this.x, this.y + 1, this.z, 15 + game.floor);
+        game.hud.banner('¡CAMPEÓN ABATIDO!', 'Ha dejado algo valioso', 2.5);
+        if (game.champion === this) { game.champion = null; game.hud.hideBoss(); }
+      }
       b.collapse(game.gibs, dir[0], dir[2], 2.2);
       game.particles.blood(this.x, this.y + 0.9, this.z, dir[0], 0.5, dir[2], 14);
       VX.Audio.zombieDie();
@@ -744,6 +880,7 @@
       VX.Profile.add('kills', 1, game);
       if (game.dmgSource === 'knife') VX.Profile.add('knifeKills', 1, game);
       VX.Profile.addW(this.lastW, 'kills', 1, game);
+      VX.Profile.codexKill(this.kind);
       if (this.elite) VX.Profile.addW(this.lastW, 'elites', 1, game);
       if (game.weapon.mods.lifesteal) game.player.heal(3);
       game.onKill(this);

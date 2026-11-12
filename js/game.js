@@ -38,11 +38,23 @@
       this.gibs = [];
       this.projectiles = [];
       this.shockwaves = [];
+      this.telegraphs = [];
       this.pendingExplosions = [];
+      this.doorAnims = [];
+      this.fallers = [];      // trozos de escenario que caen enteros
+      this.oils = [];         // charcos de aceite (arden)
+      this.fires = [];        // fuego en el suelo
+      this.remains = [];      // restos de los caídos (para el nigromante)
+      this.mapPath = [];      // salas recorridas (mapa)
+      this.mapReveal = 0;     // salas que quedan con el mapa estudiado
+      this.blockFallers = []; // estructuras que se derrumban
+      this.rises = [];        // esqueletos que se recomponen
+      this.runTime = 0;
       if (this.bullets) this.bullets.clear();
       this.npcs = [];
       this.boss = null;
       this.upgradesTaken = [];
+      this.synergies = [];
       this.stats = { kills: 0, headshots: 0, bosses: 0, gold: 0, totalGold: 0, shots: 0, hits: 0, purchases: 0 };
       this.floor = 0;
       this.currentRoom = null;
@@ -70,7 +82,10 @@
       this.player.reset();
       this.player.x = 0; this.player.z = r.worldZ(10); this.player.y = 0;
       VX.Renderer.fogColor = VX.ZONES[0].fog.slice();
+      VX.Renderer.fogNear = VX.Renderer.fogFar = VX.Renderer.cullDist = undefined;
+      this.mode = 'dungeon';
       this.state = 'title';
+      document.getElementById('game').style.filter = ''; this.hud.lastSat = 1;
       this.hud.show(false);
       this.hud.hideBoss();
     }
@@ -85,6 +100,8 @@
     }
 
     startRun(save) {
+      this.mode = 'dungeon';
+      VX.Renderer.fogNear = VX.Renderer.fogFar = VX.Renderer.cullDist = undefined;
       this.resetCollections();
       this.world.reset();
       this.particles.clear();
@@ -99,6 +116,7 @@
         Object.assign(this.player, save.player);
         this.weapon.load(save.version2 ? save.weapon : null);
         this.upgradesTaken = (save.upgrades || []).map((id) => VX.Upgrades.byId[id]).filter(Boolean);
+        this.synergies = save.synergies || [];
         Object.assign(this.spawner, save.spawner);
         Object.assign(this.stats, save.stats);
         this.floor = save.floor;
@@ -112,6 +130,7 @@
         this.applyPerks();
       }
       this.player.dashCdBase = VX.Profile.dashCooldown();
+      this.player.dashStock = this.player.dashMax;
       this.priceMul = VX.Profile.priceMul();
       this.player.magnet = Math.max(this.player.magnet, 2 * (VX.Profile.data.perks.iman || 0));
       this.revives = save && save.revives !== undefined ? save.revives : (VX.Profile.data.perks.segunda || 0);
@@ -122,7 +141,7 @@
       this.currentRoom = first;
       first.setDoor('zn', true);
       this.spawner.populateNeighbors(this, first);
-      for (const s of first.exits) first.setDoor(s, false);
+      // las puertas se abren al acercarse (ver openNearDoors)
       // construir mallas de golpe para no ver huecos
       for (const r of this.world.rooms) r.updateMeshes(VX.Renderer, 9999);
 
@@ -136,7 +155,49 @@
       this.hud.show(true);
       VX.Input.lock();
       if (save) this.hud.banner('PARTIDA REANUDADA', `Continúas en el piso ${save.floor}`, 3);
-      else this.hud.banner('BOXEL DUNGEON', 'Cruza la puerta para empezar el descenso  ·  [F] linterna', 3.5);
+      else this.hud.banner('BOXEL DUNGEON', `Acércate a una puerta para abrirla  ·  [${VX.Settings.keyName(VX.Settings.key('flashlight'))}] linterna  ·  [${VX.Settings.keyName(VX.Settings.key('inspect'))}] inspeccionar arma`, 3.5);
+    }
+
+    // ---------------- Modo Horda ----------------
+    startHorde(mapId) {
+      const map = VX.HordeMode.MAPS.find((m) => m.id === mapId) || VX.HordeMode.MAPS[0];
+      this.mode = 'horde';
+      this.hordeMap = map.id;
+      this.resetCollections();
+      this.world.reset();
+      this.particles.clear();
+      this.pickups.clear();
+      this.player.reset();
+      this.weapon.reset();
+      this.spawner.reset();
+      this.hud.hideBoss();
+      this.applyPerks();
+      this.weapon.limited = true;
+      for (const sl of this.weapon.slots) if (!VX.Weapons.DEFS[sl.id].melee) sl.reserve = this.weapon.reserveStart(sl.id);
+      this.player.dashCdBase = VX.Profile.dashCooldown();
+      this.player.dashStock = this.player.dashMax;
+      this.priceMul = VX.Profile.priceMul();
+      this.player.magnet = Math.max(this.player.magnet, 2 * (VX.Profile.data.perks.iman || 0));
+      this.revives = VX.Profile.data.perks.segunda || 0;
+      const r = map.create();
+      r.entered = true; r.cleared = true;
+      this.world.rooms.push(r);
+      this.currentRoom = r;
+      this.zone = map.zone;
+      const Z = VX.ZONES[this.zone];
+      VX.Renderer.fogColor = Z.fog.slice();
+      VX.Renderer.fogNear = Z.fogNear; VX.Renderer.fogFar = Z.fogFar;
+      VX.Renderer.cullDist = Z.fogFar + 6; r.drawDist = Z.fogFar + 8;
+      r.updateMeshes(VX.Renderer, 99999);
+      const st = r.playerStart || { x: r.centerX(), z: r.centerZ() };
+      this.player.x = st.x; this.player.z = st.z; this.player.y = this.world.groundAt(st.x, st.z);
+      this.player.yaw = Math.PI; this.player.pitch = 0;
+      VX.HordeMode.begin(this, map);
+      this.hud.refreshUpgrades(this);
+      this.state = 'playing';
+      VX.Menus.hideAll();
+      this.hud.show(true);
+      VX.Input.lock();
     }
 
     // Mejoras permanentes del Santuario (sólo en partidas nuevas)
@@ -145,19 +206,22 @@
       const P = this.player, W = this.weapon;
       P.maxHp += 10 * pk.vigor; P.hp = P.maxHp;
       W.mods.damage *= 1 + 0.06 * pk.fuerza;
+      W.mods.recoil = (W.mods.recoil || 1) * (1 - 0.12 * (pk.pulso || 0));
+      W.mods.spread *= 1 - 0.1 * (pk.punteria || 0);
       this.stats.gold += 15 * pk.fortuna;
       const sw = VX.Profile.data.startWeapon;
       if (sw && sw !== 'pistol' && VX.Weapons.DEFS[sw] && VX.Profile.weaponUnlocked(sw)) W.slots[0] = W.mk(sw);
       // «Legado»: empiezas con mejoras al azar
       for (let i = 0; i < pk.legado; i++) {
         const up = VX.Upgrades.random(1, this)[0];
-        if (up) { up.apply(this); this.upgradesTaken.push(up); }
+        if (up) { up.apply(this); this.upgradesTaken.push(up); VX.Upgrades.checkSynergies(this); }
       }
     }
 
     pause() {
       if (this.state !== 'playing') return;
       this.state = 'paused';
+      document.getElementById('saveQuitBtn').classList.toggle('hidden', this.mode === 'horde');
       VX.Menus.show('pause');
     }
 
@@ -170,13 +234,20 @@
 
     // Guardar y salir (suspender): sólo se puede reanudar una vez y se borra al morir
     saveAndQuit() {
+      if (this.mode === 'horde') { this.abandonRun(); return; }
       const r = this.currentRoom, Sp = this.spawner;
       const snap = { floor: this.floor, bossPending: !!(r.cleared && r.bossNext), zone: this.zone,
-        spawner: { roomsSinceBoss: Sp.roomsSinceBoss, nextBossIn: Sp.nextBossIn, bossCount: Sp.bossCount } };
+        spawner: Sp.snapshot() };
       if (!r.cleared) {
         // la sala a medias no cuenta: se vuelve a jugar una equivalente
         snap.floor = Math.max(0, this.floor - 1);
-        if (r.type === 'boss') { snap.bossPending = true; snap.spawner.bossCount--; snap.zone = r.zone || 0; }
+        if (r.type === 'boss') {
+          snap.bossPending = true; snap.zone = r.zone || 0;
+          // deshacer lo que contó al entrar en la sala del jefe
+          if (r.finalBoss) { snap.spawner.finalPending = true; snap.spawner.loop--; }
+          else if (r.secretBoss) snap.spawner.secret = { rooms: 0 };
+          else { snap.spawner.bossCount--; snap.spawner.finalPending = false; }
+        }
         else snap.spawner.roomsSinceBoss = Math.max(0, Sp.roomsSinceBoss - 1);
       }
       VX.Save.write(this, snap);
@@ -201,11 +272,12 @@
     }
 
     gameOver() {
+      if (this.mode === 'horde') return this.hordeOver();
       VX.Profile.add('runs', 1);
       // esencia: moneda permanente para el Santuario
-      this.essenceGain = Math.round(this.floor * 2 + this.stats.bosses * 15 + this.stats.kills / 8);
+      this.essenceGain = Math.round(this.floor * 0.8 + this.stats.bosses * 8 + this.stats.kills / 20);
       VX.Profile.add('essence', this.essenceGain);
-      VX.Profile.save();
+      this.runResult = VX.Profile.submitRun(this);
       // roguelite: al morir se pierde la partida guardada (la esencia sí se queda)
       VX.Save.clear();
       this.failChallenge(true);
@@ -214,18 +286,80 @@
       this.hud.banner('HAS CAÍDO', '', 2);
     }
 
+    // Fin de la partida en la Horda: récord por mapa y esencia según la oleada
+    hordeOver() {
+      const H = VX.HordeMode, wave = H.wave, done = H.phase === 'wave' ? wave - 1 : wave;
+      VX.Profile.add('runs', 1);
+      this.essenceGain = Math.round(done * 1.6 + this.stats.kills / 18 + this.stats.bosses * 8);
+      VX.Profile.add('essence', this.essenceGain);
+      const D = VX.Profile.data;
+      D.hordeBest = D.hordeBest || {};
+      const prev = D.hordeBest[this.hordeMap];
+      const record = !prev || done > prev.wave || (done === prev.wave && this.stats.kills > prev.kills);
+      if (record) D.hordeBest[this.hordeMap] = { wave: done, kills: this.stats.kills, date: new Date().toISOString().slice(0, 10) };
+      VX.Profile.save();
+      this.runResult = { horde: true, wave, done, record, prev };
+      this.state = 'dying';
+      this.deathT = 2.2;
+      this.hud.banner('HAS CAÍDO', `Aguantaste ${done} oleada${done === 1 ? '' : 's'}`, 2);
+    }
+
     shake(a) { this.shakeAmt = Math.max(this.shakeAmt, a); }
 
     // ---------------- Flujo de habitaciones ----------------
+    // Las salidas de una sala despejada se abren cuando te acercas; en ese momento se
+    // prepara lo que hay detrás (vendedor, altar…) para que nunca se vea una sala vacía
+    // Las puertas de salida se abren a voluntad: acércate y pulsa E
+    openNearDoors() {
+      const cr = this.currentRoom, P = this.player;
+      this.doorFocus = null;
+      if (!cr || !cr.cleared || this.state !== 'playing') return;
+      let best = 2.4;
+      for (const s of cr.exits) {
+        const d = cr.doors[s];
+        if (!d || !d.closed || !d.neighbor) continue;
+        const w = cr.doorWorld(s);
+        const dist = Math.hypot(P.x - w.x, P.z - w.z);
+        if (dist < best) { best = dist; this.doorFocus = { side: s, type: d.type }; }
+      }
+      if (this.doorFocus && !this.pickups.focus && VX.Input.wasPressed('KeyE')) {
+        const s = this.doorFocus.side, d = cr.doors[s];
+        this.spawner.prepare(this, d.neighbor);
+        cr.setDoor(s, false);
+        // el rastrillo sube (animación) en lugar de desaparecer
+        this.doorAnims.push({ room: cr, side: s, t: 0, dur: 1.0 });
+        VX.Audio.gate();
+        this.shake(0.12);
+        this.doorFocus = null;
+      }
+    }
+
     roomLogic() {
       const P = this.player;
       const cr = this.currentRoom;
+      this.openNearDoors();
       for (const s in cr.doors) {
         const n = cr.doors[s].neighbor;
         if (n && !cr.doors[s].closed && n.insideDeep(P.x, P.z)) { this.enterRoom(n); return; }
       }
+      if (cr.ambushAt) {
+        if (this.time < cr.ambushAt) return;
+        cr.ambushAt = 0;
+        // ¡emboscada! salen del suelo a tu alrededor
+        const P2 = this.player;
+        for (let i = 0; i < cr.ambushN; i++) {
+          const a = (i / cr.ambushN) * 6.283 + Math.random() * 0.5, d = M.rand(3.5, 6);
+          const x = P2.x + Math.sin(a) * d, z = P2.z + Math.cos(a) * d;
+          const ok = cr.contains(x, z) && !this.world.boxCollides(x - 0.3, this.world.groundAt(x, z) + 0.3, z - 0.3, x + 0.3, this.world.groundAt(x, z) + 1.6, z + 0.3);
+          if (ok) this.spawner.spawnZombieNear(this, x, z, 0.5, this.spawner.pickKind(this.floor, cr.zone || 0));
+          else this.spawner.spawnWave(this, cr, 1);
+        }
+        this.hud.banner('¡EMBOSCADA!', 'Estaban esperándote', 2.2);
+        VX.Audio.roar(); this.shake(0.4);
+        return;
+      }
       if (!cr.cleared && cr.entered) {
-        const alive = this.enemies.filter((e) => !e.dead).length;
+        const alive = this.enemies.filter((e) => !e.dead).length + this.rises.length;
         if (cr.pendingWaves > 0 && alive <= 1) {
           cr.pendingWaves--;
           this.spawner.spawnWave(this, cr, cr.waveSize || 3);
@@ -246,15 +380,20 @@
       this.bullets.clear();
       // la sala anterior y las otras opciones desaparecen: la puerta se cierra detrás
       this.world.keepOnly([r]);
-      r.setDoor(r.entrance, true);
-      VX.Audio.door();
-      this.pickups.items = [];
+      { const mo = document.getElementById('mapOverlay'); if (mo) mo.classList.add('hidden'); }
+      // el rastrillo de la entrada cae a tu espalda (se cierra al terminar la animación)
+      this.doorAnims = this.doorAnims.filter((a) => a.room === r);
+      this.doorAnims.push({ room: r, side: r.entrance, t: 0, dur: 0.38, drop: true });
+      this.pickups.items = this.pickups.items.filter((it) => r.contains(it.x, it.z));
       this.pickups.gold = this.pickups.gold.filter((g) => r.contains(g.x, g.z));
-      this.npcs = [];
+      this.npcs = this.npcs.filter((n) => r.contains(n.body.x, n.body.z));
       this.enemies = [];
       this.gibs = this.gibs.filter((g) => r.contains(g.x, g.z));
       this.corpses = this.corpses.filter((c) => r.contains(c.body.x, c.body.z));
       this.decals = this.decals.filter((d) => r.contains(d.x, d.z));
+      this.oils = this.oils.filter((o) => r.contains(o.x, o.z));
+      this.fires = this.fires.filter((f) => r.contains(f.x, f.z));
+      this.fallers = []; this.rises = [];
       this.failChallenge(true);
       let zoneMsg = null;
       if ((r.zone || 0) !== this.zone) {
@@ -263,7 +402,12 @@
         zoneMsg = [Z.name, Z.sub];
       }
       if (r.type !== 'boss') { this.hud.hideBoss(); this.boss = null; }
+      this.champion = null; this.remains = [];
+      (this.mapPath || (this.mapPath = [])).push({ type: r.type, zone: r.zone || 0, floor: r.index });
+      if (this.mapPath.length > 40) this.mapPath.shift();
+      if (this.mapReveal > 0) this.mapReveal--;
       VX.Horde.reset();
+      this.hud.roomT = 0;
       this.spawner.onEnter(this, r);
       // las salas siguientes se generan ya, detrás de puertas cerradas
       this.spawner.populateNeighbors(this, r);
@@ -271,6 +415,7 @@
       if (r.type === 'normal' || r.type === 'boss') {
         r.cleared = false;
         if (zoneMsg) this.hud.banner(zoneMsg[0], zoneMsg[1], 3.5);
+        else if (r.dark && !this.challenge) this.hud.banner('SALA A OSCURAS', this.player.flashlight ? 'Sólo tienes tu linterna' : `Enciende la linterna [${VX.Settings.keyName(VX.Settings.key('flashlight'))}]`, 2.6);
         else if (r.type === 'normal' && !this.challenge) this.hud.banner('PISO ' + this.floor, r.name + (r.exits.length > 1 ? ` · ${r.exits.length} salidas` : ''));
       } else {
         const sub = { shop: 'Gasta tu oro con cabeza', reward: 'Una mejora te espera en el altar', save: 'Descansa en el cristal o cambia oro por esencia' };
@@ -283,10 +428,14 @@
 
     clearRoom(r, silent) {
       r.cleared = true;
-      for (const s of r.exits) r.setDoor(s, false);
+      // las salidas quedan desbloqueadas pero cerradas: se abren al acercarte
       if (!silent) {
         VX.Audio.door();
+        // calidad de vida: el oro que quede en el suelo vuela hacia ti
+        for (const g of this.pickups.gold) { g.homing = true; g.delay = Math.min(g.delay, 0.3); }
+        if (this.player.regenRoom) this.player.heal(this.player.regenRoom);
         const ch = this.completeChallenge();
+        if (r.type === 'boss' && r.finalBoss) this.victory();
         if (r.type === 'boss') {
           this.hud.hideBoss();
           this.hud.banner('¡JEFE DERROTADO!', 'Recompensa: mejora gratis y vida restaurada', 3.5);
@@ -311,10 +460,305 @@
           }
           this.stats.bosses = this.stats.bosses || 0;
           this.boss = null;
-        } else if (!ch) {
+        } else if (r.event === 'merchant') {
+          this.spawnMerchant(r);
+        } else if (!ch && r.event !== 'chest') {
           this.hud.banner('SALA DESPEJADA', r.exits.length > 1 ? 'Elige tu camino' : 'La puerta se abre...');
         }
       }
+    }
+
+    // Motas de polvo que sólo se ven dentro del haz de la linterna
+    renderDust(b, cam) {
+      const D = this.dust || (this.dust = []);
+      const cp = Math.cos(cam.pitch), fx = Math.sin(cam.yaw) * cp, fy = Math.sin(cam.pitch), fz = Math.cos(cam.yaw) * cp;
+      const dt = this.frameDt || 0.016;
+      while (D.length < 90) D.push({ x: 0, y: -99, z: 0, vx: 0, vy: 0, vz: 0, ph: Math.random() * 10 });
+      for (const d of D) {
+        const rx = d.x - cam.x, ry = d.y - cam.y, rz = d.z - cam.z;
+        const along = rx * fx + ry * fy + rz * fz;
+        if (along < 0.3 || along > 7 || rx * rx + ry * ry + rz * rz > 60) {
+          // renacer en algún punto del cono
+          const t = 0.5 + Math.pow(Math.random(), 0.7) * 6, sp = t * 0.32;
+          d.x = cam.x + fx * t + M.rand(-sp, sp); d.y = cam.y + fy * t + M.rand(-sp, sp) * 0.8; d.z = cam.z + fz * t + M.rand(-sp, sp);
+          d.vx = M.rand(-0.05, 0.05); d.vy = M.rand(-0.03, 0.02); d.vz = M.rand(-0.05, 0.05);
+          continue;
+        }
+        d.ph += dt;
+        d.x += (d.vx + Math.sin(d.ph * 0.7) * 0.03) * dt; d.y += d.vy * dt; d.z += (d.vz + Math.cos(d.ph * 0.6) * 0.03) * dt;
+        const l = Math.sqrt(rx * rx + ry * ry + rz * rz) || 1;
+        const c = along / l;                       // coseno respecto al eje del haz
+        const k = M.smoothstep(0.9, 0.975, c) * (1 - along / 7.5) * (0.6 + 0.4 * Math.sin(d.ph * 3));
+        if (k < 0.04) continue;
+        b.box(d.x, d.y, d.z, 0.008, 0.008, 0.008, 0.9, 0.85, 0.7, Math.min(1, k * 0.7));
+      }
+    }
+
+    // Material del suelo bajo los pies (para el sonido de los pasos)
+    surfaceAt(x, y, z) {
+      const S = VX.S, B = VX.Blocks, gx = Math.floor(x / S), gz = Math.floor(z / S), gy = Math.floor((y - 0.05) / S);
+      const r = this.currentRoom;
+      if (gy >= 0) {
+        const b = this.world.getBlock(gx, gy, gz);
+        if (b === B.WOOD || b === B.PLANK || b === B.WBARREL) return 'wood';
+        if (b === B.METAL || b === B.IRON || b === B.DOOR || b === B.GOLDB) return 'metal';
+        if (b === B.BONE) return 'bone';
+        if (b === B.CRYSTAL) return 'crystal';
+        if (b === B.TERRAIN) return 'dirt';
+        if (b === B.PROP) return 'wood';
+      }
+      if (r) {
+        const Z = VX.ZONES[r.zone || 0];
+        const tx = r.ox + ((gx - r.ox) & ~1), tz = r.oz + ((gz - r.oz) & ~1);
+        if (Z.damp && r.isPuddle(tx, tz, Z.damp)) return 'water';
+        for (const sp of r.spikes) if (sp.kind !== 'spikes' && Math.abs(x - r.uX((sp.ux0 + sp.ux1 + 1) / 2)) < (sp.ux1 - sp.ux0 + 1) * 0.5 && Math.abs(z - r.uZ((sp.uz0 + sp.uz1 + 1) / 2)) < (sp.uz1 - sp.uz0 + 1) * 0.5) return 'water';
+        if (Z.id === 'minas') return 'dirt';
+        if (Z.id === 'vacio') return 'crystal';
+        if (Z.id === 'cripta' && Math.random() < 0.25) return 'bone';
+      }
+      return 'stone';
+    }
+
+    // Sonidos de ambiente que salen de puntos concretos de la sala (según el bioma)
+    ambientSounds(dt) {
+      const r = this.currentRoom, P = this.player;
+      if (!r || !VX.Audio.ambientAt) return;
+      // reverberación según el volumen de la sala
+      if (this._revRoom !== r) { this._revRoom = r; VX.Audio.setRoom(r.city ? 260 : r.walkArea() * (r.H - 4) * VX.S); }
+      this.ambT = (this.ambT || 2) - dt;
+      if (this.ambT > 0) return;
+      this.ambT = M.rand(2.5, 6);
+      const KINDS = [
+        ['drip', 'chain', 'creak', 'wind', 'moan', 'chain'],
+        ['drip', 'drip', 'bubble', 'creak', 'moan', 'wind'],
+        ['pebbles', 'rumble', 'creak', 'hammer', 'drip', 'pebbles'],
+        ['bubble', 'hammer', 'hammer', 'rumble', 'wind', 'chain'],
+        ['drip', 'chime', 'creak', 'wind', 'bubble', 'drip'],
+        ['whisper', 'chime', 'wind', 'whisper', 'moan', 'rumble'],
+        ['wind', 'moan', 'wind', 'rumble', 'moan', 'creak'],
+        ['wind', 'moan', 'chime', 'wind', 'rumble', 'moan'],
+      ][r.zone || 0] || ['wind', 'moan'];
+      const a = Math.random() * 6.283, d = M.rand(4, 14);
+      VX.Audio.ambientAt(M.choice(KINDS), P.x + Math.sin(a) * d, P.z + Math.cos(a) * d);
+    }
+
+    // ---------- Fuego volumétrico de vóxeles ----------
+    // Un campo de ruido que sube con el tiempo: donde la "densidad" supera un umbral
+    // hay un vóxel de llama. Abajo es denso y claro (amarillo), arriba se deshilacha
+    // en lenguas naranjas y rojas que se separan y suben.
+    fireVolume(b, cx, by, cz, rx, rz, H, t, seed, k = 1) {
+      const s = 0.075;
+      const nx = Math.max(2, Math.ceil(rx * 2 / s)), nz = Math.max(2, Math.ceil(rz * 2 / s)), ny = Math.ceil(H / s);
+      const vn = VX.vnoise;
+      for (let ix = 0; ix < nx; ix++) {
+        const x = cx - rx + (ix + 0.5) * s, ux = (x - cx) / rx;
+        for (let iz = 0; iz < nz; iz++) {
+          const z = cz - rz + (iz + 0.5) * s, uz = (z - cz) / rz;
+          const r2 = ux * ux + uz * uz;
+          if (r2 > 1) continue;
+          for (let iy = 0; iy < ny; iy++) {
+            const y = by + (iy + 0.5) * s, h = iy / ny;
+            // se estrecha hacia arriba
+            if (r2 > (1 - h * 0.85) * (1 - h * 0.85) + 0.05) continue;
+            const base = h * 1.25 + r2 * 0.55 + 0.2;
+            const n1 = vn(x * 4.2 + seed, y * 3.4 - t * 3.2, z * 4.2) * 0.65;
+            if ((n1 + 0.35) * k < base) continue;          // ni con el segundo octavo llegaría
+            const n = n1 + vn(x * 9 + seed * 2, y * 7 - t * 5.5, z * 9) * 0.35;
+            const d = n * k - base + 0.1;
+            if (d < 0.1) continue;
+            let c;
+            const heat = d + (1 - h) * 0.3;
+            if (heat > 0.75) c = [1, 0.88, 0.5];
+            else if (heat > 0.52) c = [1, 0.6, 0.12];
+            else if (heat > 0.36) c = [0.97, 0.38, 0.06];
+            else c = [0.72, 0.14, 0.03];
+            const sz = s * (0.75 + Math.min(0.35, d));
+            b.box(x, y, z, sz, sz, sz, c[0], c[1], c[2], 1);
+          }
+        }
+      }
+    }
+
+    renderFlames(b) {
+      const t = this.time, P = this.player;
+      // fuego en el suelo (sólo los cercanos con todo el detalle)
+      const near = this.fires.filter((f) => f.kind !== 'poison').sort((a, c) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(c.x - P.x, c.z - P.z));
+      near.forEach((f, i) => {
+        if (f.seed === undefined) { f.seed = Math.random() * 50; f.t0 = f.t; }
+        const life = Math.min(1, f.t / 1) * Math.min(1, (f.t0 - f.t + 0.1) / 0.4);
+        const gy = this.world.groundAt(f.x, f.z);
+        const R = f.r * 0.9;
+        if (i < 4) this.fireVolume(b, f.x, gy, f.z, R, R, 0.7 + f.r * 0.6, t, f.seed, 0.9 + life * 0.45);
+        // brasas en el suelo
+        for (let k = 0; k < 10; k++) {
+          const a = k * 2.4 + f.seed, d = R * (0.3 + (k % 4) * 0.22);
+          const x = f.x + Math.cos(a) * d, z = f.z + Math.sin(a) * d, gl = 0.5 + 0.5 * Math.sin(t * 3 + k);
+          b.box(x, gy + 0.01, z, 0.08, 0.02, 0.08, 0.6 + gl * 0.4, 0.14 + gl * 0.16, 0.02, 0.9);
+        }
+      });
+      // objetos ardiendo
+      if (this.currentRoom) for (const p of this.currentRoom.props) {
+        if (!(p.burning > 0) || p.dead) continue;
+        const PV = VX.PV, w = p.w * PV, d = p.d * PV, top = p.oy + p.h * PV;
+        const life = Math.min(1, p.burning / 1.5);
+        if (p.seed === undefined) p.seed = Math.random() * 50;
+        this.fireVolume(b, p.cx, top - 0.12, p.cz, w * 0.55, d * 0.55, 0.45 + Math.min(0.4, (w + d) * 0.3), t, p.seed, 0.8 + life * 0.35);
+        if (Math.random() < 0.15) this.particles.spawn(p.cx, top + 0.6, p.cz, M.rand(-0.2, 0.2), M.rand(0.5, 0.9), M.rand(-0.2, 0.2), 0.1, 0.09, 0.09, M.rand(0.08, 0.13), 2.2, 0, 1);
+      }
+      // enemigos en llamas: el fuego les envuelve
+      for (const e of this.enemies) {
+        if (e.dead || !(e.burn > 0)) continue;
+        if (e.seed === undefined) e.seed = Math.random() * 50;
+        const H = e.body.height;
+        this.fireVolume(b, e.x, e.y + H * 0.2, e.z, 0.3, 0.3, H * 0.95, t, e.seed, 0.95);
+      }
+    }
+
+    // ---------- Mapa ----------
+    studyMap() {
+      this.mapReveal = 9;
+      const r = this.currentRoom;
+      for (const s of r.exits) { const n = r.doors[s] && r.doors[s].neighbor; if (n) this.spawner.planFor(this, n); }
+      VX.Audio.upgrade();
+      this.hud.banner('HAS ESTUDIADO EL MAPA', 'Pulsa M: verás las salas que vienen y las grietas secretas', 4);
+      this.hud.showMap(this, true);
+    }
+
+    // ---------- Nigromante: levanta a los caídos ----------
+    raiseDead(necro) {
+      const list = this.remains.filter((r) => Math.hypot(r.x - necro.x, r.z - necro.z) < 12 && this.time - r.t > 2);
+      if (!list.length || this.enemies.filter((e) => !e.dead).length > 12) return false;
+      for (const r of list.slice(0, 2)) {
+        this.remains.splice(this.remains.indexOf(r), 1);
+        // un hilo violeta del nigromante al cadáver
+        for (let i = 0; i < 16; i++) {
+          const k = i / 16;
+          this.particles.spawn(M.lerp(necro.x, r.x, k), necro.y + 1.6 - k * 1.4, M.lerp(necro.z, r.z, k), 0, 0.3, 0, 0.7, 0.3, 1, 0.04, 0.8, 1, 1);
+        }
+        setTimeout(() => {
+          if (this.state !== 'playing' || necro.dead) return;
+          const z = this.spawner.spawnZombieNear(this, r.x, r.z, 0.3, r.kind);
+          if (z) z.reanimated = true;
+          for (let i = 0; i < 20; i++) this.particles.spawn(r.x + M.rand(-0.4, 0.4), 0.1, r.z + M.rand(-0.4, 0.4), 0, M.rand(1, 3), 0, 0.6, 0.25, 0.95, 0.05, 1, 1, 1);
+        }, 900);
+      }
+      VX.Audio.phase && VX.Audio.phase();
+      this.hud.toast('El nigromante levanta a los muertos…');
+      return true;
+    }
+
+    // ---------- Agua ----------
+    waterAt(x, z) {
+      const r = this.currentRoom;
+      if (!r) return false;
+      for (const sp of r.spikes) {
+        if (sp.kind !== 'water') continue;
+        if (x > r.uX(sp.ux0) && x < r.uX(sp.ux1 + 1) && z > r.uZ(sp.uz0) && z < r.uZ(sp.uz1 + 1)) return true;
+      }
+      return false;
+    }
+
+    // ---------- Marcas permanentes: hollín y agujeros de bala ----------
+    addScorch(x, z, R) {
+      const n = Math.round(6 + R * 8);
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * 6.283, d = Math.sqrt(Math.random()) * R;
+        const px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+        const k = 0.03 + Math.random() * 0.04;
+        this.decals.push({ x: px, y: this.world.groundAt(px, pz), z: pz, axis: 1, sign: 1, s: M.rand(0.12, 0.35) * (1 - d / (R + 0.5) * 0.5), r: k, g: k * 0.9, b: k * 0.85, life: 1 });
+      }
+      if (this.decals.length > 900) this.decals.splice(0, this.decals.length - 900);
+    }
+    addBulletHole(h) {
+      const axis = h.nx ? 0 : h.ny ? 1 : 2, sign = h.nx || h.ny || h.nz;
+      this.decals.push({ x: h.x, y: h.y, z: h.z, axis, sign, s: M.rand(0.035, 0.06), r: 0.03, g: 0.028, b: 0.026, life: 1 });
+      if (Math.random() < 0.4) this.decals.push({ x: h.x + (axis ? M.rand(-0.04, 0.04) : 0), y: h.y + (axis !== 1 ? M.rand(-0.04, 0.04) : 0), z: h.z + (axis !== 2 ? M.rand(-0.04, 0.04) : 0), axis, sign, s: M.rand(0.08, 0.12), r: 0.09, g: 0.085, b: 0.08, life: 1 });
+      if (this.decals.length > 900) this.decals.splice(0, this.decals.length - 900);
+    }
+
+    // Partículas de ambiente de cada bioma alrededor del jugador
+    updateAmbience(dt) {
+      const r = this.currentRoom;
+      if (!r) return;
+      const P = this.player, z = r.zone || 0;
+      const ceil = (r.H - 4) * VX.S;
+      this.ambAcc = (this.ambAcc || 0) + dt;
+      const rate = [7, 4, 6, 16, 12, 10, 40, 10][z] || 6;          // partículas por segundo
+      while (this.ambAcc > 1 / rate) {
+        this.ambAcc -= 1 / rate;
+        const a = Math.random() * 6.283, d = 1 + Math.random() * 9;
+        const x = P.x + Math.sin(a) * d, zz = P.z + Math.cos(a) * d;
+        if (!r.contains(x, zz)) continue;
+        const g = this.world.groundAt(x, zz);
+        switch (z) {
+          case 0: // Cripta: polvo que flota en el aire
+            this.particles.spawn(x, g + M.rand(0.3, 3), zz, M.rand(-0.08, 0.08), M.rand(-0.03, 0.03), M.rand(-0.08, 0.08), 0.5, 0.47, 0.42, 0.012, M.rand(3, 6), 0.15, 1);
+            break;
+          case 1: // Cloacas: goteo del techo
+            this.particles.spawn(x, ceil - 0.1, zz, 0, -0.5, 0, 0.45, 0.6, 0.45, 0.018, 2.5, 0.25);
+            this.drips = (this.drips || 0) + 1;
+            if (this.drips % 3 === 0) this.dripAt = { x, z: zz, t: (ceil - g) / 9 };   // sonará al llegar al suelo
+            break;
+          case 2: // Minas: arenilla que cae de las vigas
+            if (Math.random() < 0.6) this.particles.spawn(x, ceil - 0.2, zz, M.rand(-0.1, 0.1), -0.2, M.rand(-0.1, 0.1), 0.42, 0.36, 0.28, 0.015, 3, 0);
+            else this.particles.spawn(x, g + M.rand(0.5, 2.5), zz, M.rand(-0.05, 0.05), 0, M.rand(-0.05, 0.05), 0.5, 0.45, 0.35, 0.012, 4, 0.1, 1);
+            break;
+          case 3: // Forja: ceniza que cae y pavesas que suben
+            if (Math.random() < 0.55) this.particles.spawn(x, g + M.rand(0.1, 1.5), zz, M.rand(-0.3, 0.3), M.rand(0.6, 1.4), M.rand(-0.3, 0.3), 1, M.rand(0.35, 0.6), 0.1, 0.018, M.rand(1.5, 3), 1, 1);
+            else this.particles.spawn(x, ceil - 0.3, zz, M.rand(-0.15, 0.15), M.rand(-0.35, -0.2), M.rand(-0.15, 0.15), 0.22, 0.2, 0.2, 0.02, 6, 0, 1);
+            break;
+          case 4: // Jardín: esporas luminosas a la deriva
+            this.particles.spawn(x, g + M.rand(0.3, 3.5), zz, M.rand(-0.15, 0.15), M.rand(0.02, 0.12), M.rand(-0.15, 0.15), M.rand(0.4, 0.7), 1, M.rand(0.5, 0.9), 0.016, M.rand(4, 7), 0.9, 1);
+            break;
+          case 5: // Vacío: motas violetas que ascienden
+            this.particles.spawn(x, g + M.rand(0, 2), zz, 0, M.rand(0.2, 0.5), 0, 0.7, 0.35, 1, 0.02, M.rand(3, 5), 1, 1);
+            break;
+          case 7: // Coliseo: polvo de arena dorado y alguna pavesa de los braseros
+            if (Math.random() < 0.75) this.particles.spawn(x, g + M.rand(0.1, 2.5), zz, M.rand(0.2, 0.6), M.rand(-0.05, 0.1), M.rand(-0.2, 0.2), 0.55, 0.45, 0.3, 0.018, M.rand(3, 5), 0.1, 1);
+            else this.particles.spawn(x, g + M.rand(1, 4), zz, M.rand(-0.2, 0.2), M.rand(0.3, 0.7), M.rand(-0.2, 0.2), 1, 0.5, 0.15, 0.015, M.rand(1.5, 3), 1, 1);
+            break;
+          case 6: // Ciudad: llovizna fina y papeles que arrastra el viento
+            if (Math.random() < 0.85) this.particles.spawn(x, g + M.rand(3, 6), zz, 0.4, -7, 0.15, 0.45, 0.5, 0.6, 0.012, 0.9, 0.2);
+            else this.particles.spawn(x, g + M.rand(0.1, 0.6), zz, M.rand(0.6, 1.4), M.rand(0, 0.3), M.rand(-0.3, 0.3), 0.6, 0.58, 0.52, 0.035, M.rand(2, 4), 0);
+            break;
+        }
+      }
+      if (this.dripAt) { this.dripAt.t -= dt; if (this.dripAt.t <= 0) { VX.Audio.ambientAt && VX.Audio.ambientAt('drip', this.dripAt.x, this.dripAt.z); this.dripAt = null; } }
+    }
+
+    // Evento: mercader errante que aparece tras despejar la sala (precios rebajados)
+    spawnMerchant(r) {
+      const cx = r.centerX(), cz = r.centerZ();
+      let x = cx, z = cz;
+      for (let t = 0; t < 12; t++) {
+        const g = this.world.groundAt(x, z);
+        if (!this.world.boxCollides(x - 1.4, g + 0.3, z - 1.4, x + 1.4, g + 2, z + 1.4)) break;
+        const p = r.randomFreeCell(2, this.player.x, this.player.z); x = p.x; z = p.z;
+      }
+      const g = this.world.groundAt(x, z);
+      const body = new VX.VoxelBody(VX.Models.vendor(), 1);
+      body.x = x; body.z = z; body.y = g; body.yaw = Math.atan2(this.player.x - x, this.player.z - z);
+      this.npcs.push({ body, t: 0 });
+      const ups = VX.Upgrades.random(2, this, [], 'shop');
+      const price = Math.round(VX.Upgrades.price(this) * 0.7);
+      ups.forEach((up, i) => {
+        const ox = (i ? 1 : -1) * 1.1;
+        this.pickups.addItem({ kind: 'upgrade', up, price, x: x + ox * Math.cos(body.yaw), y: g + 0.3, z: z - ox * Math.sin(body.yaw), title: up.name, desc: up.desc + ' (rebajado)', color: up.color, shape: up.shape });
+      });
+      for (let i = 0; i < 30; i++) this.particles.spawn(x, g + 1, z, M.rand(-2, 2), M.rand(0, 3), M.rand(-2, 2), 0.9, 0.75, 0.3, 0.05, 1, 1, 1);
+      VX.Audio.reward();
+      this.hud.banner('MERCADER ERRANTE', 'Ofertas de paso, sólo en esta sala', 2.8);
+    }
+
+    // Jefe final derrotado: victoria y modo infinito
+    victory() {
+      const bonus = 40 + this.spawner.loop * 20;
+      VX.Profile.add('essence', bonus);
+      VX.Profile.add('victories', 1, this);
+      VX.Profile.save();
+      this.stats.victories = (this.stats.victories || 0) + 1;
+      setTimeout(() => this.hud.banner('¡HAS CONQUISTADO LA MAZMORRA!', `+${bonus} de esencia · la mazmorra se hace más profunda (vuelta ${this.spawner.loop + 1})`, 5), 3600);
+      VX.Audio.reward();
     }
 
     // ---------------- Retos de sala ----------------
@@ -356,12 +800,12 @@
 
     onKill(z) {
       if (this.challenge && this.challenge.type === 'knife' && this.dmgSource === 'gun') this.failChallenge(false, 'Ese no fue a cuchillo');
-      void z;
+      if (this.mode === 'horde') VX.HordeMode.onKill(this, z);
     }
 
     // ---------------- Manchas de sangre ----------------
     addDecal(x, y, z, axis, size, sign = 1) {
-      if (this.decals.length > 420) this.decals.splice(0, 40);
+      if (this.decals.length > 900) this.decals.splice(0, 60);
       const k = 0.55 + Math.random() * 0.35;
       this.decals.push({ x, y, z, axis, sign, s: Math.max(0.05, Math.min(0.3, size)), r: 0.3 * k, g: 0.015 * k, b: 0.02 * k, life: 1 });
     }
@@ -392,11 +836,441 @@
 
     queueExplosion(e) { this.pendingExplosions.push(e); }
 
+    // ---------------- Física del escenario: trozos que caen enteros ----------------
+    addFaller(vox, dx, dz, mat) {
+      const n = vox.length / 7;
+      let cx = 0, cy = 0, cz = 0, minY = 1e9;
+      for (let i = 0; i < n; i++) { cx += vox[i * 7]; cy += vox[i * 7 + 1]; cz += vox[i * 7 + 2]; minY = Math.min(minY, vox[i * 7 + 1]); }
+      cx /= n; cy /= n; cz /= n;
+      let rad = 0;
+      for (let i = 0; i < n; i++) rad = Math.max(rad, Math.hypot(vox[i * 7] - cx, vox[i * 7 + 2] - cz));
+      let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+      for (let i = 0; i < n; i++) { minX = Math.min(minX, vox[i * 7]); maxX = Math.max(maxX, vox[i * 7]); minZ = Math.min(minZ, vox[i * 7 + 2]); maxZ = Math.max(maxZ, vox[i * 7 + 2]); }
+      this.fallers.push({ vox, n, x: 0, y: 0, z: 0, vy: 0, vx: dx * 0.8, vz: dz * 0.8, cx, cz, minY, minX, maxX, minZ, maxZ, rad: Math.min(rad, 1.6), mat, t: 0, spin: M.rand(-1, 1) });
+      if (this.fallers.length > 16) this.fallers.shift();
+    }
+
+    updateFallers(dt) {
+      for (const f of this.fallers) {
+        f.t += dt;
+        f.vy -= 18 * dt;
+        f.x += f.vx * dt; f.z += f.vz * dt; f.y += f.vy * dt;
+        const gx = f.cx + f.x, gz = f.cz + f.z;
+        // suelo bajo toda la huella del trozo (no sólo el centro)
+        let ground = this.world.groundAt(gx, gz);
+        for (const [sx, sz] of [[f.minX, f.minZ], [f.maxX, f.minZ], [f.minX, f.maxZ], [f.maxX, f.maxZ]]) ground = Math.max(ground, Math.min(f.minY - 0.01, this.world.groundAt(sx + f.x, sz + f.z)));
+        if (f.minY + f.y <= ground + 0.02 || f.t > 4) {
+          f.dead = true;
+          const speed = -f.vy, mass = f.n;
+          f.y = ground - f.minY + VX.PV / 2;
+          // aplasta lo que pille debajo
+          const dmg = Math.min(400, mass * 0.06 * Math.max(1, speed));
+          if (speed > 2.5) {
+            for (const e of this.enemies) {
+              if (e.dead || Math.hypot(e.x - gx, e.z - gz) > f.rad + 0.35) continue;
+              if (e.isBoss) { e.hp -= dmg * 0.5; continue; }
+              e.hp -= dmg; e.body.flash = 1;
+              if (e.hp <= 0) { this.dmgWeapon = null; e.die([0, -1, 0], this); this.hud.toast('¡APLASTADO!'); }
+            }
+            const P = this.player;
+            if (Math.hypot(P.x - gx, P.z - gz) < f.rad + 0.3 && this.state === 'playing') P.damage(Math.min(45, dmg * 0.3), gx, gz, this);
+            this.shake(Math.min(0.6, mass / 1500 + 0.1));
+            VX.Audio.slam();
+          }
+          if (f.mat === 'wood' || f.mat === 'cloth') VX.Audio.crumble(); else VX.Audio.wall();
+          // el trozo entero se queda en el suelo (sólo lo frágil o lo que cae muy rápido se hace añicos)
+          const fragile = f.mat === 'glass' || (f.mat === 'clay' && speed > 4) || speed > 11;
+          if (!fragile && this.settleFaller(f)) {
+            for (let i = 0; i < 8; i++) this.particles.spawn(gx + M.rand(-f.rad, f.rad), ground + 0.05, gz + M.rand(-f.rad, f.rad), M.rand(-1, 1), M.rand(0.3, 1), M.rand(-1, 1), 0.35, 0.32, 0.3, 0.04, 1.2);
+            continue;
+          }
+          const step = Math.max(1, Math.floor(f.n / 80));
+          for (let i = 0; i < f.n; i += step) {
+            const v = f.vox;
+            this.particles.spawn(v[i * 7] + f.x, v[i * 7 + 1] + f.y + 0.05, v[i * 7 + 2] + f.z, M.rand(-2, 2), M.rand(0.5, 3), M.rand(-2, 2),
+              v[i * 7 + 3], v[i * 7 + 4], v[i * 7 + 5], VX.PV * Math.min(2.5, step * 0.8 + 0.4), M.rand(2.5, 5), v[i * 7 + 6]);
+          }
+        }
+      }
+      this.fallers = this.fallers.filter((f) => !f.dead);
+    }
+
+    // ---------- Estructuras que se vienen abajo (bloques del escenario) ----------
+    addBlockFaller(r, cells) {
+      const B = VX.Blocks, S = VX.S;
+      const list = [];
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+      for (const [x, y, z] of cells) {
+        const i = r.idx(x, y, z), t = r.grid[i];
+        const c = B.color(t, r.ox + x, y, r.oz + z, [0, 0, 0, 0]);
+        list.push({ x, y, z, t, c: [c[0], c[1], c[2], c[3] || 0] });
+        r.grid[i] = 0; r.hp[i] = 0; r.markDirty(x, z);
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); z0 = Math.min(z0, z); z1 = Math.max(z1, z);
+        for (const tc of r.torches) if (tc.alive && tc.anchor[0] === x && tc.anchor[1] === y && tc.anchor[2] === z) tc.alive = false;
+      }
+      r.walk = null; r.mapVersion++;
+      // cuánto cae: hasta lo primero sólido bajo cada columna
+      const low = new Map();
+      for (const c of list) { const k = c.x + ':' + c.z; if (!low.has(k) || low.get(k) > c.y) low.set(k, c.y); }
+      let drop = 1e9;
+      for (const [k, yl] of low) {
+        const [x, z] = k.split(':').map(Number);
+        let s = 0;
+        for (let y = yl - 1; y >= 0; y--) if (r.get(x, y, z)) { s = y + 1; break; }
+        drop = Math.min(drop, yl - s);
+      }
+      const Hc = y1 - y0 + 1, Wd = Math.max(x1 - x0, z1 - z0) + 1;
+      // los elementos altos y estrechos se vuelcan hacia el lado con más hueco
+      let dir = null;
+      if (Hc >= 6 && Hc > Wd * 1.5) {
+        const base = y0 - drop;
+        let best = -1;
+        for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          let free = 0;
+          const sx = d[0] > 0 ? x1 + 1 : d[0] < 0 ? x0 - 1 : Math.round((x0 + x1) / 2), sz = d[1] > 0 ? z1 + 1 : d[1] < 0 ? z0 - 1 : Math.round((z0 + z1) / 2);
+          for (let s = 0; s < Hc; s++) { if (r.get(sx + d[0] * s, base + 1, sz + d[1] * s) || r.get(sx + d[0] * s, base, sz + d[1] * s)) break; free++; }
+          const score = free + Math.random() * 3;
+          if (score > best) { best = score; dir = d; }
+        }
+      }
+      const piv = dir ? [dir[0] > 0 ? x1 + 1 : dir[0] < 0 ? x0 : 0, y0 - drop, dir[1] > 0 ? z1 + 1 : dir[1] < 0 ? z0 : 0] : null;
+      this.blockFallers.push({ r, list, drop, dropM: drop * S, yOff: 0, vy: 0, dir, piv, ang: 0, om: 0, phase: 'fall', t: 0, n: list.length });
+      VX.Audio.crumble();
+      if (list.length > 40) this.shake(Math.min(0.3, list.length / 2000));
+    }
+
+    updateBlockFallers(dt) {
+      const S = VX.S;
+      for (const f of this.blockFallers) {
+        f.t += dt;
+        if (f.phase === 'fall') {
+          f.vy += 18 * dt; f.yOff += f.vy * dt;
+          if (f.yOff >= f.dropM) { f.yOff = f.dropM; f.phase = f.dir ? 'tip' : 'done'; if (f.dir && f.dropM > 0.3) this.shake(0.15); }
+        } else if (f.phase === 'tip') {
+          f.om += dt * 5.5 * (0.25 + Math.sin(f.ang));
+          f.ang = Math.min(Math.PI / 2, f.ang + f.om * dt);
+          if (f.ang >= Math.PI / 2) f.phase = 'done';
+        }
+        if (f.phase === 'done' || f.t > 6) this.landBlockFaller(f);
+      }
+      this.blockFallers = this.blockFallers.filter((f) => !f.dead);
+    }
+
+    // posición (en celdas, sin redondear) de un bloque del derrumbe en este instante
+    bfPos(f, c, ang, out) {
+      const dropC = f.yOff / VX.S;
+      let x = c.x + 0.5, y = c.y + 0.5 - dropC, z = c.z + 0.5;
+      if (f.dir && ang > 0) {
+        const P = f.piv, ca = Math.cos(ang), sa = Math.sin(ang);
+        if (f.dir[0]) {
+          const ox = (x - P[0]) * f.dir[0], oy = y - P[1];
+          const nx = ox * ca + oy * sa, ny = -ox * sa + oy * ca;
+          x = P[0] + nx * f.dir[0]; y = P[1] + ny;
+        } else {
+          const oz = (z - P[2]) * f.dir[1], oy = y - P[1];
+          const nz = oz * ca + oy * sa, ny = -oz * sa + oy * ca;
+          z = P[2] + nz * f.dir[1]; y = P[1] + ny;
+        }
+      }
+      out[0] = x; out[1] = y; out[2] = z;
+      return out;
+    }
+
+    landBlockFaller(f) {
+      f.dead = true;
+      const r = f.r, S = VX.S, p = [0, 0, 0];
+      let placed = 0, cx = 0, cz = 0, x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+      for (const c of f.list) {
+        this.bfPos(f, c, f.dir ? Math.PI / 2 : 0, p);
+        const x = Math.floor(p[0]), y = Math.max(0, Math.floor(p[1])), z = Math.floor(p[2]);
+        const wx = (r.ox + p[0]) * S, wz = (r.oz + p[2]) * S;
+        cx += wx; cz += wz; x0 = Math.min(x0, wx); x1 = Math.max(x1, wx); z0 = Math.min(z0, wz); z1 = Math.max(z1, wz);
+        if (r.inBounds(x, y, z) && y < r.H - 4 && !r.get(x, y, z) && Math.min(x, z, r.W - 1 - x, r.D - 1 - z) >= 4) {
+          r.set(x, y, z, c.t);
+          r.hp[r.idx(x, y, z)] *= 0.6;   // se ha agrietado al caer
+          placed++;
+        } else if (Math.random() < 0.3) this.particles.spawn(wx, (p[1]) * S, wz, M.rand(-2, 2), M.rand(1, 3), M.rand(-2, 2), c.c[0], c.c[1], c.c[2], M.rand(0.06, 0.12), 3, 0);
+      }
+      cx /= f.n; cz /= f.n;
+      // polvo, estruendo y aplastamiento
+      const big = f.n > 60;
+      VX.Audio.slam(); VX.Audio.crumble();
+      this.shake(Math.min(0.7, 0.12 + f.n / 900));
+      for (let i = 0; i < Math.min(60, 10 + f.n / 10); i++) {
+        const x = M.rand(x0, x1), z = M.rand(z0, z1);
+        this.particles.spawn(x, this.world.groundAt(x, z) + 0.1, z, M.rand(-1.5, 1.5), M.rand(0.2, 1.2), M.rand(-1.5, 1.5), 0.4, 0.37, 0.34, M.rand(0.05, 0.1), M.rand(1, 2), 0, i % 3 === 0 ? 1 : 0);
+      }
+      if (big) {
+        const inside = (x, z) => x > x0 - 0.4 && x < x1 + 0.4 && z > z0 - 0.4 && z < z1 + 0.4;
+        for (const e of this.enemies) {
+          if (e.dead || !inside(e.x, e.z)) continue;
+          if (e.isBoss) { e.hp -= 120; continue; }
+          e.hp -= 250; e.body.flash = 1;
+          if (e.hp <= 0) { this.dmgWeapon = null; e.die([0, -1, 0], this); this.hud.toast('¡APLASTADO!'); }
+        }
+        const P = this.player;
+        if (this.state === 'playing' && inside(P.x, P.z)) P.damage(30, cx, cz, this);
+      }
+      r.walk = null;
+      // lo que ha caído puede haber dejado otra cosa sin apoyo
+      void placed;
+    }
+
+    renderBlockFallers(b) {
+      const S = VX.S, p = [0, 0, 0];
+      for (const f of this.blockFallers) {
+        const r = f.r;
+        let q = null;
+        if (f.dir && f.ang > 0) q = f.dir[0] ? M.qAxis(0, 0, 1, -f.ang * f.dir[0]) : M.qAxis(1, 0, 0, f.ang * f.dir[1]);
+        for (const c of f.list) {
+          this.bfPos(f, c, f.ang, p);
+          const x = (r.ox + p[0]) * S, y = p[1] * S, z = (r.oz + p[2]) * S;
+          if (q) b.rbox(x, y, z, S * 1.002, S * 1.002, S * 1.002, q, c.c[0], c.c[1], c.c[2], c.c[3]);
+          else b.box(x, y, z, S * 1.002, S * 1.002, S * 1.002, c.c[0], c.c[1], c.c[2], c.c[3]);
+        }
+      }
+    }
+
+    // Un trozo que ha caído se convierte en un objeto nuevo apoyado en el suelo
+    settleFaller(f) {
+      const PV = VX.PV, v = f.vox, n = f.n;
+      const r = this.world.roomAt(f.cx + f.x, f.cz + f.z);
+      if (!r || n > 6000) return false;
+      if (r.props.filter((p) => p.type === 'piece' && !p.dead).length > 70) return false;
+      let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+      for (let i = 0; i < n; i++) {
+        x0 = Math.min(x0, v[i * 7]); x1 = Math.max(x1, v[i * 7]);
+        y0 = Math.min(y0, v[i * 7 + 1]); y1 = Math.max(y1, v[i * 7 + 1]);
+        z0 = Math.min(z0, v[i * 7 + 2]); z1 = Math.max(z1, v[i * 7 + 2]);
+      }
+      const w = Math.round((x1 - x0) / PV) + 1, h = Math.round((y1 - y0) / PV) + 1, d = Math.round((z1 - z0) / PV) + 1;
+      if (w * h * d > 200000) return false;
+      const fill = new Uint8Array(w * h * d), col = new Float32Array(w * h * d * 4);
+      for (let q = 0; q < n; q++) {
+        const i = Math.round((v[q * 7] - x0) / PV), j = Math.round((v[q * 7 + 1] - y0) / PV), k = Math.round((v[q * 7 + 2] - z0) / PV);
+        const c = (j * d + k) * w + i;
+        fill[c] = 1;
+        col[c * 4] = v[q * 7 + 3]; col[c * 4 + 1] = v[q * 7 + 4]; col[c * 4 + 2] = v[q * 7 + 5]; col[c * 4 + 3] = v[q * 7 + 6];
+      }
+      const def = { ...VX.Props.DEFS.piece, mat: f.mat || 'wood', collide: n >= 90 };
+      const p = VX.Props.addRaw(r, 'piece', { w, h, d, fill, col }, x0 - PV / 2 + f.x, y0 - PV / 2 + f.y, z0 - PV / 2 + f.z, def);
+      p.touched = true; p.dirty = true; r.propsDirty = true;
+      return true;
+    }
+
+    // ---------------- Aceite y fuego en el suelo ----------------
+    addOil(x, z, r) {
+      const cells = [];
+      for (let i = 0; i < 26; i++) {
+        const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * r;
+        cells.push(x + Math.cos(a) * d, z + Math.sin(a) * d, M.rand(0.12, 0.3));
+      }
+      if (this.oils.length > 30) this.oils.shift();
+      this.oils.push({ x, z, r, cells, y: this.world.groundAt(x, z) });
+    }
+
+    addFire(x, z, r, t, kind = 'fire') {
+      // no apilar fuegos encima de otros
+      for (const f of this.fires) if (f.kind === kind && Math.hypot(f.x - x, f.z - z) < Math.max(f.r, r) * 0.7) { f.t = Math.max(f.t, t); return; }
+      if (this.fires.length > 40) this.fires.shift();
+      this.fires.push({ x, z, r, t, tick: 0, kind });
+    }
+
+    // Avisos en el suelo (raíces, impactos): círculo que se llena y luego golpea
+    updateTelegraphs(dt) {
+      const P = this.player;
+      for (const t of this.telegraphs) {
+        t.t += dt;
+        if (t.t >= t.delay && !t.done) {
+          t.done = true;
+          if (t.kind === 'roots') {
+            VX.Audio.crumble(); this.shake(0.15);
+            const gy = this.world.groundAt(t.x, t.z);
+            for (let i = 0; i < 18; i++) this.particles.spawn(t.x + M.rand(-t.r, t.r) * 0.7, gy + 0.1, t.z + M.rand(-t.r, t.r) * 0.7, M.rand(-1, 1), M.rand(4, 8), M.rand(-1, 1), 0.3, 0.22, 0.12, M.rand(0.06, 0.12), 1.2);
+            if (this.state === 'playing' && Math.hypot(P.x - t.x, P.z - t.z) < t.r + 0.3 && P.y < gy + 1.2) { P.damage(t.dmg, t.x, t.z, this); P.knock(0, 0, 7); }
+            t.hold = 0.8;
+          }
+        }
+        if (t.done) t.hold = (t.hold || 0) - dt;
+      }
+      this.telegraphs = this.telegraphs.filter((t) => !t.done || t.hold > 0);
+    }
+    renderTelegraphs(b) {
+      for (const t of this.telegraphs) {
+        const gy = this.world.groundAt(t.x, t.z) + 0.03;
+        if (!t.done) {
+          const k = Math.min(1, t.t / t.delay), n = 28;
+          const c = t.kind === 'roots' ? [0.5, 1, 0.3] : [1, 0.3, 0.1];
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * 6.283;
+            b.box(t.x + Math.cos(a) * t.r, gy, t.z + Math.sin(a) * t.r, 0.1, 0.03, 0.1, c[0], c[1], c[2], 0.9);
+            if (i % 2 === 0) b.box(t.x + Math.cos(a) * t.r * k, gy, t.z + Math.sin(a) * t.r * k, 0.07, 0.03, 0.07, c[0], c[1], c[2], 0.5);
+          }
+        } else if (t.kind === 'roots') {
+          // pinchos de raíz que salen del suelo
+          const up = Math.min(1, t.hold / 0.3);
+          for (let i = 0; i < 9; i++) {
+            const a = i * 2.4, d = (i % 3) * t.r * 0.35;
+            const h = (0.6 + (i % 4) * 0.25) * up;
+            b.box(t.x + Math.cos(a) * d, gy + h / 2, t.z + Math.sin(a) * d, 0.12, h, 0.12, 0.32, 0.22, 0.12, 0);
+          }
+        }
+      }
+    }
+
+    // Prende aceite y madera en un radio
+    igniteAt(x, z, R) {
+      for (const o of this.oils) if (!o.burning && Math.hypot(o.x - x, o.z - z) < R + o.r) { o.burning = true; this.addFire(o.x, o.z, o.r, 7); VX.Audio.torch(); }
+    }
+
+    updateFire(dt) {
+      const P = this.player;
+      for (const f of this.fires) {
+        f.t -= dt; f.tick -= dt;
+        const poison = f.kind === 'poison';
+        for (let i = 0; i < 2; i++) {
+          const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * f.r;
+          const px = f.x + Math.cos(a) * d, pz = f.z + Math.sin(a) * d;
+          if (poison) this.particles.spawn(px, this.world.groundAt(px, pz) + M.rand(0.1, 1.2), pz, M.rand(-0.3, 0.3), M.rand(0.1, 0.5), M.rand(-0.3, 0.3), 0.45, 0.9, 0.3, M.rand(0.08, 0.16), M.rand(0.8, 1.4), 0.4, 1);
+          else if (i === 0) {
+            if (Math.random() < 0.35) this.particles.spawn(px, this.world.groundAt(px, pz) + 0.3, pz, M.rand(-0.4, 0.4), M.rand(1.5, 3), M.rand(-0.4, 0.4), 1, M.rand(0.5, 0.8), 0.15, 0.018, M.rand(0.5, 1.1), 1, 1);   // pavesas
+            if (Math.random() < 0.2) this.particles.spawn(px, this.world.groundAt(px, pz) + 0.7, pz, M.rand(-0.15, 0.15), M.rand(0.5, 0.9), M.rand(-0.15, 0.15), 0.1, 0.09, 0.09, M.rand(0.07, 0.12), M.rand(1.5, 2.5), 0, 1);   // humo
+          }
+        }
+        if (f.tick > 0) continue;
+        f.tick = 0.3;
+        if (poison) {   // nube venenosa: daña al jugador (también en el aire), no quema
+          if (this.state === 'playing' && Math.hypot(P.x - f.x, P.z - f.z) < f.r && P.y < this.world.groundAt(P.x, P.z) + 2) P.damage(4, undefined, undefined, this);
+          continue;
+        }
+        for (const e of this.enemies) if (!e.dead && !e.isBoss && Math.hypot(e.x - f.x, e.z - f.z) < f.r + 0.2 && !(e.T && e.T.fireImmune)) e.burn = Math.max(e.burn || 0, 2);
+        if (this.state === 'playing' && Math.hypot(P.x - f.x, P.z - f.z) < f.r && P.y < this.world.groundAt(P.x, P.z) + 0.4) P.damage(6, undefined, undefined, this);
+        if (this.currentRoom) for (const p of this.currentRoom.props) if (!p.dead && p.flammable && Math.hypot(p.cx - f.x, p.cz - f.z) < f.r + 0.5) p.ignite();
+        this.igniteAt(f.x, f.z, f.r);
+      }
+      for (const f of this.fires) if (f.kind !== 'poison' && this.waterAt(f.x, f.z)) { f.t = 0; for (let i = 0; i < 10; i++) this.particles.spawn(f.x + M.rand(-0.4, 0.4), 0.2, f.z + M.rand(-0.4, 0.4), 0, M.rand(0.8, 1.6), 0, 0.7, 0.7, 0.72, 0.08, 1.2, 0, 1); }
+      for (const f of this.fires) if (f.t <= 0 && f.kind !== 'poison' && !f.scorched) { f.scorched = true; this.addScorch(f.x, f.z, f.r * 0.8); }
+      this.fires = this.fires.filter((f) => f.t > 0);
+      this.oils = this.oils.filter((o) => !o.burning || this.fires.some((f) => f.x === o.x && f.z === o.z));
+      // zombis en llamas prenden el aceite que pisan
+      for (const e of this.enemies) if (!e.dead && e.burn > 0) for (const o of this.oils) if (!o.burning && Math.hypot(o.x - e.x, o.z - e.z) < o.r) this.igniteAt(o.x, o.z, 0.1);
+    }
+
+    // Barrotes del rastrillo subiendo hacia el muro
+    renderDoorAnims(b) {
+      for (const a of this.doorAnims) {
+        const r = a.room, dr = r.doorRange(a.side);
+        const k = a.drop ? 1 - Math.min(1, (a.t / a.dur) ** 2) : M.smoothstep(0, 1, Math.min(1, a.t / a.dur));
+        const lift = k * 12 * S + (a.drop ? 0 : Math.sin(a.t * 40) * 0.006 * (1 - k));
+        const vis = 12 * S - lift;            // parte que aún asoma bajo el dintel
+        if (vis <= 0.01) continue;
+        // el portón entero sube (o cae): sólo se ve la parte que asoma bajo el dintel
+        const y1 = dr.y1, col = [0, 0, 0, 0];
+        for (let a = 0; a < 8; a++)
+          for (let y = 0; y < y1; y++) {
+            const yy = (y + 0.5) * S + lift;
+            if (yy > y1 * S - S * 0.5) continue;
+            const lx = dr.axis === 'z' ? dr.a0 + a : dr.t0 + 1.5, lz = dr.axis === 'z' ? dr.t0 + 1.5 : dr.a0 + a;
+            const iron = VX.Room.doorIron(a, y, y1);
+            VX.Blocks.color(iron ? VX.Blocks.DOOR : VX.Blocks.DOORWOOD, r.ox + Math.floor(lx), y, r.oz + Math.floor(lz), col);
+            const x = (r.ox + lx + 0.5) * S, z = (r.oz + lz + 0.5) * S;
+            b.box(x, yy, z, dr.axis === 'z' ? S : 2 * S, S, dr.axis === 'z' ? 2 * S : S, col[0], col[1], col[2], iron ? -0.45 : 0);
+          }
+      }
+    }
+
+    renderHazardsExtra(b) {
+      for (const o of this.oils) {
+        const c = o.cells;
+        for (let i = 0; i < c.length; i += 3) b.box(c[i], o.y + 0.012, c[i + 1], c[i + 2], 0.02, c[i + 2], o.burning ? 0.1 : 0.05, o.burning ? 0.06 : 0.045, 0.03, o.burning ? 0.3 : 0.04);
+      }
+      for (const f of this.fallers) {
+        const v = f.vox;
+        for (let i = 0; i < f.n; i++) b.box(v[i * 7] + f.x, v[i * 7 + 1] + f.y, v[i * 7 + 2] + f.z, VX.PV, VX.PV, VX.PV, v[i * 7 + 3], v[i * 7 + 4], v[i * 7 + 5], v[i * 7 + 6]);
+      }
+    }
+
+    // ---------------- Esqueletos que se recomponen ----------------
+    queueRise(x, z, elite) { this.rises.push({ x, z, t: 3.2, elite }); }
+
+    updateRises(dt) {
+      for (const r of this.rises) {
+        r.t -= dt;
+        if (Math.random() < 0.3) this.particles.spawn(r.x + M.rand(-0.4, 0.4), this.world.groundAt(r.x, r.z) + 0.05, r.z + M.rand(-0.4, 0.4), 0, M.rand(0.5, 1.5), 0, 0.85, 0.8, 0.68, 0.04, 0.5);
+        if (r.t <= 0) {
+          const z = new VX.Zombie('skeleton', r.x, r.z, this.floor, { y: this.world.groundAt(r.x, r.z), elite: r.elite });
+          z.risen = true; z.hp *= 0.6;
+          this.enemies.push(z);
+          VX.Audio.snap(); VX.Audio.groan();
+          r.done = true;
+        }
+      }
+      this.rises = this.rises.filter((r) => !r.done);
+    }
+
+    // ---------------- Cámara secreta ----------------
+    checkSecret() {
+      const r = this.currentRoom, sc = r && r.secret, P = this.player;
+      if (!sc || sc.found) return;
+      // hace falta haber roto buena parte de la cara agrietada y asomarse
+      if (sc.cells) {
+        let gone = 0;
+        for (const [lx, ly, lz] of sc.cells) if (!r.get(lx, ly, lz)) gone++;
+        if (gone < sc.cells.length * 0.3) return;
+      }
+      if (Math.hypot(P.x - sc.x, P.z - sc.z) < 1.6) {
+        sc.found = true;
+        if (sc.stairs) {
+          this.hud.banner('UNA ESCALERA…', 'Baja hacia algo que no debería estar aquí', 3.5);
+          VX.Audio.phase && VX.Audio.phase();
+          // dirección hacia el fondo del hueco (lejos de la sala)
+          const dx = sc.along === 'z' ? -sc.inward : 0, dz = sc.along === 'x' ? -sc.inward : 0;
+          this.pickups.addItem({ kind: 'stairs', price: 0, x: sc.x, y: sc.y, z: sc.z, dx, dz, title: 'Escalera al Vacío', desc: 'Un bioma oculto: 3 salas y su guardián', action: 'Bajar', color: [0.75, 0.3, 1], shape: 'crystal' });
+          VX.Profile.add('secrets', 1, this);
+          return;
+        }
+        this.hud.banner('¡CÁMARA SECRETA!', 'Alguien escondió algo aquí', 3);
+        VX.Audio.reward();
+        VX.Profile.add('secrets', 1, this);
+        this.stats.secrets = (this.stats.secrets || 0) + 1;
+      }
+    }
+
+    // Bajar por la escalera secreta: todo se desvanece y empiezas en el Vacío
+    enterSecret() {
+      if (this.spawner.secret) return;
+      VX.Audio.door(); VX.Audio.phase && VX.Audio.phase();
+      const floor = this.floor + 1;
+      this.world.keepOnly([]);
+      this.pickups.items = []; this.pickups.gold = [];
+      this.npcs = []; this.enemies = []; this.corpses = []; this.gibs = []; this.decals = [];
+      this.oils = []; this.fires = []; this.fallers = []; this.blockFallers = []; this.rises = []; this.projectiles = []; this.shockwaves = []; this.telegraphs = [];
+      this.bullets.clear(); this.doorAnims = [];
+      this.hud.hideBoss(); this.boss = null;
+      this.spawner.secret = { rooms: 3 };
+      VX.Horde.reset();
+      const first = this.world.addStart('start', floor, this.spawner.planExits('zn', 'start', false).slice(0, 2), null, 5);
+      this.floor = floor;
+      this.zone = 5;
+      VX.Renderer.fogColor = VX.ZONES[5].fog.slice();
+      first.entered = true; first.cleared = true;
+      this.currentRoom = first;
+      first.setDoor('zn', true);
+      this.spawner.populateNeighbors(this, first);
+      for (const r of this.world.rooms) r.updateMeshes(VX.Renderer, 9999);
+      const P = this.player;
+      P.x = 0; P.z = first.worldZ(14); P.y = this.world.groundAt(P.x, P.z); P.vy = 0; P.yaw = 0;
+      this.stats.secretBiome = (this.stats.secretBiome || 0) + 1;
+      this.hud.banner(VX.ZONES[5].name, VX.ZONES[5].sub, 4);
+      this.shake(0.4);
+    }
+
     // Explosión: cráter en el escenario, daño a enemigos/cadáveres/jugador, fuego y humo
     explode(e) {
       const R = e.R, destr = e.destr || 1;
       this.world.damageSphere(e.x, e.y, e.z, R * 0.8, 220 * destr, this);
       this.weapon.explosions.push({ x: e.x, y: e.y, z: e.z, t: 0.35 });
+      this.addScorch(e.x, e.z, R * 0.9);   // hollín permanente
       const reach = R + 0.8;
       this.dmgWeapon = e.weapon || null;
       for (const list of [this.enemies, this.corpses]) for (const en of list.slice()) {
@@ -405,6 +1279,13 @@
         if (d < reach) en.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / reach) + 10, this);
       }
       this.dmgWeapon = null;
+      this.igniteAt(e.x, e.z, R);
+      // los objetos (barriles, cajas…) también revientan; los barriles rojos encadenan explosiones
+      for (const r of this.world.rooms) for (const p of r.props) {
+        if (p.dead) continue;
+        const d = Math.hypot(p.cx - e.x, p.cy - e.y, p.cz - e.z);
+        if (d < reach + p.rad * 0.5) { p.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / (reach + 1)) + 15, this); if (Math.random() < 0.6) p.ignite(); }
+      }
       const P = this.player;
       const dp = Math.hypot(P.x - e.x, P.y + 0.9 - e.y, P.z - e.z);
       if (dp < R && this.state === 'playing') P.damage(e.dmg * (e.selfK ?? 0.35) * (1 - dp / R), e.x, e.z, this);
@@ -418,11 +1299,15 @@
     }
 
     // Trampas de púas: salen y se esconden; hieren a quien las pise (también a los zombis)
+    // Ciclo de 2,8 s: aviso (asoman) → salen de golpe → arriba → bajan despacio
     spikeState(sp) {
       const t = (this.time + sp.phase) % 2.8;
-      if (t > 1.8 && t < 2.6) return { up: 1, warn: 0 };
-      if (t > 1.45 && t <= 1.8) return { up: 0, warn: 1 };
-      return { up: 0, warn: 0 };
+      let k = 0, warn = 0;
+      if (t > 1.45 && t <= 1.8) { warn = 1; k = 0.12 + Math.sin(t * 70) * 0.04; }
+      else if (t > 1.8 && t <= 1.9) k = (t - 1.8) / 0.1;
+      else if (t > 1.9 && t <= 2.4) k = 1;
+      else if (t > 2.4 && t <= 2.8) k = 1 - M.smoothstep(2.4, 2.78, t);
+      return { up: k > 0.55 ? 1 : 0, warn, k };
     }
 
     updateSpikes(dt) {
@@ -432,20 +1317,26 @@
       for (const sp of r.spikes) {
         const x0 = r.uX(sp.ux0), x1 = r.uX(sp.ux1 + 1), z0 = r.uZ(sp.uz0), z1 = r.uZ(sp.uz1 + 1);
         const inside = (x, z, m = 0) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m;
-        if (sp.kind === 'lava' || sp.kind === 'acid') {
-          const lava = sp.kind === 'lava';
+        if (sp.kind === 'water') {
+          // gotas que caen y ondas
+          if (Math.random() < dt * 2) { const px = M.rand(x0, x1), pz = M.rand(z0, z1); sp.ripples = sp.ripples || []; sp.ripples.push({ x: px, z: pz, t: 0 }); if (sp.ripples.length > 6) sp.ripples.shift(); }
+          if (sp.ripples) for (const rp of sp.ripples) rp.t += dt;
+          continue;
+        }
+        if (sp.kind !== 'spikes') {
+          const PL = VX.POOLS[sp.kind] || VX.POOLS.acid, lava = !!PL.burn;
           if (Math.random() < dt * 6) {
-            const px = M.rand(x0, x1), pz = M.rand(z0, z1);
-            if (lava) this.particles.spawn(px, 0.08, pz, M.rand(-0.3, 0.3), M.rand(1, 2.5), M.rand(-0.3, 0.3), 1, 0.45, 0.08, 0.04, M.rand(0.5, 1), 1, 1);
-            else this.particles.spawn(px, 0.06, pz, 0, M.rand(0.3, 0.8), 0, 0.35, 0.95, 0.25, 0.05, 0.6, 0.6, 1);
+            const px = M.rand(x0, x1), pz = M.rand(z0, z1), c = PL.part;
+            this.particles.spawn(px, 0.07, pz, M.rand(-0.3, 0.3), M.rand(lava ? 1 : 0.3, lava ? 2.5 : 0.9), M.rand(-0.3, 0.3), c[0], c[1], c[2], 0.045, M.rand(0.5, 1), 1, 1);
           }
           if (this.state === 'playing' && inside(P.x, P.z, 0.15) && P.y < 0.3 && !P.dashT) {
-            P.damage(lava ? 16 : 9, undefined, undefined, this);
-            P.knock(0, 0, lava ? 5 : 0);
+            P.damage(PL.pdmg, undefined, undefined, this);
+            P.knock(0, 0, PL.knock || 0);
           }
           for (const e of this.enemies) {
             if (e.dead || e.isBoss || !inside(e.x, e.z) || e.y > 0.3) continue;
-            e.hp -= (lava ? 40 : 22) * dt; e.body.flash = 0.4;
+            if (lava && e.T && e.T.fireImmune) continue;
+            e.hp -= PL.edps * dt; e.body.flash = 0.4;
             if (lava) e.burn = Math.max(e.burn || 0, 1.5);
             if (e.hp <= 0) e.die([0, 1, 0], this);
           }
@@ -465,27 +1356,40 @@
 
     renderSpikes(b, rooms) {
       for (const r of rooms) for (const sp of r.spikes) {
-        if (sp.kind === 'lava' || sp.kind === 'acid') { this.renderPool(b, r, sp); continue; }
+        if (sp.kind !== 'spikes') { this.renderPool(b, r, sp); continue; }
         const st = this.spikeState(sp);
-        const t = (this.time + sp.phase) % 2.8;
-        let h = 0.05;
-        if (st.warn) h = 0.07 + Math.sin(this.time * 60) * 0.02;
-        if (st.up) h = Math.min(0.42, 0.05 + (t - 1.8) * 6);
+        const h = 0.04 + st.k * 0.38;
         const x0 = r.uX(sp.ux0), x1 = r.uX(sp.ux1 + 1), z0 = r.uZ(sp.uz0), z1 = r.uZ(sp.uz1 + 1);
         b.box((x0 + x1) / 2, 0.015, (z0 + z1) / 2, x1 - x0, 0.03, z1 - z0, 0.13, 0.12, 0.13, 0);
         for (let x = x0 + 0.125; x < x1; x += 0.25)
           for (let z = z0 + 0.125; z < z1; z += 0.25) {
             b.box(x, h / 2, z, 0.07, h, 0.07, 0.55, 0.55, 0.6, 0);
-            if (st.up) b.box(x, h - 0.03, z, 0.035, 0.06, 0.035, 0.75, 0.1, 0.1, 0);
+            // punta afilada (y ensangrentada cuando están fuera)
+            b.box(x, h + 0.03, z, 0.035, 0.06, 0.035, st.k > 0.3 ? 0.7 : 0.6, st.k > 0.3 ? 0.12 : 0.6, st.k > 0.3 ? 0.1 : 0.62, 0);
           }
       }
     }
 
     // charco de lava o ácido: superficie de vóxeles que burbujea
     renderPool(b, r, sp) {
-      const lava = sp.kind === 'lava';
+      const PL = VX.POOLS[sp.kind] || VX.POOLS.acid, C = PL.c;
       const x0 = r.uX(sp.ux0), x1 = r.uX(sp.ux1 + 1), z0 = r.uZ(sp.uz0), z1 = r.uZ(sp.uz1 + 1);
       const t = this.time;
+      if (PL.water) {
+        // agua oscura y muy brillante (refleja las luces); orilla de barro y ondas
+        b.box((x0 + x1) / 2, 0.01, (z0 + z1) / 2, x1 - x0 + 0.14, 0.02, z1 - z0 + 0.14, 0.12, 0.1, 0.08, 0);
+        for (let x = x0 + 0.25; x < x1; x += 0.5)
+          for (let z = z0 + 0.25; z < z1; z += 0.5) {
+            const n = Math.sin(x * 2.3 + t * 0.9) * 0.5 + Math.sin(z * 1.9 - t * 1.1) * 0.5;
+            b.box(x, 0.06 + n * 0.004, z, 0.5, 0.02, 0.5, C[0] + n * 0.01, C[1] + n * 0.015, C[2] + n * 0.02, -0.95);
+          }
+        for (const rp of sp.ripples || []) {
+          const R = rp.t * 0.6, k = Math.max(0, 1 - rp.t / 1.6);
+          if (k <= 0) continue;
+          for (let a = 0; a < 6.283; a += 0.5) b.box(rp.x + Math.cos(a) * R, 0.075, rp.z + Math.sin(a) * R, 0.04, 0.008, 0.04, 0.3 * k + C[0], 0.35 * k + C[1], 0.4 * k + C[2], -0.6);
+        }
+        return;
+      }
       // borde oscuro
       b.box((x0 + x1) / 2, 0.01, (z0 + z1) / 2, x1 - x0 + 0.1, 0.02, z1 - z0 + 0.1, 0.06, 0.05, 0.05, 0);
       for (let x = x0 + 0.125; x < x1; x += 0.25)
@@ -493,8 +1397,7 @@
           const n = Math.sin(x * 3.1 + t * 1.3) * 0.5 + Math.sin(z * 2.7 - t * 1.7) * 0.5;
           const h = 0.035 + n * 0.012;
           const k = 0.75 + n * 0.25;
-          if (lava) b.box(x, h / 2, z, 0.25, h, 0.25, 1.0 * k, 0.32 * k * k, 0.04, 0.9 + n * 0.1);
-          else b.box(x, h / 2, z, 0.25, h, 0.25, 0.25 * k, 0.85 * k, 0.2 * k, 0.55 + n * 0.15);
+          b.box(x, h / 2, z, 0.25, h, 0.25, C[0] * k, C[1] * k * (PL.burn ? k : 1), C[2] * k, PL.e + n * 0.1);
         }
     }
 
@@ -510,17 +1413,20 @@
       if (!r) return 'explore';
       if (this.boss && !this.boss.dead) return 'boss';
       if (this.enemies.some((e) => !e.dead)) return 'combat';
-      if (r.type === 'shop') return 'shop';
+      if (r.type === 'shop' || (this.mode === 'horde' && VX.HordeMode.merchant)) return 'shop';
       if (r.type === 'save') return 'save';
       return 'explore';
     }
 
     // ---------------- Actualización ----------------
     update(dt) {
+      // parón de impacto: el tiempo casi se detiene un instante al recibir un golpe
+      if (this.hitStop > 0) { this.hitStop -= dt; dt *= 0.12; }
       this.frame++;
       this.time += dt;
       this.frameDt = dt;
       VX.Music.setMode(this.musicMode());
+      if (VX.Music.setZone) VX.Music.setZone(this.zone || 0);
 
       if (this.state === 'title') {
         const P = this.player;
@@ -546,22 +1452,30 @@
       if (this.state === 'playing') {
         P.update(dt, this);
         this.weapon.update(dt, this);
-        this.roomLogic();
+        if (this.mode === 'horde') VX.HordeMode.update(this, dt);
+        else this.roomLogic();
         this.updateChallenge(dt);
+        // latido con poca vida
+        const hr = P.hp / P.maxHp;
+        if (hr < 0.35 && !P.dead) {
+          this.beatT = (this.beatT || 0) - dt;
+          if (this.beatT <= 0) { VX.Audio.heartbeat(1 - hr * 2); this.beatT = 0.55 + hr * 1.6; }
+        }
         // maldición de sangre: pierdes vida mientras haya enemigos vivos
         if (this.weapon.mods.bleed && P.hp > 1 && this.enemies.some((e) => !e.dead)) P.hp = Math.max(1, P.hp - dt * 1.2);
         // gemidos lejanos de ambiente
-        if (Math.random() < dt * 0.06 && VX.Audio.groanAt) {
+        if (Math.random() < dt * 0.04 && VX.Audio.groanAt) {
           const a = Math.random() * Math.PI * 2;
           VX.Audio.groanAt(P.x + Math.cos(a) * 14, P.z + Math.sin(a) * 14, P, Math.random() < 0.2);
         }
+        this.ambientSounds(dt);
       } else if (this.state === 'dying') {
         P.eyeOffset = M.lerp(P.eyeOffset, -1.35, Math.min(1, dt * 3));
         this.deathT -= dt;
         if (this.deathT <= 0) {
           this.state = 'dead';
           VX.Input.unlock();
-          VX.Menus.showGameOver(this.stats, this.floor, this.essenceGain);
+          VX.Menus.showGameOver(this.stats, this.floor, this.essenceGain, this.runResult, this.runTime);
           this.hud.show(false);
         }
       }
@@ -582,9 +1496,47 @@
       this.updateProjectiles(dt);
       this.bullets.update(dt, this);
       this.updateSpikes(dt);
+      if (this.currentRoom) for (const p of this.currentRoom.props) if (p.lit > 0 || p.burning > 0) p.update(dt, this);
+      this.updateFallers(dt);
+      this.world.processSupport(this);
+      this.updateBlockFallers(dt);
+      for (const a of this.doorAnims) {
+        a.t += dt;
+        if (a.drop) {
+          if (a.t >= a.dur && !a.done) {
+            a.done = true;
+            a.room.setDoor(a.side, true);
+            // golpe contra el suelo: polvo, chispas y estruendo
+            const w = a.room.doorWorld(a.side);
+            const ax = Math.abs(w.nx) > 0.5 ? 0 : 1, az = 1 - ax;
+            for (let i = 0; i < 34; i++) {
+              const o = M.rand(-1, 1);
+              this.particles.spawn(w.x + ax * o + w.nx * M.rand(-0.3, 0.6), 0.08, w.z + az * o + w.nz * M.rand(-0.3, 0.6),
+                M.rand(-1.2, 1.2) + w.nx * 1.5, M.rand(0.3, 1.6), M.rand(-1.2, 1.2) + w.nz * 1.5, 0.42, 0.39, 0.35, M.rand(0.04, 0.09), M.rand(1, 2.2), 0, i % 2);
+            }
+            for (let i = 0; i < 10; i++) this.particles.spawn(w.x + ax * M.rand(-1, 1), 3, w.z + az * M.rand(-1, 1), 0, M.rand(-1, 0), 0, 0.35, 0.32, 0.3, 0.03, 1.5);
+            this.particles.sparks && this.particles.sparks(w.x, 0.1, w.z, w.nx, 0.5, w.nz, 8);
+            VX.Audio.slam(); VX.Audio.door();
+            this.shake(0.35);
+          }
+          continue;
+        }
+        if (Math.random() < 0.5 && a.t < a.dur) {
+          const w = a.room.doorWorld(a.side);
+          this.particles.spawn(w.x + M.rand(-1, 1), 3, w.z, M.rand(-0.3, 0.3), M.rand(-1, 0), M.rand(-0.3, 0.3), 0.35, 0.32, 0.3, 0.04, 1);
+        }
+      }
+      this.doorAnims = this.doorAnims.filter((a) => (a.drop ? !a.done : a.t < a.dur + 0.1));
+      this.updateFire(dt);
+      this.updateRises(dt);
+      this.checkSecret();
+      if (this.state === 'playing' && this.mode !== 'horde' && VX.Input.wasPressed('KeyM')) this.hud.showMap(this);
+      if (this.state === 'playing') this.runTime += dt;
       for (const e of this.pendingExplosions) { e.delay -= dt; if (e.delay <= 0) { e.done = true; this.explode(e); } }
       this.pendingExplosions = this.pendingExplosions.filter((e) => !e.done);
       this.updateShockwaves(dt);
+      this.updateTelegraphs(dt);
+      if (this.state === 'playing' || this.state === 'title') this.updateAmbience(dt);
       if (this.state === 'playing') this.pickups.update(dt, this);
 
       for (const n of this.npcs) {
@@ -620,9 +1572,45 @@
     updateProjectiles(dt) {
       const P = this.player;
       for (const p of this.projectiles) {
-        p.vy -= 18 * dt;
+        if (p.fuse !== undefined) {
+          // dinamita en el suelo: chisporrotea y explota
+          p.fuse -= dt;
+          if (Math.random() < 0.8) this.particles.spawn(p.x, p.y + 0.15, p.z, M.rand(-1, 1), M.rand(1, 2.5), M.rand(-1, 1), 1, 0.8, 0.3, 0.03, 0.3, 1, 1);
+          if (p.fuse <= 0) {
+            p.dead = true;
+            this.explode({ x: p.x, y: p.y + 0.2, z: p.z, R: 2.6, dmg: p.dmg * 1.3, selfK: 1, destr: 0.8 });
+          }
+          continue;
+        }
+        if (p.home) {
+          // orbe del nigromante: corrige el rumbo hacia ti poco a poco
+          const tx = P.x - p.x, ty = P.y + 1.1 - p.y, tz = P.z - p.z, l = Math.hypot(tx, ty, tz) || 1, sp = Math.hypot(p.vx, p.vy, p.vz);
+          p.vx += (tx / l * sp - p.vx) * p.home * dt; p.vy += (ty / l * sp - p.vy) * p.home * dt; p.vz += (tz / l * sp - p.vz) * p.home * dt;
+        }
+        p.vy -= (p.g ?? 18) * dt;
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        if (p.dynamite) {
+          const gy = this.world.groundAt(p.x, p.z);
+          if (p.y <= gy + 0.06 || this.world.isSolidAt(p.x, p.y, p.z)) {
+            if (this.world.isSolidAt(p.x, p.y, p.z)) { p.x -= p.vx * dt; p.z -= p.vz * dt; }
+            p.y = this.world.groundAt(p.x, p.z) + 0.06; p.fuse = 1.1; p.vx = p.vy = p.vz = 0; VX.Audio.click && VX.Audio.click();
+          }
+          p.rot += dt * 8;
+          continue;
+        }
         p.rot += dt * 6; p.life -= dt;
+        if (p.arrow) {
+          const dp = Math.hypot(P.x - p.x, P.y + 1 - p.y, P.z - p.z);
+          if (dp < 0.55 && this.state === 'playing') { p.dead = true; P.damage(p.dmg, p.x - p.vx, p.z - p.vz, this); VX.Audio.flesh(); continue; }
+          if (p.life <= 0 || p.y < this.world.groundAt(p.x, p.z) || this.world.isSolidAt(p.x, p.y, p.z)) {
+            p.dead = true; VX.Audio.wall();
+            // la flecha se queda clavada un rato
+            this.stuckArrows = (this.stuckArrows || []);
+            this.stuckArrows.push({ x: p.x - p.vx * dt, y: p.y - p.vy * dt, z: p.z - p.vz * dt, vx: p.vx, vy: p.vy, vz: p.vz, t: 12 });
+            if (this.stuckArrows.length > 30) this.stuckArrows.shift();
+          }
+          continue;
+        }
         if (Math.random() < 0.5) this.particles.spawn(p.x, p.y, p.z, 0, 0.5, 0, p.col[0] * 0.7, p.col[1] * 0.7, p.col[2] * 0.7, p.acid ? 0.04 : 0.07, 0.5, p.glow, 1);
         const dp = Math.hypot(P.x - p.x, P.y + 0.9 - p.y, P.z - p.z);
         if (p.y < 0.1 || p.life <= 0 || dp < (p.acid ? 0.6 : 0.9) || this.world.isSolidAt(p.x, p.y, p.z)) {
@@ -633,7 +1621,15 @@
           if (dp < reach && this.state === 'playing') P.damage(p.dmg * (p.acid ? 1 : (1 - dp / 3.5)), p.x, p.z, this);
           for (let i = 0; i < (p.acid ? 16 : 26); i++)
             this.particles.spawn(p.x, p.y, p.z, M.rand(-4, 4), M.rand(1, 5), M.rand(-4, 4), p.col[0], p.col[1], p.col[2], M.rand(0.03, p.acid ? 0.07 : 0.14), M.rand(1, 2.5), p.glow);
-          if (p.acid) VX.Audio.flesh(); else { VX.Audio.slam(); this.shake(0.3); }
+          if (p.spawn && this.state === 'playing' && this.enemies.filter((e) => !e.dead).length < 12) {
+            // el saco revienta y salen crías
+            for (let k = 0; k < 2; k++) this.spawner.spawnZombieNear(this, p.x, p.z, 1.2, p.spawn);
+          }
+          if (p.acid) {
+            VX.Audio.flesh();
+            // el ácido corroe los objetos que alcanza
+            if (this.currentRoom) for (const pr of this.currentRoom.props) if (!pr.dead && Math.hypot(pr.cx - p.x, pr.cy - p.y, pr.cz - p.z) < pr.rad + 0.4) pr.carve(p.x, p.y, p.z, 0.3, this, 0, 0, 0, 6);
+          } else { VX.Audio.slam(); this.shake(0.3); }
         }
       }
       this.projectiles = this.projectiles.filter((p) => !p.dead);
@@ -669,6 +1665,17 @@
       for (const p of this.projectiles) if (p.glow) L.push({ x: p.x, y: p.y, z: p.z, r: p.acid ? 3 : 5, cr: p.col[0] * 1.5, cg: p.col[1] * 1.5, cb: p.col[2] * 1.5 });
       for (const s of this.shockwaves) if (s.r > 0) L.push({ x: s.x, y: (s.y || 0) + 0.5, z: s.z, r: s.r + 3, cr: 1.5, cg: 0.6, cb: 0.15 });
       this.bullets.lights(L, cam);
+      let nf = 0;
+      for (const f of this.fires) {
+        if (nf++ >= 4) break;
+        const fl = 0.8 + Math.sin(this.time * 13 + f.x * 3) * 0.12 + Math.sin(this.time * 29 + f.z * 5) * 0.08;   // la luz parpadea con las llamas
+        L.push(f.kind === 'poison' ? { x: f.x, y: 0.6, z: f.z, r: 3 + f.r * 2, cr: 0.5, cg: 1.2, cb: 0.3 } : { x: f.x, y: 0.5 + f.r * 0.3, z: f.z, r: 4 + f.r * 2.5, cr: 2.6 * fl, cg: 1.15 * fl, cb: 0.3 * fl });
+      }
+      // lámparas de los mineros
+      let nl = 0;
+      for (const e of this.enemies) if (!e.dead && e.T && e.T.lamp && nl++ < 3) L.push({ x: e.x + Math.sin(e.body.yaw) * 0.4, y: e.y + 1.9, z: e.z + Math.cos(e.body.yaw) * 0.4, r: 4.5, cr: 1.6, cg: 1.3, cb: 0.7 });
+      if (this.currentRoom) for (const p of this.currentRoom.props) if (p.burning > 0 && nf++ < 7) { const fl = 0.8 + Math.sin(this.time * 11 + p.cx * 7) * 0.15; L.push({ x: p.cx, y: p.cy + 0.4, z: p.cz, r: 6, cr: 2.6 * fl, cg: 1.15 * fl, cb: 0.3 * fl }); }
+      for (const e of this.enemies) if (!e.dead && e.burn > 0 && nf++ < 8) L.push({ x: e.x, y: e.y + 1, z: e.z, r: 4, cr: 2.2, cg: 1, cb: 0.25 });
       for (const e of this.weapon.explosions) { const k = e.t / 0.35; L.push({ x: e.x, y: e.y + 0.3, z: e.z, r: 10, cr: 6 * k, cg: 3.5 * k, cb: 1 * k }); }
       for (const sg of this.doorSigns()) {
         const pulse = sg.type === 'boss' ? 0.7 + Math.sin(this.time * 5) * 0.3 : 1;
@@ -689,7 +1696,7 @@
         l.cr *= f; l.cg *= f; l.cb *= f;
         out.push(l);
       }
-      out.push({ x: cam.x, y: cam.y + 0.2, z: cam.z, r: 4.5, cr: 0.16, cg: 0.15, cb: 0.18 });
+      out.push({ x: cam.x, y: cam.y + 0.2, z: cam.z, r: 3, cr: 0.035, cg: 0.032, cb: 0.042 });
       const W = this.weapon;
       if (W.flash > 0.05 && W.muzzle) out.push({ x: W.muzzle[0], y: W.muzzle[1], z: W.muzzle[2], r: 9, cr: 5 * W.flash, cg: 3.2 * W.flash, cb: 1.2 * W.flash });
       return out;
@@ -727,13 +1734,19 @@
       }
     }
 
+    // la linterna titila un poco (pilas viejas)
+    flashFlicker() {
+      const t = this.time;
+      return 0.94 + Math.sin(t * 13.1) * 0.02 + Math.sin(t * 31.7) * 0.015 + (Math.sin(t * 0.7) > 0.985 ? -0.25 : 0);
+    }
+
     // ---------------- Render ----------------
     render() {
       const R = VX.Renderer, P = this.player;
       const sh = this.shakeAmt * this.shakeAmt * 0.25;
       const cam = {
         x: P.eyeX() + M.rand(-sh, sh), y: P.eyeY() + M.rand(-sh, sh), z: P.eyeZ() + M.rand(-sh, sh),
-        yaw: P.yaw, pitch: P.pitch + P.recoilPitch,
+        yaw: P.yaw, pitch: P.pitch + P.recoilPitch, roll: P.hurtRoll || 0,
       };
 
       this.world.updateMeshes(R, this.currentRoom);
@@ -754,7 +1767,33 @@
       this.world.renderTorches(b, this.time, vis);
       this.renderSpikes(b, vis);
       this.renderDecals(b);
+      this.renderDoorAnims(b);
+      this.renderHazardsExtra(b);
+      this.renderFlames(b);
+      this.renderBlockFallers(b);
+      this.renderTelegraphs(b);
+      if (this.mode === 'horde' && this.state !== 'title') VX.HordeMode.render(b, this);
+      // flechas (en vuelo y clavadas)
+      const arrowR = (x, y, z, vx, vy, vz) => {
+        const l = Math.hypot(vx, vy, vz) || 1;
+        for (let i = -4; i <= 4; i++) {
+          const k = i * 0.055;
+          const tip = i <= -3, fl = i >= 3;
+          b.box(x + vx / l * k, y + vy / l * k, z + vz / l * k, tip ? 0.03 : 0.022, tip ? 0.03 : 0.022, tip ? 0.03 : 0.022, tip ? 0.5 : fl ? 0.85 : 0.45, tip ? 0.5 : fl ? 0.85 : 0.32, tip ? 0.55 : fl ? 0.8 : 0.18, 0);
+        }
+      };
+      for (const p of this.projectiles) if (p.arrow) arrowR(p.x, p.y, p.z, -p.vx, -p.vy, -p.vz);
+      for (const a of this.stuckArrows || []) arrowR(a.x, a.y, a.z, -a.vx, -a.vy, -a.vz);
       for (const p of this.projectiles) {
+        if (p.arrow) continue;
+        if (p.dynamite) {
+          // cartucho: cilindro rojo con mecha
+          const q = M.qAxis(0, 1, 0, p.rot);
+          for (let i = -2; i <= 2; i++) { M.qRot(q, i * 0.04, 0, 0, tmp); b.rbox(p.x + tmp[0], p.y, p.z + tmp[2], 0.045, 0.05, 0.05, q, 0.75, 0.12, 0.1, 0.1); }
+          const fl = p.fuse !== undefined ? 1 : 0.5;
+          b.box(p.x, p.y + 0.06, p.z, 0.02, 0.06, 0.02, 1, 0.85 * fl, 0.4, 1);
+          continue;
+        }
         const q = M.qAxis(0.577, 0.577, 0.577, p.rot);
         for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (let k = -2; k <= 2; k++) {
           if (i * i + j * j + k * k > 5) continue;
@@ -773,6 +1812,7 @@
           b.box(s.x + Math.cos(a) * s.r, (s.y || 0) + hgt / 2, s.z + Math.sin(a) * s.r, 0.16, hgt, 0.16, 1, 0.45, 0.1, 0.8);
         }
       }
+      if (VX.Settings.data.dust && P.flashlight && this.state !== 'title') this.renderDust(b, cam);
       b.upload();
 
       // ---- linterna (sombras) ----
@@ -783,7 +1823,7 @@
       const spot = {
         x: cam.x + right[0] * 0.2 - up[0] * 0.15, y: cam.y - up[1] * 0.15, z: cam.z + right[2] * 0.2 - up[2] * 0.15,
         dx: fwd[0] + right[0] * sway, dy: fwd[1] + 0.01, dz: fwd[2] + right[2] * sway,
-        fov: 1.25, inner: 0.22, outer: 0.52, cr: 3.2, cg: 3.0, cb: 2.6,
+        fov: 1.25, inner: 0.2, outer: 0.5, cr: 4.6 * this.flashFlicker(), cg: 4.2 * this.flashFlicker(), cb: 3.3 * this.flashFlicker(),
         on: (this.state !== 'title') && P.flashlight,
       };
       const l = Math.hypot(spot.dx, spot.dy, spot.dz); spot.dx /= l; spot.dy /= l; spot.dz /= l;
@@ -797,11 +1837,32 @@
 
       // ---- escena ----
       const lights = this.gatherLights(cam, vis);
+      // sombras de la antorcha más cercana (calidad alta): la luz 0 proyecta sombras
+      R.shadow2.on = false;
+      if (R.quality === 'alta' && VX.Settings.data.torchShadows && this.state !== 'title') {
+        const ti = lights.findIndex((l) => l.torch && l.d < 12);
+        if (ti >= 0) {
+          const tl = lights[ti];
+          lights.splice(ti, 1); lights.unshift(tl);
+          const tc = tl.torch;
+          R.beginShadow2({ x: tl.x + tc.nx * 0.1, y: tl.y, z: tl.z + tc.nz * 0.1, dx: tc.nx, dy: -0.55, dz: tc.nz, fov: 2.5 });
+          this.world.render(R, this.currentRoom);
+          b.draw();
+          R.endShadow();
+          R.shadow2.on = true;
+        }
+      }
       const zt = VX.ZONES[this.zone].tint;
-      const ambient = this.state === 'title' ? [0.06, 0.06, 0.08] : [0.05 * zt[0], 0.048 * zt[1], 0.065 * zt[2]];
+      // ambiente muy oscuro: la linterna, las antorchas y los braseros mandan
+      const za = VX.ZONES[this.zone].ambient;
+      const ambient = this.state === 'title' ? [0.03, 0.028, 0.04] : za ? za : [0.009 * zt[0], 0.0085 * zt[1], 0.013 * zt[2]];
       R.beginScene(cam, { lights, spot, ambient });
       this.world.render(R, this.currentRoom);
       b.draw();
+      R.endWorld();
+      R.beginGlass();
+      this.world.renderGlass(R, this.currentRoom);
+      R.endGlass();
 
       if (this.state === 'playing' || this.state === 'paused' || this.state === 'settings') {
         R.beginViewmodel(this.weapon.flash, [0.18, 0.17, 0.2]);
@@ -819,6 +1880,7 @@
         this.gun.upload();
         this.gun.draw();
       }
+      R.present();
     }
   }
 

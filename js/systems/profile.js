@@ -7,28 +7,32 @@
   const DEF = () => ({
     v: 2, kills: 0, headshots: 0, bosses: 0, bestFloor: 0, knifeKills: 0, runs: 0,
     unlocked: [], skinSel: {}, wstats: {},
-    essence: 0, perks: {}, weapons: ['pistol'], startWeapon: 'pistol',
+    essence: 0, perks: {}, weapons: ['pistol'], startWeapon: 'pistol', shopUnlocks: [],
+    codex: { enemies: {}, ups: [] }, best: null, secrets: 0,
   });
 
   // Bendiciones: mejoras permanentes que se compran con esencia en el Santuario
   const PERKS = [
-    { id: 'vigor', name: 'Vigor', desc: '+10 de vida máxima', max: 5, cost: (l) => 20 + l * 15 },
-    { id: 'fuerza', name: 'Fuerza', desc: '+6% de daño', max: 5, cost: (l) => 25 + l * 20 },
-    { id: 'fortuna', name: 'Fortuna', desc: 'Empiezas con +15 de oro', max: 5, cost: (l) => 15 + l * 12 },
-    { id: 'reflejos', name: 'Reflejos', desc: 'La esquiva recarga un 14% antes', max: 3, cost: (l) => 30 + l * 25 },
-    { id: 'regateo', name: 'Regateo', desc: 'Todo cuesta un 8% menos en la tienda', max: 3, cost: (l) => 35 + l * 25 },
-    { id: 'iman', name: 'Imán', desc: 'El oro viene hacia ti desde más lejos', max: 3, cost: (l) => 20 + l * 15 },
-    { id: 'legado', name: 'Legado', desc: 'Empiezas con una mejora al azar', max: 2, cost: (l) => 90 + l * 80 },
-    { id: 'segunda', name: 'Segunda oportunidad', desc: 'Una vez por partida, revives con media vida', max: 1, cost: () => 160 },
+    { id: 'vigor', name: 'Vigor', desc: '+10 de vida máxima', max: 5, cost: (l) => 30 + l * 25 },
+    { id: 'fuerza', name: 'Fuerza', desc: '+6% de daño', max: 5, cost: (l) => 40 + l * 30 },
+    { id: 'fortuna', name: 'Fortuna', desc: 'Empiezas con +15 de oro', max: 5, cost: (l) => 25 + l * 20 },
+    { id: 'reflejos', name: 'Reflejos', desc: 'La esquiva recarga un 14% antes', max: 3, cost: (l) => 45 + l * 40 },
+    { id: 'regateo', name: 'Regateo', desc: 'Todo cuesta un 8% menos en la tienda', max: 3, cost: (l) => 55 + l * 40 },
+    { id: 'iman', name: 'Imán', desc: 'El oro viene hacia ti desde más lejos', max: 3, cost: (l) => 30 + l * 25 },
+    { id: 'legado', name: 'Legado', desc: 'Empiezas con una mejora al azar', max: 2, cost: (l) => 140 + l * 120 },
+    { id: 'pulso', name: 'Pulso firme', desc: '-12% de retroceso en todas las armas', max: 4, cost: (l) => 35 + l * 30 },
+    { id: 'punteria', name: 'Puntería', desc: '-10% de dispersión de las balas', max: 3, cost: (l) => 40 + l * 35 },
+    { id: 'segunda', name: 'Segunda oportunidad', desc: 'Una vez por partida, revives con media vida', max: 1, cost: () => 250 },
   ];
 
   // Arsenal: un arma bloqueada no aparece en tiendas ni la sueltan los jefes
   const ARSENAL = [
     { id: 'pistol', cost: 0 },
-    { id: 'smg', cost: 40 },
-    { id: 'shotgun', cost: 70 },
-    { id: 'rifle', cost: 100 },
-    { id: 'launcher', cost: 150 },
+    { id: 'smg', cost: 50 },
+    { id: 'shotgun', cost: 90 },
+    { id: 'rifle', cost: 130 },
+    { id: 'launcher', cost: 190 },
+    { id: 'hammer', cost: 80 },
   ];
 
   // Retos de cada skin: se cuentan por arma (stat dentro de wstats[arma])
@@ -64,6 +68,8 @@
       }
       for (const w of WEAPON_IDS()) D.wstats[w] = { ...WS0(), ...(D.wstats[w] || {}) };
       if (!D.weapons.includes('pistol')) D.weapons.unshift('pistol');
+      if (!Array.isArray(D.shopUnlocks)) D.shopUnlocks = [];
+      if (!D.codex || !D.codex.enemies) D.codex = { enemies: {}, ups: [] };
     },
 
     save() {
@@ -158,6 +164,31 @@
       if (!p || l >= p.max || this.data.essence < p.cost(l)) return false;
       this.data.essence -= p.cost(l);
       this.data.perks[id] = l + 1;
+      this.save();
+      return true;
+    },
+
+    // ---- Códice y récords ----
+    codexKill(kind) { const e = this.data.codex.enemies; e[kind] = (e[kind] || 0) + 1; this.dirty = true; },
+    codexUp(id) { if (!this.data.codex.ups.includes(id)) { this.data.codex.ups.push(id); this.dirty = true; } },
+
+    // Puntuación de la partida; devuelve { score, record }
+    submitRun(game) {
+      const st = game.stats;
+      const score = Math.round(game.floor * 100 + st.kills * 5 + st.bosses * 500 + st.totalGold + (game.stats.secrets || 0) * 150);
+      const prev = this.data.best;
+      const record = !prev || score > prev.score;
+      if (record) this.data.best = { score, floor: game.floor, kills: st.kills, bosses: st.bosses, time: Math.round(game.runTime), date: new Date().toISOString().slice(0, 10) };
+      this.save();
+      return { score, record, prev };
+    },
+
+    // Mercancía nueva para las tiendas
+    buyShopItem(id) {
+      const u = VX.Upgrades.byId[id];
+      if (!u || !u.shop || this.data.shopUnlocks.includes(id) || this.data.essence < u.unlock) return false;
+      this.data.essence -= u.unlock;
+      this.data.shopUnlocks.push(id);
       this.save();
       return true;
     },

@@ -21,6 +21,8 @@
       if (!Input.keys[e.code]) Input.pressed[e.code] = true;
       Input.keys[e.code] = true;
       if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+      // con el ratón capturado, evita los atajos del navegador con Ctrl (salvo Ctrl+W, que el navegador no deja bloquear)
+      if (Input.locked && (e.ctrlKey || e.code.startsWith('Control'))) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { Input.keys[e.code] = false; });
     window.addEventListener('blur', () => { Input.keys = {}; Input.mouseDown = false; });

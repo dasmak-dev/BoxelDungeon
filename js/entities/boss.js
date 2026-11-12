@@ -6,13 +6,30 @@
   const dirTmp = [0, 0];
   const PINK = [1, 0.25, 0.6], ORANGE = [1, 0.55, 0.12], PURPLE = [0.7, 0.3, 1], RED = [1, 0.15, 0.1];
 
+  const GREEN = [0.5, 1, 0.3], CYAN = [0.4, 0.9, 1], VOID = [0.75, 0.3, 1];
+  // Cada jefe tiene su estilo:
+  //  coloso    → SALTA sobre ti, ondas de choque y levanta esqueletos (cuerpo a cuerpo / plataformas)
+  //  ancestro  → BULLET HELL clásico: espirales, calaveras teledirigidas y teletransporte
+  //  capataz   → LANZA COSAS: cartuchos de dinamita, derrumbes de rocas y barridos con el pico
+  //  carnicero → EMBISTE y te ENGANCHA con su cadena para traerte a su cuchilla giratoria
+  //  reina     → HORDAS: pare crías, nubes de esporas y raíces que brotan bajo tus pies
+  //  guardian  → (secreto) rayos giratorios, teletransportes y orbes del vacío
+  //  corazon   → (final) un poco de todos
   const BOSSES = [
-    { id: 'coloso', name: 'EL COLOSO PUTREFACTO', hp: 2800, speed: 1.8, dmg: 28, col: ORANGE, summon: true,
-      patterns: [['slam', 'ring', 'rocks', 'fan'], ['slam', 'ringGap', 'rocks', 'ring', 'fan'], ['slam', 'spiral', 'ringGap', 'rocks', 'rain']] },
-    { id: 'carnicero', name: 'EL CARNICERO', hp: 2500, speed: 2.5, dmg: 32, col: RED, summon: false,
-      patterns: [['charge', 'fan', 'burst'], ['charge', 'wall', 'fan', 'burst'], ['charge3', 'wall', 'burst', 'ringGap', 'fan']] },
-    { id: 'ancestro', name: 'EL ANCESTRO HUECO', hp: 2600, speed: 1.5, dmg: 24, col: PURPLE, summon: true,
+    { id: 'coloso', name: 'EL COLOSO PUTREFACTO', hp: 3000, speed: 1.7, dmg: 30, col: ORANGE, minions: 'skeleton',
+      patterns: [['leap', 'slam', 'rocks', 'raise'], ['leap', 'slam', 'leap3', 'rocks', 'raise'], ['leap3', 'slam', 'raise', 'ring', 'leap']] },
+    { id: 'ancestro', name: 'EL ANCESTRO HUECO', hp: 2600, speed: 1.5, dmg: 24, col: PURPLE, hover: true,
       patterns: [['spiral', 'homing', 'fan', 'blink'], ['spiral', 'rain', 'homing', 'ring', 'blink'], ['spiral2', 'rain', 'homing', 'ringGap', 'blink']] },
+    { id: 'capataz', name: 'EL CAPATAZ', hp: 2800, speed: 2.0, dmg: 30, col: ORANGE, minions: 'walker',
+      patterns: [['dynamite', 'sweep', 'rockfall'], ['dynamite', 'sweep', 'rockfall', 'charge', 'dynamite'], ['dynamite3', 'rockfall', 'sweep', 'charge', 'raise']] },
+    { id: 'carnicero', name: 'EL CARNICERO', hp: 2600, speed: 2.4, dmg: 32, col: RED, minions: 'ember',
+      patterns: [['hook', 'charge', 'spin'], ['hook', 'charge', 'spin', 'wall'], ['hook', 'charge3', 'spin', 'wall', 'hook']] },
+    { id: 'reina', name: 'LA REINA MICELIO', hp: 3200, speed: 0.9, dmg: 26, col: GREEN, minions: 'rat',
+      patterns: [['brood', 'spores', 'roots'], ['brood', 'spores', 'roots', 'fan'], ['brood', 'roots', 'spores', 'spiral', 'brood']] },
+    { id: 'guardian', name: 'EL GUARDIÁN DEL VACÍO', hp: 3600, speed: 2.0, dmg: 30, col: VOID, hover: true,
+      patterns: [['laser', 'blink', 'homing'], ['laser', 'blink', 'spiral2', 'homing'], ['laser2', 'blink', 'spiral2', 'rain', 'homing']] },
+    { id: 'corazon', name: 'EL CORAZÓN DE LA MAZMORRA', hp: 5200, speed: 1.4, dmg: 34, col: RED, minions: 'skeleton',
+      patterns: [['brood', 'ring', 'leap', 'dynamite'], ['hook', 'spin', 'laser', 'leap3', 'rockfall'], ['laser2', 'spiral2', 'brood', 'dynamite3', 'leap3', 'roots']] },
   ];
 
   class Boss {
@@ -21,7 +38,11 @@
       this.T = T;
       this.name = T.name;
       this.isBoss = true;
-      this.body = new VX.VoxelBody(VX.Models.humanoid(VX.Models.bossConfigs[T.id]), 1);
+      const cfg = VX.Models.bossConfigs[T.id];
+      let model = cfg.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
+      if (cfg.tool) model = VX.Models.addTool(model, cfg);
+      this.body = new VX.VoxelBody(model, 1);
+      this.quad = !!cfg.quad;
       const P_ = this.body.byName;
       P_.legL.noBreak = P_.legR.noBreak = P_.head.noBreak = P_.torso.noBreak = true;
       this.x = x; this.z = z; this.y = 0; this.vy = 0;
@@ -50,12 +71,35 @@
     get muzzle() { return [this.x, this.y + this.body.height * 0.6, this.z]; }
     aimAt(P) { return Math.atan2(P.x - this.x, P.z - this.z); }
 
+    // Punto de aterrizaje dentro de la sala, lejos de las paredes y sin obstáculos
+    safeLanding(game, tx, tz) {
+      const r = game.currentRoom, S = VX.S, m = 2.2;
+      if (!r) return [this.x, this.z];
+      const x0 = (r.ox + 2) * S + m, x1 = (r.ox + r.W - 2) * S - m, z0 = (r.oz + 2) * S + m, z1 = (r.oz + r.D - 2) * S - m;
+      tx = M.clamp(tx, x0, x1); tz = M.clamp(tz, z0, z1);
+      const rad = this.radius;
+      const free = (x, z) => {
+        const g = game.world.groundAt(x, z);
+        return r.contains(x, z) && Math.abs(g - this.y) < 2.5 && !game.world.boxCollides(x - rad, g + 0.4, z - rad, x + rad, g + 3.2, z + rad);
+      };
+      // si el punto está ocupado, se acerca poco a poco al jefe hasta encontrar hueco
+      for (let k = 0; k <= 10; k++) {
+        const x = M.lerp(tx, this.x, k / 10), z = M.lerp(tz, this.z, k / 10);
+        if (free(x, z)) return [x, z];
+      }
+      return [this.x, this.z];
+    }
+
     // ---------------- Patrones ----------------
     startPattern(name) {
       this.pattern = { name, t: 0, k: 0, a: Math.random() * 6.28, n: 0 };
       this.state = 'cast';
       this.lastPattern = name;
       if (name === 'slam') { this.state = 'slamUp'; this.stateT = 0.9; VX.Audio.roar(); this.pattern = null; }
+      else if (name === 'leap' || name === 'leap3') { this.state = 'leapWind'; this.stateT = 0.55; this.leaps = name === 'leap3' ? 3 : 1; this.pattern = null; VX.Audio.roar(); }
+      else if (name === 'hook') { this.state = 'hookWind'; this.stateT = 0.6; this.pattern = null; }
+      else if (name === 'spin') { this.state = 'spin'; this.stateT = 1.8 + this.phase * 0.4; this.spinTick = 0; this.pattern = null; VX.Audio.roar(); }
+      else if (name === 'sweep') { this.state = 'sweepWind'; this.stateT = 0.5; this.pattern = null; }
       else if (name === 'charge' || name === 'charge3') { this.state = 'chargeWind'; this.stateT = 0.7; this.charges = name === 'charge3' ? 3 : 1; this.pattern = null; VX.Audio.roar(); }
       else if (name === 'rocks') { this.state = 'throw'; this.stateT = 0.7; this.pattern = null; }
     }
@@ -151,6 +195,87 @@
           }
           return p.t > 0.12 * (14 + ph * 6) + 1.5;
         }
+        case 'dynamite': case 'dynamite3': {
+          // lanza cartuchos que se quedan humeando en el suelo y explotan
+          const n = p.name === 'dynamite3' ? 5 : 2 + ph;
+          if (p.t > 0.35 && every(0.32) && p.n < n) {
+            const spread = p.n === 0 ? 0 : 2.4;
+            const tx = P.x + P.vx * 0.5 + M.rand(-spread, spread), tz = P.z + P.vz * 0.5 + M.rand(-spread, spread);
+            const sx = this.x, sy = this.y + this.body.height * 0.9, sz = this.z;
+            const T = 0.8 + Math.hypot(tx - sx, tz - sz) * 0.04;
+            game.projectiles.push({ x: sx, y: sy, z: sz, vx: (tx - sx) / T, vy: (P.y + 0.2 - sy + 0.5 * 18 * T * T) / T, vz: (tz - sz) / T,
+              dmg: this.dmg, life: 4, rot: 0, col: [0.8, 0.15, 0.1], glow: 0.4, size: 0.05, dynamite: true });
+            p.n++; VX.Audio.swish();
+          }
+          return p.t > 0.5 + n * 0.32;
+        }
+        case 'rockfall': {
+          // derrumbe: rocas que caen del techo con aviso en el suelo
+          if (every(0.1) && p.n < 18 + ph * 6) {
+            const a = Math.random() * 6.28, d = p.n < 2 ? 0 : M.rand(0.5, 7);
+            const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
+            const room = game.currentRoom, top = room ? (room.H - 4) * VX.S - 0.4 : 4;
+            B.add({ x, y: top, z, vx: 0, vy: -4, vz: 0, dmg: dmg * 1.7, col: [0.4, 0.36, 0.32], r: 0.32, fall: true, delay: 0.8, delay0: 0.8, gy: game.world.groundAt(x, z), life: 4 });
+            p.n++;
+            if (p.n % 4 === 0) game.shake(0.12);
+          }
+          return p.t > 0.1 * (18 + ph * 6) + 1.4;
+        }
+        case 'raise': {
+          if (p.t < 0.05 && game.enemies.filter((e) => !e.dead && !e.isBoss).length > 7) return true;
+          // levanta a sus súbditos del suelo
+          if (p.n === 0 && p.t > 0.4) {
+            p.n = 1;
+            for (let i = 0; i < 2 + ph; i++) game.spawner.spawnZombieNear(game, this.x, this.z, 7, this.T.minions || 'walker');
+            VX.Audio.roar(); game.shake(0.3);
+          }
+          return p.t > 1.2;
+        }
+        case 'brood': {
+          if (p.t < 0.05 && game.enemies.filter((e) => !e.dead && !e.isBoss).length > 7) return true;   // ya hay bastante cría
+          // pare crías: bolsas de esporas que revientan y sueltan bichos
+          if (p.t > 0.4 && every(0.45) && p.n < 2 + ph) {
+            const a = Math.random() * 6.28, d = M.rand(3, 7);
+            const tx = this.x + Math.sin(a) * d, tz = this.z + Math.cos(a) * d;
+            const sx = this.x, sy = this.y + 1.6, sz = this.z, T = 0.9;
+            game.projectiles.push({ x: sx, y: sy, z: sz, vx: (tx - sx) / T, vy: (0.3 - sy + 0.5 * 18 * T * T) / T, vz: (tz - sz) / T,
+              dmg: 6, life: 4, rot: 0, col: [0.5, 0.9, 0.4], glow: 0.6, size: 0.1, spawn: this.T.minions || 'rat', acid: true });
+            p.n++; VX.Audio.bite();
+          }
+          return p.t > 0.6 + (2 + ph) * 0.45;
+        }
+        case 'spores': {
+          // nubes de esporas venenosas alrededor del jugador
+          if (p.t > 0.3 && every(0.5) && p.n < 3 + ph) {
+            const a = Math.random() * 6.28, d = p.n === 0 ? 0 : M.rand(1.5, 4);
+            game.addFire(P.x + Math.sin(a) * d, P.z + Math.cos(a) * d, 1.6, 5, 'poison');
+            p.n++; VX.Audio.splat();
+          }
+          return p.t > 0.5 + (3 + ph) * 0.5;
+        }
+        case 'roots': {
+          // raíces que brotan bajo tus pies (círculo de aviso primero)
+          if (p.t > 0.2 && every(0.35) && p.n < 4 + ph * 2) {
+            const lead = p.n === 0 ? 0 : 0.6;
+            game.telegraphs.push({ x: P.x + P.vx * lead + M.rand(-1, 1) * (p.n ? 1 : 0), z: P.z + P.vz * lead + M.rand(-1, 1) * (p.n ? 1 : 0), r: 1.1, t: 0, delay: 0.85, dmg: dmg * 1.6, kind: 'roots' });
+            p.n++;
+          }
+          return p.t > 0.4 + (4 + ph * 2) * 0.35 + 1;
+        }
+        case 'laser': case 'laser2': {
+          // rayo giratorio: un chorro continuo de orbes que barre la sala
+          const beams = p.name === 'laser2' ? 2 : 1;
+          if (p.t < 0.6) { if (every(0.15)) game.particles.spawn(mx, my, mz, M.rand(-1, 1), M.rand(-1, 1), M.rand(-1, 1), col[0], col[1], col[2], 0.08, 0.4, 1, 1); return false; }
+          if (p.n === 0) { p.a = this.aimAt(P) - 1.2; p.n = 1; p.dir = Math.random() < 0.5 ? 1 : -1; VX.Audio.phase(); }
+          if (every(0.035)) {
+            p.a += 0.06 * p.dir * (1 + ph * 0.2);
+            for (let b = 0; b < beams; b++) {
+              const a = p.a + b * Math.PI;
+              B.add({ x: mx, y: this.y + 1.0, z: mz, vx: Math.sin(a) * 14, vy: 0, vz: Math.cos(a) * 14, dmg: dmg * 0.7, col, r: 0.16, life: 2 });
+            }
+          }
+          return p.t > 3.4 + ph * 0.4;
+        }
         case 'blink': {
           if (p.n === 0 && p.t > 0.5) {
             p.n = 1;
@@ -177,6 +302,8 @@
       let pick = M.choice(list);
       if (pick === 'slam' && dist > 12) pick = M.choice(list);
       if ((pick === 'charge' || pick === 'charge3') && dist < 4) pick = M.choice(list);
+      if (pick === 'sweep' && dist > 6) pick = M.choice(list.filter((n) => n !== 'sweep')) || pick;
+      if ((pick === 'hook') && dist < 3) pick = 'spin';
       this.startPattern(pick);
     }
 
@@ -191,7 +318,7 @@
         let n = 0;
         for (let tries = 0; tries < per * 3 && n < per; tries++) {
           const v = p.vox[(Math.random() * p.vox.length) | 0];
-          if (v.alive) continue;
+          if (v.alive || v.ghost) continue;
           v.alive = true;
           if (!v.regen) { v.r = Math.min(1, v.r * 0.55 + 0.32); v.g *= 0.55; v.b *= 0.55; v.regen = true; } // carne nueva, rojiza
           p.alive++; n++;
@@ -206,11 +333,19 @@
       b.flash = Math.max(0, b.flash - dt * 6);
       this.invuln = Math.max(0, this.invuln - dt);
       const g = game.world.groundAt(this.x, this.z);
-      if (this.y > g + 0.02) { this.vy -= 18 * dt; this.y = Math.max(g, this.y + this.vy * dt); }
-      else { this.y = M.lerp(this.y, g, Math.min(1, dt * 10)); this.vy = 0; }
-      b.y = this.y;
+      if (!this.airborne) {
+        if (this.y > g + 0.02) { this.vy -= 18 * dt; this.y = Math.max(g, this.y + this.vy * dt); }
+        else { this.y = M.lerp(this.y, g, Math.min(1, dt * 10)); this.vy = 0; }
+      }
+      b.y = this.y + (this.T.hover ? 0.5 + Math.sin(game.time * 2) * 0.15 : 0);
       this.regenerate(dt);
 
+      const room = game.currentRoom;
+      if (room && !this.airborne && !room.contains(this.x, this.z)) {
+        const c = room.randomFreeCell(4, P.x, P.z, 6) || { x: room.centerX(), z: room.centerZ() };
+        this.x = c.x; this.z = c.z; this.y = game.world.groundAt(c.x, c.z);
+        for (let i = 0; i < 30; i++) game.particles.spawn(this.x, this.y + 1, this.z, M.rand(-3, 3), M.rand(0, 4), M.rand(-3, 3), 0.3, 0.27, 0.25, 0.12, 1);
+      }
       const dx = P.x - this.x, dz = P.z - this.z, dist = Math.hypot(dx, dz);
       const P_ = b.byName;
       let moveSpeed = 0, mx = 0, mz = 0;
@@ -226,7 +361,7 @@
         game.shake(0.6);
         game.hud.banner(this.phase === 1 ? '¡FURIA!' : '¡FASE FINAL!', this.name + (this.phase === 1 ? ' se enfurece' : ' lo da todo'), 2.4);
         game.bullets.ring(this.x, this.y + 1.0, this.z, 30, 6, { b: { dmg: this.bulletDmg, col: this.T.col, r: 0.18 } });
-        if (this.T.summon) for (let i = 0; i < 2 + this.phase; i++) game.spawner.spawnZombieNear(game, this.x, this.z, 6, M.choice(['walker', 'runner', 'spitter']));
+        if (this.T.minions) for (let i = 0; i < 2 + this.phase; i++) game.spawner.spawnZombieNear(game, this.x, this.z, 6, this.T.minions);
       }
 
       this.stateT -= dt;
@@ -341,6 +476,100 @@
         case 'recover':
           if (this.stateT <= 0) { this.state = 'chase'; this.patternCd = M.rand(0.8, 1.5); }
           break;
+
+        // ---- salto: se agacha, vuela en arco hasta donde estás y aterriza con onda de choque ----
+        case 'leapWind':
+          P_.armL.ax = P_.armR.ax = -0.6; b.yOff = -0.25 * (1 - this.stateT / 0.55);
+          if (this.stateT <= 0) {
+            const [tx, tz] = this.safeLanding(game, P.x + P.vx * 0.45, P.z + P.vz * 0.45), T = 0.85;
+            this.leap = { sx: this.x, sz: this.z, tx, tz, t: 0, T, y0: this.y };
+            this.state = 'leap'; this.stateT = T; b.yOff = 0;
+            game.telegraphs.push({ x: tx, z: tz, r: 2.6, t: 0, delay: T, dmg: 0, kind: 'warn' });
+          }
+          break;
+        case 'leap': {
+          const L = this.leap; L.t += dt;
+          const k = Math.min(1, L.t / L.T);
+          this.x = M.lerp(L.sx, L.tx, k); this.z = M.lerp(L.sz, L.tz, k);
+          const g2 = game.world.groundAt(this.x, this.z);
+          this.y = M.lerp(L.y0, g2, k) + Math.sin(k * Math.PI) * 4.5;
+          this.airborne = true;
+          P_.armL.ax = P_.armR.ax = -2.9;
+          if (k >= 1) {
+            const r = this.radius, room = game.currentRoom;
+            if (game.world.boxCollides(this.x - r, g2 + 0.55, this.z - r, this.x + r, g2 + 3.2, this.z + r) || (room && !room.insideDeep(this.x, this.z))) { this.x = L.sx; this.z = L.sz; }
+            this.airborne = false; this.y = game.world.groundAt(this.x, this.z);
+            A.slam(); game.shake(0.8);
+            if (dist < 3) { P.damage(this.dmg * 1.1, this.x, this.z, game); P.knock(dx / (dist || 1) * 10, dz / (dist || 1) * 10, 5); }
+            game.shockwaves.push({ x: this.x, y: this.y, z: this.z, r: 0.5, max: 10 + this.phase * 3, speed: 8, dmg: this.dmg * 0.6, hit: false });
+            game.world.damageSphere(this.x, this.y + 0.3, this.z, 2.2, 160, game);
+            for (let i = 0; i < 24; i++) game.particles.spawn(this.x + M.rand(-2, 2), this.y + 0.2, this.z + M.rand(-2, 2), M.rand(-5, 5), M.rand(2, 6), M.rand(-5, 5), 0.3, 0.27, 0.25, M.rand(0.1, 0.22), 1.6);
+            this.leaps--;
+            if (this.leaps > 0) { this.state = 'leapWind'; this.stateT = 0.35; }
+            else { this.state = 'recover'; this.stateT = 0.9; }
+          }
+          break;
+        }
+
+        // ---- gancho: lanza la cadena; si te alcanza, te arrastra hacia él ----
+        case 'hookWind':
+          P_.armR.ax = -2.6; P_.armL.ax = -0.8;
+          if (this.stateT <= 0) {
+            this.hookDir = this.aimAt(P);
+            this.chain = { a: this.hookDir, len: 0, t: 0, hit: false };
+            this.state = 'hook'; this.stateT = 0.9;
+            A.swish();
+          }
+          break;
+        case 'hook': {
+          const C = this.chain; C.t += dt;
+          C.len = Math.min(16, C.len + dt * 34);
+          P_.armR.ax = -1.6;
+          const hx = this.x + Math.sin(C.a) * C.len, hz = this.z + Math.cos(C.a) * C.len;
+          C.x = hx; C.z = hz;
+          if (!C.hit && Math.hypot(P.x - hx, P.z - hz) < 0.9 && this.state === 'hook') {
+            C.hit = true; VX.Audio.bite();
+            P.damage(this.dmg * 0.4, hx, hz, game);
+          }
+          if (C.hit) {
+            // arrastre hacia el carnicero
+            const l = Math.hypot(dx, dz) || 1;
+            P.knock(-dx / l * 26 * dt * 4, -dz / l * 26 * dt * 4, 0);
+            C.x = P.x; C.z = P.z;
+            if (dist < 2.6) { this.chain = null; this.state = 'spin'; this.stateT = 1.2; this.spinTick = 0; break; }
+          }
+          if (this.stateT <= 0 || (!game.world.lineOfSight(this.x, this.y + 1.2, this.z, hx, this.y + 1.2, hz))) { this.chain = null; this.state = 'recover'; this.stateT = 0.5; }
+          break;
+        }
+
+        // ---- giro con la cuchilla: todo lo que esté cerca recibe ----
+        case 'spin': {
+          b.yaw += dt * 14;
+          P_.armL.ax = P_.armR.ax = -1.5; P_.armL.az = -1.3; P_.armR.az = 1.3;
+          moveSpeed = this.speed * 0.9; mx = dx / (dist || 1); mz = dz / (dist || 1);
+          this.spinTick -= dt;
+          if (this.spinTick <= 0) {
+            this.spinTick = 0.3;
+            if (dist < 3.3) { P.damage(this.dmg * 0.55, this.x, this.z, game); P.knock(dx / (dist || 1) * 8, dz / (dist || 1) * 8, 2); }
+            game.bullets.ring(this.x, this.y + 0.6, this.z, 10 + this.phase * 4, 5, { angle: b.yaw, b: { dmg: this.bulletDmg, col: ORANGE, r: 0.15 } });
+            A.swish();
+          }
+          if (this.stateT <= 0) { this.state = 'recover'; this.stateT = 0.6; }
+          break;
+        }
+
+        // ---- barrido con el pico: arco delante y rocas a ras de suelo ----
+        case 'sweepWind':
+          P_.armR.ax = -3.0; P_.armR.az = 0.8;
+          if (this.stateT <= 0) {
+            A.swish(); A.slam(); game.shake(0.3);
+            const a0 = this.aimAt(P);
+            if (dist < 4.2) { P.damage(this.dmg, this.x, this.z, game); P.knock(dx / (dist || 1) * 9, dz / (dist || 1) * 9, 3); }
+            game.bullets.fan(this.x, this.y + 0.35, this.z, a0, 9 + this.phase * 3, 1.6, 6.5, { b: { dmg: this.bulletDmg, col: [0.45, 0.4, 0.35], r: 0.2 } });
+            game.world.damageSphere(this.x + Math.sin(a0) * 2.5, this.y + 0.6, this.z + Math.cos(a0) * 2.5, 1.6, 160, game);
+            this.state = 'recover'; this.stateT = 0.6;
+          }
+          break;
       }
 
       if (moveSpeed > 0) {
@@ -357,7 +586,8 @@
       }
       this.kx *= Math.pow(0.05, dt); this.kz *= Math.pow(0.05, dt);
 
-      if (this.state !== 'charge') {
+      if (this.state === 'spin') { /* gira solo */ }
+      else if (this.state !== 'charge') {
         let dy = Math.atan2(dx, dz) - b.yaw;
         while (dy > Math.PI) dy -= Math.PI * 2;
         while (dy < -Math.PI) dy += Math.PI * 2;
@@ -372,7 +602,17 @@
       }
       P_.armL.az = -0.15; P_.armR.az = 0.15;
       P_.torso.ax = 0.15;
-      if (this.state !== 'slamUp') b.yOff = Math.abs(Math.sin(this.walkT)) * 0.05;
+      if (this.quad) {   // la reina camina a cuatro patas; al conjurar se encabrita un poco
+        const rear = this.state === 'cast' ? 0.35 : 0;
+        P_.armL.ax = -sw - rear; P_.armR.ax = sw - rear; P_.armL.az = P_.armR.az = 0; P_.torso.ax = -rear * 0.5;
+      }
+      // mandíbula: rugido al conjurar, al cambiar de fase y al golpear
+      if (P_.jaw && !P_.jaw.detached) {
+        const roar = this.state === 'phase' || this.state === 'intro' || this.state === 'cast' || this.state === 'leapWind' || this.state === 'hookWind';
+        P_.jaw.ax = M.lerp(P_.jaw.ax, roar ? 0.7 + Math.sin(game.time * 30) * 0.08 : 0.08 + Math.max(0, Math.sin(this.walkT * 0.5)) * 0.12, Math.min(1, dt * 10));
+      }
+      for (const p of b.parts) if (!p.detached && p.flicker) { p.ax = Math.sin(game.time * 9 + p.alive) * 0.1; }
+      if (this.state !== 'slamUp' && this.state !== 'leapWind') b.yOff = Math.abs(Math.sin(this.walkT)) * 0.05;
       if (moveSpeed > 0 && Math.abs(Math.sin(this.walkT)) < 0.08 && !this._stepped) { game.shake(0.08); this._stepped = true; }
       if (Math.abs(Math.sin(this.walkT)) > 0.3) this._stepped = false;
       b.x = this.x; b.z = this.z;
@@ -442,12 +682,25 @@
       game.stats.kills++;
       game.stats.bosses++;
       VX.Profile.add('bosses', 1, game);
+      VX.Profile.codexKill('boss:' + this.T.id);
       VX.Profile.addW(this.lastW, 'bosses', 1, game);
       VX.Profile.addW(this.lastW, 'kills', 1, game);
       VX.Profile.add('kills', 1, game);
     }
 
-    render(batch) { this.body.render(batch); }
+    render(batch) {
+      this.body.render(batch);
+      // cadena del gancho
+      if (this.chain) {
+        const C = this.chain, sx = this.x, sz = this.z, sy = this.y + 1.6;
+        const ex = C.x ?? sx, ez = C.z ?? sz, n = Math.max(2, Math.floor(Math.hypot(ex - sx, ez - sz) / 0.18));
+        for (let i = 0; i <= n; i++) {
+          const k = i / n;
+          batch.box(M.lerp(sx, ex, k), sy - k * 0.6, M.lerp(sz, ez, k), 0.07, 0.07, 0.07, 0.3, 0.3, 0.33, 0);
+        }
+        batch.box(ex, sy - 0.6, ez, 0.2, 0.25, 0.08, 0.5, 0.5, 0.55, 0);
+      }
+    }
   }
 
   Boss.TYPES = BOSSES;

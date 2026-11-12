@@ -9,34 +9,38 @@
       art: 'el cuchillo', name: 'Cuchillo', melee: true, damage: 48, fireRate: 2.6, reach: 1.9,
       price: 0, vm: { x: 0.16, y: -0.15, z: -0.26, g: 0.009 },
     },
+    hammer: {
+      art: 'el martillo', name: 'Martillo de guerra', melee: true, heavy: true, damage: 95, fireRate: 1.15, reach: 2.4,
+      price: 85, vm: { x: 0.17, y: -0.2, z: -0.3, g: 0.0095 },
+    },
     pistol: {
-      shake: 0.12, art: 'la pistola', name: 'Pistola', damage: 24, fireRate: 6, range: 32, mag: 10, reload: 1.25, spread: 0.008,
-      pellets: 1, pierce: 0, destruction: 1, auto: false, recoil: 0.025, kick: 0.035, sound: 1,
+      shake: 0.12, art: 'la pistola', name: 'Pistola', damage: 24, fireRate: 6, range: 32, mag: 10, reload: 1.25, spread: 0.0104,
+      pellets: 1, pierce: 0, destruction: 1, auto: false, recoil: 0.025, recoilPat: { up: 0.0352, side: 0.009 }, kick: 0.035, sound: 1,
       price: 40, vm: { x: 0.14, y: -0.125, z: -0.27, g: 0.0095 }, muzzle: [-0.5, 5.5, -27],
     },
     smg: {
-      shake: 0.07, art: 'el subfusil', name: 'Subfusil', damage: 14, fireRate: 12, range: 24, mag: 30, reload: 1.6, spread: 0.028,
-      pellets: 1, pierce: 0, destruction: 0.8, auto: true, recoil: 0.012, kick: 0.02, sound: 0.7,
+      shake: 0.07, art: 'el subfusil', name: 'Subfusil', damage: 14, fireRate: 12, range: 24, mag: 30, reload: 1.6, spread: 0.0364,
+      pellets: 1, pierce: 0, destruction: 0.8, auto: true, recoil: 0.012, recoilPat: { up: 0.0128, side: 0.0075 }, kick: 0.02, sound: 0.7,
       price: 70, vm: { x: 0.15, y: -0.14, z: -0.28, g: 0.0085 }, muzzle: [-0.5, 4, -36],
     },
     shotgun: {
-      shake: 0.38, art: 'la escopeta', name: 'Escopeta', damage: 12, fireRate: 1.5, range: 16, mag: 6, reload: 2.1, spread: 0.085,
-      pellets: 8, pierce: 0, destruction: 1.25, auto: false, recoil: 0.07, kick: 0.09, sound: 2.2,
+      shake: 0.38, art: 'la escopeta', name: 'Escopeta', damage: 12, fireRate: 1.5, range: 16, mag: 6, reload: 2.1, spread: 0.1105,
+      pellets: 8, pierce: 0, destruction: 1.25, auto: false, recoil: 0.07, recoilPat: { up: 0.096, side: 0.0225 }, kick: 0.09, sound: 2.2,
       price: 80, vm: { x: 0.15, y: -0.15, z: -0.3, g: 0.0085 }, muzzle: [-0.5, 5.5, -46],
     },
     rifle: {
-      shake: 0.32, art: 'el rifle', name: 'Rifle de cerrojo', damage: 90, fireRate: 1.1, range: 70, mag: 5, reload: 2.3, spread: 0.0015,
-      pellets: 1, pierce: 2, destruction: 1.6, auto: false, recoil: 0.08, kick: 0.08, sound: 2.6,
+      shake: 0.32, art: 'el rifle', name: 'Rifle de cerrojo', damage: 90, fireRate: 1.1, range: 70, mag: 5, reload: 2.3, spread: 0.002,
+      pellets: 1, pierce: 2, destruction: 1.6, auto: false, recoil: 0.08, recoilPat: { up: 0.088, side: 0.018 }, kick: 0.08, sound: 2.6,
       price: 90, vm: { x: 0.15, y: -0.15, z: -0.32, g: 0.008 }, muzzle: [-0.5, 5.5, -58],
     },
     launcher: {
-      shake: 0.28, art: 'el lanzagranadas', name: 'Lanzagranadas', damage: 110, fireRate: 1.0, range: 40, mag: 4, reload: 2.5, spread: 0.01,
-      pellets: 1, pierce: 0, destruction: 1, auto: false, recoil: 0.06, kick: 0.07, sound: 2,
+      shake: 0.28, art: 'el lanzagranadas', name: 'Lanzagranadas', damage: 110, fireRate: 1.0, range: 40, mag: 4, reload: 2.5, spread: 0.013,
+      pellets: 1, pierce: 0, destruction: 1, auto: false, recoil: 0.06, recoilPat: { up: 0.064, side: 0.015 }, kick: 0.07, sound: 2,
       grenade: true, blast: 2.3,
       price: 110, vm: { x: 0.16, y: -0.16, z: -0.32, g: 0.0085 }, muzzle: [-0.5, 4.5, -34],
     },
   };
-  const GUNS = ['pistol', 'smg', 'shotgun', 'rifle', 'launcher'];
+  const GUNS = ['pistol', 'smg', 'shotgun', 'rifle', 'launcher', 'hammer'];
 
   // ---------------- Skins ----------------
   // Paletas por "etiqueta" de vóxel: main, dark, grip, steel, accent, blade. e = emisivo
@@ -159,6 +163,26 @@
       addHand(add, 2, -1);
       return vox;
     },
+    // Martillo de guerra: cabeza de hierro con cara plana y pico, mango largo forrado
+    hammer() {
+      const { vox, add } = builder();
+      // mango (de la mano hacia delante y arriba)
+      add(-1, 0, -1, 0, -30, 10, 'grip', (x, y, z) => !(z % 5 === 0 && x === -1));
+      add(-1, 0, -1, 0, 2, 9, 'accent', (x, y, z) => z % 2 === 0);          // tiras de cuero
+      add(-2, 1, -2, 1, 10, 11, 'dark');                                      // pomo
+      // cabeza
+      add(-5, 4, -4, 3, -38, -30, 'main', (x, y, z) => !((x === -5 || x === 4) && (y === -4 || y === 3)));
+      add(-5, 4, -4, 3, -39, -39, 'steel', (x, y) => !((x === -5 || x === 4) && (y === -4 || y === 3)));   // cara plana
+      add(-3, 2, -2, 1, -40, -40, 'steel');
+      add(-6, 5, -4, 3, -34, -33, 'dark');                                    // abrazadera
+      for (let k = 0; k < 7; k++) add(-2 + Math.floor(k / 3), 1 - Math.floor(k / 3), -2 + Math.floor(k / 4), 1 - Math.floor(k / 4), -29 + k, -29 + k, 'main');   // pico trasero
+      add(-1, 0, -1, 0, -42, -41, 'dark');                                    // remate
+      // mano alrededor del mango
+      add(-3, 2, -3, 2, 1, 8, 'hand', (x, y, z) => (x === -3 || x === 2 || y === -3 || y === 2) && z % 2 === 0);
+      add(-3, 2, -4, 3, 9, 13, 'wrist', (x, y) => x === -3 || x === 2 || y === -4 || y === 3);
+      add(-4, 3, -5, 4, 13, 29, 'sleeve', (x, y) => x === -4 || x === 3 || y === -5 || y === 4);
+      return vox;
+    },
     knife() {
       const { vox, add } = builder();
       // hoja (filo más claro)
@@ -169,18 +193,30 @@
       }
       add(-1, 1, 3, 3, -14, -5, 'dark', (x) => x === 0);   // lomo
       add(-2, 2, -1, 4, -3, -3, 'dark');                    // guarda
-      add(-1, 1, -1, 3, -2, 8, 'grip', (x, y, z) => !(z % 3 === 0 && (y === -1 || y === 3)));
-      add(-1, 1, -1, 3, 9, 9, 'accent');
-      // mano alrededor del mango (en vertical)
-      add(-3, 3, -3, 5, -1, 7, 'hand', (x, y, z) => (x === -3 || x === 3 || y === -3 || y === 5) && z % 2 === 0);
-      add(-3, 3, -4, 6, 8, 12, 'wrist', (x, y) => x === -3 || x === 3 || y === -4 || y === 6);
-      add(-4, 4, -5, 7, 12, 28, 'sleeve', (x, y) => x === -4 || x === 4 || y === -5 || y === 7);
+      add(-1, 1, -1, 3, -2, 8, 'grip');
+      add(-1, 1, -1, 3, 9, 9, 'accent');                    // pomo
+      // puño cerrado alrededor del mango (visto desde detrás, mano derecha):
+      // cuatro dedos que rodean el mango por abajo y por la izquierda, el pulgar
+      // cruzando por arriba y el dorso de la mano a la derecha
+      for (let f = 0; f < 4; f++) {
+        const z0 = -1 + f * 2;
+        add(-3, -2, -3, 3, z0, z0, 'hand');                 // falange que rodea por la izquierda
+        add(-3, 2, -3, -2, z0, z0, 'hand');                 // y por debajo
+      }
+      add(-3, -3, -2, 3, 0, 6, 'wrist', (x, y, z) => z % 2 === 0);   // pliegues entre dedos
+      add(-2, 0, 4, 5, -1, 3, 'hand');                      // pulgar por encima
+      add(2, 3, -3, 4, -1, 8, 'hand');                      // dorso y palma
+      add(-3, 3, -3, 5, 8, 9, 'hand');                      // talón de la mano (macizo)
+      add(-3, 3, -3, 4, 10, 13, 'wrist');                   // muñeca
+      add(-3, 3, 4, 4, 4, 8, 'hand');                       // nudillos (cierra el puño por arriba)
+      add(-3, 3, -3, 4, 14, 16, 'sleeve');                  // puño de la manga
       return vox;
     },
   };
 
   const DEFAULT_PAL = {
     knife: { blade: [0.75, 0.77, 0.8], steel: [0.95, 0.96, 1], dark: [0.2, 0.2, 0.22], grip: [0.3, 0.2, 0.12], accent: [0.6, 0.6, 0.62] },
+    hammer: { main: [0.3, 0.3, 0.33], steel: [0.62, 0.62, 0.66], dark: [0.14, 0.14, 0.15], grip: [0.42, 0.27, 0.13], accent: [0.25, 0.15, 0.08] },
     pistol: { main: [0.36, 0.36, 0.39], dark: [0.2, 0.2, 0.22], grip: [0.24, 0.17, 0.12], steel: [0.7, 0.71, 0.75], accent: [0.9, 0.4, 0.1] },
     smg: { main: [0.25, 0.27, 0.24], dark: [0.15, 0.15, 0.16], grip: [0.2, 0.2, 0.2], steel: [0.6, 0.6, 0.64], accent: [0.9, 0.4, 0.1] },
     shotgun: { main: [0.3, 0.3, 0.33], dark: [0.15, 0.15, 0.16], grip: [0.45, 0.27, 0.13], steel: [0.5, 0.5, 0.54], accent: [0.9, 0.4, 0.1] },

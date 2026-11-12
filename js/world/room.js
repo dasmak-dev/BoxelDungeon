@@ -18,10 +18,13 @@
       this.template = template;
       this.name = template.name;
       this.w = M.randInt(template.w[0], template.w[1]) & ~1;
+      if (opts.maxW && this.w > opts.maxW) this.w = Math.max(16, opts.maxW) & ~1;
       let d = M.randInt(template.d[0], template.d[1]);
       if (opts.maxD) d = Math.min(d, opts.maxD);
       this.d = Math.max(22, d) & ~1;
-      this.h = template.h || 10;
+      // techo según el bioma (más alto en la Forja); algunas plantillas piden más
+      const zh = (VX.ZONES && VX.ZONES[opts.zone || 0] && VX.ZONES[opts.zone || 0].ceil) || 12;
+      this.h = Math.max(template.h || 10, (type === 'normal' || type === 'boss') ? zh : 11);
       this.W = this.w * K; this.D = this.d * K; this.H = this.h * K;
       this.cu = this.w / 2; this.cuz = this.d / 2;
       this.cx = this.W / 2; this.cz = this.D / 2;
@@ -49,7 +52,16 @@
       this.mapVersion = 0;
       this.pendingWaves = 0;
       this.spikes = [];
+      this.props = [];        // objetos destructibles (vóxel fino)
+      this.decor = [];        // decoración estática
+      this.pending = [];      // objetos pedidos por la plantilla (se colocan tras el relieve)
+      this.propsDirty = true;
+      this.decorBatch = null; this.propBatch = null;
+      this.decorBoxes = [];   // cajas sueltas de decoración (vigas, etc.)
     }
+
+    // La plantilla pide un objeto en (x, z) metros; se coloca al final de build()
+    queue(type, x, z, opts, stack = 1) { this.pending.push({ type, x, z, opts, stack }); }
 
     // Trampa de púas en un rectángulo de unidades (sale y se esconde periódicamente)
     // kind: 'spikes' (salen y se esconden), 'lava' o 'acid' (siempre activos)
@@ -63,9 +75,10 @@
     }
 
     // Charcos/trampas al azar en zonas llanas y libres
-    addRandomHazards(kind, n) {
+    addRandomHazards(kind, n, mn = 2, mx = 4) {
       for (let i = 0, tries = 0; i < n && tries < 60; tries++) {
-        const sw = VX.M.randInt(2, 4), sd = VX.M.randInt(2, 4);
+        const sw = VX.M.randInt(mn, mx), sd = VX.M.randInt(mn, mx);
+        if (sw + 9 > this.w || sd + 13 > this.d) continue;
         const ux = VX.M.randInt(4, this.w - 5 - sw), uz = VX.M.randInt(6, this.d - 7 - sd);
         let free = true;
         for (let x = ux * 2; x < (ux + sw) * 2 && free; x++)
@@ -83,9 +96,12 @@
       const Z = VX.ZONES[this.zone || 0];
       if (this.type === 'normal' && Z) {
         if (Z.hazard === 'spikes') { if (Math.random() < 0.3) this.addRandomHazards('spikes', VX.M.randInt(1, 2)); }
-        else this.addRandomHazards(Z.hazard, VX.M.randInt(2, 4));
+        else if (Z.hazard && Math.random() < 0.8) this.addRandomHazards(Z.hazard, VX.M.randInt(1, 3));
+        // agua estancada en las Cloacas (y algo en el Jardín): frena y apaga el fuego
+        if ((this.zone === 1 && Math.random() < 0.85) || (this.zone === 4 && Math.random() < 0.35)) this.addRandomHazards('water', VX.M.randInt(2, 4), 4, 9);
       }
       this.placeTorches();
+      VX.Dress.dress(this);
       for (const s in this.doors) this.setDoor(s, this.doors[s].closed);
     }
 
@@ -192,8 +208,9 @@
             let t;
             if (m === 0 || y >= H - 4) t = BL.BEDROCK;
             else {
+              // zócalo de sillares, ladrillo de piedra y alguna mancha de musgo
               const patch = VX.M.hash3(x >> 3, y >> 2, (z >> 3) + this.index * 17);
-              t = patch < 0.2 ? BL.MOSS : BL.BRICK;
+              t = y < 2 ? BL.STONE : patch < 0.1 ? BL.MOSS : BL.BRICK;
             }
             this.grid[i] = t; this.hp[i] = BL.info[t].hp;
           }
@@ -217,12 +234,15 @@
     setDoor(side, closed) {
       const BL = VX.Blocks;
       const r = this.doorRange(side);
+      // portón de dos hojas que ocupa todo el hueco: tablones de madera con
+      // herrajes de hierro (bordes, dos bandas y la junta central), simétrico
       for (let a = 0; a < 8; a++)
         for (let y = 0; y < r.y1; y++)
           for (let t = 0; t < 4; t++) {
             const mid = t === 1 || t === 2;
-            const bar = mid && (a % 2 === 0 || y % 4 === 3);
-            this.doorCell(r, a, t, y, closed && bar ? BL.DOOR : BL.AIR);
+            let v = BL.AIR;
+            if (closed && mid) v = Room.doorIron(a, y, r.y1) ? BL.DOOR : BL.DOORWOOD;
+            this.doorCell(r, a, t, y, v);
           }
       for (let t = 0; t < 4; t++)
         for (let y = 0; y <= r.y1; y++) {
@@ -233,12 +253,24 @@
       if (this.doors[side]) this.doors[side].closed = closed;
     }
 
+    // ¿Este vóxel del portón es hierro? (para el bloque y para la animación)
+    static doorIron(a, y, y1) {
+      if (a === 0 || a === 7) return true;                        // cantoneras
+      if (y === 2 || y === y1 - 3 || y === Math.floor(y1 / 2)) return a !== 3 && a !== 4 ? true : y !== Math.floor(y1 / 2);   // bandas
+      if ((a === 3 || a === 4) && y > 3 && y < y1 - 4 && y % 3 === 0) return true;   // remaches de la junta
+      if ((a === 2 || a === 5) && y === Math.floor(y1 / 2) - 1) return true;          // tiradores
+      return false;
+    }
+
     placeTorches() {
       const BL = VX.Blocks;
-      const y = 8, step = 24;
+      // algunas salas están a oscuras: sin antorchas, hace falta la linterna (más cuanto más bajas)
+      if (this.type === 'normal' && !this.template.lit && Math.random() < 0.28 + Math.min(0.22, this.index * 0.012)) { this.dark = true; return; }
+      const y = 8, step = 44;   // pocas antorchas: la linterna es tu luz principal
       const wall = K * 2 - 1;
       const tryAdd = (ax, az, nx, nz) => {
         const tx = ax + nx, tz = az + nz;
+        if (Math.random() < 0.3) return;
         if (!this.inBounds(tx, y, tz) || this.get(tx, y, tz) !== 0 || !BL.isSolid(this.get(ax, y, az))) return;
         if (this.get(tx, y - 1, tz) !== 0) return; // enterrada por el relieve
         this.torches.push({
@@ -297,7 +329,7 @@
           base[z * W + x] = ok;
         }
       // los zombis evitan púas, ácido y lava al buscar camino
-      for (const sp of this.spikes)
+      for (const sp of this.spikes) if (sp.kind !== 'water')
         for (let z = sp.uz0 * 2; z < (sp.uz1 + 1) * 2; z++)
           for (let x = sp.ux0 * 2; x < (sp.ux1 + 1) * 2; x++) base[z * W + x] = 0;
       const w = new Uint8Array(W * D);
@@ -317,6 +349,15 @@
       this.hmap = hm;
       this.walk = w;
       return w;
+    }
+
+    // Superficie transitable de la sala (m²)
+    walkArea() {
+      if (this._area) return this._area;
+      const w = this.getWalk();
+      let n = 0;
+      for (let i = 0; i < w.length; i++) n += w[i];
+      return (this._area = n * S * S);
     }
 
     // Altura del suelo (m) en una posición local de vóxel
@@ -344,7 +385,8 @@
     // ---------------- Malla ----------------
     solidL(x, y, z) {
       if (x < 0 || z < 0 || x >= this.W || z >= this.D || y < 0 || y >= this.H) return 1;
-      return this.grid[(y * this.D + z) * this.W + x] ? 1 : 0;
+      const t = this.grid[(y * this.D + z) * this.W + x];
+      return t && !VX.Blocks.invisible[t] && !VX.Blocks.transparent[t] ? 1 : 0;   // PROP / BARRIER no se ven; el cristal deja ver
     }
 
     computeAO(x, y, z, out) {
@@ -376,6 +418,39 @@
       return [r, g, b];
     }
 
+    // ¿Hay charco en esta losa? (manchas grandes y redondeadas, lejos de las paredes)
+    isPuddle(gx, gz, damp) {
+      const H = VX.M.hash3;
+      const n = H(gx >> 3, 91, gz >> 3) * 0.55 + H((gx + 4) >> 2, 92, (gz + 4) >> 2) * 0.3 + H(gx >> 1, 93, gz >> 1) * 0.15;
+      return n < 0.12 + damp * 0.16;
+    }
+
+    // Desgaste de las paredes: variación de tono a gran escala, musgo en las juntas
+    // de abajo y chorretones de humedad que bajan desde el techo
+    weather(gx, y, gz, c, damp, inf) {
+      const H = VX.M.hash3;
+      const big = H(gx >> 3, y >> 2, gz >> 3) * 0.6 + H(gx >> 2, (y >> 1) + 50, gz >> 2) * 0.4;
+      const k = 0.86 + big * 0.26;
+      c[0] *= k; c[1] *= k; c[2] *= k;
+      // musgo: abajo, en las juntas, más en zonas húmedas
+      const low = Math.max(0, 1 - y / (4 + damp * 6));
+      if (inf.brick && low > 0 && H(gx, y + 7, gz) < low * (0.25 + damp * 0.45) * (0.5 + big)) {
+        const m = 0.55 + H(gx, y, gz + 3) * 0.3;
+        c[0] = c[0] * (1 - m) + 0.2 * m; c[1] = c[1] * (1 - m) + 0.3 * m; c[2] = c[2] * (1 - m) + 0.12 * m;
+      }
+      // chorretones verticales de humedad / hollín
+      const col = H(gx, 777, gz);
+      if (col < 0.1 + damp * 0.1) {
+        const len = 5 + Math.floor(H(gx, 778, gz) * 18);
+        const top = this.H - 4;
+        if (y >= top - len) {
+          const f = 1 - (top - y) / len;
+          const d = 0.72 + (1 - f) * 0.2;
+          c[0] *= d; c[1] *= d; c[2] *= d * (damp > 0.5 ? 1.04 : 1);
+        }
+      }
+    }
+
     rebuildChunk(ci, R) {
       let batch = this.chunks[ci];
       if (!batch) batch = this.chunks[ci] = R.createBatch(512, false);
@@ -384,25 +459,89 @@
       const cxi = ci % this.CW, czi = (ci - cxi) / this.CW;
       const x0 = cxi * CH, z0 = czi * CH;
       const x1 = Math.min(this.W, x0 + CH), z1 = Math.min(this.D, z0 + CH);
-      const { W, D, H, grid } = this;
+      this.emitFloor(batch, x0, z0, x1, z1);
+      this.emitVoxels(batch, x0, z0, x1, z1);
+      batch.upload();
+      // cristales del chunk (paneles fusionados, se dibujan con transparencia)
+      if (this.hasGlass) {
+        if (!this.glassChunks) this.glassChunks = [];
+        let gb = this.glassChunks[ci];
+        if (!gb) gb = this.glassChunks[ci] = R.createBatch(64, false);
+        gb.clear();
+        this.emitGlass(gb, x0, z0, x1, z1);
+        gb.upload();
+      }
+      this.chunkDirty[ci] = 0;
+    }
 
+    // Fusión voraz de las celdas de cristal en cajas grandes (un panel = una caja)
+    emitGlass(batch, x0, z0, x1, z1) {
+      const { W, D, H, grid } = this, TR = VX.Blocks.transparent;
+      const sx = x1 - x0, sz = z1 - z0;
+      const seen = new Uint8Array(sx * sz * H);
+      const at = (x, y, z) => (y * sz + (z - z0)) * sx + (x - x0);
+      const isG = (x, y, z, t) => grid[(y * D + z) * W + x] === t && !seen[at(x, y, z)];
+      const col = [0, 0, 0];
+      for (let y = 0; y < H; y++)
+        for (let z = z0; z < z1; z++)
+          for (let x = x0; x < x1; x++) {
+            const t = grid[(y * D + z) * W + x];
+            if (!TR[t] || seen[at(x, y, z)]) continue;
+            let ex = x + 1; while (ex < x1 && isG(ex, y, z, t)) ex++;
+            let ez = z + 1;
+            grow: while (ez < z1) { for (let k = x; k < ex; k++) if (!isG(k, y, ez, t)) break grow; ez++; }
+            let ey = y + 1;
+            growY: while (ey < H) { for (let kz = z; kz < ez; kz++) for (let k = x; k < ex; k++) if (!isG(k, ey, kz, t)) break growY; ey++; }
+            for (let yy = y; yy < ey; yy++) for (let kz = z; kz < ez; kz++) for (let k = x; k < ex; k++) seen[at(k, yy, kz)] = 1;
+            VX.Blocks.color(t, this.ox + x, y, this.oz + z, col);
+            batch.box((this.ox + (x + ex) / 2) * S, ((y + ey) / 2) * S, (this.oz + (z + ez) / 2) * S, (ex - x) * S, (ey - y) * S, (ez - z) * S, col[0], col[1], col[2], -0.95);
+          }
+    }
+
+    drawGlass(R) {
+      if (!this.glassChunks) return;
+      for (let i = 0; i < this.glassChunks.length; i++) {
+        const b = this.glassChunks[i];
+        if (!b || !b.count) continue;
+        const cxi = i % this.CW, czi = (i - cxi) / this.CW;
+        const cx = (this.ox + cxi * CH + CH / 2) * S, cz = (this.oz + czi * CH + CH / 2) * S;
+        if (this.drawDist && Math.hypot(cx - R.camPos[0], cz - R.camPos[2]) > this.drawDist) continue;
+        if (!R.visible(cx, this.H * S / 2, cz, CH * S + this.H * S)) continue;
+        b.draw();
+      }
+    }
+
+    // Losas del suelo de un chunk
+    emitFloor(batch, x0, z0, x1, z1) {
       for (let z = z0; z < z1; z += K)
         for (let x = x0; x < x1; x += K) {
           if (this.solidL(x, 0, z) && this.solidL(x + 1, 0, z + 1) && this.solidL(x + 1, 0, z) && this.solidL(x, 0, z + 1)) continue;
           const gx = this.ox + x, gz = this.oz + z;
           const h = VX.M.hash3(gx, 3, gz), h2 = VX.M.hash3(gx >> 2, 5, gz >> 2);
-          const [r, g, b] = this.floorTint(0.24 + h * 0.06 + h2 * 0.04);
+          let [r, g, b] = this.floorTint(0.24 + h * 0.06 + h2 * 0.04);
           const a00 = this.floorAO(x, z), a10 = this.floorAO(x + K, z), a01 = this.floorAO(x, z + K), a11 = this.floorAO(x + K, z + K);
           ao8[0] = a00; ao8[1] = a10; ao8[2] = a00; ao8[3] = a10;
           ao8[4] = a01; ao8[5] = a11; ao8[6] = a01; ao8[7] = a11;
-          batch.aobox((gx + K / 2) * S, -0.12, (gz + K / 2) * S, K * S, 0.24, K * S, r, g, b, 0, ao8);
+          // charcos: losas oscuras y brillantes que reflejan las antorchas (zonas húmedas)
+          let mat = 0;
+          const damp = (VX.ZONES[this.zone || 0].damp || 0);
+          if (damp > 0 && this.isPuddle(gx, gz, damp)) {
+            const edge = !this.isPuddle(gx + K, gz, damp) || !this.isPuddle(gx - K, gz, damp) || !this.isPuddle(gx, gz + K, damp) || !this.isPuddle(gx, gz - K, damp);
+            r *= 0.55; g *= 0.6; b *= 0.72; mat = edge ? -0.55 : -0.95;
+          }
+          batch.aobox((gx + K / 2) * S, -0.12, (gz + K / 2) * S, K * S, 0.24, K * S, r, g, b, mat, ao8);
         }
+    }
 
+    // Vóxeles visibles de un chunk
+    emitVoxels(batch, x0, z0, x1, z1) {
+      const BL = VX.Blocks, INV = BL.invisible, TRANS = BL.transparent;
+      const { W, D, H, grid } = this;
       for (let y = 0; y < H; y++)
         for (let z = z0; z < z1; z++)
           for (let x = x0; x < x1; x++) {
             const t = grid[(y * D + z) * W + x];
-            if (!t) continue;
+            if (!t || INV[t] || TRANS[t]) continue;
             const up = this.solidL(x, y + 1, z);
             if (this.solidL(x + 1, y, z) && this.solidL(x - 1, y, z) && up &&
                 this.solidL(x, y - 1, z) && this.solidL(x, y, z + 1) && this.solidL(x, y, z - 1)) continue;
@@ -416,8 +555,9 @@
               tmpCol[0] = c[0]; tmpCol[1] = c[1]; tmpCol[2] = c[2];
             }
             if (t === BL.BRICK || t === BL.MOSS || t === BL.BEDROCK || t === BL.STONE || (inf.terrain && up)) {
-              const Z = VX.ZONES[this.zone || 0].tint;
+              const Zn = VX.ZONES[this.zone || 0], Z = Zn.tint;
               tmpCol[0] *= Z[0]; tmpCol[1] *= Z[1]; tmpCol[2] *= Z[2];
+              this.weather(gx, y, gz, tmpCol, Zn.damp || 0, inf);
             }
             if (inf.hp !== Infinity) {
               const k = 0.6 + 0.4 * (this.hp[(y * D + z) * W + x] / inf.hp);
@@ -426,8 +566,6 @@
             this.computeAO(x, y, z, ao8);
             batch.aobox((gx + 0.5) * S, (y + 0.5) * S, (gz + 0.5) * S, S, S, S, tmpCol[0], tmpCol[1], tmpCol[2], tmpCol[3], ao8);
           }
-      batch.upload();
-      this.chunkDirty[ci] = 0;
     }
 
     buildCeiling(R) {
@@ -446,8 +584,58 @@
       b.upload();
     }
 
+    // Objetos y decoración (vóxel fino)
+    updateProps(R) {
+      const PV = VX.PV;
+      if (!this.decorBatch) {
+        const b = this.decorBatch = R.createBatch(4096, false);
+        for (const d of this.decor) VX.Props.emitGrid(b, d.m.w, d.m.h, d.m.d, d.m.fill, d.m.col, d.ox, d.oy, d.oz);
+        for (const x of this.decorBoxes) b.box(...x);
+        b.upload();
+      }
+      if (this.propsDirty) {
+        // Rendimiento: los objetos intactos se agrupan por sectores de 8 m en un solo lote;
+        // al tocar uno sale de su sector y pasa a tener lote propio (sólo se rehace ése)
+        if (!this.sectors) {
+          this.sectors = new Map();
+          for (const p of this.props) {
+            if (p.touched || p.dead) continue;
+            const key = Math.floor(p.cx / 8) + ':' + Math.floor(p.cz / 8);
+            let sec = this.sectors.get(key);
+            if (!sec) { sec = { list: [], dirty: true, batch: null, x0: 1e9, x1: -1e9, y1: 0, z0: 1e9, z1: -1e9 }; this.sectors.set(key, sec); }
+            sec.list.push(p); p.sector = sec; p.dirty = false;
+            sec.x0 = Math.min(sec.x0, p.ox); sec.x1 = Math.max(sec.x1, p.ox + p.w * VX.PV);
+            sec.z0 = Math.min(sec.z0, p.oz); sec.z1 = Math.max(sec.z1, p.oz + p.d * VX.PV);
+            sec.y1 = Math.max(sec.y1, p.oy + p.h * VX.PV);
+          }
+          for (const sec of this.sectors.values()) {
+            sec.cx = (sec.x0 + sec.x1) / 2; sec.cz = (sec.z0 + sec.z1) / 2; sec.cy = sec.y1 / 2;
+            sec.rad = Math.hypot(sec.x1 - sec.x0, sec.y1, sec.z1 - sec.z0) / 2;
+          }
+        }
+        for (const p of this.props) {
+          if (p.touched && p.sector) { p.sector.list.splice(p.sector.list.indexOf(p), 1); p.sector.dirty = true; p.sector = null; p.dirty = true; }
+          if (!p.dirty || p.sector) continue;
+          p.dirty = false;
+          if (p.dead) { if (p.batch) { p.batch.dispose(); p.batch = null; } continue; }
+          const b = p.batch || (p.batch = R.createBatch(256, true));
+          b.clear(); p.emit(b); b.upload();
+        }
+        for (const sec of this.sectors.values()) {
+          if (!sec.dirty) continue;
+          sec.dirty = false;
+          const b = sec.batch || (sec.batch = R.createBatch(2048, false));
+          b.clear();
+          for (const p of sec.list) p.emit(b);
+          b.upload();
+        }
+        this.propsDirty = false;
+      }
+    }
+
     updateMeshes(R, budget) {
       if (!this.ceiling) this.buildCeiling(R);
+      this.updateProps(R);
       if (!this.anyDirty) return 0;
       let n = 0;
       for (let i = 0; i < this.chunkDirty.length; i++) {
@@ -461,21 +649,34 @@
     }
 
     draw(R) {
+      // en la pasada de sombras de la linterna basta con lo cercano (mapas grandes)
+      const far = R.shadowPass && this.drawDist ? 30 : this.drawDist;
       for (let i = 0; i < this.chunks.length; i++) {
         const b = this.chunks[i];
         if (!b) continue;
         const cxi = i % this.CW, czi = (i - cxi) / this.CW;
         const cx = (this.ox + cxi * CH + CH / 2) * S, cz = (this.oz + czi * CH + CH / 2) * S;
+        if (far && Math.hypot(cx - R.camPos[0], cz - R.camPos[2]) > far) continue;
         if (!R.visible(cx, this.H * S * 0.5, cz, Math.hypot(2.1, 2.1, this.H * S * 0.5))) continue;
         b.draw();
       }
       if (this.ceiling) this.ceiling.draw();
+      if (this.decorBatch && !(R.shadowPass && this.city)) this.decorBatch.draw();
+      if (this.sectors) for (const sec of this.sectors.values()) if (sec.batch && sec.list.length && R.visible(sec.cx, sec.cy, sec.cz, sec.rad)) sec.batch.draw();
+      for (const p of this.props) if (p.batch && !p.dead && !p.sector && R.visible(p.cx, p.cy, p.cz, p.rad)) p.batch.draw();
     }
 
     dispose() {
       for (const b of this.chunks) if (b) b.dispose();
+      if (this.glassChunks) for (const b of this.glassChunks) if (b) b.dispose();
+      this.glassChunks = null;
       if (this.ceiling) this.ceiling.dispose();
-      this.chunks = []; this.ceiling = null;
+      if (this.decorBatch) this.decorBatch.dispose();
+      for (const p of this.props) { if (p.batch) { p.batch.dispose(); p.batch = null; } p.dirty = true; p.sector = null; }
+      if (this.sectors) for (const sec of this.sectors.values()) if (sec.batch) sec.batch.dispose();
+      this.sectors = null;
+      this.chunks = []; this.ceiling = null; this.decorBatch = null; this.propBatch = null;
+      this.propsDirty = true;
     }
   }
 

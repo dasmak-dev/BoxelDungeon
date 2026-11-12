@@ -18,6 +18,26 @@
 
   const TEMPO = { title: 70, explore: 76, combat: 124, boss: 140, shop: 96, save: 64, silent: 80, death: 60 };
 
+  // Carácter musical de cada bioma: transposición, tempo, timbre y una capa propia
+  //  0 Cripta: órgano grave · 1 Cloacas: goteos con eco · 2 Minas: martillos lejanos
+  //  3 Forja: yunque y bajo saturado · 4 Jardín: campanillas de tonos enteros · 5 Vacío: disonancias lentas
+  const ZM = [
+    { tr: 0, tempo: 1, lead: 'triangle', cutoff: 500 },
+    { tr: -2, tempo: 0.92, lead: 'sine', cutoff: 380 },
+    { tr: 2, tempo: 1.0, lead: 'square', cutoff: 650 },
+    { tr: 3, tempo: 1.08, lead: 'sawtooth', cutoff: 900 },
+    { tr: -5, tempo: 0.95, lead: 'sine', cutoff: 1200 },
+    { tr: 1, tempo: 0.85, lead: 'sine', cutoff: 300 },
+    { tr: -3, tempo: 1.06, lead: 'sawtooth', cutoff: 1400 },   // 6 Ciudad: sintetizador ochentero
+    { tr: -5, tempo: 0.92, lead: 'triangle', cutoff: 850 },    // 7 Coliseo: tambores y metales graves
+  ];
+  Mu.zone = 0;
+  Mu.setZone = function (z) {
+    if (z === Mu.zone || !ZM[z]) return;
+    Mu.zone = z;
+    Mu.bpm = (TEMPO[Mu.mode] || 80) * ((Mu.mode === 'explore' || Mu.mode === 'combat') ? ZM[z].tempo : 1);
+  };
+
   Mu.init = function () {
     const ctx = A().ctx;
     if (!ctx || Mu.out) return;
@@ -43,7 +63,7 @@
     if (m === Mu.mode) return;
     const prev = Mu.mode;
     Mu.mode = m;
-    Mu.bpm = TEMPO[m] || 80;
+    Mu.bpm = (TEMPO[m] || 80) * ((m === 'explore' || m === 'combat') ? ZM[Mu.zone].tempo : 1);
     // al cambiar de modo, sincroniza al siguiente compás
     if (prev !== m) Mu.step = Math.ceil(Mu.step / 16) * 16;
   };
@@ -140,6 +160,25 @@
 
   function chordNotes(root, q) { return [root, root + (q === 'm' ? 3 : 4), root + 7]; }
 
+  // Capa característica del bioma
+  function zoneLayer(t, s, bar, root, ch, spb, combat) {
+    const R = Math.random, z = Mu.zone;
+    if (z === 0) {         // Cripta: campana fúnebre de vez en cuando
+      if (s === 0 && bar % 4 === 0) { pluck(t, root + 12, 3, 0.05, 'sine', 0.8); pluck(t, root + 19, 3, 0.02, 'sine', 0.8); }
+    } else if (z === 1) {  // Cloacas: goteos agudos con mucho eco
+      if (R() < (combat ? 0.4 : 0.14)) pluck(t, root + 36 + [0, 3, 7, 10, 12][Math.floor(R() * 5)], 0.18, 0.04, 'sine', 0.9);
+    } else if (z === 2) {  // Minas: picos golpeando roca, lejos
+      if ((s === 6 || s === 14) && R() < 0.55) { noiseHit(t, 0.08, 0.06, 3200, 'bandpass'); bassTone(t, 1200 + R() * 400, 0.05, 0.02); }
+    } else if (z === 3) {  // Forja: yunque metálico a contratiempo
+      if (s === 4 || s === 12) { bassTone(t, 1760, 0.25, 0.025); bassTone(t, 2490, 0.18, 0.015); noiseHit(t, 0.05, 0.04, 5000, 'highpass'); }
+    } else if (z === 4) {  // Jardín: campanillas en escala de tonos enteros
+      if (s % 2 === 1 && R() < (combat ? 0.5 : 0.25)) pluck(t, root + 24 + 2 * Math.floor(R() * 6), 1.6, 0.025, 'sine', 0.7);
+    } else if (z === 5) {  // Vacío: notas que se deslizan y una voz grave de órgano
+      if (s === 0 && bar % 2 === 0) pad(t, [root - 12, root - 6], spb * 8, 0.022, 260);
+      if (R() < 0.06) pluck(t, root + 30 + Math.floor(R() * 12), 2.5, 0.025, 'sine', 0.9);
+    }
+  }
+
   // ---------- Secuenciador ----------
   Mu.playStep = function (step, t) {
     const m = Mu.mode;
@@ -164,12 +203,16 @@
     }
 
     if (m === 'explore') {
-      const [root, q] = PROG_MINOR[Math.floor(bar / 2) % 4];
+      const Z = ZM[Mu.zone] || ZM[0];
+      let [root, q] = PROG_MINOR[Math.floor(bar / 2) % 4];
+      root += Z.tr;
       const ch = chordNotes(root, q);
-      if (s === 0 && bar % 2 === 0) pad(t, ch.map((n) => n + 12), spb * 8, 0.026, 500);
+      if (Mu.zone === 5) ch[2] = root + 6;   // quinta disminuida: el Vacío suena «mal»
+      if (s === 0 && bar % 2 === 0) pad(t, ch.map((n) => n + 12), spb * 8, 0.026, Z.cutoff);
       if (s === 0 || s === 10) bass(t, root - 12, spb * 2, 0.11);
-      if (s % 2 === 0 && R() < 0.22) pluck(t, ch[Math.floor(R() * 3)] + 24 + (R() < 0.3 ? 12 : 0), 0.9, 0.035, 'triangle', 0.6);
+      if (s % 2 === 0 && R() < 0.22) pluck(t, ch[Math.floor(R() * 3)] + 24 + (R() < 0.3 ? 12 : 0), 0.9, 0.035, Z.lead, 0.6);
       if (s === 8 && bar % 4 === 3) noiseHit(t, 1.2, 0.03, 400, 'lowpass');
+      zoneLayer(t, s, bar, root, ch, spb);
       return;
     }
 
@@ -184,7 +227,9 @@
     }
 
     if (m === 'combat') {
-      const [root, q] = PROG_MINOR[bar % 4];
+      let [root, q] = PROG_MINOR[bar % 4];
+      root += (ZM[Mu.zone] || ZM[0]).tr;
+      if (s % 8 === 0 && R() < 0.5) zoneLayer(t, s, bar, root, chordNotes(root, q), spb, true);
       const ch = chordNotes(root, q);
       if (s === 0) pad(t, ch.map((n) => n + 12), spb * 4, 0.02, 1100);
       if (s === 0 || s === 8 || (s === 11 && R() < 0.6)) kick(t, 0.42);

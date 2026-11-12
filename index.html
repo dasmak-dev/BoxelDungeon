@@ -15,6 +15,8 @@
     <div id="crosshair"><span></span><span></span><span></span><span></span></div>
     <div id="hitmarker"></div>
     <div id="vignette"></div>
+    <div id="bloodScreen"></div>
+    <div id="dmgDirs"></div>
 
     <div id="topLeft">
       <div id="floorLabel">PISO 1</div>
@@ -43,8 +45,10 @@
     </div>
 
     <div id="dashPip"></div>
+    <div id="locator"></div>
     <div id="challenge" class="hidden"></div>
     <div id="prompt" class="hidden"></div>
+    <div id="mapOverlay" class="hidden"></div>
     <div id="doorHint" class="hidden"></div>
     <div id="banner" class="hidden"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
     <div id="enemyCount"></div>
@@ -58,8 +62,10 @@
       <div class="menuList">
         <button id="newBtn">NUEVA PARTIDA</button>
         <button id="continueBtn" class="secondary">CONTINUAR<small id="continueInfo"></small></button>
+        <button id="hordeBtn" class="secondary horde">MODO HORDA<small id="hordeInfo">Oleadas infinitas · elige mapa</small></button>
         <button id="sanctuaryBtn" class="secondary">SANTUARIO<small id="essenceInfo">Mejoras permanentes</small></button>
         <button id="armoryBtn" class="secondary">ARMERÍA<small>Skins de armas</small></button>
+        <button id="codexBtn" class="secondary">CÓDICE<small id="codexInfo">Enemigos, mejoras y récords</small></button>
         <button id="settingsBtn" class="secondary">AJUSTES</button>
       </div>
       <div class="controls">
@@ -70,9 +76,10 @@
         <div><b>ESPACIO</b> saltar</div>
         <div><b>SHIFT</b> correr</div>
         <div><b>E</b> usar / comprar</div>
-        <div><b>F</b> linterna</div>
+        <div><b data-key="flashlight">F</b> linterna</div>
+        <div><b data-key="inspect">Ctrl</b> inspeccionar arma</div>
         <div><b>1·2·3 / Q / RUEDA</b> cambiar arma</div>
-        <div><b>V</b> cuchillazo rápido</div>
+        <div><b data-key="knife">V</b> cuchillazo rápido</div>
         <div><b>C / CLIC DCHO</b> esquivar</div>
       </div>
       <div id="versionTag"></div>
@@ -102,9 +109,21 @@
     <div id="essenceTotal"></div>
     <div class="sancCols">
       <div><h3>BENDICIONES</h3><div id="perkList" class="sancList"></div></div>
+      <div><h3>MERCANCÍA</h3><p class="sancNote">Objetos nuevos que podrán aparecer a la venta en las tiendas.</p><div id="shopUnlockList" class="sancList"></div></div>
       <div><h3>ARSENAL</h3><p class="sancNote">Sólo las armas desbloqueadas aparecen en las tiendas y en los botines de los jefes.</p><div id="startWeaponList" class="sancList"></div></div>
     </div>
     <button id="sanctuaryBack" class="small">VOLVER</button>
+  </div>
+
+  <!-- Códice -->
+  <div id="codex" class="screen hidden">
+    <h2>CÓDICE</h2>
+    <div id="codexBest"></div>
+    <div class="sancCols">
+      <div><h3>BESTIARIO</h3><div id="codexEnemies" class="codexList"></div></div>
+      <div><h3>MEJORAS</h3><div id="codexUps" class="codexList"></div></div>
+    </div>
+    <button id="codexBack" class="small">VOLVER</button>
   </div>
 
   <!-- Ajustes -->
@@ -125,12 +144,40 @@
         <option value="media">Media</option>
         <option value="baja">Baja</option>
       </select>
+      <label>Calidad automática (baja si caen los FPS)</label>
+      <input type="checkbox" id="setAutoQ">
       <label>Sombras de la linterna</label>
       <input type="checkbox" id="setShadows">
+      <label>Resplandor de las luces (bloom)</label>
+      <input type="checkbox" id="setBloom">
+      <label>Oclusión ambiental: rincones en sombra (calidad alta)</label>
+      <input type="checkbox" id="setSsao">
+      <label>Sombras de las antorchas (calidad alta)</label>
+      <input type="checkbox" id="setTorchShadows">
+      <label>Polvo en el haz de la linterna</label>
+      <input type="checkbox" id="setDust">
       <label>Invertir eje Y</label>
       <input type="checkbox" id="setInvert">
       <label>Mostrar FPS</label>
       <input type="checkbox" id="setFps">
+      <label>Correr siempre (Shift para andar)</label>
+      <input type="checkbox" id="setAutoRun">
+      <label>Flechas hacia los últimos enemigos</label>
+      <input type="checkbox" id="setLocator">
+      <label>Efectos de pantalla al recibir daño</label>
+      <input type="checkbox" id="setHurtFx">
+      <label>Tecla: linterna</label>
+      <button class="small keyBind" data-action="flashlight"></button>
+      <label>Tecla: inspeccionar arma</label>
+      <button class="small keyBind" data-action="inspect"></button>
+      <label>Tecla: cuchillazo rápido</label>
+      <button class="small keyBind" data-action="knife"></button>
+      <label>Perfil (esencia, Santuario, skins…) <small id="profileMsg"></small></label>
+      <div class="row tight">
+        <button id="exportProfileBtn" class="small secondary">EXPORTAR</button>
+        <button id="importProfileBtn" class="small secondary">IMPORTAR</button>
+        <input type="file" id="importProfileFile" accept=".json,application/json" class="hidden">
+      </div>
     </div>
     <div class="row">
       <button id="resetSettingsBtn" class="secondary small">RESTABLECER</button>
@@ -147,6 +194,16 @@
       <button id="saveQuitBtn" class="secondary">GUARDAR Y SALIR<small>Reanuda más tarde · se borra si mueres</small></button>
       <button id="quitBtn" class="secondary">ABANDONAR PARTIDA<small>Cuenta como muerte: ganas la esencia</small></button>
     </div>
+  </div>
+
+  <!-- Modo Horda: elegir mapa -->
+  <div id="hordeSelect" class="screen hidden">
+    <h2>MODO HORDA</h2>
+    <p class="hordeIntro">Oleadas sin fin en mapas grandes y abiertos. Antes de cada oleada sabrás cuántos zombis vienen.<br>
+      La munición <b>no es infinita</b>: los enemigos sueltan cajas de balas y hay suministros escondidos en los edificios.
+      Cada 3 oleadas llega un vendedor que también rellena la munición. Cada 5, un campeón; cada 10, un jefe.</p>
+    <div id="hordeMaps" class="hordeMaps"></div>
+    <div class="menuList"><button id="hordeBack" class="secondary">VOLVER</button></div>
   </div>
 
   <!-- Fin de partida -->
@@ -183,6 +240,11 @@
   <script src="js/world/room.js"></script>
   <script src="js/world/roomPool.js"></script>
   <script src="js/world/world.js"></script>
+  <script src="js/world/props.js"></script>
+  <script src="js/world/dress.js"></script>
+  <script src="js/world/bigRoom.js"></script>
+  <script src="js/world/city.js"></script>
+  <script src="js/world/coliseum.js"></script>
 
   <!-- Entidades -->
   <script src="js/entities/models.js"></script>
@@ -201,12 +263,14 @@
   <script src="js/systems/upgrades.js"></script>
   <script src="js/systems/spawner.js"></script>
   <script src="js/systems/horde.js"></script>
+  <script src="js/systems/hordeMode.js"></script>
 
   <!-- UI -->
   <script src="js/ui/hud.js"></script>
   <script src="js/ui/menus.js"></script>
   <script src="js/ui/armory.js"></script>
   <script src="js/ui/sanctuary.js"></script>
+  <script src="js/ui/codex.js"></script>
 
   <!-- Arranque -->
   <script src="js/game.js"></script>

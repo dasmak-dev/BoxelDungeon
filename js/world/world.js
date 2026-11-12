@@ -2,6 +2,8 @@
 (function () {
   const S = VX.S;
 
+  const N6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+
   class World {
     constructor() {
       this.rooms = [];
@@ -18,7 +20,7 @@
 
     // Primera sala (inicio, guardado, título)
     addStart(type, index, exits, template, zone = 0) {
-      const r = new VX.Room(index, type, template || VX.RoomPool.pick(type), { entrance: 'zn', exits, zone });
+      const r = new VX.Room(index, type, template || VX.RoomPool.pick(type, zone), { entrance: 'zn', exits, zone });
       r.place(-r.cx, -4);
       r.build();
       this.rooms.push(r);
@@ -26,11 +28,15 @@
     }
 
     // Sala vecina conectada a la salida 'side' de 'cur'
-    addNeighbor(cur, side, type, exits, zone = 0) {
+    addNeighbor(cur, side, type, exits, zone = 0, extra = {}) {
       const ent = VX.Room.OPP[side];
       const opts = { entrance: ent, exits, zone };
-      if (side === 'xp' || side === 'xn') opts.maxD = cur.d;   // no invadir las otras vecinas
-      const r = new VX.Room(cur.index + 1, type, VX.RoomPool.pick(type), opts);
+      // las salas laterales no invaden a las otras vecinas (fondo ≤ el de la sala actual)…
+      // …salvo la guarida del jefe, que siempre es grande: entonces son las del frente/fondo
+      // las que no pueden ser más anchas que la sala actual
+      if ((side === 'xp' || side === 'xn') && type !== 'boss') opts.maxD = cur.d;
+      if ((side === 'zp' || side === 'zn') && extra.lateralBoss) opts.maxW = cur.w;
+      const r = new VX.Room(cur.index + 1, type, VX.RoomPool.pick(type, zone), opts);
       let ox, oz;
       if (side === 'zp') { ox = cur.ox + cur.cx - r.cx; oz = cur.oz + cur.D; }
       else if (side === 'zn') { ox = cur.ox + cur.cx - r.cx; oz = cur.oz - r.D; }
@@ -87,6 +93,8 @@
 
     isSolidG(gx, gy, gz) { return VX.Blocks.isSolid(this.getBlock(gx, gy, gz)); }
     isSolidAt(x, y, z) { return this.isSolidG(Math.floor(x / S), Math.floor(y / S), Math.floor(z / S)); }
+    // Igual, pero sin las celdas invisibles de colisión de los objetos (para partículas)
+    isSolidVisibleAt(x, y, z) { const b = this.getBlock(Math.floor(x / S), Math.floor(y / S), Math.floor(z / S)); return !VX.Blocks.invisible[b] && VX.Blocks.isSolid(b); }
 
     // ¿Colisiona la caja con algún vóxel sólido?
     boxCollides(minx, miny, minz, maxx, maxy, maxz) {
@@ -136,7 +144,7 @@
       let t = 0, nx = 0, ny = 0, nz = 0;
       for (let i = 0; i < 1400; i++) {
         const b = this.getBlock(gx, gy, gz);
-        if (b && VX.Blocks.isSolid(b)) {
+        if (b && b !== 17 && VX.Blocks.isSolid(b)) {   // las celdas PROP las resuelve el propio objeto
           return { t, gx, gy, gz, nx, ny, nz, block: b, x: ox + dx * t, y: oy + dy * t, z: oz + dz * t };
         }
         if (tMX < tMY && tMX < tMZ) { gx += stepX; t = tMX; tMX += tDX; nx = -stepX; ny = 0; nz = 0; }
@@ -159,7 +167,10 @@
 
     destroyCell(r, lx, ly, lz, t, game, debris = 4) {
       r.set(lx, ly, lz, 0);
+      // cristales y persianas: se viene abajo el panel entero
+      if (game && VX.Blocks.info[t].shatter) { this.shatter(r, lx, ly, lz, t, game); return; }
       if (t === VX.Blocks.BARREL && game) { this.detonateBarrel(r, lx, ly, lz, game); return; }
+      if (game) this.queueSupport(r, lx, ly, lz);
       if (game && game.particles) {
         const col = VX.Blocks.color(t, r.ox + lx, ly, r.oz + lz, [0, 0, 0]);
         const cx = (r.ox + lx + 0.5) * S, cy = (ly + 0.5) * S, cz = (r.oz + lz + 0.5) * S;
@@ -177,6 +188,95 @@
           }
         }
       }
+    }
+
+    // Rompe de golpe todas las celdas del mismo tipo unidas a la que se ha roto
+    shatter(r, sx, sy, sz, t, game) {
+      const M = VX.M, glass = VX.Blocks.info[t].glass;
+      const q = [[sx, sy, sz]], seen = new Set([r.idx(sx, sy, sz)]);
+      for (let h = 0; h < q.length && q.length < 700; h++) {
+        const [x, y, z] = q[h];
+        for (const [dx, dy, dz] of N6) {
+          const nx = x + dx, ny = y + dy, nz = z + dz;
+          if (!r.inBounds(nx, ny, nz)) continue;
+          const i = r.idx(nx, ny, nz);
+          if (seen.has(i) || r.grid[i] !== t) continue;
+          seen.add(i); q.push([nx, ny, nz]);
+        }
+      }
+      const col = VX.Blocks.color(t, r.ox + sx, sy, r.oz + sz, [0, 0, 0]);
+      let n = 0;
+      for (const [x, y, z] of q) {
+        if (n++) r.set(x, y, z, 0);
+        this.queueSupport(r, x, y, z);
+        if (Math.random() < (glass ? 0.35 : 0.2)) {
+          const cx = (r.ox + x + 0.5) * S, cy = (y + 0.5) * S, cz = (r.oz + z + 0.5) * S;
+          if (glass) game.particles.spawn(cx, cy, cz, M.rand(-2.5, 2.5), M.rand(-0.5, 2), M.rand(-2.5, 2.5), 0.55, 0.75, 0.85, M.rand(0.025, 0.06), M.rand(1.2, 2.5), 0.15);
+          else game.particles.spawn(cx, cy, cz, M.rand(-2, 2), M.rand(0, 3), M.rand(-2, 2), col[0], col[1], col[2], M.rand(0.04, 0.09), M.rand(1.5, 3), 0);
+        }
+      }
+      if (glass) { VX.Audio.glass && VX.Audio.glass(q.length); }
+      else { VX.Audio.crumble(); VX.Audio.slam && q.length > 30 && VX.Audio.punch(); }
+      if (game.shake) game.shake(Math.min(0.25, q.length / 600));
+    }
+
+    // ---------- Derrumbes ----------
+    // Al romper un bloque se comprueba si lo que había al lado sigue apoyado en el suelo
+    // o en las paredes de la sala. Lo que queda colgando (un pilar sin base, un arco
+    // sin columna…) se viene abajo de una pieza y, si es alto, se vuelca.
+    queueSupport(r, lx, ly, lz) { (this.supportQ || (this.supportQ = [])).push([r, lx, ly, lz]); }
+
+    processSupport(game) {
+      const Q = this.supportQ;
+      if (!Q || !Q.length) return;
+      this.supportQ = [];
+      const done = new Set();
+      let budget = 30000;
+      for (const [r, x, y, z] of Q) {
+        for (const [dx, dy, dz] of N6) {
+          if (budget <= 0) return;
+          const nx = x + dx, ny = y + dy, nz = z + dz;
+          if (!r.inBounds(nx, ny, nz) || done.has(r.idx(nx, ny, nz) * 64 + (r.index % 64))) continue;
+          const res = this.findUnsupported(r, nx, ny, nz, done);
+          if (!res) continue;
+          budget -= res.visited;
+          if (res.cells) game.addBlockFaller(r, res.cells);
+        }
+      }
+    }
+
+    findUnsupported(r, sx, sy, sz, done) {
+      const B = VX.Blocks, W = r.W, D = r.D, top = r.H - 4;
+      const shell = (x, z) => Math.min(x, z, W - 1 - x, D - 1 - z) < 4;
+      const movable = (t) => t && t !== B.PROP && t !== B.DOOR && t !== B.BEDROCK && B.info[t].hp !== Infinity;
+      const t0 = r.inBounds(sx, sy, sz) ? r.grid[r.idx(sx, sy, sz)] : 0;
+      if (!movable(t0) || sy >= top || shell(sx, sz)) return null;
+      const LIMIT = 9000, key = (i) => i * 64 + (r.index % 64);
+      const seen = new Set([r.idx(sx, sy, sz)]);
+      const q = [[sx, sy, sz]];
+      let supported = false;
+      for (let h = 0; h < q.length; h++) {
+        const [x, y, z] = q[h];
+        if (y === 0) { supported = true; break; }
+        if (q.length > LIMIT) { supported = true; break; }
+        for (const [dx, dy, dz] of N6) {
+          const nx = x + dx, ny = y + dy, nz = z + dz;
+          if (!r.inBounds(nx, ny, nz)) continue;
+          if (ny >= top) { if (r.topSupports && r.grid[r.idx(nx, ny, nz)]) { supported = true; break; } continue; }
+          const i = r.idx(nx, ny, nz), t = r.grid[i];
+          if (!t) continue;
+          if (shell(nx, nz) || !movable(t)) {
+            // apoyado en la pared de la sala o en algo fijo (puertas, hierro…)
+            if (t !== B.PROP) { supported = true; break; }
+            continue;
+          }
+          if (!seen.has(i)) { seen.add(i); q.push([nx, ny, nz]); }
+        }
+        if (supported) break;
+      }
+      for (const i of seen) done.add(key(i));
+      if (supported) return { visited: seen.size };
+      return { visited: seen.size, cells: q };
     }
 
     // Un barril explosivo dañado revienta: se quita entero y se programa la explosión
@@ -291,6 +391,26 @@
 
     // ¿Se puede ir andando en línea recta entre dos puntos (m)? Usa el mapa transitable de la sala
     // de flujo: todas las celdas atravesadas deben ser transitables y sin escalones > 2 vóxeles.
+    // Primer objeto (barril, caja…) que corta el rayo
+    propHit(ox, oy, oz, dx, dy, dz, maxT) {
+      let best = null;
+      for (const r of this.rooms) for (const p of r.props) {
+        if (p.dead || p.def.soft) continue;
+        const h = p.rayHit(ox, oy, oz, dx, dy, dz, best ? best.t : maxT);
+        if (h) best = h;
+      }
+      return best;
+    }
+
+    // Las cosas blandas (telarañas, paja, charcos) no paran la bala, pero se rompen a su paso
+    cutSoft(ox, oy, oz, dx, dy, dz, maxT, dmg, game) {
+      for (const r of this.rooms) for (const p of r.props) {
+        if (p.dead || !p.def.soft) continue;
+        const h = p.rayHit(ox, oy, oz, dx, dy, dz, maxT);
+        if (h) p.hit(h, dmg, { dx, dy, dz }, game);
+      }
+    }
+
     straightWalk(x0, z0, x1, z1) {
       const room = this.flowRoom;
       if (!room) return false;
@@ -361,32 +481,42 @@
     render(R, current) {
       for (const r of this.visibleRooms(current)) r.draw(R);
     }
+    renderGlass(R, current) {
+      for (const r of this.visibleRooms(current)) r.drawGlass(R);
+    }
 
     // Luces de antorchas de las salas visibles
     collectLights(out, t, rooms) {
       for (const r of rooms) {
+        const TC = (VX.ZONES[r.zone || 0] || VX.ZONES[0]).torch || [3.3, 1.6, 0.5];
         for (const tc of r.torches) {
           if (!tc.alive) continue;
           const fl = 0.85 + Math.sin(t * 9 + tc.phase) * 0.08 + Math.sin(t * 23.7 + tc.phase * 3) * 0.06;
-          out.push({ x: tc.x + tc.nx * 0.15, y: tc.y + 0.15, z: tc.z + tc.nz * 0.15, r: 9, cr: 2.4 * fl, cg: 1.25 * fl, cb: 0.45 * fl });
+          out.push({ x: tc.x + tc.nx * 0.15, y: tc.y + 0.15, z: tc.z + tc.nz * 0.15, r: 10.5, cr: TC[0] * fl, cg: TC[1] * fl, cb: TC[2] * fl, torch: tc });
         }
         for (const sp of r.spikes) {
           if (sp.kind === 'spikes') continue;
-          const lava = sp.kind === 'lava';
+          const PL = VX.POOLS[sp.kind] || VX.POOLS.acid;
+          if (!PL.light) continue;
           const fl = 0.85 + Math.sin(t * 3 + sp.phase) * 0.15;
           out.push({ x: r.uX((sp.ux0 + sp.ux1 + 1) / 2), y: 0.5, z: r.uZ((sp.uz0 + sp.uz1 + 1) / 2), r: 5,
-            cr: (lava ? 2.4 : 0.5) * fl, cg: (lava ? 0.9 : 1.6) * fl, cb: (lava ? 0.15 : 0.3) * fl });
+            cr: PL.light[0] * fl, cg: PL.light[1] * fl, cb: PL.light[2] * fl });
         }
         for (const f of r.features) {
           if (f.kind !== 'light') continue;
-          const fl = 0.95 + Math.sin(t * 2 + f.x) * 0.05;
-          out.push({ x: f.x, y: f.y, z: f.z, r: f.r, cr: f.c[0] * 2 * fl, cg: f.c[1] * 2 * fl, cb: f.c[2] * 2 * fl });
+          if (f.cell !== undefined && !r.grid[f.cell]) continue;   // farola rota a tiros
+          let fl = 0.95 + Math.sin(t * 2 + f.x) * 0.05, c = f.c;
+          if (f.flick) fl = 0.75 + Math.sin(t * 13 + f.x * 3) * 0.13 + Math.sin(t * 29 + f.z * 5) * 0.09;
+          if (f.broken) fl *= Math.sin(t * 7.3 + f.x * 13) > 0.86 || Math.sin(t * 23 + f.z) > 0.97 ? 0.08 : 1;
+          if (f.siren) c = ((t * 2.2 + f.x) % 2) < 1 ? [1.4, 0.08, 0.06] : [0.1, 0.25, 1.6];
+          out.push({ x: f.x, y: f.y, z: f.z, r: f.r * 1.15, cr: c[0] * 2.6 * fl, cg: c[1] * 2.6 * fl, cb: c[2] * 2.6 * fl });
         }
       }
     }
 
     renderTorches(batch, t, rooms) {
-      for (const r of rooms || this.rooms)
+      for (const r of rooms || this.rooms) {
+        const FC = (VX.ZONES[r.zone || 0] || VX.ZONES[0]).flame || [1, 0.75, 0.25];
         for (const tc of r.torches) {
           if (!tc.alive) continue;
           const bx = tc.x - tc.nx * 0.18, bz = tc.z - tc.nz * 0.18;
@@ -401,9 +531,10 @@
             const k = Math.sin(t * 14 + i * 2.1 + tc.phase);
             const s = 0.06 - i * 0.008 + k * 0.01;
             const yy = tc.y + i * 0.05 + Math.abs(k) * 0.02;
-            batch.box(tc.x + k * 0.012, yy, tc.z + Math.cos(t * 11 + i) * 0.012, s, s, s, 1, 0.75 - i * 0.1, 0.25 - i * 0.04, 1);
+            batch.box(tc.x + k * 0.012, yy, tc.z + Math.cos(t * 11 + i) * 0.012, s, s, s, FC[0] * (1 - i * 0.03), FC[1] * (1 - i * 0.12), FC[2] * (1 - i * 0.15), 1);
           }
         }
+      }
     }
   }
 

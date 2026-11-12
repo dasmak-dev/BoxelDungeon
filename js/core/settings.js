@@ -10,7 +10,17 @@
     quality: 'alta',   // alta | media | baja
     shadows: true,
     showFps: false,
+    autoRun: false,      // correr siempre (Shift para andar)
+    hurtFx: true,        // efectos de pantalla al recibir daño
+    torchShadows: true,  // la antorcha más cercana proyecta sombras (calidad alta)
+    dust: true,          // motas de polvo en el haz de la linterna
+    autoQuality: true,   // baja la calidad si caen los FPS
+    enemyLocator: false, // flechas con la distancia a los últimos enemigos
+    bloom: true,         // resplandor de luces y brillos
+    ssao: true,          // oclusión ambiental (rincones más oscuros; calidad alta)
+    keys: { flashlight: 'KeyF', inspect: 'ControlLeft', knife: 'KeyV' },   // teclas configurables
   };
+  const KEY_DEFAULTS = { ...DEFAULTS.keys };
 
   const Settings = {
     data: { ...DEFAULTS },
@@ -18,7 +28,9 @@
     load() {
       try {
         const s = JSON.parse(localStorage.getItem(KEY) || '{}');
-        this.data = { ...DEFAULTS, ...s };
+        // v0.13: el cuchillo rápido vuelve a la V y la inspección pasa a Ctrl
+        if (s.keys && !s.keysV13) { s.keys.knife = 'KeyV'; s.keys.inspect = 'ControlLeft'; s.keysV13 = true; }
+        this.data = { ...DEFAULTS, ...s, keys: { ...KEY_DEFAULTS, ...(s.keys || {}) } };
       } catch (e) { this.data = { ...DEFAULTS }; }
       return this.data;
     },
@@ -27,7 +39,27 @@
       try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) {}
     },
 
-    reset() { this.data = { ...DEFAULTS }; this.save(); this.apply(); },
+    reset() { this.data = { ...DEFAULTS, keys: { ...KEY_DEFAULTS } }; this.save(); this.apply(); },
+
+    // Tecla asignada a una acción
+    key(action) { return (this.data.keys && this.data.keys[action]) || KEY_DEFAULTS[action]; },
+
+    // Asigna una tecla; si otra acción la usaba, intercambia
+    bind(action, code) {
+      const k = this.data.keys;
+      for (const a in k) if (a !== action && k[a] === code) k[a] = k[action];
+      k[action] = code;
+      this.save();
+    },
+
+    // Nombre legible de una tecla
+    keyName(code) {
+      if (!code) return '—';
+      if (code.startsWith('Key')) return code.slice(3);
+      if (code.startsWith('Digit')) return code.slice(5);
+      const N = { Space: 'Espacio', ShiftLeft: 'Shift izq.', ShiftRight: 'Shift dcho.', ControlLeft: 'Ctrl', ControlRight: 'Ctrl dcho.', AltLeft: 'Alt', Tab: 'Tab', CapsLock: 'Bloq Mayús', Backquote: 'º', Minus: '-', Equal: '=' };
+      return N[code] || code;
+    },
 
     set(key, value) { this.data[key] = value; this.save(); this.apply(); },
 
@@ -40,6 +72,8 @@
       if (VX.Renderer && VX.Renderer.gl) {
         VX.Renderer.fov = d.fov * Math.PI / 180;
         VX.Renderer.setQuality(d.quality, d.shadows);
+        VX.Renderer.setPost(d.bloom && d.quality !== 'baja', d.ssao && d.quality === 'alta');
+        if (VX.resetAutoQuality) VX.resetAutoQuality();
       }
       const fps = document.getElementById('fps');
       if (fps) fps.classList.toggle('hidden', !d.showFps);
