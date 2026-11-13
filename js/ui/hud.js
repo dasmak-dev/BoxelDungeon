@@ -193,6 +193,9 @@
         const act = f.action || (f.price > 0 ? 'Comprar' : 'Recoger');
         el.prompt.innerHTML = `<b>${f.title}</b> — ${f.desc}<br>[E] ${act}${price}`;
         el.prompt.classList.remove('hidden');
+      } else if (game.coopPrompt) {
+        el.prompt.innerHTML = game.coopPrompt;
+        el.prompt.classList.remove('hidden');
       } else if (game.doorFocus) {
         const info = VX.ROOM_TYPES[game.doorFocus.type] || {};
         el.prompt.innerHTML = `<b>Puerta</b> — ${info.label || 'Siguiente sala'}<br>[E] Abrir`;

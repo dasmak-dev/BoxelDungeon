@@ -627,13 +627,19 @@
     hit(hit, dmg, ray, game, opts) {
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
       if (this.dead) return false;
+      const C = VX.Coop;
+      if (C.active && !game.visualOnly) {
+        if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts); }
+        else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0);
+      }
       const b = this.body;
       const dir = [ray.dx, ray.dy, ray.dz];
-      this.hurt(dmg * (hit.part.name === 'head' ? 1.5 : 1));
+      if (!game.visualOnly) this.hurt(dmg * (hit.part.name === 'head' ? 1.5 : 1));
       b.flash = Math.max(b.flash, 0.6);
       const removed = b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles, 0.9);
       game.particles.blood(hit.vox.wx, hit.vox.wy, hit.vox.wz, dir[0], dir[1], dir[2], 8);
       VX.Audio.flesh();
+      if (game.visualOnly) return false;
       return this.afterDamage(removed, dir, game);
     }
 
@@ -643,7 +649,8 @@
       const b = this.body;
       const v = b.nearestVoxel(x, y, z);
       if (!v) return false;
-      this.hurt(dmg);
+      if (VX.Coop.isClient && game.localAct && !game.visualOnly) VX.Coop.reportBlast(this, x, y, z, R, dmg);
+      if (!game.visualOnly) this.hurt(dmg);
       b.flash = 1;
       const dx = v.wx - x, dz = v.wz - z, l = Math.hypot(dx, dz) || 1;
       const dir = [dx / l, 0.3, dz / l];
@@ -673,11 +680,13 @@
     die(dir, game) {
       if (this.dead) return;
       this.dead = true;
+      if (VX.Coop.isClient && game.localAct && !game.noReward) VX.Coop.reportKill(this);
       game.bullets.clear();
       game.addCorpse(new VX.Corpse(this.body, dir, { heavy: true, life: 25 }));
       for (let i = 0; i < 4; i++) game.particles.blood(this.x, this.y + 1 + i * 0.6, this.z, M.rand(-1, 1), 1, M.rand(-1, 1), 20);
       VX.Audio.zombieDie(); VX.Audio.roar();
       game.shake(1);
+      // cooperativo: cada uno se lleva el premio del jefe (oro y estadística) en su equipo
       game.pickups.dropGold(this.x, this.y + 1.5, this.z, 40 + game.stats.bosses * 10);
       game.stats.kills++;
       game.stats.bosses++;

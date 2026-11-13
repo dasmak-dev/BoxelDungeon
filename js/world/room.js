@@ -152,6 +152,7 @@
       this.markDirty(x, z);
       this.walk = null;
       this.mapVersion++;
+      if (y === this.H - 5 && this.ceiling && this.ceilExt) this.ceilingStale = true;   // un pilar que tocaba el techo cambió
     }
 
     // ---- Ayudantes de diseño (unidades de 0,5 m) ----
@@ -601,19 +602,39 @@
     }
 
     // Techo: cada sala tiene un estilo según su bioma y su tipo
-    buildCeiling(R) {
-      const b = this.ceiling = R.createBatch(512, false);
-      const top = this.H * S, M = VX.M;
-      const Z = VX.ZONES[this.zone || 0] || VX.ZONES[0], tn = Z.tint || [1, 1, 1];
-      const W = this.W * S, Dd = this.D * S, x0 = this.ox * S, z0 = this.oz * S;
-      const cxw = x0 + W / 2, czw = z0 + Dd / 2;
-      const h0 = M.hash3(this.ox, 17, this.oz);
+    // Estilo de techo de la sala (fijo según su posición, bioma y tipo)
+    ceilInfo() {
+      if (this._ceil) return this._ceil;
+      const M = VX.M, h0 = M.hash3(this.ox, 17, this.oz);
       const byZone = [['vault', 'coffer', 'beams'], ['vault', 'vault', 'beams'], ['planks', 'cave', 'planks'], ['coffer', 'beams', 'planks'], ['cave', 'cave', 'vault'], ['cave', 'vault', 'coffer'], ['beams'], ['beams']][this.zone || 0] || ['beams'];
       let style = byZone[Math.floor(h0 * byZone.length) % byZone.length];
       if (this.type === 'boss') style = h0 < 0.5 ? 'vault' : 'coffer';
       else if (this.type === 'shop') style = 'coffer';
       else if (this.type === 'save') style = 'vault';
+      const W = this.W * S, Dd = this.D * S, alongX = W > Dd, span = alongX ? Dd : W;
+      // el techo visible está donde acaban paredes, pilares y columnas (las 4 últimas celdas son la losa)
+      return (this._ceil = { style, top: (this.H - 4) * S, alongX, span, rise: Math.min(3.2, span * 0.28) });
+    }
+    // Altura (m) de la cara inferior del techo en un punto del mundo
+    ceilY(wx, wz) {
+      const C = this.ceilInfo();
+      if (C.style === 'vault') {
+        const t = C.alongX ? (wz - this.oz * S) / C.span : (wx - this.ox * S) / C.span;
+        return C.top + Math.sin(Math.max(0, Math.min(1, t)) * Math.PI) * C.rise;
+      }
+      if (C.style === 'coffer') return C.top + 0.4;
+      return C.top;
+    }
+
+    buildCeiling(R) {
+      const b = this.ceiling = R.createBatch(512, false);
+      const CI = this.ceilInfo(), top = CI.top, M = VX.M;
+      const Z = VX.ZONES[this.zone || 0] || VX.ZONES[0], tn = Z.tint || [1, 1, 1];
+      const W = this.W * S, Dd = this.D * S, x0 = this.ox * S, z0 = this.oz * S;
+      const cxw = x0 + W / 2, czw = z0 + Dd / 2;
+      const style = CI.style;
       this.ceilStyle = style;
+      this.ceilingStale = false;
       const stone = (k) => { const c = (0.13 + k * 0.05); return [c * tn[0], c * 0.95 * tn[1], c * 1.02 * tn[2]]; };
       const wood = (k) => [0.24 * (0.8 + k * 0.4), 0.15 * (0.8 + k * 0.4), 0.08 * (0.8 + k * 0.4)];
       const BX = (x, y, z, sx, sy, sz, c, e = 0) => b.box(x, y, z, sx, sy, sz, c[0], c[1], c[2], e);
@@ -628,7 +649,7 @@
       };
       if (style === 'vault') {
         // bóveda de cañón escalonada a lo largo del lado largo, con arcos de refuerzo
-        const alongX = W > Dd, span = alongX ? Dd : W, len = alongX ? W : Dd, rise = Math.min(3.2, span * 0.28);
+        const alongX = CI.alongX, span = CI.span, len = alongX ? W : Dd, rise = CI.rise;
         const strips = Math.max(6, Math.round(span / 0.75));
         for (let k = 0; k < strips; k++) {
           const t0 = k / strips, t1 = (k + 1) / strips, tm = (t0 + t1) / 2;
@@ -677,6 +698,22 @@
         flat(top + 0.25, (h) => stone(0.1 + h * 0.4));
         for (let z = 16; z < this.D - 8; z += 32)
           BX((this.ox + this.cx) * S, top - 0.15, (this.oz + z) * S, (this.W - 4) * S, 0.3, 0.35, [0.3, 0.2, 0.11]);
+      }
+      // lo que llega al techo (pilares, columnas, muros) sigue hasta tocarlo cuando el techo es más alto (bóvedas, artesonado)
+      this.ceilExt = 0;
+      if (style === 'vault' || style === 'coffer') {
+        const BL = VX.Blocks, yy = this.H - 5;
+        for (let z = 2; z < this.D - 2; z++) {
+          let run = null;
+          const flush = () => { if (!run) return; const wx0 = (this.ox + run.x0) * S, wx1 = (this.ox + run.x1 + 1) * S, wz = (this.oz + z + 0.5) * S; const yc = this.ceilY((wx0 + wx1) / 2, wz) + 0.15; const c = BL.info[run.t].color; const k = 0.75; BX((wx0 + wx1) / 2, (top + yc) / 2, wz, wx1 - wx0, yc - top, S, [c[0] * k * tn[0], c[1] * k * tn[1], c[2] * k * tn[2]]); this.ceilExt++; run = null; };
+          for (let x = 2; x < this.W - 2; x++) {
+            const t = this.grid[this.idx(x, yy, z)];
+            const ok = t && t !== BL.BEDROCK && !BL.invisible[t] && !BL.transparent[t] && this.ceilY((this.ox + x + 0.5) * S, (this.oz + z + 0.5) * S) > top + 0.05;
+            if (ok && run && run.t === t && run.x1 === x - 1) run.x1 = x;
+            else { flush(); if (ok) run = { x0: x, x1: x, t }; }
+          }
+          flush();
+        }
       }
       b.upload();
     }
@@ -731,6 +768,7 @@
     }
 
     updateMeshes(R, budget) {
+      if (this.ceiling && this.ceilingStale) { this.ceiling.dispose(); this.ceiling = null; }
       if (!this.ceiling) this.buildCeiling(R);
       this.updateProps(R);
       if (!this.anyDirty) return 0;
@@ -754,7 +792,7 @@
         const cxi = i % this.CW, czi = (i - cxi) / this.CW;
         const cx = (this.ox + cxi * CH + CH / 2) * S, cz = (this.oz + czi * CH + CH / 2) * S;
         if (far && Math.hypot(cx - R.camPos[0], cz - R.camPos[2]) > far) continue;
-        if (!R.visible(cx, this.H * S * 0.5, cz, Math.hypot(2.1, 2.1, this.H * S * 0.5))) continue;
+        if (!R.visible(cx, this.H * S * 0.5, cz, Math.hypot(CH * S * 0.5, CH * S * 0.5, this.H * S * 0.5) + 0.1)) continue;
         b.draw();
       }
       if (this.ceiling) this.ceiling.draw();
@@ -764,6 +802,7 @@
     }
 
     dispose() {
+      if (this.waterBatch) { this.waterBatch.dispose(); this.waterBatch = null; }
       for (const b of this.chunks) if (b) b.dispose();
       if (this.glassChunks) for (const b of this.glassChunks) if (b) b.dispose();
       this.glassChunks = null;

@@ -12,7 +12,10 @@
 
   <!-- HUD -->
   <div id="hud" class="hidden">
+    <div id="coopTags"></div>
+    <div id="coopPlayers"></div>
     <div id="crosshair"><span></span><span></span><span></span><span></span></div>
+    <div id="scope"><div class="lens"></div><div class="rh"></div><div class="rv"></div><div class="dot"></div></div>
     <div id="hitmarker"></div>
     <div id="vignette"></div>
     <div id="bloodScreen"></div>
@@ -35,6 +38,7 @@
       <div class="label">VIDA</div>
       <div class="bar hp"><div id="hpFill"></div></div>
       <div id="hpText">100 / 100</div>
+      <div id="hordePerks"></div>
     </div>
 
     <div id="bottomRight">
@@ -199,9 +203,31 @@
   <!-- Modo Horda: elegir mapa -->
   <div id="hordeSelect" class="screen hidden">
     <h2>MODO HORDA</h2>
-    <p class="hordeIntro">Oleadas sin fin en mapas grandes y abiertos. Antes de cada oleada sabrás cuántos zombis vienen.<br>
-      Hay cajas de suministros escondidas por el mapa. Cada 3 oleadas, al azar, llega un vendedor o aparecen tres mejoras para elegir una.
-      Cada 5 oleadas, un campeón; cada 10, un jefe.</p>
+    <p class="hordeIntro">Oleadas sin fin en mapas grandes. Cajas de suministros, máquinas de ventajas que se pagan con oro y eventos (apagón, niebla, jauría…).
+      Cada 3 oleadas, vendedor o tres mejoras para elegir; cada 5, un campeón; cada 10, un jefe.</p>
+    <!-- cooperativo: hasta 4 jugadores -->
+    <div id="coopBar" class="coopBar">
+      <div id="coopIdle" class="coopRow">
+        <b class="coopTitle">COOPERATIVO <small>hasta 4</small></b>
+        <input id="coopName" maxlength="14" placeholder="Tu nombre" spellcheck="false">
+        <button id="coopCreate" class="small">CREAR SALA</button>
+        <input id="coopCode" maxlength="4" placeholder="CÓDIGO" spellcheck="false" autocomplete="off">
+        <button id="coopJoin" class="small secondary">UNIRSE</button>
+        <button id="coopCfg" class="small secondary" title="Dirección del servidor">⚙</button>
+      </div>
+      <div id="coopRoom" class="coopRow hidden">
+        <b class="coopTitle">SALA <span id="coopRoomCode" class="coopCode"></span></b>
+        <span id="coopRoster" class="coopRoster"></span>
+        <span id="coopHint" class="coopHint"></span>
+        <button id="coopLeave" class="small secondary">SALIR</button>
+      </div>
+      <div id="coopServer" class="coopRow hidden">
+        <span class="coopHint">Servidor:</span>
+        <input id="coopServerUrl" class="wide" spellcheck="false" placeholder="wss://tu-servidor.onrender.com/ws">
+        <button id="coopServerSave" class="small secondary">GUARDAR</button>
+      </div>
+      <div id="coopMsg" class="coopMsg"></div>
+    </div>
     <div id="hordeMaps" class="hordeMaps"></div>
     <div class="menuList"><button id="hordeBack" class="secondary">VOLVER</button></div>
   </div>
@@ -245,6 +271,8 @@
   <script src="js/world/bigRoom.js"></script>
   <script src="js/world/city.js"></script>
   <script src="js/world/coliseum.js"></script>
+  <script src="js/world/base.js"></script>
+  <script src="js/world/ship.js"></script>
 
   <!-- Entidades -->
   <script src="js/entities/models.js"></script>
@@ -264,9 +292,13 @@
   <script src="js/systems/spawner.js"></script>
   <script src="js/systems/horde.js"></script>
   <script src="js/systems/hordeMode.js"></script>
+  <script src="js/net/net.js"></script>
+  <script src="js/entities/remotePlayer.js"></script>
+  <script src="js/net/coop.js"></script>
 
   <!-- UI -->
   <script src="js/ui/hud.js"></script>
+  <script src="js/ui/lobby.js"></script>
   <script src="js/ui/menus.js"></script>
   <script src="js/ui/armory.js"></script>
   <script src="js/ui/sanctuary.js"></script>

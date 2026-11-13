@@ -332,11 +332,14 @@
     }
     _spawnNear(game, x, z, radius, kind) {
       const room = game.currentRoom;
+      const g0 = game.world.groundAt(x, z);
       for (let i = 0; i < 20; i++) {
         const a = Math.random() * Math.PI * 2, d = radius < 1.5 ? M.rand(0, radius) * (1 + i * 0.2) : M.rand(1.5, radius);
         const px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
         if (!room || !room.contains(px, pz)) continue;
         const gy = game.world.groundAt(px, pz);
+        // nunca encima de un muro invisible ni de un tejado: a la altura del punto de aparición
+        if (Math.abs(gy - g0) > 1.1) continue;
         if (!game.world.boxCollides(px - 0.35, gy + 0.05, pz - 0.35, px + 0.35, gy + 1.6, pz + 0.35)) {
           const zb = new VX.Zombie(kind, px, pz, game.floor, { y: gy });
           game.enemies.push(zb);

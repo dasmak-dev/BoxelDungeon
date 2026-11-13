@@ -77,8 +77,39 @@
   A.setVolume = (v) => { A.volume = v; if (A.sfx) A.sfx.gain.value = v * 0.5; };
 
   let lastHit = 0;
-  A.shoot = (power = 1) => {
-    const p = Math.min(power, 3);
+  A.shoot = (power = 1, kind) => {
+    const p = Math.min(power, 3), j = 0.94 + Math.random() * 0.12;   // pequeña variación entre disparos
+    switch (kind) {
+      case 'pistol':
+        noise(0.11, 0.55, 3600 * j, 'lowpass'); noise(0.04, 0.3, 4200, 'highpass', 0, 0.7);
+        tone(190 * j, 0.07, 'square', 0.1, 70); tone(95, 0.16, 'sine', 0.32, 40);
+        noise(0.35, 0.1, 800, 'lowpass', 0.03); return;
+      case 'deagle':   // estampido grave y largo, con chasquido metálico de la corredera
+        noise(0.22, 0.75, 2400 * j, 'lowpass'); noise(0.06, 0.45, 3000, 'highpass', 0, 0.7);
+        tone(72, 0.45, 'sine', 0.6, 28); tone(140 * j, 0.12, 'sawtooth', 0.12, 50);
+        noise(0.9, 0.22, 520, 'lowpass', 0.03, 0.7);
+        tone(1900 * j, 0.06, 'triangle', 0.04, null, 0.07); return;
+      case 'revolver':   // restallido seco que resuena y el clic del tambor al girar
+        noise(0.14, 0.65, 3000 * j, 'lowpass'); noise(0.05, 0.4, 5000, 'highpass', 0, 0.8);
+        tone(85, 0.32, 'sine', 0.5, 32); tone(2300 * j, 0.25, 'triangle', 0.035, 2100);
+        noise(0.7, 0.16, 650, 'lowpass', 0.04, 0.7);
+        tone(1500, 0.02, 'square', 0.05, null, 0.24); noise(0.02, 0.06, 4000, 'highpass', 0.24); return;
+      case 'auto':   // chasquidos cortos y secos
+        noise(0.06, 0.38, 3800 * j, 'bandpass', 0, 0.9); tone(300 * j, 0.04, 'square', 0.07, 120); tone(110, 0.08, 'sine', 0.18, 50); return;
+      case 'smg':
+        noise(0.07, 0.42, 3000 * j, 'lowpass'); tone(240 * j, 0.05, 'square', 0.08, 90); tone(90, 0.1, 'sine', 0.22, 45); noise(0.2, 0.06, 700, 'lowpass', 0.02); return;
+      case 'shotgun':   // trueno corto y ancho
+        noise(0.3, 0.8, 1700 * j, 'lowpass'); noise(0.08, 0.35, 2600, 'highpass', 0, 0.6);
+        tone(55, 0.5, 'sine', 0.6, 25); tone(120, 0.15, 'sawtooth', 0.12, 45);
+        noise(0.9, 0.2, 380, 'lowpass', 0.05, 0.7); return;
+      case 'rifle':   // chasquido supersónico y eco que se aleja
+        noise(0.05, 0.7, 5200 * j, 'highpass', 0, 0.7); noise(0.16, 0.6, 2200, 'lowpass');
+        tone(62, 0.55, 'sine', 0.55, 26);
+        noise(1.4, 0.2, 700, 'lowpass', 0.06, 0.7); noise(1.1, 0.08, 1400, 'bandpass', 0.35, 1.5); return;
+      case 'launcher':   // "tunk" hueco y siseo del proyectil
+        tone(150 * j, 0.16, 'sine', 0.45, 55); noise(0.25, 0.35, 420, 'lowpass');
+        noise(0.45, 0.07, 3200, 'bandpass', 0.04, 1.2); return;
+    }
     noise(0.1 + p * 0.04, 0.5 + p * 0.08, 3800 - p * 700, 'lowpass');
     noise(0.3 + p * 0.1, 0.12, 900, 'lowpass', 0.03);
     tone(240 - p * 40, 0.09, 'square', 0.12, 70);
@@ -118,6 +149,17 @@
   A.zombieDie = () => { noise(0.35, 0.4, 500); tone(90, 0.4, 'sawtooth', 0.12, 30); };
   A.punch = () => { noise(0.1, 0.3, 400); tone(70, 0.12, 'sine', 0.3, 40); };
   A.roar = () => { tone(60, 1.4, 'sawtooth', 0.22, 30); tone(64, 1.4, 'sawtooth', 0.18, 28); noise(1.2, 0.25, 400); };
+  // Explosión: estampido seco, golpe grave que se nota en el pecho y retumbo con cascotes
+  A.explosion = (dist = 0) => {
+    const v = Math.max(0.25, 1 - dist * 0.7);
+    noise(0.18, 0.6 * v, 5000, 'lowpass');
+    noise(0.06, 0.4 * v, 3000, 'highpass', 0, 0.7);
+    tone(65, 0.9, 'sine', 0.75 * v, 22);
+    tone(110, 0.35, 'triangle', 0.25 * v, 40);
+    noise(1.6, 0.42 * v, 320, 'lowpass', 0.03, 0.6);
+    noise(2.4, 0.16 * v, 140, 'lowpass', 0.25, 0.8);
+    for (let i = 0; i < 7; i++) noise(0.05, 0.06 * v, 1800 + Math.random() * 2500, 'bandpass', 0.35 + Math.random() * 0.9, 3);
+  };
   A.slam = () => { tone(45, 0.8, 'sine', 0.6, 25); noise(0.7, 0.5, 250); };
   A.crumble = () => { noise(0.3, 0.18, 900, 'lowpass'); };
   // Pasos según el suelo que pisas
@@ -167,7 +209,69 @@
   A.snap = () => { noise(0.05, 0.4, 2500, 'highpass'); tone(180, 0.08, 'square', 0.1, 60); };
   A.save = () => { [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, 0.6, 'sine', 0.1, null, i * 0.1)); };
   A.click = () => tone(880, 0.03, 'square', 0.05);
-  A.torch = () => noise(0.4, 0.15, 600);
+  // Ignición: un "fuuum" suave que crece y se apaga (aire que entra en la llama)
+  A.torch = (vol = 1) => {
+    if (!A.ctx || !A.enabled) return;
+    const t = A.ctx.currentTime, src = A.ctx.createBufferSource(); src.buffer = A.noiseBuf;
+    const f = A.ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.9;
+    f.frequency.setValueAtTime(180, t); f.frequency.exponentialRampToValueAtTime(900, t + 0.18); f.frequency.exponentialRampToValueAtTime(260, t + 0.8);
+    const g = A.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16 * vol, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+    src.connect(f); f.connect(g); g.connect(A.sfx); src.start(t, Math.random() * 0.4); src.stop(t + 0.95);
+    for (let i = 0; i < 4; i++) A.crackle(0.6 * vol, 0, 0.1 + Math.random() * 0.5);
+  };
+  // Chasquido de la madera al arder: un clic seco y, a veces, un estallido más grave
+  A.crackle = (vol = 1, pan, delay = 0) => {
+    if (!A.ctx || !A.enabled) return;
+    const r = Math.random();
+    noise(0.008 + r * 0.02, (0.05 + r * 0.06) * vol, 2500 + r * 3500, 'highpass', delay, 0.7, pan);
+    if (r < 0.25) noise(0.05, 0.05 * vol, 700 + r * 600, 'bandpass', delay + 0.01, 2, pan);
+  };
+  // Lecho del fuego: rumor continuo de las llamas (volumen según lo cerca y lo grande que sea)
+  A.setFire = (level, pan = 0) => {
+    if (!A.ctx || !A.enabled) return;
+    if (!A.fireBed) {
+      const src = A.ctx.createBufferSource(); src.buffer = A.noiseBuf; src.loop = true;
+      const lp = A.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 0.5;
+      const bp = A.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 0.6;
+      const g1 = A.ctx.createGain(), g2 = A.ctx.createGain(); g1.gain.value = 1; g2.gain.value = 0.18;
+      const g = A.ctx.createGain(); g.gain.value = 0;
+      const pn = A.ctx.createStereoPanner ? A.ctx.createStereoPanner() : null;
+      // la llama "respira": un LFO lento mueve el volumen y el filtro
+      const lfo = A.ctx.createOscillator(); lfo.frequency.value = 0.7; const lg = A.ctx.createGain(); lg.gain.value = 120; lfo.connect(lg); lg.connect(lp.frequency);
+      src.connect(lp); lp.connect(g1); src.connect(bp); bp.connect(g2); g1.connect(g); g2.connect(g);
+      if (pn) { g.connect(pn); pn.connect(A.sfx); } else g.connect(A.sfx);
+      src.start(); lfo.start();
+      A.fireBed = { g, pn };
+    }
+    const t = A.ctx.currentTime, v = Math.min(0.32, level * 0.22);
+    A.fireBed.g.gain.setTargetAtTime(v, t, 0.25);
+    if (A.fireBed.pn) A.fireBed.pn.pan.setTargetAtTime(Math.max(-0.8, Math.min(0.8, pan)), t, 0.2);
+  };
+  // Lluvia: siseo continuo con gotas sueltas (volumen 0 = apagada)
+  A.setRain = (level) => {
+    if (!A.ctx || !A.enabled) return;
+    if (!A.rainBed) {
+      const src = A.ctx.createBufferSource(); src.buffer = A.noiseBuf; src.loop = true;
+      const hp = A.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1400;
+      const lp = A.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200;
+      const src2 = A.ctx.createBufferSource(); src2.buffer = A.noiseBuf; src2.loop = true; src2.playbackRate.value = 0.5;
+      const lp2 = A.ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 400;
+      const g2 = A.ctx.createGain(); g2.gain.value = 0.45;
+      const g = A.ctx.createGain(); g.gain.value = 0;
+      src.connect(hp); hp.connect(lp); lp.connect(g); src2.connect(lp2); lp2.connect(g2); g2.connect(g); g.connect(A.sfx);
+      src.start(); src2.start(0, 0.3);
+      A.rainBed = { g };
+    }
+    // de fondo, sin tapar el resto: un siseo suave que sube y baja con las rachas
+    const gust = 0.8 + Math.sin(A.ctx.currentTime * 0.23) * 0.2;
+    A.rainBed.g.gain.setTargetAtTime(Math.min(0.09, level * 0.08) * gust, A.ctx.currentTime, 0.8);
+  };
+  // Trueno: estallido seco y retumbo largo
+  A.thunder = (dist = 0.5) => {
+    noise(0.25, 0.35 * (1 - dist * 0.6), 1800, 'lowpass');
+    noise(3.5, 0.32, 160 + (1 - dist) * 200, 'lowpass', 0.05 + dist * 0.6, 0.7);
+    tone(42, 2.8, 'sine', 0.3, 28, 0.1 + dist * 0.5);
+  };
   A.splat = () => { noise(0.18, 0.45, 600, 'lowpass'); noise(0.12, 0.25, 2400, 'bandpass', 0.04, 2); tone(70, 0.15, 'sine', 0.2, 40); };
   A.dash = () => { noise(0.22, 0.3, 1600, 'bandpass', 0, 1.2); tone(300, 0.15, 'sine', 0.05, 150); };
   A.fuse = () => { for (let i = 0; i < 6; i++) tone(900 + i * 120, 0.06, 'square', 0.06, null, i * 0.14); };

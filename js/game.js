@@ -44,6 +44,7 @@
       this.fallers = [];      // trozos de escenario que caen enteros
       this.oils = [];         // charcos de aceite (arden)
       this.fires = [];        // fuego en el suelo
+      this.blasts = [];       // explosiones (bola de fuego, onda y humo)
       this.remains = [];      // restos de los caídos (para el nigromante)
       this.mapPath = [];      // salas recorridas (mapa)
       this.mapReveal = 0;     // salas que quedan con el mapa estudiado
@@ -100,7 +101,10 @@
     }
 
     startRun(save) {
+      if (VX.Coop.active || VX.Net.code) { VX.Coop.stop(); VX.Net.leave(); }
       this.mode = 'dungeon';
+      this.ambientMul = 1;
+      { const hp = document.getElementById('hordePerks'); if (hp) hp.innerHTML = ''; }
       VX.Renderer.fogNear = VX.Renderer.fogFar = VX.Renderer.cullDist = undefined;
       this.resetCollections();
       this.world.reset();
@@ -159,10 +163,13 @@
     }
 
     // ---------------- Modo Horda ----------------
-    startHorde(mapId) {
+    startHorde(mapId, opts = {}) {
+      // una partida normal (no cooperativa) cierra cualquier sala abierta
+      if (!opts.rng && VX.Coop.active) { VX.Coop.stop(); VX.Net.leave(); }
       const map = VX.HordeMode.MAPS.find((m) => m.id === mapId) || VX.HordeMode.MAPS[0];
       this.mode = 'horde';
       this.hordeMap = map.id;
+      this.ambientMul = 1;
       this.resetCollections();
       this.world.reset();
       this.particles.clear();
@@ -178,7 +185,11 @@
       this.priceMul = VX.Profile.priceMul();
       this.player.magnet = Math.max(this.player.magnet, 2 * (VX.Profile.data.perks.iman || 0));
       this.revives = VX.Profile.data.perks.segunda || 0;
-      const r = map.create();
+      // en el cooperativo el azar de la construcción sale de la semilla compartida: mapa idéntico
+      const rnd0 = Math.random;
+      if (opts.rng) Math.random = opts.rng;
+      let r;
+      try { r = map.create(); } finally { Math.random = rnd0; }
       r.entered = true; r.cleared = true;
       this.world.rooms.push(r);
       this.currentRoom = r;
@@ -256,6 +267,7 @@
     // Abandonar = rendirse: cuenta como muerte (esencia incluida) y se borra la partida
     abandonRun() {
       if (this.state !== 'paused') return;
+      if (VX.Coop.active) { VX.Coop.stop(); VX.Net.leave(); }   // se sale de la sala: los demás siguen
       VX.Menus.hideAll();
       this.state = 'playing';
       this.player.dead = true;
@@ -264,6 +276,7 @@
     }
 
     quitToTitle() {
+      if (VX.Coop.active || VX.Net.code) { VX.Coop.stop(); VX.Net.leave(); }
       VX.Profile.save();
       VX.Input.unlock();
       this.buildTitleScene();
@@ -518,6 +531,34 @@
       return 'stone';
     }
 
+    // Sonido continuo del fuego cercano (y crepitar) y de la lluvia en los mapas con temporal
+    envAudio(dt) {
+      const A = VX.Audio, P = this.player, on = this.state === 'playing' || this.state === 'dead';
+      let lvl = 0, best = 0, pan = 0;
+      if (on) {
+        const add = (x, z, size) => {
+          const d = Math.hypot(x - P.x, z - P.z), k = size * Math.max(0, 1 - d / 16);
+          if (k <= 0) return;
+          lvl += k;
+          if (k > best) { best = k; const sp = A.spatial ? A.spatial(x, z, P) : { pan: 0 }; pan = sp.pan; }
+        };
+        for (const f of this.fires) if (f.kind !== 'poison') add(f.x, f.z, 0.5 + f.r * 0.5);
+        const r = this.currentRoom;
+        if (r) {
+          for (const p of r.props) if (p.burning > 0 && !p.dead) add(p.cx, p.cz, 1);
+          for (const f of r.features) if (f.kind === 'flame') add(f.x, f.z, f.small ? 0.35 : 0.9);
+        }
+        lvl = Math.min(1.6, lvl);
+      }
+      A.setFire(lvl, pan);
+      if (lvl > 0.05) {
+        this.crackT = (this.crackT || 0) - dt;
+        while (this.crackT <= 0) { this.crackT += M.rand(0.04, 0.3) / Math.max(0.3, lvl); A.crackle(Math.min(1, 0.35 + lvl * 0.5), pan + M.rand(-0.2, 0.2)); }
+      }
+      const rain = on ? ({ 9: 1, 6: 0.3 }[this.zone] || 0) * (this.mode === 'horde' ? 1 : 0) : 0;
+      A.setRain(rain);
+    }
+
     // Sonidos de ambiente que salen de puntos concretos de la sala (según el bioma)
     ambientSounds(dt) {
       const r = this.currentRoom, P = this.player;
@@ -536,6 +577,8 @@
         ['whisper', 'chime', 'wind', 'whisper', 'moan', 'rumble'],
         ['wind', 'moan', 'wind', 'rumble', 'moan', 'creak'],
         ['wind', 'moan', 'chime', 'wind', 'rumble', 'moan'],
+        ['wind', 'moan', 'chain', 'wind', 'rumble', 'creak'],
+        ['creak', 'wind', 'rumble', 'creak', 'moan', 'chain'],
       ][r.zone || 0] || ['wind', 'moan'];
       const a = Math.random() * 6.283, d = M.rand(4, 14);
       VX.Audio.ambientAt(M.choice(KINDS), P.x + Math.sin(a) * d, P.z + Math.cos(a) * d);
@@ -682,7 +725,7 @@
       const P = this.player, z = r.zone || 0;
       const ceil = (r.H - 4) * VX.S;
       this.ambAcc = (this.ambAcc || 0) + dt;
-      const rate = [7, 4, 6, 16, 12, 10, 40, 10][z] || 6;          // partículas por segundo
+      const rate = [7, 4, 6, 16, 12, 10, 40, 10, 8, 30][z] || 6;          // partículas por segundo
       while (this.ambAcc > 1 / rate) {
         this.ambAcc -= 1 / rate;
         const a = Math.random() * 6.283, d = 1 + Math.random() * 9;
@@ -716,12 +759,26 @@
             if (Math.random() < 0.75) this.particles.spawn(x, g + M.rand(0.1, 2.5), zz, M.rand(0.2, 0.6), M.rand(-0.05, 0.1), M.rand(-0.2, 0.2), 0.55, 0.45, 0.3, 0.018, M.rand(3, 5), 0.1, 1);
             else this.particles.spawn(x, g + M.rand(1, 4), zz, M.rand(-0.2, 0.2), M.rand(0.3, 0.7), M.rand(-0.2, 0.2), 1, 0.5, 0.15, 0.015, M.rand(1.5, 3), 1, 1);
             break;
+          case 8: // Base militar: polvo y alguna pavesa del helicóptero
+            if (Math.random() < 0.8) this.particles.spawn(x, g + M.rand(0.2, 2.5), zz, M.rand(0.3, 0.7), M.rand(-0.05, 0.05), M.rand(0.1, 0.3), 0.4, 0.36, 0.3, 0.014, M.rand(3, 5), 0.1, 1);
+            else this.particles.spawn(x, g + M.rand(0.5, 3), zz, 0.5, -1.5, 0.2, 0.5, 0.52, 0.55, 0.01, 2, 0.1);
+            break;
+          case 9: // Barco: lluvia de tormenta en diagonal y salpicaduras
+            if (Math.random() < 0.6) this.particles.spawn(x, g + 0.05, zz, M.rand(-0.6, 0.6), M.rand(0.8, 1.5), M.rand(-0.6, 0.6), 0.55, 0.6, 0.7, 0.012, 0.3, 0.2);
+            break;
           case 6: // Ciudad: llovizna fina y papeles que arrastra el viento
             if (Math.random() < 0.85) this.particles.spawn(x, g + M.rand(3, 6), zz, 0.4, -7, 0.15, 0.45, 0.5, 0.6, 0.012, 0.9, 0.2);
             else this.particles.spawn(x, g + M.rand(0.1, 0.6), zz, M.rand(0.6, 1.4), M.rand(0, 0.3), M.rand(-0.3, 0.3), 0.6, 0.58, 0.52, 0.035, M.rand(2, 4), 0);
             break;
         }
       }
+      // tormenta en el barco: relámpagos que iluminan la cubierta, y el trueno detrás
+      if (z === 9) {
+        this.boltT = (this.boltT == null ? 6 : this.boltT) - dt;
+        if (this.boltT <= 0) { this.boltT = M.rand(7, 18); this.bolt = 1; this.thunderT = M.rand(0.4, 2.2); this.thunderD = (this.thunderT - 0.4) / 1.8; }
+        if (this.bolt > 0) this.bolt = Math.max(0, this.bolt - dt * (this.bolt > 0.5 ? 6 : 2.2));
+        if (this.thunderT > 0) { this.thunderT -= dt; if (this.thunderT <= 0) VX.Audio.thunder(this.thunderD || 0.5); }
+      } else this.bolt = 0;
       if (this.dripAt) { this.dripAt.t -= dt; if (this.dripAt.t <= 0) { VX.Audio.ambientAt && VX.Audio.ambientAt('drip', this.dripAt.x, this.dripAt.z); this.dripAt = null; } }
     }
 
@@ -1118,6 +1175,14 @@
       }
     }
 
+    // ¿Ya arde bastante la sala? (limita cuánto se extiende el fuego)
+    fireBusy(room) {
+      if (!room) return false;
+      let n = 0;
+      for (const p of room.props) if (p.burning > 0 && !p.dead && ++n >= 4) return true;
+      return false;
+    }
+
     // Prende aceite y madera en un radio
     igniteAt(x, z, R) {
       for (const o of this.oils) if (!o.burning && Math.hypot(o.x - x, o.z - z) < R + o.r) { o.burning = true; this.addFire(o.x, o.z, o.r, 7); VX.Audio.torch(); }
@@ -1144,8 +1209,9 @@
           continue;
         }
         for (const e of this.enemies) if (!e.dead && !e.isBoss && Math.hypot(e.x - f.x, e.z - f.z) < f.r + 0.2 && !(e.T && e.T.fireImmune)) e.burn = Math.max(e.burn || 0, 2);
-        if (this.state === 'playing' && Math.hypot(P.x - f.x, P.z - f.z) < f.r && P.y < this.world.groundAt(P.x, P.z) + 0.4) P.damage(6, undefined, undefined, this);
-        if (this.currentRoom) for (const p of this.currentRoom.props) if (!p.dead && p.flammable && Math.hypot(p.cx - f.x, p.cz - f.z) < f.r + 0.5) p.ignite();
+        // el jugador sólo se quema mientras pisa las llamas: al salir deja de hacerle daño
+        if (this.state === 'playing' && Math.hypot(P.x - f.x, P.z - f.z) < f.r * 0.9 && P.y < this.world.groundAt(P.x, P.z) + 0.4) P.fireTouch(5, this);
+        if (this.currentRoom && !this.fireBusy(this.currentRoom)) for (const p of this.currentRoom.props) if (!p.dead && p.flammable && Math.hypot(p.cx - f.x, p.cz - f.z) < f.r + 0.1 && Math.random() < 0.15) p.ignite();
         this.igniteAt(f.x, f.z, f.r);
       }
       for (const f of this.fires) if (f.kind !== 'poison' && this.waterAt(f.x, f.z)) { f.t = 0; for (let i = 0; i < 10; i++) this.particles.spawn(f.x + M.rand(-0.4, 0.4), 0.2, f.z + M.rand(-0.4, 0.4), 0, M.rand(0.8, 1.6), 0, 0.7, 0.7, 0.72, 0.08, 1.2, 0, 1); }
@@ -1258,7 +1324,7 @@
       this.world.keepOnly([]);
       this.pickups.items = []; this.pickups.gold = [];
       this.npcs = []; this.enemies = []; this.corpses = []; this.gibs = []; this.decals = [];
-      this.oils = []; this.fires = []; this.fallers = []; this.blockFallers = []; this.rises = []; this.projectiles = []; this.shockwaves = []; this.telegraphs = [];
+      this.oils = []; this.fires = []; this.blasts = []; this.fallers = []; this.blockFallers = []; this.rises = []; this.projectiles = []; this.shockwaves = []; this.telegraphs = [];
       this.bullets.clear(); this.doorAnims = [];
       this.hud.hideBoss(); this.boss = null;
       this.spawner.secret = { rooms: 3 };
@@ -1298,18 +1364,113 @@
       for (const r of this.world.rooms) for (const p of r.props) {
         if (p.dead) continue;
         const d = Math.hypot(p.cx - e.x, p.cy - e.y, p.cz - e.z);
-        if (d < reach + p.rad * 0.5) { p.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / (reach + 1)) + 15, this); if (Math.random() < 0.6) p.ignite(); }
+        if (d < reach + p.rad * 0.5) { p.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / (reach + 1)) + 15, this); if (Math.random() < 0.35 && !this.fireBusy(r)) p.ignite(); }
       }
       const P = this.player;
       const dp = Math.hypot(P.x - e.x, P.y + 0.9 - e.y, P.z - e.z);
-      if (dp < R && this.state === 'playing') P.damage(e.dmg * (e.selfK ?? 0.35) * (1 - dp / R), e.x, e.z, this);
-      for (let i = 0; i < 40; i++) {
-        const fire = i < 22;
-        this.particles.spawn(e.x, e.y, e.z, M.rand(-6, 6), M.rand(1, 8), M.rand(-6, 6),
-          fire ? 1 : 0.25, fire ? M.rand(0.4, 0.8) : 0.24, fire ? 0.1 : 0.24, M.rand(0.08, 0.2), M.rand(0.4, 1.4), fire ? 1 : 0, fire ? 1 : 0);
+      if (dp < R && this.state === 'playing' && e.selfK !== 0) P.damage(e.dmg * (e.selfK ?? 0.35) * (1 - dp / R), e.x, e.z, this);
+      this.blasts.push({ x: e.x, y: e.y, z: e.z, R: Math.max(1.2, R), t: 0, seed: Math.random() * 100, gy: this.world.groundAt(e.x, e.z) });
+      if (this.blasts.length > 8) this.blasts.shift();
+      // chispas rápidas, escombros que caen y brasas que suben despacio
+      for (let i = 0; i < 34; i++) {
+        const a = Math.random() * Math.PI * 2, el = M.rand(-0.2, 1), sp = M.rand(6, 14);
+        this.particles.spawn(e.x, e.y + 0.2, e.z, Math.cos(a) * sp * Math.cos(el), Math.sin(el) * sp + 2, Math.sin(a) * sp * Math.cos(el), 1, M.rand(0.6, 0.9), 0.25, M.rand(0.025, 0.05), M.rand(0.25, 0.7), 1);
       }
-      VX.Audio.slam(); VX.Audio.crumble();
+      for (let i = 0; i < 20; i++) {
+        const c = M.rand(0.08, 0.18);
+        this.particles.spawn(e.x, e.y + 0.3, e.z, M.rand(-5, 5), M.rand(3, 9), M.rand(-5, 5), c, c * 0.9, c * 0.8, M.rand(0.07, 0.17), M.rand(1.5, 3));
+      }
+      for (let i = 0; i < 16; i++) this.particles.spawn(e.x + M.rand(-R, R) * 0.5, e.y + M.rand(0, R * 0.6), e.z + M.rand(-R, R) * 0.5, M.rand(-0.6, 0.6), M.rand(0.6, 2), M.rand(-0.6, 0.6), 1, M.rand(0.35, 0.6), 0.08, M.rand(0.03, 0.06), M.rand(1.2, 2.6), 1, 1);
+      VX.Audio.explosion(Math.min(1, dp / 30));
       this.shake(Math.max(0.25, 0.9 - dp * 0.08));
+    }
+
+    // Explosión: destello, bola de fuego en varios lóbulos que sube y se oscurece, onda en el suelo y columna de humo
+    renderBlasts(b) {
+      // la calidad gráfica decide cuántas piezas lleva cada explosión
+      const Q = VX.Renderer.quality === 'alta' ? 1 : VX.Renderer.quality === 'media' ? 0.65 : 0.4;
+      for (const bl of this.blasts) {
+        const t = bl.t, R = bl.R, sd = bl.seed;
+        const h = (i, k) => { const v = Math.sin(sd * 12.9898 + i * 78.233 + k * 37.719) * 43758.5453; return v - Math.floor(v); };
+        // destello inicial: núcleo blanco y halo
+        if (t < 0.1) {
+          const s = R * (0.5 + t * 9), k = 1 - t / 0.1;
+          b.box(bl.x, bl.y + 0.3, bl.z, s, s, s, 1, 0.97, 0.88, 1);
+          if (Q > 0.5) b.box(bl.x, bl.y + 0.3, bl.z, s * 1.6, s * 1.6, s * 1.6, 1, 0.75 * k + 0.2, 0.35 * k, 0.55 * k);
+        }
+        // bola de fuego: núcleo amarillo dentro, lóbulos que se hinchan, giran y suben pasando a naranja, rojo y hollín
+        if (t < 1.15) {
+          const k = t / 1.15, grow = 1 - Math.pow(1 - Math.min(1, t / 0.25), 3);
+          const n = Math.round(30 * Q);
+          for (let i = 0; i < n; i++) {
+            const inner = i < n * 0.3;
+            const a = h(i, 1) * Math.PI * 2, el = h(i, 2) * 1.3 - 0.2, d = R * (inner ? 0.1 + h(i, 3) * 0.25 : 0.3 + h(i, 3) * 0.55) * grow;
+            const x = bl.x + Math.cos(a) * Math.cos(el) * d, z = bl.z + Math.sin(a) * Math.cos(el) * d;
+            const y = bl.y + 0.3 + Math.sin(el) * d * 0.8 + k * k * R * (inner ? 1.2 : 0.9);
+            const s = R * (inner ? 0.22 + h(i, 4) * 0.2 : 0.26 + h(i, 4) * 0.3) * (0.5 + grow * 0.7) * (1 - k * (inner ? 0.8 : 0.45));
+            const heat = Math.max(0, (inner ? 1.25 : 1) - k * 1.15 - h(i, 5) * 0.25);
+            const fl = 0.9 + Math.sin(t * 40 + i * 3.1) * 0.1;
+            const r = (0.25 + heat * 0.75 + (1 - heat) * 0.45) * fl, g = (0.08 + heat * 0.78) * fl, bb = 0.04 + heat * heat * 0.55;
+            const e = Math.max(0, 1 - k * 1.05);
+            const q = M.qAxis(0.577, 0.577, 0.577, h(i, 6) * 6 + t * (1.5 + h(i, 7) * 2));
+            b.rbox(x, y, z, s, s, s, q, e > 0.05 ? r : 0.15, e > 0.05 ? g : 0.13, e > 0.05 ? bb : 0.12, e);
+          }
+        }
+        // chispas: trazos que salen disparados en arco y se apagan
+        if (t < 1.2) {
+          const n = Math.round(40 * Q);
+          for (let i = 0; i < n; i++) {
+            const life = 0.5 + h(i, 20) * 0.7;
+            if (t > life) continue;
+            const a = h(i, 21) * Math.PI * 2, el = 0.15 + h(i, 22) * 1.1, sp = (7 + h(i, 23) * 9) * Math.min(1.6, 0.6 + R * 0.3);
+            const vx = Math.cos(a) * Math.cos(el) * sp, vy = Math.sin(el) * sp, vz = Math.sin(a) * Math.cos(el) * sp;
+            const x = bl.x + vx * t, y = bl.y + 0.3 + vy * t - 4.9 * t * t, z = bl.z + vz * t;
+            if (y < bl.gy) continue;
+            const cvy = vy - 9.8 * t, v = Math.hypot(vx, cvy, vz) || 1, L = Math.min(0.9, v * 0.04);
+            const ax = vz / v, az = -vx / v, al = Math.hypot(ax, az) || 1, ang = Math.acos(M.clamp(cvy / v, -1, 1));
+            const k = 1 - t / life;
+            b.rbox(x, y, z, 0.035, L, 0.035, M.qAxis(ax / al, 0, az / al, ang), 1, 0.55 + k * 0.4, 0.15 + k * 0.3, 1);
+          }
+        }
+        // onda expansiva: anillo de polvo encendido a ras de suelo y, en calidad alta, un segundo anillo de polvo
+        if (t < 0.5) {
+          const k = t / 0.5, rad = R * (0.6 + k * 2.1), w = 0.4 * (1 - k) + 0.1, n = Math.round(32 * Math.max(0.6, Q));
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2, x = bl.x + Math.cos(a) * rad, z = bl.z + Math.sin(a) * rad;
+            b.rbox(x, bl.gy + 0.08 + (1 - k) * 0.12, z, rad * 6.3 / n, w * 0.6, w, M.qY(-a + Math.PI / 2), 0.9 - k * 0.6, 0.55 - k * 0.4, 0.25 - k * 0.15, Math.max(0, 0.85 - k * 1.2));
+          }
+        }
+        if (Q > 0.9 && t > 0.1 && t < 1.4) {
+          const k = (t - 0.1) / 1.3, rad = R * (1.2 + k * 2.4), n = 20;
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2 + h(i, 30), x = bl.x + Math.cos(a) * rad, z = bl.z + Math.sin(a) * rad, s = R * (0.25 + h(i, 31) * 0.2) * (1 - k * 0.5);
+            b.rbox(x, bl.gy + s * 0.5 + k * 0.5, z, s, s * 0.8, s, M.qY(h(i, 32) * 6), 0.2, 0.18, 0.16, 0);
+          }
+        }
+        // humo: bocanadas oscuras que suben formando una columna, crecen y se deshacen
+        if (t > 0.35) {
+          const k = (t - 0.35) / 2.05, n = Math.round(16 * Q);
+          for (let i = 0; i < n; i++) {
+            const kk = k - h(i, 8) * 0.25;
+            if (kk <= 0 || kk >= 1) continue;
+            const a = h(i, 9) * Math.PI * 2 + kk * 1.5, d = R * (0.15 + h(i, 10) * 0.5) * (0.6 + kk * 0.8);
+            const x = bl.x + Math.cos(a) * d, z = bl.z + Math.sin(a) * d, y = bl.y + R * 0.8 + kk * (2.8 + R * 1.2) + h(i, 11) * R * 0.4;
+            const s = R * (0.45 + h(i, 12) * 0.35) * (0.7 + kk * 1.0) * (1 - Math.pow(kk, 3));
+            const c = 0.11 + h(i, 13) * 0.06 + (1 - kk) * 0.04, glow = Math.max(0, 0.3 - kk) * 1.6;   // la base del humo aún brilla
+            b.rbox(x, y, z, s, s, s, M.qAxis(0.577, 0.577, 0.577, h(i, 14) * 6 + t * 0.4), c + glow * 0.5, c * 0.95 + glow * 0.18, c * 0.92, glow * 0.4);
+          }
+        }
+        // quemadura en el suelo que se va apagando (brasas al principio)
+        {
+          const k = Math.min(1, t / 2.4), n = Math.round(10 * Q) + 3;
+          for (let i = 0; i < n; i++) {
+            const a = h(i, 40) * Math.PI * 2, d = R * h(i, 41) * 0.8, s = R * (0.35 + h(i, 42) * 0.4) * (t > 2.4 ? 1 - (t - 2.4) / 1.6 : 1);
+            if (s < 0.02) continue;
+            const ember = Math.max(0, 0.8 - k * 1.4) * (h(i, 43) < 0.5 ? 1 : 0.3);
+            b.rbox(bl.x + Math.cos(a) * d, bl.gy + 0.012 + i * 0.0015, bl.z + Math.sin(a) * d, s, 0.02, s * 0.8, M.qY(h(i, 44) * 6), 0.04 + ember * 0.9, 0.035 + ember * 0.3, 0.03, ember);
+          }
+        }
+      }
     }
 
     // Trampas de púas: salen y se esconden; hieren a quien las pise (también a los zombis)
@@ -1442,6 +1603,7 @@
       VX.Music.setMode(this.musicMode());
       if (VX.Music.setZone) VX.Music.setZone(this.zone || 0);
 
+      this.envAudio(dt);
       if (this.state === 'title') {
         const P = this.player;
         P.yaw = Math.sin(this.time * 0.12) * 0.5;
@@ -1460,13 +1622,14 @@
         this.particles.update(dt, this.world);
         return;
       }
-      if (this.state === 'paused' || this.state === 'settings') return;
+      if ((this.state === 'paused' || this.state === 'settings') && !VX.Coop.active) return;
 
       const P = this.player;
       if (this.state === 'playing') {
         P.update(dt, this);
-        this.weapon.update(dt, this);
-        if (this.mode === 'horde') VX.HordeMode.update(this, dt);
+        this.localAct = true;   // lo que haga ahora el arma es obra del jugador de este equipo
+        try { this.weapon.update(dt, this); } finally { this.localAct = false; }
+        if (this.mode === 'horde') { if (VX.Coop.isClient) VX.HordeMode.clientUpdate(this, dt); else VX.HordeMode.update(this, dt); }
         else this.roomLogic();
         this.updateChallenge(dt);
         // latido con poca vida
@@ -1494,11 +1657,18 @@
         }
       }
 
-      if (this.currentRoom) this.world.updateFlow(this.currentRoom, P.x, P.z, dt);
+      if (this.currentRoom) this.world.updateFlow(this.currentRoom, P.x, P.z, dt, VX.Coop.flowExtra());
 
-      VX.Horde.update(this, dt);
-      for (const e of this.enemies) if (!e.dead) e.update(dt, this);
-      VX.Horde.separate(this);
+      if (VX.Coop.isClient) VX.Coop.updateReplicas(dt, this);   // los zombis los mueve el anfitrión
+      else {
+        VX.Horde.update(this, dt);
+        if (VX.Coop.isHost) {
+          // cada zombi va a por el jugador más cercano (el anfitrión o un compañero)
+          const me = this.player;
+          for (const e of this.enemies) if (!e.dead) { this.player = VX.Coop.targetFor(e, this); try { e.update(dt, this); } finally { this.player = me; } }
+        } else for (const e of this.enemies) if (!e.dead) e.update(dt, this);
+        VX.Horde.separate(this);
+      }
       if (this.frame % 30 === 0 && this.enemies.length) this.enemies = this.enemies.filter((e) => !e.dead || e === this.boss);
 
       for (const c of this.corpses) c.update(dt, this);
@@ -1542,6 +1712,8 @@
       }
       this.doorAnims = this.doorAnims.filter((a) => (a.drop ? !a.done : a.t < a.dur + 0.1));
       this.updateFire(dt);
+      for (const bl of this.blasts) bl.t += dt;
+      if (this.blasts.length) this.blasts = this.blasts.filter((bl) => bl.t < 4);
       this.updateRises(dt);
       this.checkSecret();
       if (this.state === 'playing' && this.mode !== 'horde' && VX.Input.wasPressed('KeyM')) this.hud.showMap(this);
@@ -1580,6 +1752,7 @@
       const fz = VX.ZONES[this.zone].fog, fc = VX.Renderer.fogColor;
       for (let i = 0; i < 3; i++) fc[i] = M.lerp(fc[i], fz[i], Math.min(1, dt * 1.5));
       this.shakeAmt = Math.max(0, this.shakeAmt - dt * 2.2);
+      if (VX.Coop.active) VX.Coop.update(dt, this);
       this.hud.update(dt, this);
     }
 
@@ -1670,11 +1843,18 @@
     }
 
     // ---------------- Luces ----------------
+    // Mapas con el centro iluminado: lejos del centro baja la luz ambiente y la de la luna
+    edgeDark() {
+      const Z = VX.ZONES[this.zone], cd = Z && Z.centerDark;
+      if (!cd || this.state === 'title') return 1;
+      const d = Math.hypot(this.player.x, this.player.z);
+      return M.lerp(1, cd.k, M.smoothstep(cd.r0, cd.r1, d));
+    }
     gatherLights(cam, rooms) {
       const L = this.lights;
       L.length = 0;
       this.world.collectLights(L, this.time, rooms);
-      for (const it of this.pickups.items)
+      for (const it of this.pickups.items) if (it.kind !== 'perk' && it.kind !== 'secretChest')
         L.push({ x: it.x, y: it.y + 0.6, z: it.z, r: 3.5, cr: it.color[0] * 1.2, cg: it.color[1] * 1.2, cb: it.color[2] * 1.2 });
       for (const p of this.projectiles) if (p.glow) L.push({ x: p.x, y: p.y, z: p.z, r: p.acid ? 3 : 5, cr: p.col[0] * 1.5, cg: p.col[1] * 1.5, cb: p.col[2] * 1.5 });
       for (const s of this.shockwaves) if (s.r > 0) L.push({ x: s.x, y: (s.y || 0) + 0.5, z: s.z, r: s.r + 3, cr: 1.5, cg: 0.6, cb: 0.15 });
@@ -1690,7 +1870,7 @@
       for (const e of this.enemies) if (!e.dead && e.T && e.T.lamp && nl++ < 3) L.push({ x: e.x + Math.sin(e.body.yaw) * 0.4, y: e.y + 1.9, z: e.z + Math.cos(e.body.yaw) * 0.4, r: 4.5, cr: 1.6, cg: 1.3, cb: 0.7 });
       if (this.currentRoom) for (const p of this.currentRoom.props) if (p.burning > 0 && nf++ < 7) { const fl = 0.8 + Math.sin(this.time * 11 + p.cx * 7) * 0.15; L.push({ x: p.cx, y: p.cy + 0.4, z: p.cz, r: 6, cr: 2.6 * fl, cg: 1.15 * fl, cb: 0.3 * fl }); }
       for (const e of this.enemies) if (!e.dead && e.burn > 0 && nf++ < 8) L.push({ x: e.x, y: e.y + 1, z: e.z, r: 4, cr: 2.2, cg: 1, cb: 0.25 });
-      for (const e of this.weapon.explosions) { const k = e.t / 0.35; L.push({ x: e.x, y: e.y + 0.3, z: e.z, r: 10, cr: 6 * k, cg: 3.5 * k, cb: 1 * k }); }
+      for (const bl of this.blasts) { if (bl.t > 0.9) continue; const k = Math.pow(1 - bl.t / 0.9, 2) * (0.85 + Math.sin(bl.t * 60) * 0.15); L.push({ x: bl.x, y: bl.y + 0.6, z: bl.z, r: 8 + bl.R * 3, cr: 7 * k, cg: 3.8 * k, cb: 1.1 * k }); }
       for (const sg of this.doorSigns()) {
         const pulse = sg.type === 'boss' ? 0.7 + Math.sin(this.time * 5) * 0.3 : 1;
         L.push({ x: sg.x + sg.nx * 0.4, y: 3.2, z: sg.z + sg.nz * 0.4, r: 3.5, cr: sg.c[0] * 0.9 * pulse, cg: sg.c[1] * 0.9 * pulse, cb: sg.c[2] * 0.9 * pulse });
@@ -1713,7 +1893,8 @@
       }
       out.push({ x: cam.x, y: cam.y + 0.2, z: cam.z, r: 3, cr: 0.035, cg: 0.032, cb: 0.042 });
       // luz de luna (o del atardecer): muy lejana, ilumina de lado las fachadas en los mapas abiertos
-      if (moon) out.push({ x: cam.x + moon.d[0] * 300, y: cam.y + moon.d[1] * 300, z: cam.z + moon.d[2] * 300, r: 900, cr: moon.c[0], cg: moon.c[1], cb: moon.c[2] });
+      const mk = (this.ambientMul || 1) * this.edgeDark() + (this.bolt || 0) * 7;
+      if (moon) out.push({ x: cam.x + moon.d[0] * 300, y: cam.y + moon.d[1] * 300, z: cam.z + moon.d[2] * 300, r: 900, cr: moon.c[0] * mk, cg: moon.c[1] * mk, cb: moon.c[2] * mk });
       const W = this.weapon;
       if (W.flash > 0.05 && W.muzzle) out.push({ x: W.muzzle[0], y: W.muzzle[1], z: W.muzzle[2], r: 9, cr: 5 * W.flash, cg: 3.2 * W.flash, cb: 1.2 * W.flash });
       return out;
@@ -1763,7 +1944,7 @@
       const sh = this.shakeAmt * this.shakeAmt * 0.25;
       const cam = {
         x: P.eyeX() + M.rand(-sh, sh), y: P.eyeY() + M.rand(-sh, sh), z: P.eyeZ() + M.rand(-sh, sh),
-        yaw: P.yaw, pitch: P.pitch + P.recoilPitch, roll: P.hurtRoll || 0,
+        yaw: P.yaw + Math.sin(this.time * 0.9) * 0.0035 * (this.weapon.scopeK || 0), pitch: P.pitch + P.recoilPitch + Math.sin(this.time * 1.3) * 0.0028 * (this.weapon.scopeK || 0), roll: (P.hurtRoll || 0) + (this.zone === 9 && this.mode === 'horde' ? Math.sin(this.time * 0.42) * 0.016 + Math.sin(this.time * 0.97) * 0.005 : 0),
       };
 
       this.world.updateMeshes(R, this.currentRoom);
@@ -1773,6 +1954,7 @@
       const b = this.dyn;
       b.clear();
       for (const e of this.enemies) if (!e.dead) e.render(b);
+      if (VX.Coop.active) for (const rp of VX.Coop.remotes.values()) if (rp.seen) rp.render(b);
       for (const c of this.corpses) c.render(b);
       for (const g of this.gibs) g.render(b);
       this.renderSigns(b);
@@ -1780,6 +1962,7 @@
       this.particles.render(b);
       this.pickups.render(b);
       this.weapon.renderTracers(b);
+      this.renderBlasts(b);
       this.bullets.render(b, this.time);
       this.world.renderTorches(b, this.time, vis);
       this.renderSpikes(b, vis);
@@ -1872,10 +2055,40 @@
       const zt = VX.ZONES[this.zone].tint;
       // ambiente muy oscuro: la linterna, las antorchas y los braseros mandan
       const za = VX.ZONES[this.zone].ambient;
-      const ambient = this.state === 'title' ? [0.03, 0.028, 0.04] : za ? za : [0.009 * zt[0], 0.0085 * zt[1], 0.013 * zt[2]];
+      const am = (this.ambientMul || 1) * this.edgeDark() + (this.bolt || 0) * 3;
+      const ambient = this.state === 'title' ? [0.03, 0.028, 0.04] : za ? [za[0] * am, za[1] * am, za[2] * am] : [0.009 * zt[0], 0.0085 * zt[1], 0.013 * zt[2]];
+      // mirilla: cierra el campo de visión y muestra la lente con la retícula
+      const sk = this.state === 'playing' ? (this.weapon.scopeK || 0) : 0;
+      R.zoom = 1 - M.smoothstep(0.3, 1, sk) * 0.7;
+      const so = document.getElementById('scope');
+      if (so) { const o = M.smoothstep(0.5, 0.75, sk); so.style.opacity = o; so.style.display = o > 0.01 ? 'block' : 'none'; const ch = document.getElementById('crosshair'); if (ch) ch.style.opacity = 1 - o; }
+      // agua con reflejo (calidad alta y cerca del agua): pasada previa desde la cámara simétrica
+      const room = this.currentRoom, wat = room && room.waters;
+      R.reflReady = false;
+      if (wat && wat.length && R.quality === 'alta' && this.state !== 'title') {
+        const w0 = wat.find((w) => Math.hypot(w.x - cam.x, w.z - cam.z) < w.r + 32 && cam.y > w.y);
+        if (w0) {
+          R.beginReflection(cam, { lights, spot, ambient }, w0.y);
+          this.world.render(R, room);
+          b.draw();
+          R.reflReady = true;
+        }
+      }
       R.beginScene(cam, { lights, spot, ambient });
       this.world.render(R, this.currentRoom);
       b.draw();
+      if (wat && wat.length) {
+        if (!room.waterBatch) {
+          // superficie del agua: discos hechos con franjas finas que no se salen del pilón
+          const wb = room.waterBatch = R.createBatch(256, false);
+          for (const w of wat) for (let dz = -w.r; dz <= w.r; dz += 0.25) {
+            const hw = Math.sqrt(Math.max(0, w.r * w.r - (dz + 0.125) * (dz + 0.125)));
+            if (hw > 0.05) wb.box(w.x, w.y - 0.04, w.z + dz + 0.125, hw * 2, 0.08, 0.25, w.c[0], w.c[1], w.c[2], -0.95);
+          }
+          wb.upload();
+        }
+        R.drawWater(room.waterBatch);
+      }
       R.endWorld();
       R.beginGlass();
       this.world.renderGlass(R, this.currentRoom);
@@ -1884,7 +2097,7 @@
       if (this.state === 'playing' || this.state === 'paused' || this.state === 'settings') {
         R.beginViewmodel(this.weapon.flash, [0.18, 0.17, 0.2]);
         this.gun.clear();
-        this.weapon.renderViewmodel(this.gun, this);
+        if ((this.weapon.scopeK || 0) < 0.6) this.weapon.renderViewmodel(this.gun, this);
         this.gun.upload();
         this.gun.draw();
       } else if (this.showcase) {

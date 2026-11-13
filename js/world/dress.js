@@ -259,7 +259,8 @@
       const x = r.uX(M.randInt(4, r.w - 4)) + 0.25, z = r.uZ(M.randInt(4, r.d - 4)) + 0.25;
       const type = T.hooks && Math.random() < 0.6 ? 'hook' : 'chain';
       const m = P().getModel(type, M.randInt(0, 5), 0);
-      P().addRaw(r, type, m, x - m.w * PV() / 2, ceil - m.h * PV(), z - m.d * PV() / 2);
+      const cy = r.ceilY ? r.ceilY(x, z) : ceil;   // cuelga del techo de verdad (en las bóvedas, más arriba)
+      P().addRaw(r, type, m, x - m.w * PV() / 2, cy - m.h * PV(), z - m.d * PV() / 2);
     }
     for (let i = 0; i < (T.chandeliers || 0); i++) hangChandelier(r, r.centerX() + M.rand(-2, 2), r.uZ(Math.round(r.d * (i + 1) / ((T.chandeliers || 0) + 1))));
 
@@ -325,7 +326,7 @@
 
   // Lámpara de araña colgada del techo (con su luz)
   function hangChandelier(r, x, z) {
-    const ceil = (r.H - 4) * S;
+    const ceil = r.ceilY ? r.ceilY(x, z) : (r.H - 4) * S;
     const m = P().getModel('chandelier', 0, 0);
     const y = Math.max(2.6, ceil - 1.2 - m.h * PV());
     const pv = PV();

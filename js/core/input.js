@@ -25,13 +25,13 @@
       if (Input.locked && (e.ctrlKey || e.code.startsWith('Control'))) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { Input.keys[e.code] = false; });
-    window.addEventListener('blur', () => { Input.keys = {}; Input.mouseDown = false; });
+    window.addEventListener('blur', () => { Input.keys = {}; Input.mouseDown = false; Input.rightDown = false; });
 
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) { Input.mouseDown = true; Input.mouseClicked = true; }
-      if (e.button === 2) Input.rightClicked = true;
+      if (e.button === 2) { Input.rightClicked = true; Input.rightDown = true; }
     });
-    window.addEventListener('mouseup', (e) => { if (e.button === 0) Input.mouseDown = false; });
+    window.addEventListener('mouseup', (e) => { if (e.button === 0) Input.mouseDown = false; if (e.button === 2) Input.rightDown = false; });
     window.addEventListener('mousemove', (e) => {
       if (!Input.locked) return;
       // Ignora saltos enormes (bug conocido de algunos navegadores al bloquear)

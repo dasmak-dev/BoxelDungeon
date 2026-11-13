@@ -38,7 +38,7 @@
     runner: { ring: true, accel: 9, turn: 7, mass: 0.8, ringAdd: 0.8, eager: 1, dodge: true, faceClose: 6 },
     brute: { ring: false, accel: 3, turn: 2.6, mass: 3 },
     spitter: { ring: false, accel: 5, turn: 6, mass: 1, keep: [5.5, 10] },
-    archer: { ring: false, accel: 6, turn: 7, mass: 0.8, keep: [7, 13] },
+    archer: { ring: false, accel: 6, turn: 8, mass: 0.8, keep: [8, 13], faceClose: 15 },
     necro: { ring: false, accel: 4, turn: 5, mass: 1, keep: [8, 14] },
     exploder: { ring: false, accel: 6, turn: 6, mass: 1 },
     shielder: { ring: true, accel: 4, turn: 7, mass: 1.8, ringAdd: -0.5, eager: 1.5, faceAlways: true },
@@ -64,6 +64,8 @@
       let model = T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
       if (T.shield) model = VX.Models.addShield(model, cfg);
       if (cfg.tool) model = VX.Models.addTool(model, cfg);
+      // el arquero lleva además una espada corta envainada para cuando lo acorralan
+      if (kind === 'archer') model = VX.Models.addTool(model, cfg, { tool: 'sword', name: 'blade', arm: 'armL' });
       if (this.elite) {
         for (const p of model.parts) for (const v of p.vox) {
           if (p.armor) continue;
@@ -72,6 +74,7 @@
         }
       }
       this.body = new VX.VoxelBody(model, this.champion ? 1.4 : this.elite ? 1.08 : 1);
+      if (this.body.byName.blade) this.body.byName.blade.hidden = true;
       if (this.champion) {
         // campeón: dorado y brillante
         for (const p of model.parts) for (const v of p.vox) if (v.e > 0) { v.r = 1; v.g = 0.8; v.b = 0.2; v.e = 1; }
@@ -139,6 +142,7 @@
 
     get attackReach() {
       if (this.crawling) return 1.0;
+      if (this.swordOut) return 1.45;
       return this.biter && !this.T.quad ? 0.85 : this.reach;
     }
 
@@ -284,6 +288,21 @@
             }
             break;
           }
+          case 'archer': {
+            // guarda las distancias y dispara; si te le echas encima, desenvaina la espada y pelea
+            const [lo, hi] = B.keep;
+            if (!this.swordOut && dist < 2.8 && this.los) this.setSword(game, true);
+            else if (this.swordOut && dist > 6) this.setSword(game, false);
+            if (this.swordOut) { const p = this.pathTo(game, dist, toX, toZ); gx = p[0]; gz = p[1]; want = dist > 1.1 ? 1.05 : 0; }
+            else if (!this.los || dist > hi) { const p = this.pathTo(game, dist, toX, toZ); gx = p[0]; gz = p[1]; want = 1; }
+            else {
+              if (this.stateT <= 0) { this.stateT = M.rand(1.6, 3); this.sideDir = -this.sideDir; }
+              const tx = -toZ * this.sideDir, tz = toX * this.sideDir;
+              if (dist < lo) { gx = -toX * 1.4 + tx * 0.35; gz = -toZ * 1.4 + tz * 0.35; want = 1.1; }   // retrocede de espaldas, mirándote
+              else { gx = tx + toX * (dist - (lo + hi) / 2) * 0.15; gz = tz + toZ * (dist - (lo + hi) / 2) * 0.15; want = 0.35; }
+            }
+            break;
+          }
           case 'exploder': {
             const p = this.pathTo(game, dist, toX, toZ);
             gx = p[0]; gz = p[1]; want = dist < 5 ? 1.7 : 1;   // esprinta al final
@@ -306,7 +325,16 @@
             // caminante, corredor, escudero y trepador: cerco por turnos
             this.approachRing(game, dist, toX, toZ, stopDist);
             gx = this.gx; gz = this.gz; want = this.want;
-            if (this.kind === 'runner' && dist > 2) want *= 1.12;   // carrera en línea recta, sin zigzag
+            if (this.kind === 'runner' && dist > 2) {
+              want *= 1.12;
+              // zigzag suave: curvas amplias y lentas (no tirones), que se van cerrando al acercarse
+              // y desaparecen en el último tramo para que la embestida final sea recta
+              if (!this.weaveF) { this.weaveF = M.rand(1.9, 2.5); this.weaveP = M.rand(0, 6.28); }
+              const fade = M.clamp((dist - 3.5) / 6, 0, 1);
+              const w = Math.sin(game.time * this.weaveF + this.weaveP) * 0.62 * fade;
+              gx += -toZ * w; gz += toX * w;
+              this.weaveLean = w;
+            } else this.weaveLean = 0;
             if (this.kind === 'walker' && want > 0.2) {
               const z = Math.sin(this.walkT * 0.45 + this.uid) * 0.3;   // arrastra los pies, se tambalea
               gx += -gz * z; gz += gx * z;
@@ -465,7 +493,7 @@
       } else if (canAttack && dist < this.attackReach && this.attackCd <= 0 && Math.abs(P.y - this.y) < 1.2) {
         this.windup = wind; this.windTotal = wind;
         if (this.T.quad) { this.kx += (dx / (dist || 1)) * 4; this.kz += (dz / (dist || 1)) * 4; }  // salto
-      } else if (canAttack && this.T.ranged && !this.crawling && this.los && dist > 3 && dist < 14) {
+      } else if (canAttack && this.T.ranged && !this.crawling && !this.swordOut && this.los && dist > 3 && dist < 16) {
         this.spitCd -= dt;
         if (this.spitCd <= 0) {
           // el nigromante prefiere levantar muertos si hay restos cerca
@@ -480,6 +508,15 @@
       this.animate(dt, Math.min(spd, this.aspd * 1.1));
       b.x = this.x; b.z = this.z;
       b.computeWorld();
+    }
+
+    // Arquero: saca o guarda la espada (la del arco baja al costado)
+    setSword(game, on) {
+      this.swordOut = on;
+      const bl = this.body.byName.blade;
+      if (bl) bl.hidden = !on;
+      if (on) { this.windup = 0; this.spitting = false; this.attackCd = 0.35; VX.Audio.swish && VX.Audio.swish(); }
+      else this.spitCd = Math.min(this.spitCd, 0.8);
     }
 
     // Dirección por el camino transitable hacia el jugador (recto si se puede)
@@ -626,17 +663,21 @@
       S.legL = sw * limpL; S.legR = -sw * limpR;
       let arm = -1.35 + Math.sin(this.walkT * 0.5) * 0.12;
       if (T.ranged) arm = -0.5 + Math.sin(this.walkT) * 0.2;
+      const sword = this.swordOut;
       if (T.explode) arm = -0.3 + Math.sin(this.walkT) * 0.25;
       S.armL = arm + Math.sin(this.walkT) * 0.15; S.armR = arm - Math.sin(this.walkT) * 0.15;
+      if (sword) { S.armL = -1.15 + Math.sin(this.walkT) * 0.08; S.armLz = -0.25; S.armR = -0.15 + Math.sin(this.walkT) * 0.1; }   // en guardia; el arco, al costado
+      else if (T.arrow && this.windup <= 0) { S.armR = -0.7 + Math.sin(this.walkT) * 0.1; S.armL = -0.35 + Math.sin(this.walkT) * 0.15; }   // arco listo, flecha en la otra mano
       if (T.shield) { S.armL = -1.5; }
       if (this.body.ratio('armL') < 0.6) S.armL = 0.1 + sw * 0.4;
       if (this.body.ratio('armR') < 0.6) S.armR = 0.1 - sw * 0.4;
-      S.armLz = -0.12; S.armRz = 0.12;
+      if (!sword) { S.armLz = -0.12; S.armRz = 0.12; } else S.armRz = 0.12;
       S.torso = 0.12 + T.lean * 0.5; S.torsoZ = Math.sin(this.walkT) * 0.06;
       S.head = Math.sin(this.walkT * 2) * 0.05; S.headZ = this.tilt + Math.sin(this.walkT * 0.37) * 0.12;
       S.pitch = 0.04 + T.lean; S.yOff = Math.abs(Math.sin(this.walkT)) * 0.03 * (moving ? 1 : 0.2);
       if (this.climbing > 0) { S.pitch = -0.55; S.armL = S.armR = -2.9 + sw * 0.8; }
       if (this.dodging > 0) S.torsoZ += this.sideDir * 0.35;
+      if (this.weaveLean) S.torsoZ += this.weaveLean * 0.3;
       if (this.windup > 0) {
         if (this.spitting && T.arrow) {
           // arquero: levanta el arco, tensa la cuerda hasta la cara y suelta
@@ -656,6 +697,12 @@
           const e = k < 0.7 ? k / 0.7 : 1 - (k - 0.7) / 0.3;
           S.torso = 0.12 - e * 0.45 + (k > 0.7 ? 0.6 : 0); S.head = -e * 0.6 + (k > 0.7 ? 0.5 : 0);
           S.armL = S.armR = -0.4 - e * 0.5;
+        } else if (sword) {
+          // tajo con la espada: alza en diagonal y corta hacia abajo cruzando el cuerpo
+          const up = k < 0.5 ? k / 0.5 : 1, cut = k > 0.5 ? (k - 0.5) / 0.5 : 0;
+          S.armL = -1.2 - up * 1.5 + cut * 2.3; S.armLz = -0.25 - up * 0.5 + cut * 0.9;
+          S.torso = 0.1 - up * 0.15 + cut * 0.4; S.torsoZ = -up * 0.2 + cut * 0.35;
+          S.armR = -0.2;
         } else if (this.biter) {
           const lunge = Math.sin(k * Math.PI);
           S.torso = 0.35 + lunge * 0.55; S.head = 0.2 + lunge * 0.5; S.pitch += lunge * 0.15;
@@ -788,6 +835,12 @@
     hit(hit, dmg, ray, game, opts) {
       if (this.dead) return false;
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
+      // cooperativo: el invitado avisa al anfitrión de sus impactos; el anfitrión enseña los suyos a los demás
+      const C = VX.Coop;
+      if (C.active && !game.visualOnly) {
+        if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts); }
+        else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0);
+      }
       const b = this.body;
       const pn = hit.part.name;
       const dir = [ray.dx, ray.dy, ray.dz];
@@ -810,7 +863,7 @@
         return false;
       }
       const mult = pn === 'head' ? 2.5 : (pn.startsWith('arm') || pn.startsWith('leg') ? 0.7 : 1);
-      this.hp -= dmg * mult;
+      if (!game.visualOnly) this.hp -= dmg * mult;
       b.flash = 0.8;
       const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
       const along = dir[0] * fx + dir[2] * fz, side = dir[0] * fz - dir[2] * fx;
@@ -826,8 +879,9 @@
         VX.Audio.splat();                 // la bala sale por el otro lado
         game.wallSplat(ex, ey, ez, dir);  // y mancha la pared de detrás
       } else VX.Audio.flesh();
+      if (game.visualOnly) { this.body.afterCarve(removed, game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5); return false; }   // sólo la herida (la vida la lleva otro)
       if (game.weapon.mods.fire && !(opts && opts.slash)) this.burn = 3;
-      if (game.weapon.mods.lifesteal) game.player.heal(0.6);
+      if (game.weapon.mods.lifesteal && !game.noReward) game.player.heal(0.6);
       return this.afterDamage(removed, dir, game, pn);
     }
 
@@ -837,13 +891,15 @@
       const b = this.body;
       const v = b.nearestVoxel(x, y, z);
       if (!v) return false;
-      this.hp -= dmg;
+      if (VX.Coop.isClient && game.localAct && !game.visualOnly) VX.Coop.reportBlast(this, x, y, z, R, dmg);
+      if (!game.visualOnly) this.hp -= dmg;
       b.flash = 1;
       const dx = v.wx - x, dz = v.wz - z, l = Math.hypot(dx, dz) || 1;
       const dir = [dx / l, 0.3, dz / l];
       const removed = b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, dir[0], 0.6, dir[2], 20);
       this.kx += dir[0] * 6; this.kz += dir[2] * 6;
       this.fl.vx += 8;
+      if (game.visualOnly) { b.afterCarve(removed, game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5); return false; }
       return this.afterDamage(removed, dir, game);
     }
 
@@ -882,6 +938,8 @@
     die(dir, game) {
       if (this.dead) return;
       this.dead = true;
+      // cooperativo: si lo he matado yo en mi equipo, el anfitrión lo da por muerto
+      if (VX.Coop.isClient && game.localAct && !game.noReward) VX.Coop.reportKill(this);
       const b = this.body;
       // el esqueleto se recompone una vez si no le rompes el cráneo
       if (this.T.reassemble && !this.champion && !this.risen && !(b.byName.head.detached || b.broken('head', 0.55))) {
@@ -918,6 +976,8 @@
     }
 
     reward(game) {
+      // cooperativo: el oro y las estadísticas son de quien lo mata
+      if (game.noReward || (VX.Coop.isClient && !game.localAct)) { if (VX.Coop.isHost && game.mode === 'horde') VX.HordeMode.killed++; return; }
       game.pickups.dropGold(this.x, this.y + 0.8, this.z, M.randInt(this.gold[0], this.gold[1]) * (game.weapon.mods.greed ? 2 : 1));
       game.stats.kills++;
       VX.Profile.add('kills', 1, game);

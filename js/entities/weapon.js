@@ -164,6 +164,13 @@
       this.switchT = Math.max(0, this.switchT - dt);
       this.swingT = Math.max(0, this.swingT - dt);
       this.inspectT = Math.max(0, (this.inspectT || 0) - dt);
+      // mirilla del rifle: mantener el clic derecho
+      this.scoped = this.slot.id === 'rifle' && I.rightDown && !this.reloading && this.switchT <= 0 && game.state === 'playing';
+      this.scopeK = M.lerp(this.scopeK || 0, this.scoped ? 1 : 0, Math.min(1, dt * (this.scoped ? 9 : 14)));
+      if (this.scopeK < 0.002) this.scopeK = 0;
+      // cooperativo: en el suelo o muerto no se dispara
+      if (VX.Coop.down || VX.Coop.deadWait) { this.updateGrenades(dt, game); this.tracers = this.tracers.filter((t) => (t.life -= dt) > 0); return; }
+      if (this.scoped) this.inspectT = 0;
       // [F] inspeccionar el arma (se cancela al disparar, recargar o cambiar)
       const KS = VX.Settings, kInspect = KS.key('inspect'), kKnife = KS.key('knife');
       if (I.wasPressed(kInspect) && this.switchT <= 0 && !this.reloading && this.swingT <= 0) {
@@ -234,6 +241,19 @@
         this.swingSide = -this.swingSide;
         this.pendingHit = this.swingType === 'smash' ? 0.36 : 0.27;
         setTimeout(() => VX.Audio.swish(), this.swingType === 'smash' ? 260 : 170);
+        return;
+      }
+      // karambit: dos zarpazos rápidos en gancho y un giro completo sobre la anilla
+      if (VX.Profile.knifeForm && VX.Profile.knifeForm() === 'karambit') {
+        this.swingN = ((this.swingN || 0) + 1) % 3;
+        this.swingType = this.swingN === 0 ? 'kspin' : 'khook';
+        this.swingSide = this.swingN === 1 ? 1 : -1;
+        const dur = this.swingType === 'kspin' ? 0.5 : 0.3;
+        this.cooldown = 1 / st.fireRate * (this.swingType === 'kspin' ? 1.3 : 0.9);
+        this.swingT = dur; this.swingDur = dur;
+        this.pendingHit = this.swingType === 'kspin' ? 0.22 : 0.1;
+        VX.Audio.swish();
+        if (this.swingType === 'kspin') setTimeout(() => VX.Audio.swish(), 180);
         return;
       }
       // tres golpes en ciclo: tajo de derecha a izquierda, revés y estocada
@@ -328,7 +348,7 @@
         let ax = -cy, ay = this.swingSide > 0 ? 0.6 : -0.6, az = sy;
         if (this.swingType === 'overhead') { ax *= 0.15; ay = 1; az *= 0.15; }
         const al = Math.hypot(ax, ay, az);
-        const mult = this.swingType === 'stab' ? 1.5 : this.swingType === 'overhead' ? 1.3 : 1;
+        const mult = this.swingType === 'stab' ? 1.5 : this.swingType === 'kspin' ? 1.45 : this.swingType === 'overhead' ? 1.3 : 1;
         game.dmgSource = 'knife'; game.dmgWeapon = 'knife';
         const killed = bestE.hit(best, st.damage * mult, ray, game, { slash: [ax / al, ay / al, az / al] });
         game.dmgSource = null;
@@ -370,7 +390,7 @@
       P.recoilPitch += d.recoil + st.damage * 0.0002;
       game.stats.shots++;
       game.roomShots = (game.roomShots || 0) + 1;
-      VX.Audio.shoot(d.sound);
+      VX.Audio.shoot(d.sound, d.sfx);
       game.shake(d.shake || 0.1);
 
       const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
@@ -381,24 +401,28 @@
       this.muzzle = this.viewToWorld(P, vm.x + mz[0] * vm.g, vm.y + mz[1] * vm.g, vm.z + mz[2] * vm.g);
       const [mx, my, mzz] = this.muzzle;
 
+      const coopDirs = VX.Coop.active ? [] : null;
       if (d.grenade) {
         const sp0 = 17;
         this.grenades.push({
           x: mx, y: my, z: mzz, vx: fwd[0] * sp0 + P.vx * 0.5, vy: fwd[1] * sp0 + 2.5, vz: fwd[2] * sp0 + P.vz * 0.5,
           life: 4, rot: 0, dmg: st.damage, blast: d.blast * Math.sqrt(st.destruction), destr: st.destruction,
         });
+        if (coopDirs) VX.Coop.shareGrenade(this.grenades[this.grenades.length - 1]);
       } else {
         for (let p = 0; p < st.pellets; p++) {
           // la dispersión crece si mantienes el gatillo (ráfagas largas = menos precisión)
           const bloom = 1 + Math.min(0.7, (this.heat || 0) * 0.045) * (this.mods.recoil || 1);
-          const s = st.spread * (st.pellets > 1 && d.pellets === 1 ? 2 : 1) * bloom;
+          const s = st.spread * (st.pellets > 1 && d.pellets === 1 ? 2 : 1) * bloom * (1 - (this.scopeK || 0) * 0.9);
           const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * s;
           let dx = fwd[0] + right[0] * Math.cos(a) * r + up[0] * Math.sin(a) * r;
           let dy = fwd[1] + up[1] * Math.sin(a) * r;
           let dz = fwd[2] + right[2] * Math.cos(a) * r + up[2] * Math.sin(a) * r;
           const l = Math.hypot(dx, dy, dz); dx /= l; dy /= l; dz /= l;
           this.shootRay(game, st, ox, oy, oz, dx, dy, dz, mx, my, mzz);
+          if (coopDirs) coopDirs.push([dx, dy, dz]);
         }
+        if (coopDirs) VX.Coop.shareShot(game, ox, oy, oz, coopDirs, this.slot.id, st.damage, st.destruction, mx, my, mzz);
       }
       this.applyRecoil(P, d);
       const shell = d.pellets > 1;
@@ -498,7 +522,12 @@
           if (e.dead) continue;
           if (Math.hypot(e.body.cx - g.x, e.body.cy - g.y, e.body.cz - g.z) < (e.isBoss ? 1.3 : 0.7)) { hit = true; break; }
         }
-        if (hit) { g.dead = true; this.explode(game, g); }
+        if (hit) {
+          g.dead = true;
+          // granada de un compañero: sólo rompe paredes y se ve (el daño a los zombis lo cuenta su dueño)
+          if (g.remote) { game.visualOnly = true; try { game.explode({ x: g.x, y: g.y, z: g.z, R: g.blast, dmg: g.dmg, destr: g.destr, selfK: 0, weapon: 'launcher' }); } finally { game.visualOnly = false; } }
+          else this.explode(game, g);
+        }
       }
       this.grenades = this.grenades.filter((g) => !g.dead);
     }
@@ -522,10 +551,6 @@
         batch.rbox(g.x, g.y, g.z, 0.09, 0.09, 0.13, q, 0.3, 0.36, 0.22, 0);
         batch.rbox(g.x, g.y + 0.05, g.z, 0.03, 0.03, 0.03, q, 1, 0.2, 0.1, 1);
       }
-      for (const e of this.explosions) {
-        const k = e.t / 0.35, s = (1 - k) * 2.2 + 0.3;
-        batch.box(e.x, e.y, e.z, s, s, s, 1, 0.55 + k * 0.3, 0.15, 1);
-      }
     }
 
     // Modelo en primera persona (espacio de cámara: x der, y arriba, -z delante).
@@ -536,7 +561,7 @@
       const d = VX.Weapons.DEFS[id];
       const vm = d.vm;
       let g = vm.g;
-      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id), id === 'knife' ? (pose && pose.form) || VX.Profile.knifeForm() : null);
+      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id), id === 'knife' ? (pose && pose.form) || VX.Profile.knifeForm() : id === 'pistol' ? (pose && pose.form) || d.form || null : null);
       let bx = vm.x, by = vm.y, bz = vm.z, q;
       let bYaw = 0, bPitch = 0, bRoll = 0;   // giro de la hoja sobre la empuñadura (sólo cuchillo)
       if (pose) {
@@ -592,6 +617,23 @@
                 yawR += side * (0.9 * wind - e * 2.0); bx += side * (0.08 * wind - e * 0.2); bz -= arc * 0.1; by += arc * 0.03;
                 roll += side * (0.5 - e * 1.1); pitch += -0.3 * arc; bYaw += side * (0.4 - e * 0.8);
               }
+            } else if (this.swingType === 'khook') {
+              // zarpazo en gancho: la garra sube por fuera y baja tirando hacia dentro, con la muñeca girada
+              const wind = k < 0.22 ? Math.sin((k / 0.22) * Math.PI * 0.5) : 1;
+              const e = M.smoothstep(0.18, 0.6, k), back = 1 - M.smoothstep(0.7, 1, k);
+              const arc = Math.sin(Math.min(1, k * 1.2) * Math.PI);
+              yawR += side * (0.28 * wind - e * 0.7) * back;
+              bx += side * (0.04 * wind - e * 0.11) * back; by += (0.05 * wind - e * 0.09) * back; bz -= arc * 0.06;
+              roll += side * (0.45 * wind - e * 0.9) * back; pitch += (0.25 * wind - e * 0.45) * back;
+              bPitch += (-0.7 * wind + e * 1.3) * back;           // la garra se cierra al tirar
+              bYaw += side * (0.3 - e * 0.6) * back;
+            } else if (this.swingType === 'kspin') {
+              // giro completo de la hoja alrededor del dedo en la anilla, y tajo al terminar la vuelta
+              const spin = M.smoothstep(0.0, 0.55, k) * Math.PI * 2;
+              const e = M.smoothstep(0.45, 0.75, k), back = 1 - M.smoothstep(0.8, 1, k);
+              bPitch -= spin;
+              yawR += (0.15 - e * 0.55) * back; bx += (0.02 - e * 0.08) * back; bz -= Math.sin(k * Math.PI) * 0.05;
+              roll += (0.2 - e * 0.6) * back; by += Math.sin(Math.min(1, k * 1.8) * Math.PI) * 0.03;
             } else if (this.swingType === 'stab') {
               // estocada: el puño se recoge y sale recto hacia delante, con giro de muñeca
               const back = k < 0.3 ? Math.sin((k / 0.3) * Math.PI * 0.5) : 1 - M.smoothstep(0.3, 0.45, k);
@@ -619,7 +661,8 @@
           const turn = M.smoothstep(0.1, 0.3, k) - M.smoothstep(0.45, 0.65, k) * 2 + M.smoothstep(0.7, 0.88, k);   // 0 → 1 → -1 → 0
           if (d.melee) {
             // el cuchillo da una voltereta en la mano
-            const flip = M.smoothstep(0.42, 0.62, k) * Math.PI * 2;
+            const flip = VX.Profile.knifeForm() === 'karambit' && id === 'knife' ? 0 : M.smoothstep(0.42, 0.62, k) * Math.PI * 2;
+            if (VX.Profile.knifeForm() === 'karambit' && id === 'knife') bPitch -= (M.smoothstep(0.35, 0.5, k) + M.smoothstep(0.55, 0.7, k)) * Math.PI * 2;
             yawR = M.lerp(yawR, 0.5 * turn, inn); pitch = M.lerp(pitch, 0.15, inn);
             bYaw = M.lerp(bYaw, 0.9 * turn, inn); bRoll = M.lerp(bRoll, 0.3, inn) + flip;
           } else {
@@ -628,11 +671,13 @@
           bx = M.lerp(bx, vm.x * 0.35, inn); by = M.lerp(by, vm.y + 0.02, inn); bz = M.lerp(bz, vm.z - 0.04, inn);
         }
         if (this.switchT > 0) { const s = this.switchT / 0.28; by -= s * 0.25; pitch -= s * 0.8; }
+        if (this.scopeK > 0) { const k = M.smoothstep(0, 0.6, this.scopeK); bx = M.lerp(bx, 0, k); by = M.lerp(by, -0.08, k); bz = M.lerp(bz, -0.2, k); yawR = M.lerp(yawR, 0, k); pitch = M.lerp(pitch, 0, k); roll = M.lerp(roll, 0, k); }
         q = M.qMul(M.qMul(M.qY(yawR), M.qX(pitch)), M.qZ(roll));
       }
       const bladeQ = (!pose && d.melee) ? M.qMul(M.qMul(M.qY(bYaw), M.qX(bPitch)), M.qZ(bRoll)) : null;
       const qb = bladeQ ? M.qMul(q, bladeQ) : q;
-      const PIV = [0, 1, 3];
+      const kar = id === 'knife' && !pose && VX.Profile.knifeForm() === 'karambit';
+      const PIV = kar ? (this.swingType === 'kspin' && this.swingT > 0 ? [0, -2, 13] : [0, 0, 6]) : [0, 1, 3];
       const slideBack = pose ? 0 : this.slide * 4 * g;
       const pumpBack = pose ? 0 : this.slide * 6 * g;
       for (const v of model) {

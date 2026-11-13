@@ -87,7 +87,8 @@
   }
 
   const MODELS = {
-    pistol() {
+    pistol(form) {
+      if (form && form !== 'pistola' && PISTOL_MODELS[form]) return PISTOL_MODELS[form]();
       const { vox, add } = builder();
       add(-2, 1, 4, 7, -23, 0, 'main', (x, y, z) => !(z > -4 && (z & 1) && (x === -2 || x === 1)));
       add(1, 1, 6, 7, -13, -9, 'dark');
@@ -190,6 +191,88 @@
     knife(form = 'cuchillo') { return KNIFE_MODELS[form] ? KNIFE_MODELS[form]() : KNIFE_MODELS.cuchillo(); },
   };
 
+  // ---------------- Modelos de pistola (cambian cómo dispara) ----------------
+  const PISTOLS = [
+    { id: 'pistola', name: 'Pistola', desc: 'Equilibrada: precisa y rápida' },
+    { id: 'deagle', name: 'Desert Eagle', cond: { stat: 'headshots', n: 75 }, txt: 'Revienta 75 cabezas',
+      desc: 'Calibre .50: mucho daño y atraviesa, pero dispara despacio y retrocede mucho',
+      stats: { name: 'Desert Eagle', damage: 58, fireRate: 2.6, mag: 7, reload: 1.7, spread: 0.007, pierce: 1, destruction: 1.5, recoil: 0.06, recoilPat: { up: 0.09, side: 0.02 }, kick: 0.075, shake: 0.26, sound: 1.9, sfx: 'deagle', muzzle: [-0.5, 6, -31] } },
+    { id: 'revolver', name: 'Revólver', cond: { stat: 'bosses', n: 2 }, txt: 'Remata a 2 jefes',
+      desc: 'Seis balas que derriban: daño alto, muy preciso, recarga lenta',
+      stats: { name: 'Revólver', damage: 46, fireRate: 3.1, mag: 6, reload: 2.1, spread: 0.004, pierce: 1, destruction: 1.25, recoil: 0.045, recoilPat: { up: 0.07, side: 0.012 }, kick: 0.06, shake: 0.2, sound: 1.6, sfx: 'revolver', muzzle: [-0.5, 5.5, -33] } },
+    { id: 'auto', name: 'Pistola automática', cond: { stat: 'kills', n: 400 }, txt: 'Mata 400 zombis',
+      desc: 'Ráfaga continua con cargador largo: poco daño por bala, mucha cadencia',
+      stats: { name: 'Pistola automática', damage: 13, fireRate: 15, mag: 22, reload: 1.5, spread: 0.03, auto: true, recoil: 0.014, recoilPat: { up: 0.016, side: 0.012 }, kick: 0.025, shake: 0.06, sound: 0.75, sfx: 'auto', muzzle: [-0.5, 5.5, -28] } },
+  ];
+  const PISTOL_MODELS = {
+    // pistola grande de corredera triangular, cañón con estrías y empuñadura gruesa
+    deagle() {
+      const { vox, add } = builder();
+      add(-2, 1, 4, 8, -27, 0, 'main', (x, y, z) => !(y === 8 && (x === -2 || x === 1)) && !(z > -6 && (z & 1) && (x === -2 || x === 1) && y > 4));
+      add(-1, 0, 9, 9, -26, -2, 'main');
+      add(-1, 0, 10, 10, -25, -25, 'steel'); add(-1, 0, 10, 10, -3, -2, 'steel');
+      for (let z = -25; z < -8; z += 3) add(-2, -2, 5, 7, z, z, 'dark');
+      add(1, 1, 6, 7, -14, -9, 'dark');
+      add(-1, 0, 5, 6, -28, -28, 'dark');
+      add(-2, 1, 1, 3, -24, -2, 'dark');
+      add(-2, 1, 0, 0, -24, -16, 'dark');
+      add(-1, 0, -3, -3, -12, -4, 'dark'); add(-1, 0, -2, 0, -12, -12, 'dark'); add(-1, 0, -2, -1, -7, -7, 'steel');
+      for (let k = 0; k <= 13; k++) {
+        const zo = Math.round(k * 0.4);
+        add(-3, 2, -k, -k, -4 + zo, 2 + zo, k > 12 ? 'dark' : 'grip', (x, y, z) => !((x === -3 || x === 2) && (z === 2 + zo) && k % 3 === 0));
+      }
+      add(-2, -2, 2, 2, -20, -10, 'accent'); add(1, 1, 2, 2, -20, -10, 'accent');
+      for (const v of vox) if (v.y >= 4 && v.tag !== 'accent') v.slide = true;
+      addHand(add, 3, -2);
+      return vox;
+    },
+    // revólver: tambor de seis recámaras, cañón largo con mira y percutor; la culata curva
+    revolver() {
+      const { vox, add } = builder();
+      add(-1, 0, 5, 7, -32, -11, 'steel', (x, y) => !(y === 7 && x === -1));
+      add(-1, 0, 8, 8, -31, -31, 'dark');
+      add(-1, 0, 4, 4, -31, -12, 'dark');
+      add(-2, 1, 5, 6, -13, -11, 'main');
+      // tambor
+      for (let z = -10; z <= -3; z++) for (let a = 0; a < 16; a++) {
+        const th = (a / 16) * Math.PI * 2, x = Math.round(Math.cos(th) * 2.6) - 1, y = 4 + Math.round(Math.sin(th) * 2.6);
+        add(x, x, y, y, z, z, z === -10 || z === -3 ? 'dark' : 'main');
+      }
+      add(-2, 1, 3, 5, -9, -4, 'dark');
+      add(-2, 1, 1, 8, -2, 1, 'main', (x, y) => y < 3 || y > 6 || x === -2 || x === 1);
+      add(-1, 0, 8, 9, 1, 3, 'dark');                       // percutor
+      add(-1, 0, 0, 1, -10, -3, 'main');
+      add(-1, 0, -2, -2, -8, -3, 'dark'); add(-1, 0, -1, 0, -8, -8, 'dark'); add(-1, 0, -1, 0, -5, -5, 'steel');
+      for (let k = 0; k <= 11; k++) {
+        const zo = Math.round(k * 0.55 + (k > 7 ? (k - 7) * 0.4 : 0));
+        add(-2, 1, -k, -k, -2 + zo, 3 + zo, 'grip', (x, y, z) => !((x === -2 || x === 1) && z === 3 + zo && k % 4 === 1));
+      }
+      add(-2, -2, 1, 1, -12, -11, 'accent'); add(1, 1, 1, 1, -12, -11, 'accent');
+      addHand(add, 3, -2);
+      return vox;
+    },
+    // automática: compensador ranurado, selector de tiro y cargador largo que asoma
+    auto() {
+      const { vox, add } = builder();
+      add(-2, 1, 4, 7, -22, 0, 'main', (x, y, z) => !(z > -4 && (z & 1) && (x === -2 || x === 1)));
+      add(-2, 1, 4, 7, -27, -23, 'dark', (x, y, z) => !((z & 1) && y === 7));
+      add(-1, 0, 5, 6, -28, -28, 'steel');
+      add(-1, 0, 8, 8, -21, -21, 'steel'); add(-2, 1, 8, 8, -2, -1, 'main', (x) => x === -2 || x === 1);
+      add(-2, 1, 1, 3, -21, -2, 'dark'); add(-2, 1, 0, 0, -21, -15, 'dark');
+      add(-1, 0, -3, -3, -11, -4, 'dark'); add(-1, 0, -2, 0, -11, -11, 'dark'); add(-1, 0, -2, -1, -7, -7, 'steel');
+      add(1, 1, 4, 5, -6, -4, 'accent');                      // selector
+      for (let k = 0; k <= 12; k++) {
+        const zo = Math.round(k * 0.35);
+        add(-2, 1, -k, -k, -4 + zo, 1 + zo, 'grip');
+      }
+      for (let k = 13; k <= 20; k++) { const zo = Math.round(k * 0.35); add(-1, 0, -k, -k, -3 + zo, 0 + zo, 'dark'); }   // cargador largo
+      add(-2, 1, -21, -21, 3, 7, 'accent');
+      for (const v of vox) if (v.y >= 4 && v.tag !== 'accent' && v.z > -23) v.slide = true;
+      addHand(add, 2, -2);
+      return vox;
+    },
+  };
+
   // ---------------- Formas del cuchillo (se desbloquean con misiones) ----------------
   const KNIVES = [
     { id: 'cuchillo', name: 'Cuchillo de combate', desc: 'El de siempre' },
@@ -213,18 +296,33 @@
       add(-1, 1, -1, 3, 9, 10, 'accent');
       return vox;
     },
-    // garra curva con anilla para el dedo
+    // garra en media luna: el filo va por dentro de la curva; mango curvo y anilla grande para el índice
     karambit() {
       const { vox, add } = builder();
-      for (let t = 0; t <= 16; t++) {
-        const z = -3 - t, c = -Math.round((t * t) / 16), w = Math.max(0, Math.round(3 - t * 0.17));
-        add(0, 0, c, c + w, z, z, 'blade');
-        add(0, 0, c, c, z, z, 'steel');
+      const R = 18, CY = 2 - R, CZ = -3, A = 1.12;
+      const seen = new Set();
+      const put = (y, z, tag) => { const k = y + ',' + z; if (seen.has(k)) return; seen.add(k); add(0, 0, y, y, z, z, tag); };
+      // hoja: corona entre el lomo (radio exterior, arriba) y el filo (radio interior), que se curva hacia abajo como una garra
+      for (let yy = -16; yy <= 4; yy++) for (let zz = -24; zz <= -2; zz++) {
+        const dy = yy - CY, dz = zz - CZ, d = Math.hypot(dy, dz), th = Math.atan2(-dz, dy);
+        if (th < -0.02 || th > A) continue;
+        const t = Math.max(0, th) / A, w = Math.max(0.7, 5.6 * (1 - Math.pow(t, 1.8)));
+        if (d > R + 0.5 || d < R + 0.5 - w) continue;
+        put(yy, zz, d < R + 1.4 - w || t > 0.88 ? 'steel' : 'blade');
       }
-      add(-1, 1, -1, 3, -2, -2, 'dark');
-      add(-1, 1, -1, 2, -1, 7, 'grip');
-      for (let a = 0; a < 20; a++) {
-        const th = (a / 20) * Math.PI * 2, y = 1 + Math.round(Math.sin(th) * 3), z = 11 + Math.round(Math.cos(th) * 3);
+      add(-1, 1, -1, 2, -2, -2, 'dark');                       // guarda
+      add(-1, 1, 3, 3, -3, -1, 'dark', (x) => x === 0);         // espolón del lomo
+      // mango curvo con cachas y remaches
+      for (let z = -1; z <= 9; z++) {
+        const sag = z > 4 ? -Math.round((z - 4) * 0.45) : 0;
+        add(-1, 1, -1 + sag, 2 + sag, z, z, 'grip', (x, y) => !(x !== 0 && (z === 1 || z === 6) && y === sag));
+        if (z === 1 || z === 6) add(-1, 1, sag, sag, z, z, 'accent', (x) => x !== 0);
+      }
+      // anilla de seguridad (hueca)
+      const RY = -2, RZ = 13;
+      for (let a = 0; a < 28; a++) {
+        const th = (a / 28) * Math.PI * 2;
+        const y = RY + Math.round(Math.sin(th) * 3.4), z = RZ + Math.round(Math.cos(th) * 3.4);
         add(-1, 1, y, y, z, z, 'accent', (x) => x === 0 || a % 2 === 0);
       }
       return vox;
@@ -316,5 +414,19 @@
     return out;
   }
 
-  VX.Weapons = { DEFS, GUNS, SKINS, MODELS, KNIVES, coloredModel };
+  // Cambia la pistola equipada por otro modelo (sus estadísticas, nombre, sonido y boca del cañón)
+  const PISTOL_BASE = JSON.parse(JSON.stringify(DEFS.pistol));
+  DEFS.pistol.sfx = 'pistol';
+  PISTOL_BASE.sfx = 'pistol';
+  function applyPistolForm(id) {
+    const f = PISTOLS.find((p) => p.id === id) || PISTOLS[0];
+    const vm = DEFS.pistol.vm;
+    for (const k of Object.keys(DEFS.pistol)) delete DEFS.pistol[k];
+    Object.assign(DEFS.pistol, JSON.parse(JSON.stringify(PISTOL_BASE)), f.stats ? JSON.parse(JSON.stringify(f.stats)) : {});
+    DEFS.pistol.vm = vm;
+    DEFS.pistol.form = f.id;
+  }
+  DEFS.smg.sfx = 'smg'; DEFS.shotgun.sfx = 'shotgun'; DEFS.rifle.sfx = 'rifle'; DEFS.launcher.sfx = 'launcher';
+
+  VX.Weapons = { DEFS, GUNS, SKINS, MODELS, KNIVES, PISTOLS, coloredModel, applyPistolForm };
 })();

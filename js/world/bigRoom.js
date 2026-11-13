@@ -17,7 +17,7 @@
       this.hasGlass = true;
       this.drawDist = 84;
       this.gmap = new Uint8Array(sx * sz).fill(255);
-      this.spawns = []; this.chestSpots = []; this.merchantSpots = []; this.beacons = [];
+      this.spawns = []; this.chestSpots = []; this.merchantSpots = []; this.beacons = []; this.perkSpots = [];
       this.walkDirty = [];
       this.place(-sx * C / 2, -sz * C / 2);
     }
@@ -153,7 +153,7 @@
           const gx = this.ox + cx, gz = this.oz + cz;
           this.floorColor(gt, mx, mz, gx, gz, M.hash3(gx, 3, gz), M.hash3(gx >> 3, 5, gz >> 3), c);
           let [r, g, b, mat] = c;
-          if (c[4] && this.isPuddle(gx, gz, this.damp || 0.5)) { r *= 0.55; g *= 0.58; b *= 0.68; mat = -0.9; }
+          if (c[4] && this.isPuddle(gx, gz, this.damp || 0.5)) { r *= 0.7; g *= 0.72; b *= 0.8; mat = -0.4; }   // charco: algo de brillo, sin destellos de golpe
           const a00 = this.floorAO(cx, cz), a10 = this.floorAO(cx + C, cz), a01 = this.floorAO(cx, cz + C), a11 = this.floorAO(cx + C, cz + C);
           ao[0] = a00; ao[1] = a10; ao[2] = a00; ao[3] = a10; ao[4] = a01; ao[5] = a11; ao[6] = a01; ao[7] = a11;
           batch.aobox((gx + 2) * S, -0.12, (gz + 2) * S, C * S, 0.24, C * S, r, g, b, mat, ao);
@@ -209,7 +209,35 @@
     const prop = (type, x, z, opts) => r.queue(type, wx(x), wz(z), opts || {});
     const chestSpot = (x, z) => r.chestSpots.push({ x: wx(x), z: wz(z) });
     const hash = (a, b, c) => M.hash3(Math.floor(a * 7.13), Math.floor(b * 3.71), Math.floor(c * 5.37));
-    return { C, W, D, H, wx, wz, setc, getc, fc, fm, cm, gm, dec, light, prop, chestSpot, hash };
+    // Máquina de ventajas (modo Horda): armario de 1,25 × 2,25 m con panel luminoso.
+    // face: hacia dónde mira el frontal ('xn','xp','zn','zp'); perk: id de la ventaja
+    const machine = (x, z, face, perk) => {
+      const P = VX.HordeMode && VX.HordeMode.PERKS[perk];
+      const body = P ? B[P.block] : B.MACH_R, neon = P ? B[P.neon] : B.NEON_R;
+      const X = cm(x), Z = cm(z), Wm = 5, Dm = 3, Hm = 9;
+      const n = { xn: [-1, 0], xp: [1, 0], zn: [0, -1], zp: [0, 1] }[face];
+      const along = n[0] === 0;   // el frontal se extiende en x
+      const put = (a, d, y, t) => {   // a: a lo ancho (-2..2), d: fondo (0 = frontal)
+        const px = along ? X + a : X - n[0] * d, pz = along ? Z - n[1] * d : Z + a;
+        setc(px, y, pz, t);
+      };
+      for (let a = -2; a <= 2; a++) for (let d = 0; d < Dm; d++) for (let y = 0; y < Hm; y++) {
+        let t = body;
+        if (d === 0) {
+          if (y >= 3 && y <= 7 && Math.abs(a) <= 1) t = B.PANEL;                      // panel con la imagen
+          if ((y === 2 || y === 8) && Math.abs(a) <= 1) t = neon;                     // marco de neón
+          if (y === 1 && a === 0) t = B.TIRE;                                          // dispensador
+          if (y === 4 && a === 2) t = B.STEEL;                                         // ranura de monedas
+        }
+        if (y === Hm - 1 && d > 0) t = neon;                                           // rótulo superior
+        put(a, d, y, t);
+      }
+      const fx = (X + 0.5 + (along ? 0 : n[0] * 1.2)) / C, fz = (Z + 0.5 + (along ? n[1] * 1.2 : 0)) / C;
+      const nc = P ? P.color : [1, 0.2, 0.2];
+      light(fx + n[0] * 0.2, 1.4, fz + n[1] * 0.2, 4.5, [nc[0] * 0.38, nc[1] * 0.38, nc[2] * 0.38]);
+      r.perkSpots.push({ x: wx(fx + n[0] * 0.55), z: wz(fz + n[1] * 0.55), perk });
+    };
+    return { C, W, D, H, wx, wz, setc, getc, fc, fm, cm, gm, dec, light, prop, chestSpot, hash, machine };
   };
 
   VX.BigRoom = BigRoom;

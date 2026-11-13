@@ -137,6 +137,7 @@
         return;
       }
       if (it.kind === 'stairs') { it.taken = true; game.enterSecret(); return; }
+      if (it.kind === 'perk') { VX.HordeMode.buyPerk(game, it); return; }
       if (it.kind === 'secretChest') {
         it.taken = true;
         const p = it.prop, top = p.oy + p.h * VX.PV;
@@ -250,7 +251,7 @@
       for (const it of this.items) {
         if (it.kind === 'weapon') { this.renderWeapon(batch, it); continue; }
         if (it.kind === 'supply') { this.renderSupply(batch, it); continue; }
-        if (it.kind === 'secretChest') continue;   // se ve el propio cofre
+        if (it.kind === 'secretChest' || it.kind === 'perk') continue;   // se ve el propio cofre / la máquina
         if (it.kind === 'stairs') {
           // foso con escalones de piedra que bajan hacia la pared y se pierden en la oscuridad
           const dx = it.dx, dz = it.dz, L = it.L || 1.6, Wd = it.Wd || 0.8, n = 7;

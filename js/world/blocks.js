@@ -52,6 +52,15 @@
     FRESCO: 53,   // enlucido pintado en rojo
     TGT_W: 54, TGT_R: 55, TGT_Y: 56,   // anillos de las dianas
     CLOTH: 57,    // tela roja de estandartes y toldos
+    // --- máquinas de ventajas (indestructibles) y mapas militares ---
+    MACH_R: 58, MACH_G: 59, MACH_Y: 60, MACH_B: 61, MACH_P: 62,
+    OLIVE: 63,    // verde militar (vehículos, tiendas de campaña)
+    CONT_R: 64, CONT_B: 65, CONT_G: 66, CONT_O: 67,   // contenedores de carga (chapa ondulada)
+    DIRT: 68,     // tierra de los gaviones
+    DECK: 69,     // cubierta de acero del barco (antideslizante)
+    HULL: 70,     // casco rojo / blanco del barco
+    SHIPW: 71,    // chapa pintada de blanco (superestructura del barco)
+    FRIDGE: 72,   // puerta de cristal de una nevera de tienda (con producto detrás y luz tenue)
   };
 
   // hp: vida del bloque (Infinity = indestructible)
@@ -117,6 +126,21 @@
   B.info[B.TGT_R] = { solid: true, hp: 5, color: [0.75, 0.1, 0.07], vary: 0.03 };
   B.info[B.TGT_Y] = { solid: true, hp: 5, color: [0.95, 0.75, 0.15], vary: 0.03, shiny: 0.3 };
   B.info[B.CLOTH] = { solid: true, hp: 3, color: [0.5, 0.06, 0.06], vary: 0.05 };
+  B.info[B.MACH_R] = { solid: true, hp: Infinity, color: [0.6, 0.06, 0.06], vary: 0.02, shiny: 0.6 };
+  B.info[B.MACH_G] = { solid: true, hp: Infinity, color: [0.06, 0.45, 0.15], vary: 0.02, shiny: 0.6 };
+  B.info[B.MACH_Y] = { solid: true, hp: Infinity, color: [0.75, 0.55, 0.05], vary: 0.02, shiny: 0.6 };
+  B.info[B.MACH_B] = { solid: true, hp: Infinity, color: [0.07, 0.2, 0.6], vary: 0.02, shiny: 0.6 };
+  B.info[B.MACH_P] = { solid: true, hp: Infinity, color: [0.4, 0.08, 0.5], vary: 0.02, shiny: 0.6 };
+  B.info[B.OLIVE] = { solid: true, hp: 45, color: [0.22, 0.25, 0.14], vary: 0.04 };
+  B.info[B.CONT_R] = { solid: true, hp: 50, color: [0.42, 0.1, 0.07], vary: 0.03, corrug: true };
+  B.info[B.CONT_B] = { solid: true, hp: 50, color: [0.09, 0.18, 0.34], vary: 0.03, corrug: true };
+  B.info[B.CONT_G] = { solid: true, hp: 50, color: [0.13, 0.28, 0.17], vary: 0.03, corrug: true };
+  B.info[B.CONT_O] = { solid: true, hp: 50, color: [0.55, 0.3, 0.07], vary: 0.03, corrug: true };
+  B.info[B.DIRT] = { solid: true, hp: 30, color: [0.3, 0.24, 0.16], vary: 0.1 };
+  B.info[B.DECK] = { solid: true, hp: 80, color: [0.2, 0.24, 0.22], vary: 0.04 };
+  B.info[B.HULL] = { solid: true, hp: Infinity, color: [0.45, 0.08, 0.06], vary: 0.03 };
+  B.info[B.SHIPW] = { solid: true, hp: 60, color: [0.5, 0.5, 0.47], vary: 0.03 };
+  B.info[B.FRIDGE] = { solid: true, hp: 4, color: [0.32, 0.4, 0.46], vary: 0.06, e: 0.12 };
   // celdas que no se dibujan (colisión de objetos, límites del mapa)
   B.invisible = new Uint8Array(256);
   for (let i = 0; i < B.info.length; i++) if (B.info[i] && B.info[i].invisible) B.invisible[i] = 1;
@@ -172,6 +196,7 @@
       else { out[0] = 0.22; out[1] = 0.22; out[2] = 0.24; }
     }
     if (t === B.FIRE) out[1] = 0.4 + H(x, y, z) * 0.35;
+    if (inf.corrug && ((x + z) & 1)) { out[0] *= 0.78; out[1] *= 0.78; out[2] *= 0.78; }   // chapa ondulada
     if (inf.jersey && ((x + z + (y >> 1)) >> 1) % 3 === 0 && y >= 2) { out[0] = 0.75; out[1] = 0.12; out[2] = 0.08; }   // franjas rojas
     if (inf.shutter && y % 2 === 0) { out[0] *= 0.7; out[1] *= 0.7; out[2] *= 0.7; }   // lamas de la persiana
     if (inf.product) {

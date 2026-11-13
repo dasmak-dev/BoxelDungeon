@@ -652,15 +652,16 @@
   }
 
   // Herramienta en la mano derecha (pico, cuchilla o espada oxidada)
-  function addTool(model, cfg) {
+  function addTool(model, cfg, extra) {
     const v = cfg.v, [aw, ah] = cfg.arm;
     let dims, fn, min;
-    if (cfg.tool === 'pick') {
+    const tool = extra ? extra.tool : cfg.tool;
+    if (tool === 'pick') {
       const s = cfg.toolScale || 1;
       const L = Math.round(26 * s), Wd = Math.round(16 * s);
       dims = [3, L, Wd]; min = [-1.5, -ah - Math.round(18 * s), -2];
       fn = (i, j, k) => (j <= Math.max(2, Math.round(3 * s)) ? (k === 0 || k === Wd - 1 ? [0.5, 0.52, 0.55] : [0.32, 0.33, 0.36]) : (k >= Math.floor(Wd / 2) - 1 && k <= Math.floor(Wd / 2) && i === 1 ? [0.35, 0.22, 0.12] : null));
-    } else if (cfg.tool === 'bow') {
+    } else if (tool === 'bow') {
       // arco de madera curvo con su cuerda
       dims = [1, 28, 7]; min = [-0.5, -ah - 6, -1];
       fn = (i, j, k) => {
@@ -669,7 +670,7 @@
         if (k === 0) return [0.8, 0.78, 0.7];
         return null;
       };
-    } else if (cfg.tool === 'staff') {
+    } else if (tool === 'staff') {
       // bastón retorcido con un cráneo y una llama violeta
       dims = [3, 40, 3]; min = [-1.5, -ah - 12, -1.5];
       fn = (i, j, k) => {
@@ -677,7 +678,15 @@
         if (j >= 31) return [0.85, 0.82, 0.7];                                                         // cráneo
         return i === 1 && k === 1 ? (j % 5 === 0 ? [0.2, 0.12, 0.08] : [0.32, 0.2, 0.12]) : null;
       };
-    } else if (cfg.tool === 'sword') {
+    } else if (tool === 'gun') {
+      // arma del compañero (cooperativo): cuerpo negro con cañón y empuñadura
+      dims = [2, 16, 4]; min = [-1, -ah - 12, -1];
+      fn = (i, j, k) => {
+        if (j >= 12) return k <= 1 ? [0.12, 0.1, 0.09] : null;      // empuñadura en la mano
+        if (j < 2) return k >= 2 ? [0.08, 0.08, 0.09] : null;        // boca del cañón
+        return k >= 1 ? (j % 5 === 0 ? [0.3, 0.32, 0.36] : [0.16, 0.16, 0.18]) : null;
+      };
+    } else if (tool === 'sword') {
       // espada corta oxidada y mellada
       dims = [1, 22, 4]; min = [-0.5, -ah - 14, -1];
       fn = (i, j, k) => {
@@ -692,9 +701,10 @@
       dims = [2, 22, 12]; min = [-1, -ah - 16, -1];
       fn = (i, j, k) => (j >= 16 ? (k <= 1 ? [0.3, 0.18, 0.1] : null) : (k <= 10 ? (k === 10 || j === 0 ? [0.8, 0.82, 0.86] : (M.hash3(j, k, 5) < 0.15 ? [0.45, 0.05, 0.05] : [0.55, 0.56, 0.6])) : null));
     }
-    const p = makePart('tool', [0, 0, 0], dims, min, v, fn, null);
-    p.parent = 'armR'; p.armor = true; p.noBreak = true;
-    p.pivot = model.parts.find((x) => x.name === 'armR').pivot.slice();
+    const arm = extra ? extra.arm : 'armR';
+    const p = makePart(extra ? extra.name : 'tool', [0, 0, 0], dims, min, v, fn, null);
+    p.parent = arm; p.armor = true; p.noBreak = true;
+    p.pivot = model.parts.find((x) => x.name === arm).pivot.slice();
     model.parts.push(p);
     return model;
   }

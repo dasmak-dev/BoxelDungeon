@@ -82,6 +82,11 @@ uniform float u_fogNear;
 uniform float u_fogFar;
 uniform float u_edge;
 uniform float u_glass;          // 1 en la pasada de cristales
+uniform float u_clipY;          // pasada de reflejo: se descarta lo que queda bajo el agua
+uniform float u_water;          // 1 al dibujar superficies de agua con reflejo
+uniform sampler2D u_reflTex;    // imagen reflejada (cámara simétrica respecto al agua)
+uniform vec2 u_res;
+uniform float u_time;
 
 out vec4 o_color;
 
@@ -180,7 +185,30 @@ float shadowAt2(vec3 wp, vec3 n) {
 }
 
 void main() {
+  if (v_world.y < u_clipY) discard;
   vec3 n = normalize(v_nrm);
+
+  if (u_water > 0.5 && n.y > 0.5) {
+    // agua con reflejo: ondas que mueven la imagen reflejada, Fresnel y algo de fondo
+    vec2 w = v_world.xz;
+    vec2 rip = vec2(sin(w.x * 3.3 + u_time * 1.9) + sin(w.y * 2.1 - u_time * 1.4 + w.x * 0.7),
+                    cos(w.y * 3.0 - u_time * 1.6) + cos(w.x * 1.9 + u_time * 1.1 + w.y * 0.5)) * 0.5;
+    vec3 wn = normalize(vec3(rip.x * 0.06, 1.0, rip.y * 0.06));
+    vec2 uv = gl_FragCoord.xy / u_res;
+    uv.y = 1.0 - uv.y;
+    uv += rip * 0.008;
+    vec3 refl = texture(u_reflTex, clamp(uv, vec2(0.002), vec2(0.998))).rgb;
+    vec3 V = normalize(u_camPos - v_world);
+    float ndv = max(dot(wn, V), 0.0);
+    float fr = 0.28 + 0.62 * pow(1.0 - ndv, 3.0);
+    vec3 deep = v_col.rgb * 0.6 + u_ambient * 0.8;
+    vec3 col = mix(deep, refl, fr);
+    // destellos de las ondas
+    col += vec3(0.04, 0.05, 0.06) * pow(max(rip.x * rip.y, 0.0), 3.0);
+    float fog = smoothstep(u_fogNear, u_fogFar, v_depth);
+    o_color = vec4(mix(col, u_fogColor, fog), 1.0);
+    return;
+  }
 
   if (v_col.a < -1.5) {
     // ventana con piso detrás (sin tonemapping de nuevo: se calcula en lineal)

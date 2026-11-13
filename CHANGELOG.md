@@ -3,6 +3,164 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.23.0] — 2026-11-13
+
+### Añadido
+- **Modo Horda cooperativo** para 2 a 4 jugadores:
+  - En el menú de la horda: pon tu nombre y **CREAR SALA**, o el código de un amigo y **UNIRSE**. El anfitrión elige mapa y empezáis todos a la vez, en el mismo mapa.
+  - El anfitrión lleva las oleadas, los zombis y los jefes; los demás los ven moverse y animarse igual. Cada uno calcula sus propios disparos, así que apuntar no tiene retardo.
+  - Los zombis persiguen al jugador más cercano. Los disparos, las granadas, las explosiones y los agujeros en paredes y enemigos se ven en todas las pantallas.
+  - Los compañeros se ven como muñecos de colores con arma y su nombre encima; a la izquierda, la lista de jugadores con su vida.
+  - **Caído y reanimación**: a 0 de vida caes y te arrastras; un compañero te levanta manteniendo E 2,5 s. Tras 30 s caído mueres hasta la siguiente oleada. Si caéis todos, se acaba la partida.
+  - Oro, ventajas, cofres y mejoras son de cada jugador. G (llamar la oleada) funciona para todos.
+- **Servidor de salas** (`server/server.js`): Node sin dependencias. Sirve también el juego para jugar en red local, y se puede subir gratis a Render para jugar por internet desde GitHub Pages. Instrucciones en el README.
+- Botón ⚙ en la barra cooperativa para indicar la dirección del servidor.
+
+## [0.22.2] — 2026-11-13
+
+### Cambiado
+- **Ciudad nocturna y Barco**: bruma permanente suave. Lo lejano se difumina en una niebla algo más clara que el cielo nocturno, pero el perfil de los edificios y del barco se sigue viendo.
+- **Evento «Niebla espesa»** en estos dos mapas: mucho más cerrado que en el resto; apenas se ve a 10–12 m durante esa oleada. Al acabar la oleada vuelve la bruma suave.
+- Barco: el oleaje se dibuja sólo hasta donde llega la vista.
+
+## [0.22.1] — 2026-11-13
+
+### Cambiado
+- **Esqueleto arquero**:
+  - Guarda las distancias: retrocede de espaldas sin dejar de mirarte, se mueve de lado y dispara con el arco desde lejos.
+  - Si te le echas encima, desenvaina una espada corta y pelea a tajos; cuando te alejas, vuelve al arco.
+  - Al acercarse lleva el arco listo y la flecha en la otra mano.
+- **Explosiones** más detalladas, según la calidad gráfica (baja, media o alta):
+  - núcleo amarillo dentro de la bola de fuego, que parpadea al arder;
+  - chispas que salen disparadas en arco dejando un trazo;
+  - columna de humo cuya base sigue brillando;
+  - quemadura con brasas en el suelo;
+  - en calidad alta, una segunda onda de polvo.
+- **Ciudad nocturna**:
+  - **Fuente**: el agua ya no se sale; ahora es un estanque redondo dentro del pilón, y los chorros caen dentro.
+  - **Reflejo del agua**: en calidad alta refleja de verdad la estatua, los árboles y los edificios, con ondas que mueven el reflejo.
+  - **Tiendas**: el muro blanco brillante del súper y la farmacia ahora son neveras con puertas de cristal y marcos.
+- **Barco**:
+  - La lluvia suena mucho más suave y de fondo, y respeta el volumen de efectos.
+  - Olas más realistas: tres trenes de ondas, con las losas inclinadas según la pendiente y espuma rompiendo en las crestas.
+  - La luz del puente ya no deslumbra.
+- **Modo Horda**:
+  - Los zombis ya no aparecen encima de muros invisibles ni caen del cielo: siempre salen a la altura del suelo de su punto de aparición.
+  - En los mapas pequeños, si no hay ningún punto de aparición a buena distancia, salen por el más lejano.
+- **Menús**:
+  - La Armería muestra una sola línea de estado («Equipado») para el arma con su forma y color.
+  - Los botones de forma y modelo ya no montan el nombre sobre la descripción.
+  - En Ajustes, los botones Exportar e Importar ya no se salen de su fila.
+
+## [0.22.0] — 2026-11-13
+
+### Añadido
+- **Modelos de pistola** (en la Armería, sección «Modelo»): cambian cómo dispara, no sólo el color.
+  - **Desert Eagle** (revienta 75 cabezas): calibre .50, 58 de daño, atraviesa, 7 balas y mucho retroceso.
+  - **Revólver** (remata a 2 jefes): seis balas muy precisas que atraviesan; recarga lenta.
+  - **Pistola automática** (mata 400 zombis): ráfaga continua, cargador de 22, poco daño por bala.
+- **Mirilla del francotirador**: con el rifle, mantener el clic derecho mira por la mirilla. Al apuntar:
+  - el zoom cierra el campo de visión;
+  - aparece la lente con retícula y punto rojo;
+  - el ratón va más fino;
+  - la puntería se vuelve casi perfecta;
+  - te mueves más despacio y el pulso se balancea un poco.
+  - Con el rifle, esquivar queda en la C.
+- **Sonido de disparo propio de cada arma**: pistola, Desert Eagle, revólver (con el clic del tambor), pistola automática, subfusil, escopeta, rifle (con eco) y lanzagranadas.
+
+### Cambiado
+- **Fuego**:
+  - Suena natural: un rumor continuo que respira, según lo cerca y lo grande que sea, con chasquidos de madera; al prender, un «fuuum» suave.
+  - Se extiende mucho menos: sólo salta a lo que está pegado y poco a poco, y nunca arden más de cuatro objetos a la vez en una sala.
+- **Explosiones**:
+  - destello y bola de fuego en varios lóbulos que sube y pasa de blanco a naranja, rojo y hollín;
+  - onda expansiva a ras de suelo y columna de humo;
+  - chispas, cascotes y brasas;
+  - un estampido grave con retumbo.
+- **Barco**:
+  - **Mar**: oleaje animado con espuma en las crestas, salpicaduras contra el casco y rociones en la proa.
+  - **Temporal**: lluvia en trazos inclinados que no entra bajo techo, sonido de lluvia, truenos de verdad y un ligero balanceo.
+  - **Luces**: fuera las lámparas que flotaban en los pasillos; ahora hay focos en postes junto a la borda. Las luces del puente y del mástil de proa están apoyadas.
+  - **Interiores** decorados:
+    - comedor con cocina, fogones, nevera, taquillas, salvavidas, carta náutica y alfombra;
+    - sala de máquinas con motor central, tuberías, cuadro de mandos con pilotos, extintores y franjas de seguridad;
+    - el puente de mando, con su consola y el timón.
+  - Arreglados elementos que se veían a medias: alerones del puente sueltos en el aire, mástil de proa corto y un cofre dentro del motor.
+- **Mazmorra: el techo encaja con lo que llega hasta él**:
+  - El techo de cada sala está ahora donde terminan paredes, pilares y columnas, así que ya no se quedan cortos a medio metro.
+  - Las cadenas, ganchos y lámparas cuelgan del techo de verdad, también en las bóvedas.
+  - En las salas con bóveda o artesonado, los pilares y muros que tocan el techo se prolongan hasta él; si se rompen, la prolongación desaparece.
+- La Ciudad suena con llovizna.
+
+## [0.21.1] — 2026-11-13
+
+### Cambiado
+- **Fuego**:
+  - Al jugador sólo le quema mientras está dentro de las llamas o pegado a un objeto que arde; en cuanto se aparta, deja de recibir daño.
+  - Las llamas de los coches calcinados y de los bidones también queman a quien se mete en ellas.
+  - Los zombis siguen prendiéndose y ardiendo un rato.
+- **Karambit**:
+  - Nuevo modelo: hoja en media luna que se curva hacia abajo como una garra, con el filo por dentro, mango curvo con remaches y una anilla grande.
+  - Animación propia: dos zarpazos en gancho y un giro completo de la hoja alrededor del dedo en la anilla, que pega más fuerte.
+  - Al inspeccionarlo, da dos vueltas sobre la anilla.
+- **Ciudad nocturna**:
+  - Fuera todos los coches, menos los calcinados que arden. El aparcamiento queda vacío, con manchas de aceite, bidones y cajas.
+  - Interiores de las tiendas más decorados:
+    - paredes revestidas según la tienda (azulejo, madera, mármol o yeso);
+    - falso techo, zócalo, carteles, papeles y manchas en el suelo;
+    - pizarras y lámparas colgantes en cafeterías, hamburgueserías y bares, más plantas;
+    - en el bar, diana y neón; en la farmacia, una cruz verde; en la armería, dianas de tiro; en la tienda de ropa, espejos y maniquíes; en el súper, carteles de ofertas y carros.
+  - Iluminación:
+    - las luces rotas ya no parpadean sin parar: están apagadas;
+    - el fuego parpadea más suave;
+    - las máquinas y los cofres secretos no gastan luces.
+  - Menos luz en general: la plaza central sigue iluminada (farolas más intensas) y las afueras quedan a oscuras, con la mayoría de farolas apagadas y menos luz de luna y ambiente cuanto más te alejas del centro.
+  - Los charcos ya no hacen destellos cuadrados en el suelo.
+- **Menú del modo Horda**: las tarjetas de los cuatro mapas muestran capturas del propio juego.
+
+## [0.21.0] — 2026-11-13
+
+### Añadido
+- **Máquinas de ventajas** (solo en el modo Horda): cinco máquinas con luz de neón repartidas por cada mapa. Se acercan, se pulsa E y se paga con oro:
+  - **Coraza** (120): +50 de vida máxima.
+  - **Manos rápidas** (140): recargas un 40 % más rápidas.
+  - **Gatillo loco** (160): +30 % de cadencia.
+  - **Piernas de liebre** (110): +18 % de velocidad y el impulso se recarga antes.
+  - **Último aliento** (200, el precio se dobla con cada compra): una resurrección más.
+  - Las ventajas compradas se ven como iconos junto a la vida.
+- **Eventos de oleada** (solo en el modo Horda): desde la oleada 3, algunas oleadas (nunca las de jefe) traen un evento que se anuncia en el cartel:
+  - **Apagón**: se apagan las farolas y baja la luz.
+  - **Niebla**: apenas se ve a 20 m.
+  - **Jauría**: perros y corredores.
+  - **Estampida**: corredores y trepadores.
+  - **Lluvia de flechas**: arqueros y escupidores, algo menos numerosos.
+  - **Gigantes**: brutos y escuderos, la mitad de zombis.
+  - **Fiebre del oro**: oro doble.
+- **Nuevo mapa: Base militar** (112 × 96 m, de noche):
+  - muro de bloques en T con alambre de espino, alambrada y cuatro torres de vigilancia con escalera, a las que se sube;
+  - hangar abierto con un camión, dos barracones con literas, un búnker de mando con radar y antenas;
+  - helipuerto con un helicóptero estrellado en llamas;
+  - parque de vehículos con un tanque, jeeps, depósitos de combustible y contenedores apilados (uno abierto);
+  - plaza de armas con mástil, nidos de sacos terreros, gaviones y torres de focos;
+  - bosque y montañas alrededor.
+  - Los zombis entran por la puerta principal y por las brechas de la alambrada.
+- **Nuevo mapa: Barco** (portacontenedores de 120 m en plena tormenta):
+  - castillo de popa con comedor y sala de máquinas, escaleras a su techo y el puente de mando encima;
+  - tres filas de contenedores apilados (algunos abiertos, con cajas para trepar);
+  - castillo de proa elevado con cabrestantes y luces de navegación;
+  - dos grúas, botes salvavidas y el mar alrededor.
+  - Lluvia en diagonal y relámpagos con trueno.
+  - Los zombis suben por la borda y salen de las escotillas.
+- Música, sonidos y partículas de ambiente propios para los dos mapas nuevos.
+
+## [0.20.1] — 2026-11-13
+### Cambios
+- **Corredor**: vuelve el zigzag, ahora más natural.
+  - Hace curvas amplias y lentas (en vez de tirones), de poco más de un metro a cada lado.
+  - Se inclina hacia el lado de la curva.
+  - Las curvas se cierran al acercarse y en los últimos metros va recto a embestir.
+  - Ya no se da la vuelta sobre sí mismo.
+
 ## [0.20.0] — 2026-11-13
 ### Armas
 - **Mazo de demolición** (sustituye al martillo de guerra): mango largo de fibra amarilla con franjas negras y una gran cabeza de acero atravesada. Hace poco daño a los enemigos (40) pero es **brutal con el escenario**: abre boquetes enormes en paredes, suelos y estructuras, y atraviesa los muros.

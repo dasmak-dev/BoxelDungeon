@@ -1,7 +1,7 @@
 // Mapa del modo Horda: Ciudad nocturna (120 × 120 m).
 // Una gran plaza central (fuente con estatua, árboles, bancos, templete y quiosco)
 // rodeada de cuatro manzanas con tiendas y vestíbulos en los que se entra rompiendo
-// escaparates, persianas o paredes. Una ronda de circunvalación con pocos coches,
+// escaparates, persianas o paredes. Una ronda de circunvalación con coches calcinados,
 // un autobús abierto por dentro y barricadas en las cuatro salidas.
 // Las plantas altas son decorado: fachadas con estilos (ladrillo con escaleras de
 // incendios, piedra, oficinas de cristal, bloques con balcones) y ventanas con el piso
@@ -210,6 +210,88 @@
 
     // ------------------------------------------------------------------------
     // Tienda a pie de calle con fachada de vóxel detallada
+    // Decorado interior de las tiendas: zócalo, carteles, suciedad y detalles de cada tipo
+    const dressShop = (x0, z0, x1, z1, front, kind, cx, cz, lc) => {
+      const i0x = x0 + 0.5, i1x = x1 - 0.5, i0z = z0 + 0.5, i1z = z1 - 0.5;
+      // paredes interiores (sin la fachada): [eje, plano, normal hacia dentro, desde, hasta]
+      const walls = [];
+      if (front !== 'xn') walls.push(['x', i0x, 1, i0z, i1z]);
+      if (front !== 'xp') walls.push(['x', i1x, -1, i0z, i1z]);
+      if (front !== 'zn') walls.push(['z', i0z, 1, i0x, i1x]);
+      if (front !== 'zp') walls.push(['z', i1z, -1, i0x, i1x]);
+      const W = (w, a, y, d, sa, sy, sd, c, e = 0) => w[0] === 'x' ? dec(w[1] + w[2] * d, y, a, sd, sy, sa, c[0], c[1], c[2], e) : dec(a, y, w[1] + w[2] * d, sa, sy, sd, c[0], c[1], c[2], e);
+      const POSTER = [[0.6, 0.15, 0.12], [0.15, 0.3, 0.55], [0.7, 0.55, 0.15], [0.2, 0.45, 0.25], [0.55, 0.2, 0.5], [0.8, 0.78, 0.7]];
+      walls.forEach((w, wi) => {
+        const L = w[4] - w[3], mid = (w[3] + w[4]) / 2;
+        W(w, mid, 0.12, 0.02, L, 0.24, 0.04, [0.08, 0.07, 0.06]);                      // zócalo
+        // carteles y cuadros
+        for (let a = w[3] + 1.5; a < w[4] - 1.2; a += 3.1) {
+          if (hash(a, wi, x0) < 0.35) continue;
+          const c = POSTER[Math.floor(hash(a, z0, wi) * POSTER.length) % POSTER.length], ph = 0.7 + hash(a, 2, wi) * 0.4;
+          W(w, a, 2.1, 0.04, 0.82, ph + 0.08, 0.02, [0.05, 0.05, 0.05]);
+          W(w, a, 2.1, 0.05, 0.72, ph, 0.02, c, 0.04);
+          W(w, a, 2.1 + ph * 0.18, 0.06, 0.5, 0.08, 0.02, [0.9, 0.88, 0.8], 0.05);   // rótulo del cartel
+          if (hash(a, 7, wi) < 0.3) W(w, a + 0.25, 2.1 - ph * 0.3, 0.07, 0.3, 0.25, 0.02, [0.85, 0.85, 0.8]);   // papel arrancado
+        }
+      });
+      // suelo: suciedad, papeles y alguna mancha de sangre
+      for (let k = 0; k < 7; k++) {
+        const px = x0 + 0.8 + hash(k, x0, 1) * (x1 - x0 - 1.6), pz = z0 + 0.8 + hash(k, z0, 2) * (z1 - z0 - 1.6), t = hash(k, 3, x0 + z0);
+        if (t < 0.25) dec(px, 0.004, pz, 0.6 + t * 2, 0.008, 0.5 + t * 2, 0.16, 0.02, 0.02, -0.5);
+        else if (t < 0.7) dec(px, 0.006, pz, 0.28, 0.01, 0.36, 0.75, 0.74, 0.68, 0, t * 5);
+        else dec(px, 0.004, pz, 1.2, 0.006, 0.9, 0.04, 0.035, 0.03);
+      }
+      const back = walls.find((w) => w[2] === ({ xn: -1, xp: 1, zn: -1, zp: 1 }[front]) && w[0] === front[0]) || walls[0];
+      const bmid = (back[3] + back[4]) / 2, BL = back[4] - back[3];
+      if (kind === 'cafe' || kind === 'burger' || kind === 'bar') {
+        // pizarra o carta luminosa encima de la barra
+        const mc = kind === 'burger' ? [0.9, 0.55, 0.15] : kind === 'bar' ? [0.7, 0.2, 0.6] : [0.12, 0.14, 0.12];
+        W(back, bmid, 3.3, 0.05, Math.min(4.5, BL * 0.5), 0.9, 0.04, [0.05, 0.05, 0.05]);
+        W(back, bmid, 3.3, 0.07, Math.min(4.3, BL * 0.5 - 0.2), 0.75, 0.03, mc, kind === 'cafe' ? 0 : 0.35);
+        for (let k = 0; k < 4; k++) W(back, bmid - 1.2 + k * 0.8, 3.35, 0.09, 0.55, 0.06, 0.02, [0.85, 0.82, 0.7], 0.2);
+        // lámparas colgantes
+        for (let k = -1; k <= 1; k += 2) {
+          const px = cx + (front[0] === 'z' ? k * 2.2 : 0), pz = cz + (front[0] === 'x' ? k * 2.2 : 0);
+          dec(px, 4.0, pz, 0.03, 0.9, 0.03, 0.05, 0.05, 0.05);
+          dec(px, 3.5, pz, 0.45, 0.25, 0.45, lc[0] * 0.5, lc[1] * 0.4, lc[2] * 0.3, 0.6);
+        }
+        // plantas en las esquinas
+        for (const [px, pz] of [[i0x + 0.5, i0z + 0.5], [i1x - 0.5, i1z - 0.5]]) { dec(px, 0.25, pz, 0.45, 0.5, 0.45, 0.25, 0.14, 0.08); dec(px, 0.85, pz, 0.7, 0.8, 0.7, 0.08, 0.2, 0.07); }
+      }
+      if (kind === 'bar') {
+        W(back, back[3] + 1.5, 2.4, 0.05, 0.5, 0.5, 0.03, [0.6, 0.55, 0.4]);                 // diana
+        W(back, back[3] + 1.5, 2.4, 0.07, 0.2, 0.2, 0.02, [0.7, 0.1, 0.1]);
+        const sw = walls.find((w) => w !== back) || back;
+        W(sw, (sw[3] + sw[4]) / 2, 3.0, 0.05, 2, 0.5, 0.04, [1, 0.3, 0.7], 0.85);             // letrero de neón
+      }
+      if (kind === 'farmacia') {
+        const sw = walls.find((w) => w !== back) || back;
+        W(sw, (sw[3] + sw[4]) / 2, 3.1, 0.05, 0.9, 0.3, 0.04, [0.2, 1, 0.4], 0.7);
+        W(sw, (sw[3] + sw[4]) / 2, 3.1, 0.05, 0.3, 0.9, 0.04, [0.2, 1, 0.4], 0.7);
+      }
+      if (kind === 'armeria') {
+        for (let k = 0; k < 3; k++) { const a = bmid - 2 + k * 2; W(back, a, 2.6, 0.04, 0.6, 0.8, 0.02, [0.85, 0.82, 0.75]); W(back, a, 2.7, 0.05, 0.25, 0.25, 0.02, [0.1, 0.1, 0.1]); W(back, a, 2.7, 0.06, 0.08, 0.08, 0.02, [0.7, 0.1, 0.1]); }
+        prop('crate', i0x + 0.8, i1z - 0.8);
+      }
+      if (kind === 'ropa') {
+        const sw = walls.find((w) => w !== back) || back;
+        for (let k = -1; k <= 1; k++) W(sw, (sw[3] + sw[4]) / 2 + k * 1.6, 1.6, 0.04, 0.9, 2.2, 0.02, [0.55, 0.62, 0.68], -0.85);   // espejos
+        // maniquíes
+        for (let k = -1; k <= 1; k += 2) {
+          const px = cx + (front[0] === 'z' ? k * 1.8 : 0.8), pz = cz + (front[0] === 'x' ? k * 1.8 : 0.8);
+          dec(px, 0.05, pz, 0.5, 0.1, 0.5, 0.1, 0.1, 0.1); dec(px, 0.6, pz, 0.06, 1.0, 0.06, 0.1, 0.1, 0.1);
+          dec(px, 1.4, pz, 0.42, 0.65, 0.24, 0.85, 0.82, 0.78); dec(px, 1.85, pz, 0.2, 0.25, 0.2, 0.85, 0.82, 0.78);
+          dec(px, 1.35, pz, 0.46, 0.5, 0.28, ...(k > 0 ? [0.5, 0.1, 0.12] : [0.1, 0.2, 0.4]));
+        }
+      }
+      if (kind === 'super') {
+        // carteles de ofertas colgados del techo y carros abandonados
+        for (let k = -1; k <= 1; k++) { const px = cx + (front[0] === 'z' ? k * 2.6 : 0), pz = cz + (front[0] === 'x' ? k * 2.6 : 0); dec(px, 4.1, pz, 0.02, 0.7, 0.02, 0.1, 0.1, 0.1); dec(px, 3.6, pz, front[0] === 'x' ? 0.04 : 1.2, 0.45, front[0] === 'x' ? 1.2 : 0.04, 0.85, 0.15, 0.1, 0.15); }
+        for (let k = 0; k < 2; k++) { const px = x0 + (x1 - x0) * (0.3 + k * 0.4), pz = z0 + (z1 - z0) * (0.75 - k * 0.5); dec(px, 0.55, pz, 0.6, 0.5, 0.9, 0.45, 0.46, 0.48, -0.3, k * 0.9); dec(px, 0.12, pz, 0.5, 0.06, 0.8, 0.1, 0.1, 0.1, 0, k * 0.9); }
+      }
+      // un par de cajas o bidones tirados
+      if (hash(x0, z0, 31) < 0.6) prop('crate', i1x - 0.8, i0z + 0.8);
+    };
     const SH = 18;
     const shop = (x0, z0, x1, z1, front, kind, o = {}) => {
       const X0 = cm(x0), Z0 = cm(z0), X1 = cm(x1), Z1 = cm(z1);
@@ -219,6 +301,14 @@
       for (let y = 0; y < SH; y++) {
         for (let x = X0; x < X1; x++) { W4(x, y, Z0); W4(x, y, Z1 - 1); }
         for (let z = Z0; z < Z1; z++) { W4(X0, y, z); W4(X1 - 1, y, z); }
+      }
+      // revestimiento interior (azulejo, madera o yeso según la tienda) en las paredes que no son la fachada
+      const LIN = { super: B.TILE, farmacia: B.TILE, cafe: B.PLANK, bar: B.PLANK, burger: B.TILE, armeria: B.CONCRETE, ropa: B.MARBLE }[kind] || B.CONCRETE;
+      for (let y = 1; y < SH - 2; y++) {
+        if (front !== 'zn') for (let x = X0 + 1; x < X1 - 1; x++) setc(x, y, Z0 + 1, LIN);
+        if (front !== 'zp') for (let x = X0 + 1; x < X1 - 1; x++) setc(x, y, Z1 - 2, LIN);
+        if (front !== 'xn') for (let z = Z0 + 1; z < Z1 - 1; z++) setc(X0 + 1, y, z, LIN);
+        if (front !== 'xp') for (let z = Z0 + 1; z < Z1 - 1; z++) setc(X1 - 2, y, z, LIN);
       }
       const along = front === 'xn' || front === 'xp' ? 'z' : 'x';
       const L = along === 'z' ? Z1 - Z0 : X1 - X0;
@@ -258,13 +348,16 @@
       // suelo, techo y fluorescentes
       const gt = { cafe: G.WOOD, armeria: G.WOOD, bar: G.WOOD }[kind] ?? G.TILE;
       gm(x0, z0, x1, z1, gt);
-      dec((x0 + x1) / 2, 4.62, (z0 + z1) / 2, x1 - x0, 0.25, z1 - z0, 0.07, 0.065, 0.06);
+      dec((x0 + x1) / 2, 4.62, (z0 + z1) / 2, x1 - x0, 0.25, z1 - z0, 0.26, 0.255, 0.24);   // falso techo
+      for (let gx = x0 + 1.2; gx < x1 - 0.3; gx += 1.2) dec(gx, 4.49, (z0 + z1) / 2, 0.05, 0.02, z1 - z0 - 0.5, 0.08, 0.08, 0.08);
+      for (let gz = z0 + 1.2; gz < z1 - 0.3; gz += 1.2) dec((x0 + x1) / 2, 4.49, gz, x1 - x0 - 0.5, 0.02, 0.05, 0.08, 0.08, 0.08);
       const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
       const lc = { super: [0.75, 0.9, 1.05], farmacia: [0.7, 1, 0.8], cafe: [1.1, 0.7, 0.4], armeria: [1, 0.55, 0.4], burger: [1.1, 0.8, 0.45], bar: [0.9, 0.45, 0.8], ropa: [1, 0.95, 0.85] }[kind] || [1, 1, 1];
       const lx = (x1 - x0) / 3.2, lz = (z1 - z0) / 3.2, dark = hash(x0, z0, 4) < 0.2;
       for (const [fx, fz] of [[-0.5, -0.5], [0.5, 0.5]]) {
-        if (!dark) light(cx + fx * lx, 4.1, cz + fz * lz, 7, [lc[0] * 0.5, lc[1] * 0.5, lc[2] * 0.5], hash(cx, fx, cz) < 0.4 ? { broken: true } : {});
-        dec(cx + fx * lx, 4.47, cz + fz * lz, 1.4, 0.06, 0.3, lc[0] * 0.8, lc[1] * 0.8, lc[2] * 0.8, dark ? 0 : 0.9);
+        const off = dark || hash(cx, fx, cz) < 0.3;   // fluorescente fundido: apagado del todo (sin parpadeos)
+        if (!off) light(cx + fx * lx, 4.1, cz + fz * lz, 7, [lc[0] * 0.42, lc[1] * 0.42, lc[2] * 0.42]);
+        dec(cx + fx * lx, 4.47, cz + fz * lz, 1.4, 0.06, 0.3, lc[0] * 0.8, lc[1] * 0.8, lc[2] * 0.8, off ? 0 : 0.9);
       }
       // interior
       const ix0 = X0 + 2, iz0 = Z0 + 2, ix1 = X1 - 2, iz1 = Z1 - 2;
@@ -279,8 +372,18 @@
       };
       if (kind === 'super' || kind === 'farmacia') {
         rowsAlong((a, b, c, d) => { fc(a, 0, b, c, 7, d, B.STEEL); fc(a, 1, b, c, 6, d, B.PRODUCT); });
-        if (along === 'z') { const bx = inward[0] > 0 ? ix1 - 2 : ix0; fc(bx, 0, iz0 + 2, bx + 2, 8, iz1 - 2, B.PANEL); }
-        else { const bz = inward[1] > 0 ? iz1 - 2 : iz0; fc(ix0 + 2, 0, bz, ix1 - 2, 8, bz + 2, B.PANEL); }
+        // neveras del fondo: armazón de acero, puertas de cristal con producto y marcos cada metro (sin el muro blanco de antes)
+        const fridge = (x0, z0, x1, z1, ax) => {
+          fc(x0, 0, z0, x1, 8, z1, B.STEEL);
+          const L = ax ? z1 - z0 : x1 - x0;
+          for (let a = 0; a < L; a++) for (let y = 1; y < 7; y++) {
+            if (a % 4 === 0) continue;
+            const fx = ax ? (inward[0] > 0 ? x0 : x1 - 1) : x0 + a, fz = ax ? z0 + a : (inward[1] > 0 ? z0 : z1 - 1);
+            setc(fx, y, fz, B.FRIDGE);
+          }
+        };
+        if (along === 'z') { const bx = inward[0] > 0 ? ix1 - 2 : ix0; fridge(bx, iz0 + 2, bx + 2, iz1 - 2, true); }
+        else { const bz = inward[1] > 0 ? iz1 - 2 : iz0; fridge(ix0 + 2, bz, ix1 - 2, bz + 2, false); }
       }
       if (kind === 'ropa') {
         // percheros con ropa de colores y maniquíes
@@ -319,7 +422,7 @@
           prop('chair', px + 0.8, pz, {}); prop('chair', px - 0.8, pz, {});
         }
       }
-      // carteles en las paredes (decorado)
+      dressShop(x0, z0, x1, z1, front, kind, cx, cz, lc);
       const back = { xn: [x1 - 1.4, z0 + 1.4], xp: [x0 + 1.4, z1 - 1.4], zn: [x1 - 1.4, z1 - 1.4], zp: [x0 + 1.4, z0 + 1.4] }[front];
       chestSpot(back[0], back[1]);
       if (o.upper) building(x0, z0, x1, z1, 4.75, o.upper, o.faces || [front], o.style || 'brick', { winFrom: 5 });
@@ -393,7 +496,7 @@
       planter(X0 + 3, Z0 + 3); planter(X1 - 7, Z0 + 3); planter(X0 + 3, Z1 - 7); planter(X1 - 7, Z1 - 7);
       const cxm = (x0 + x1) / 2, czm = (z0 + z1) / 2, hx = (x1 - x0) / 4, hz = (z1 - z0) / 4;
       for (const [a, b] of [[-1, -1], [1, 1]]) {
-        light(cxm + a * hx, 7.4, czm + b * hz, 9, [0.5, 0.56, 0.68], hash(a, b, x0) < 0.4 ? { broken: true } : {});
+        light(cxm + a * hx, 7.4, czm + b * hz, 9, [0.42, 0.47, 0.58]);
         dec(cxm + a * hx, 8.44, czm + b * hz, 2.2, 0.08, 2.2, 0.75, 0.85, 1, 0.85);
       }
       for (const [a, b] of [[1, -1], [-1, 1]]) dec(cxm + a * hx, 8.44, czm + b * hz, 2.2, 0.08, 2.2, 0.3, 0.32, 0.36);   // paneles fundidos
@@ -436,8 +539,8 @@
       dec((x0 + x1) / 2, HG * S + 0.12, (z0 + z1) / 2, x1 - x0, 0.25, z1 - z0, 0.09, 0.09, 0.1);
       for (let k = 0; k < 3; k++) {
         const lx = x0 + (x1 - x0) * (0.25 + k * 0.25), lz = (z0 + z1) / 2;
-        dec(lx, HG * S - 0.03, lz, 0.25, 0.05, 1.6, 0.9, 0.95, 1, k === 1 ? 0 : 0.85);
-        if (k !== 1) light(lx, HG * S - 0.4, lz, 7, [0.45, 0.5, 0.55], { broken: k === 2 });
+        dec(lx, HG * S - 0.03, lz, 0.25, 0.05, 1.6, 0.9, 0.95, 1, k === 0 ? 0.85 : 0);
+        if (k === 0) light(lx, HG * S - 0.4, lz, 7, [0.45, 0.5, 0.55]);
       }
       for (let x = x0 + 2; x < x1 - 3; x += 3) dec(x + 1.2, 0.006, z0 + (z1 - z0) * 0.3, 0.1, 0.012, 4, 0.45, 0.45, 0.4);
       chestSpot(x0 + 1.5, z0 + (z1 - z0) / 2);
@@ -453,8 +556,12 @@
       fc(X - 1, 0, Z - 1, X + 2, 2, Z + 2, B.STEEL);
       for (let k = 1; k <= 8; k++) setc(X + ax * k, top, Z + az * k, B.STEEL);
       const lx = X + ax * 8, lz = Z + az * 8;
+      // cuanto más lejos de la plaza, más farolas apagadas y más tenues (las afueras quedan a oscuras)
+      const dc = Math.hypot(x - 60, z - 60);
+      if (dc > 30 && hash(x, z, 17) < 0.6) broken = true;
       fc(Math.min(lx, lx - ax), top - 1, Math.min(lz, lz - az), Math.max(lx, lx - ax) + 1, top, Math.max(lz, lz - az) + 1, broken ? B.TIRE : B.LAMP);
-      if (!broken) light((lx + 0.5) / C, (top - 1.6) * S, (lz + 0.5) / C, 13, [1.05, 0.64, 0.3], { cell: r.idx(lx, top - 1, lz) });
+      const k = dc > 30 ? 0.7 : 1;
+      if (!broken) light((lx + 0.5) / C, (top - 1.6) * S, (lz + 0.5) / C, 13, [1.05 * k, 0.64 * k, 0.3 * k], { cell: r.idx(lx, top - 1, lz) });
     };
     // farola fernandina de dos globos (plaza)
     const parkLamp = (x, z) => {
@@ -463,7 +570,7 @@
       fc(X, 2, Z, X + 1, 15, Z + 1, B.STEEL);
       fc(X - 2, 14, Z, X + 3, 15, Z + 1, B.STEEL);
       setc(X - 2, 15, Z, B.LAMP); setc(X + 2, 15, Z, B.LAMP); setc(X, 16, Z, B.STEEL);
-      light(x + 0.12, 3.9, z + 0.12, 8, [0.9, 0.62, 0.32], { cell: r.idx(X - 2, 15, Z) });
+      light(x + 0.12, 3.9, z + 0.12, 11, [1.15, 0.8, 0.45], { cell: r.idx(X - 2, 15, Z) });
     };
     const bench = (x, z, facing) => {
       // banco de listones con patas de hierro y respaldo (facing: hacia dónde se sienta uno)
@@ -642,7 +749,7 @@
     disc(1.6, 3, 10, B.STONE);                      // pedestal
     disc(2, 9, 10, B.MARBLE);
     // agua de la fuente
-    dec(60, 0.95 + 0.25, 60, 8.8, 0.08, 8.8, 0.04, 0.07, 0.1, -0.95);
+    r.waters = [{ x: wx(60), z: wz(60), y: 1.2, r: 4.35, c: [0.05, 0.09, 0.12] }];   // estanque redondo (con reflejo en calidad alta)
     r.features.push({ kind: 'fountain', x: wx(60), y: 2.6, z: wz(60) });
     light(60, 1.7, 60, 7, [0.35, 0.55, 0.75]);
     // estatua: figura de pie con el brazo alzado sosteniendo una antorcha
@@ -685,7 +792,7 @@
       }
       for (let k = 0; k < 5; k++) dec(72, 4.6 + k * 0.32, 48, 7.8 - k * 1.5, 0.32, 7.8 - k * 1.5, 0.12 + k * 0.01, 0.16, 0.13);
       dec(72, 6.4, 48, 0.3, 0.6, 0.3, 0.3, 0.25, 0.1);
-      light(72, 3.4, 48, 7, [0.9, 0.7, 0.4], { broken: true });
+      light(72, 3.4, 48, 7, [0.8, 0.62, 0.36]);
       r.merchantSpots.push({ x: wx(72), z: wz(48), name: 'el templete de la plaza' });
       chestSpot(73.5, 49.5);
     }
@@ -729,16 +836,15 @@
     };
     for (const c of RING) { traffic(AVC - 5.3, c - 5.3, 0); traffic(AVC + 5.2, c + 5.2, 2); traffic(c - 5.3, AVC + 5.2, 1); traffic(c + 5.2, AVC - 5.3, 0); }
     busStop(32, 92.2, 'x', 1);
-    // pocos coches: alguno aparcado, un taxi, la policía en una esquina y chatarra ardiendo
-    vehicle(78, 98.6, true, false, 'car');
-    vehicle(23.6, 76, false, true, 'taxi');
-    vehicle(97.4, 36, false, false, 'car');
+    // sólo quedan los coches calcinados que aún arden
     vehicle(84, 22.4, true, true, 'wreck');
-    vehicle(24, 24.5, false, false, 'police');
-    vehicle(62, 33, false, true, 'car');
-    vehicle(33, 58.2, true, false, 'taxi');
     vehicle(97, 71, false, true, 'wreck');
-    if (r._garage) { const [g0, g1, g2, g3] = r._garage; vehicle(g0 + 4, (g1 + g3) / 2 - 1.5, false, false, 'car'); vehicle(g2 - 4, (g1 + g3) / 2 + 1, false, true, 'taxi'); }
+    if (r._garage) {
+      // aparcamiento vacío: manchas de aceite, bidones y cajas
+      const [g0, g1, g2, g3] = r._garage;
+      for (let k = 0; k < 6; k++) dec(g0 + 2 + hash(k, 1, g0) * (g2 - g0 - 4), 0.005, g1 + 2 + hash(k, 2, g1) * (g3 - g1 - 4), 1 + hash(k, 3, 3), 0.01, 0.8 + hash(k, 4, 4), 0.02, 0.02, 0.025, -0.6);
+      prop('barrel', g0 + 1.6, g1 + 1.6); prop('barrel', g0 + 2.4, g1 + 1.5); prop('crate', g2 - 1.8, g3 - 1.8); prop('xbarrel', g2 - 1.8, g1 + 1.8);
+    }
     // el autobús (se entra por las puertas abiertas)
     vehicle(40, 97.3, true, false, 'bus');
     r.merchantSpots.push({ x: wx(30), z: wz(94), name: 'la parada del autobús' });
@@ -756,8 +862,7 @@
         if (hash(i, a, 3) < 0.75) fm(px - hx, 0, pz - hz, px + hx, 1, pz + hz, B.JERSEY);
         else fm(px - hx, 0, pz - hz, px + hx, 0.75, pz + hz, B.SANDBAG);
       }
-      if (i === 1) { const [bx, bz] = along(-2.5, 3.2); vehicle(bx, bz, m.ax, true, 'police'); }
-      else if (i === 3) { const [bx, bz] = along(3, 3.2); vehicle(bx, bz, m.ax, true, 'wreck'); }
+      if (i === 3) { const [bx, bz] = along(3, 3.2); vehicle(bx, bz, m.ax, true, 'wreck'); }
       const [fx, fz] = along(4.5, 2.4);
       fm(fx - 0.3, 0, fz - 0.3, fx + 0.3, 0.9, fz + 0.3, B.STEEL);
       fm(fx - 0.25, 0.9, fz - 0.25, fx + 0.25, 1, fz + 0.25, B.FIRE);
@@ -829,6 +934,9 @@
       dec(x, 0.012, z, 0.6, 0.016, 0.6, 0.075, 0.075, 0.08, -0.4);
       r.spawns.push({ x: wx(x), z: wz(z) });
     }
+    // máquinas de ventajas
+    K.machine(43, 52, 'xp', 'coraza'); K.machine(77, 68, 'xn', 'manos'); K.machine(49, 77.2, 'zn', 'gatillo');
+    K.machine(26.6, 66, 'xp', 'liebre'); K.machine(93.4, 50, 'xn', 'aliento');
     r.playerStart = { x: wx(60), z: wz(49) };
   }
 

@@ -3,7 +3,7 @@
 Shooter en primera persona de estilo vóxel con habitaciones procedurales, enemigos destructibles y jefes.
 
 ## Cómo jugar
-Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita WebGL2). No hace falta servidor ni internet.
+Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita WebGL2). No hace falta servidor ni internet (salvo para el cooperativo).
 
 | Tecla | Acción |
 |---|---|
@@ -17,10 +17,12 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 | F | Encender / apagar linterna (configurable) |
 | M | Ver el mapa del piso (recorrido y puertas) |
 | G | Modo Horda: llamar ya a la siguiente oleada |
+| E (mantener) | Cooperativo: levantar a un compañero caído |
 | Ctrl | Inspeccionar el arma (configurable) |
 | 1 · 2 · 3 / rueda / Q | Cambiar de arma (Q = la anterior) |
 | V | Cuchillazo rápido (configurable) |
 | C / clic derecho | Esquivar (impulso corto con invulnerabilidad) |
+| Clic derecho (con el rifle) | Mantener para mirar por la mirilla |
 | Esc o P → Guardar y salir | Suspende la partida (se reanuda una vez; se pierde si mueres) |
 | Esc o P | Pausa |
 
@@ -29,14 +31,39 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 - **Todo es vóxel y destructible**: las balas abren túneles en los zombis (piernas → se arrastran, brazos → muerden, cabeza → mueren) y rompen paredes hasta cierto punto.
 - **Más de 12 tipos de enemigo** con comportamiento propio y una horda que te va cercando por turnos. **7 jefes** que pelean de forma distinta (saltos, dinamita, cadenas, crías, rayos, bullet hell) con fases.
 - **5 biomas + 1 secreto** (Cripta, Cloacas, Minas, Forja, Jardín fúngico y El Vacío) con salas, enemigos, jefe, peligros y música propios. Jefes desde el piso 10, jefe final y modo infinito.
-- **Modo Horda** (desde el menú principal): oleadas infinitas en mapas grandes. Dos mapas: **Ciudad nocturna** (gran plaza central, rascacielos, tiendas y un autobús en los que se entra, cristales transparentes y pisos iluminados tras las ventanas) y **Coliseo** (arena con dianas, ruinas, podio, gradas y palco imperial). Cajas de suministros; cada 3 oleadas, vendedor o elección de mejora; campeón cada 5 y jefe cada 10.
+- **Modo Horda** (desde el menú principal): oleadas infinitas en mapas grandes. Cuatro mapas: **Ciudad nocturna** (gran plaza central, rascacielos, tiendas y un autobús en los que se entra, cristales transparentes y pisos iluminados tras las ventanas), **Coliseo** (arena con dianas, ruinas, podio, gradas y palco imperial), **Base militar** (hangar, barracones, búnker, torres de vigilancia, helicóptero estrellado, tanque y contenedores) y **Barco** (portacontenedores en plena tormenta, con castillos de popa y proa). Cajas de suministros; **máquinas de ventajas** que se pagan con oro (Coraza, Manos rápidas, Gatillo loco, Piernas de liebre y Último aliento); **eventos de oleada** al azar (apagón, niebla, jauría, estampida, lluvia de flechas, gigantes, fiebre del oro); cada 3 oleadas, vendedor o elección de mejora; campeón cada 5 y jefe cada 10.
+- **Horda cooperativa** hasta 4 jugadores, por código de sala (por internet o en red local). Ver más abajo.
 - **Eventos de sala**: emboscadas y cofres que pueden ser mímicos.
 - **6 armas** + mejoras normales, raras y maldiciones; esquiva; retos opcionales por sala.
-- **Progresión permanente**: esencia para el Santuario (bendiciones y arsenal), skins por arma que se desbloquean con retos y **formas del cuchillo** (karambit, daga, machete, bayoneta, navaja mariposa) que se desbloquean con misiones.
+- **Progresión permanente**: esencia para el Santuario (bendiciones y arsenal), skins por arma que se desbloquean con retos **formas del cuchillo** (karambit, daga, machete, bayoneta, navaja mariposa) y **modelos de pistola** (Desert Eagle, revólver y pistola automática, cada uno con su daño, cadencia, cargador y sonido) que se desbloquean con misiones.
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.20.0**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.23.0**.
+
+## Modo Horda cooperativo (hasta 4 jugadores)
+Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.
+
+- El **anfitrión** (quien crea la sala) lleva las oleadas y los zombis. Si se va, la partida termina para todos.
+- Cada uno tiene su oro, sus ventajas y sus cofres.
+- A 0 de vida caes al suelo: puedes arrastrarte, pero no disparar. Un compañero te levanta manteniendo **E** a tu lado 2,5 s. Si nadie te levanta en 30 s, mueres y vuelves en la siguiente oleada. Si caéis todos, fin de la partida.
+- No se puede entrar a una partida ya empezada.
+
+### Jugar en red local (sin internet)
+Necesita [Node.js](https://nodejs.org) 18 o superior en un solo ordenador:
+```bash
+node server/server.js
+```
+La consola muestra las direcciones (por ejemplo `http://192.168.1.20:8080`). Todos abrís esa dirección en el navegador y el juego usa ese mismo servidor.
+
+### Jugar por internet (GitHub Pages + Render gratis)
+El juego sigue en GitHub Pages; sólo el servidor de salas va en [Render](https://render.com):
+1. Entra en Render con tu cuenta de GitHub → **New → Web Service** → elige este repositorio.
+2. **Root Directory**: `server` · **Runtime**: Node · **Build Command**: vacío (o `npm install`) · **Start Command**: `node server.js` · **Instance type**: Free.
+3. Al terminar el despliegue Render te da una dirección como `https://boxel-dungeon-coop.onrender.com`. Comprueba que `…/health` responde `ok`.
+4. En el juego: **Modo Horda → ⚙** y pega esa dirección (vale tal cual; se convierte en `wss://…/ws`). Para que nadie tenga que configurarlo, cambia `VX.NET_SERVER` en `js/net/net.js` por tu dirección y súbelo.
+
+El plan gratuito de Render apaga el servidor tras 15 minutos sin uso; la primera conexión después tarda alrededor de un minuto en despertarlo. También se puede forzar un servidor con `?server=wss://…/ws` en la URL del juego.
 
 ## Publicar en GitHub
 ```bash
@@ -58,7 +85,9 @@ js/render/            Motor WebGL2 de cubos instanciados, sombras y shaders de i
 js/world/             Bloques, habitación, pool de habitaciones, objetos de vóxel fino (props.js), decorado de salas (dress.js) y mundo
 js/entities/          Modelos vóxel, cuerpo destructible/gibs, zombis, jefes, jugador, arma, oro y objetos, partículas
 js/systems/           Armas y skins, perfil (esencia, desbloqueos), mejoras, generador de salas/enemigos y coordinador de la horda
-js/ui/                HUD, Armería, Santuario y pantallas de menú
+js/net/               Conexión con el servidor de salas (net.js) y sincronización de la horda cooperativa (coop.js)
+js/ui/                HUD, Armería, Santuario, sala cooperativa (lobby.js) y pantallas de menú
+server/               Servidor de salas en Node sin dependencias (WebSocket + archivos del juego para red local)
 js/game.js            Orquestador del juego (flujo de salas, update, render)
 js/main.js            Arranque y bucle principal
 ```

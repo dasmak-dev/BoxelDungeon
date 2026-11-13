@@ -379,6 +379,9 @@
       dec(mx, atticY + 7, mz, len, 0.05, 2.2, 0.32, 0.22, 0.14, 0, Math.atan2(-(q.z - p.z), q.x - p.x));
     }
 
+    // máquinas de ventajas junto al muro de la arena
+    K.machine(CXm - 30, CZm - 8, 'xp', 'coraza'); K.machine(CXm + 30, CZm + 8, 'xn', 'manos'); K.machine(CXm - 8, CZm + 18, 'zn', 'gatillo');
+    K.machine(CXm + 8, CZm - 18.5, 'zp', 'liebre'); K.machine(CXm + 18, CZm - 12, 'xn', 'aliento');
     r.playerStart = { x: wx(CXm), z: wz(CZm + 6) };
   }
 

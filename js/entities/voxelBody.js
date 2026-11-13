@@ -94,7 +94,7 @@
       this._all = true;
       const s = this.scale;
       for (const p of this.parts) {
-        if (p.detached) continue;
+        if (p.detached || p.hidden) continue;
         const q = p.q;
         for (const vx of p.vox) {
           if (!vx.alive || vx.exposed) continue;
@@ -145,7 +145,7 @@
       const r = this.v * 0.6, r2 = r * r;
       let best = null, bestT = maxT;
       for (const p of this.parts) {
-        if (p.detached) continue;
+        if (p.detached || p.hidden) continue;
         for (const vx of p.vox) {
           if (!vx.alive || !vx.exposed) continue;
           const lx = vx.wx - ox, ly = vx.wy - oy, lz = vx.wz - oz;

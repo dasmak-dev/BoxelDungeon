@@ -1079,9 +1079,11 @@
       const R = Math.max(this.w, this.d) * PV / 2 + 0.6;
       for (const e of game.enemies) if (!e.dead && !e.isBoss && Math.hypot(e.x - this.cx, e.z - this.cz) < R && !(e.T && e.T.fireImmune)) e.burn = Math.max(e.burn || 0, 1.5);
       const P = game.player;
-      if (Math.hypot(P.x - this.cx, P.z - this.cz) < R && P.y < top) P.damage(5, this.cx, this.cz, game);
-      for (const o of this.room.props) if (o !== this && !o.dead && o.flammable && !(o.burning > 0) && Math.hypot(o.cx - this.cx, o.cz - this.cz) < R + 0.6 && Math.random() < 0.3) o.ignite();
-      if (game.igniteAt) game.igniteAt(this.cx, this.cz, R);
+      const RP = Math.max(this.w, this.d) * PV / 2 + 0.25;   // al jugador sólo le quema si está pegado
+      if (Math.hypot(P.x - this.cx, P.z - this.cz) < RP && P.y < top) P.fireTouch(5, game);
+      // el fuego sólo salta a lo que está pegado, poco a poco, y nunca arde media sala a la vez
+      if (!game.fireBusy || !game.fireBusy(this.room)) for (const o of this.room.props) if (o !== this && !o.dead && o.flammable && !(o.burning > 0) && Math.hypot(o.cx - this.cx, o.cz - this.cz) < R + 0.15 && Math.random() < 0.025) o.ignite();
+      if (game.igniteAt) game.igniteAt(this.cx, this.cz, R * 0.6);
       if (this.burning <= 0 || this.alive < 10) { this.burning = 0; if (this.alive < 10 && this.alive > 0) this.collapse(game, 0, 0); }
     }
 

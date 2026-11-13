@@ -131,8 +131,9 @@
     R.prog = program(gl, VX.Shaders.vertex, VX.Shaders.fragment);
     const names = ['u_proj', 'u_view', 'u_lights', 'u_lightCols', 'u_numLights', 'u_spotPos', 'u_spotDir', 'u_spotCol',
       'u_spotCone', 'u_shadowMat', 'u_shadowMap', 'u_shadowOn', 'u_shadowTexel', 'u_ambient', 'u_camPos',
-      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_edge', 'u_shadowMat2', 'u_shadowMap2', 'u_shadowOn2', 'u_glass'];
+      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_edge', 'u_shadowMat2', 'u_shadowMap2', 'u_shadowOn2', 'u_glass', 'u_clipY', 'u_water', 'u_reflTex', 'u_res', 'u_time'];
     for (const n of names) R.U[n] = gl.getUniformLocation(R.prog, n);
+    gl.useProgram(R.prog); gl.uniform1i(R.U.u_reflTex, 2);   // unidad propia (la 0 y la 1 son de sombras)
     R.dprog = program(gl, VX.Shaders.depthVertex, VX.Shaders.depthFragment);
     R.DU.u_lightVP = gl.getUniformLocation(R.dprog, 'u_lightVP');
 
@@ -254,10 +255,10 @@
 
   // ---------------- Escena ----------------
   // cam: {x,y,z,yaw,pitch}; env: {lights:[{x,y,z,r,cr,cg,cb}], spot:{...,cr,cg,cb,on}, ambient:[r,g,b]}
-  R.beginScene = function (cam, env) {
+  R.beginScene = function (cam, env, tgt) {
     const gl = R.gl, U = R.U, M = VX.M;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, R.postOn ? R.post.msFbo : null);
-    gl.viewport(0, 0, R.width, R.height);
+    if (tgt) { gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo); gl.viewport(0, 0, tgt.w, tgt.h); }
+    else { gl.bindFramebuffer(gl.FRAMEBUFFER, R.postOn ? R.post.msFbo : null); gl.viewport(0, 0, R.width, R.height); }
     const f = R.fogColor;
     gl.clearColor(f[0], f[1], f[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -270,7 +271,7 @@
     // balanceo lateral (roll) al recibir golpes
     const roll = cam.roll || 0, rx = -Math.cos(cam.yaw), rz = Math.sin(cam.yaw);
     R.view = M.lookAt(cam.x, cam.y, cam.z, cam.x + fx, cam.y + fy, cam.z + fz, Math.sin(roll) * rx, Math.cos(roll), Math.sin(roll) * rz);
-    R.proj = M.perspective(R.fov, R.width / R.height, 0.04, R.farPlane || 90);
+    R.proj = M.perspective(R.fov * (R.zoom || 1), R.width / R.height, 0.04, R.farPlane || 90);
     gl.uniformMatrix4fv(U.u_proj, false, R.proj);
     gl.uniformMatrix4fv(U.u_view, false, R.view);
     R.setFrustum(M.multiply(R.proj, R.view));
@@ -279,6 +280,9 @@
     gl.uniform1f(U.u_fogNear, R.fogNear || 8);
     gl.uniform1f(U.u_fogFar, R.fogFar || 36);
     gl.uniform1f(U.u_edge, 0.02);
+    gl.uniform1f(U.u_clipY, tgt && tgt.clipY != null ? tgt.clipY : -1e9);
+    gl.uniform1f(U.u_water, 0);
+    gl.uniform1f(U.u_time, performance.now() / 1000);
     const a = env.ambient;
     gl.uniform3f(U.u_ambient, a[0], a[1], a[2]);
     R.setLights(env.lights);
@@ -594,6 +598,31 @@ void main() {
     // devolver las texturas de sombra a sus unidades
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.shadow2.tex);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.shadowTex);
+  };
+
+  // Reflejos de agua (calidad alta): se dibuja la escena desde una cámara simétrica respecto
+  // al plano del agua en una textura a media resolución, y el agua la muestrea con ondas
+  R.reflT = null;
+  R.beginReflection = function (cam, env, y) {
+    const gl = R.gl, w = Math.max(2, R.width >> 1), h = Math.max(2, R.height >> 1);
+    if (!R.reflT || R.reflT.w !== w || R.reflT.h !== h) {
+      freeTarget(gl, R.reflT);
+      R.reflT = colorTarget(gl, w, h, true);
+    }
+    const mc = { x: cam.x, y: 2 * y - cam.y, z: cam.z, yaw: cam.yaw, pitch: -cam.pitch, roll: -(cam.roll || 0) };
+    R.beginScene(mc, env, { fbo: R.reflT.fbo, w, h, clipY: y - 0.02 });
+  };
+  R.drawWater = function (batch) {
+    const gl = R.gl, U = R.U;
+    const on = !!R.reflReady;
+    if (on) {
+      gl.uniform1f(U.u_water, 1);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, R.reflT.tex); gl.uniform1i(U.u_reflTex, 2);
+      gl.uniform2f(U.u_res, R.postOn ? R.post.w : R.width, R.postOn ? R.post.h : R.height);
+      gl.activeTexture(gl.TEXTURE0);
+    }
+    batch.draw();
+    gl.uniform1f(U.u_water, 0);
   };
 
   // Pasada de cristales: transparentes, sin escribir profundidad

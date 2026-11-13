@@ -40,8 +40,9 @@
     update(dt, game) {
       const I = VX.Input, world = game.world;
       // --- Mirar ---
-      this.yaw -= I.dx * I.sensitivity;
-      this.pitch -= I.dy * I.sensitivity * (I.invertY ? -1 : 1);
+      const zs = 1 - (game.weapon.scopeK || 0) * 0.72;   // con la mirilla, el ratón va más fino
+      this.yaw -= I.dx * I.sensitivity * zs;
+      this.pitch -= I.dy * I.sensitivity * zs * (I.invertY ? -1 : 1);
       this.pitch = M.clamp(this.pitch, -1.5, 1.5);
 
       if (I.wasPressed(VX.Settings.key('flashlight'))) { this.flashlight = !this.flashlight; VX.Audio.click(); }
@@ -60,7 +61,9 @@
       const shift = I.isDown('ShiftLeft') || I.isDown('ShiftRight');
       const sprint = VX.Settings && VX.Settings.data.autoRun ? !shift : shift;
       const wet = game.waterAt && game.waterAt(this.x, this.z) && this.y < 0.4;
-      const spd = this.speed * (sprint && fz > 0 ? 1.45 : 1) * (wet ? 0.62 : 1);
+      // cooperativo: en el suelo te arrastras muy despacio; muerto, no te mueves hasta la siguiente oleada
+      const coopK = VX.Coop.down ? 0.16 : VX.Coop.deadWait ? 0 : 1;
+      const spd = this.speed * coopK * (sprint && fz > 0 && !game.weapon.scoped && coopK === 1 ? 1.45 : 1) * (wet ? 0.62 : 1) * (1 - (game.weapon.scopeK || 0) * 0.45);
       if (wet && Math.hypot(this.vx, this.vz) > 1 && Math.random() < 0.3) game.particles.spawn(this.x + M.rand(-0.3, 0.3), 0.12, this.z + M.rand(-0.3, 0.3), M.rand(-0.6, 0.6), M.rand(0.8, 1.6), M.rand(-0.6, 0.6), 0.45, 0.55, 0.6, 0.03, 0.6);
       const accel = this.onGround ? 14 : 4;
       if (!(this.dashT > 0)) {
@@ -76,7 +79,8 @@
         if (this.dashCd <= 0) { this.dashStock++; this.dashCd = this.dashStock < this.dashMax ? cdFull : 0; }
       }
       this.dashGap -= dt;
-      if ((I.wasPressed('KeyC') || I.rightClicked) && this.dashStock > 0 && this.dashGap <= 0 && this.dashT <= 0) {
+      const rifle = game.weapon.slot && game.weapon.slot.id === 'rifle';   // con el rifle, el clic derecho apunta
+      if ((I.wasPressed('KeyC') || (I.rightClicked && !rifle)) && !VX.Coop.down && !VX.Coop.deadWait && this.dashStock > 0 && this.dashGap <= 0 && this.dashT <= 0) {
         if (this.dashStock === this.dashMax) this.dashCd = cdFull;
         this.dashStock--; this.dashGap = 0.22;
         let dx = wx, dz = wz;
@@ -100,7 +104,7 @@
         if (this.dashT <= 0) this.dashT = 0;
       }
 
-      if (this.onGround && I.isDown('Space')) { this.vy = 6.4; this.onGround = false; }
+      if (this.onGround && I.isDown('Space') && !VX.Coop.down && !VX.Coop.deadWait) { this.vy = 6.4; this.onGround = false; }
       this.vy -= 19 * dt;
       if (this.vy < -30) this.vy = -30;
 
@@ -123,6 +127,7 @@
       this.recoilPitch = M.lerp(this.recoilPitch, 0, Math.min(1, dt * 10));
       this.hurtRoll = M.lerp(this.hurtRoll || 0, 0, Math.min(1, dt * 7));
       this.invuln -= dt;
+      if (this.fireCd > 0) this.fireCd -= dt;
       this.hurtT = Math.max(0, this.hurtT - dt);
     }
 
@@ -167,8 +172,14 @@
       if (up) { this.vy = Math.max(this.vy, up); this.onGround = false; }
     }
 
+    // Fuego: sólo hace daño mientras se está dentro de las llamas (no deja al jugador ardiendo)
+    fireTouch(amount, game) {
+      if (this.fireCd > 0) return;
+      this.fireCd = 0.45;
+      this.damage(amount, undefined, undefined, game);
+    }
     damage(amount, fromX, fromZ, game) {
-      if (this.dead || this.invuln > 0) return;
+      if (this.dead || this.invuln > 0 || VX.Coop.down || VX.Coop.deadWait) return;
       this.hp -= amount;
       if (game.onPlayerHurt) game.onPlayerHurt();
       this.invuln = 0.25;
@@ -198,11 +209,14 @@
         // «Segunda oportunidad» del Santuario
         if (game.revives > 0) {
           game.revives--;
+          if (game.mode === 'horde') VX.HordeMode.updatePerkHud();
           this.hp = Math.round(this.maxHp * 0.5); this.invuln = 2.5;
           game.hud.banner('¡SEGUNDA OPORTUNIDAD!', 'Tu alma se niega a caer', 2.5);
           VX.Audio.phase(); game.shake(0.6);
           return;
         }
+        // cooperativo: caes al suelo y un compañero te puede levantar
+        if (VX.Coop.active && game.mode === 'horde') { VX.Coop.goDown(game); return; }
         this.hp = 0; this.dead = true; game.gameOver();
       }
     }

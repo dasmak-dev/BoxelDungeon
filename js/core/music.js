@@ -30,6 +30,8 @@
     { tr: 1, tempo: 0.85, lead: 'sine', cutoff: 300 },
     { tr: -3, tempo: 1.06, lead: 'sawtooth', cutoff: 1400 },   // 6 Ciudad: sintetizador ochentero
     { tr: -5, tempo: 0.92, lead: 'triangle', cutoff: 850 },    // 7 Coliseo: tambores y metales graves
+    { tr: -7, tempo: 1.1, lead: 'square', cutoff: 700 },       // 8 Base militar: marcial y tenso
+    { tr: -4, tempo: 0.96, lead: 'sawtooth', cutoff: 520 },    // 9 Barco: oscuro, con vaivén
   ];
   Mu.zone = 0;
   Mu.setZone = function (z) {

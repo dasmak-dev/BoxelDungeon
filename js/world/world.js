@@ -332,7 +332,7 @@
     }
 
     // ---------- Campo de flujo (pathfinding de los enemigos) ----------
-    updateFlow(room, px, pz, dt) {
+    updateFlow(room, px, pz, dt, extra) {
       this.flowTimer -= dt;
       if (this.flowRoom === room && this.flowTimer > 0 && this.flow) return;
       this.flowTimer = 0.25;
@@ -346,6 +346,12 @@
       const hm = room.hmap;
       let qh = 0, qt = 0;
       dist[sz * W + sx] = 0; q[qt++] = sz * W + sx;
+      // cooperativo: varios jugadores = varios destinos (cada zombi va al más cercano)
+      if (extra) for (let i = 0; i + 1 < extra.length; i += 2) {
+        const ex = VX.M.clamp(Math.floor(extra[i] / S) - room.ox, 0, W - 1), ez = VX.M.clamp(Math.floor(extra[i + 1] / S) - room.oz, 0, D - 1);
+        const c = ez * W + ex;
+        if (dist[c] < 0) { dist[c] = 0; q[qt++] = c; }
+      }
       const visit = (c, n, nd) => {
         if (walk[n] && dist[n] < 0 && Math.abs(hm[n] - hm[c]) <= 2) { dist[n] = nd; q[qt++] = n; }
       };
@@ -505,9 +511,13 @@
         for (const f of r.features) {
           if (f.kind !== 'light') continue;
           if (f.cell !== undefined && !r.grid[f.cell]) continue;   // farola rota a tiros
+          if (r.blackout && !f.flick) continue;                     // apagón: sólo quedan los fuegos
           let fl = 0.95 + Math.sin(t * 2 + f.x) * 0.05, c = f.c;
-          if (f.flick) fl = 0.75 + Math.sin(t * 13 + f.x * 3) * 0.13 + Math.sin(t * 29 + f.z * 5) * 0.09;
-          if (f.broken) fl *= Math.sin(t * 7.3 + f.x * 13) > 0.86 || Math.sin(t * 23 + f.z) > 0.97 ? 0.08 : 1;
+          if (f.flick) fl = r.big ? 0.82 + Math.sin(t * 7 + f.x * 3) * 0.06 + Math.sin(t * 13 + f.z * 5) * 0.04 : 0.75 + Math.sin(t * 13 + f.x * 3) * 0.13 + Math.sin(t * 29 + f.z * 5) * 0.09;
+          if (f.broken) {
+            if (r.big) continue;   // mapas abiertos: una luz rota está apagada, no parpadea sin parar
+            fl *= Math.sin(t * 7.3 + f.x * 13) > 0.86 || Math.sin(t * 23 + f.z) > 0.97 ? 0.08 : 1;
+          }
           if (f.siren) c = ((t * 2.2 + f.x) % 2) < 1 ? [1.4, 0.08, 0.06] : [0.1, 0.25, 1.6];
           out.push({ x: f.x, y: f.y, z: f.z, r: f.r * 1.15, cr: c[0] * 2.6 * fl, cg: c[1] * 2.6 * fl, cb: c[2] * 2.6 * fl });
         }

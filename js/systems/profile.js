@@ -54,6 +54,7 @@
       try { d = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
       this.data = { ...DEF(), ...d };
       this.migrate(d);
+      if (VX.Weapons && VX.Weapons.applyPistolForm) VX.Weapons.applyPistolForm(this.pistolForm());
       return this.data;
     },
 
@@ -122,6 +123,7 @@
 
     checkUnlocks(game, onlyWeapon) {
       if (VX.Weapons && VX.Weapons.KNIVES) this.checkKnives(game);
+      if (VX.Weapons && VX.Weapons.PISTOLS) this.checkPistols(game);
       const list = onlyWeapon ? [onlyWeapon] : WEAPON_IDS();
       for (const w of list) {
         for (const s of VX.Weapons.SKINS) {
@@ -134,6 +136,21 @@
               VX.Audio.upgrade();
             }
           }
+        }
+      }
+    },
+
+    // ---- modelos de pistola ----
+    pistolUnlocked(id) { return id === 'pistola' || (this.data.pistols || []).includes(id); },
+    pistolForm() { const f = this.data.pistolForm || 'pistola'; return this.pistolUnlocked(f) ? f : 'pistola'; },
+    setPistolForm(id) { if (this.pistolUnlocked(id)) { this.data.pistolForm = id; this.save(); VX.Weapons.applyPistolForm(id); } },
+    checkPistols(game) {
+      this.data.pistols = this.data.pistols || [];
+      for (const k of VX.Weapons.PISTOLS) {
+        if (!k.cond || this.pistolUnlocked(k.id)) continue;
+        if ((this.data[k.cond.stat] || 0) >= k.cond.n) {
+          this.data.pistols.push(k.id); this.dirty = true;
+          if (game && game.hud && game.state === 'playing') { game.hud.banner('¡NUEVA PISTOLA!', `«${k.name}» — elígela en la Armería`, 3.5); VX.Audio.upgrade(); }
         }
       }
     },

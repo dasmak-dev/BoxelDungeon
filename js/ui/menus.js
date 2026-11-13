@@ -12,7 +12,8 @@
 
       click('newBtn', () => game.newGame());
       click('hordeBtn', () => this.showHorde());
-      click('hordeBack', () => this.showTitle());
+      click('hordeBack', () => { if (VX.Lobby.inRoom()) VX.Lobby.leave(); this.showTitle(); });
+      VX.Lobby.init(game);
       click('continueBtn', () => { if (VX.Save.has()) game.continueGame(); });
       click('settingsBtn', () => this.openSettings('title'));
       click('armoryBtn', () => VX.Armory.open(game));
@@ -190,9 +191,9 @@
       $('hordeMaps').innerHTML = cards.join('');
       for (const b of document.querySelectorAll('.hplay')) b.addEventListener('click', () => {
         VX.Audio.init(); VX.Music.init(); VX.Audio.click();
-        $('hordeMaps').innerHTML = '<p class="hordeIntro">Construyendo la ciudad…</p>';
-        setTimeout(() => this.game.startHorde(b.dataset.map), 30);
+        VX.Lobby.play(b.dataset.map);
       });
+      VX.Lobby.refresh();
       this.show('hordeSelect');
     },
 
