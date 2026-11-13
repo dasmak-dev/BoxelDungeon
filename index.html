@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>BOXEL DUNGEON</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -160,6 +162,14 @@
       <input type="checkbox" id="setTorchShadows">
       <label>Polvo en el haz de la linterna</label>
       <input type="checkbox" id="setDust">
+      <label>Controles táctiles</label>
+      <select id="setTouch">
+        <option value="auto">Automático</option>
+        <option value="on">Siempre</option>
+        <option value="off">Nunca</option>
+      </select>
+      <label>Sensibilidad táctil <span id="touchSensVal"></span></label>
+      <input type="range" id="setTouchSens" min="0.3" max="3" step="0.05">
       <label>Invertir eje Y</label>
       <input type="checkbox" id="setInvert">
       <label>Mostrar FPS</label>
@@ -213,6 +223,7 @@
         <button id="coopCreate" class="small">CREAR SALA</button>
         <input id="coopCode" maxlength="4" placeholder="CÓDIGO" spellcheck="false" autocomplete="off">
         <button id="coopJoin" class="small secondary">UNIRSE</button>
+        <span id="coopSrv" class="coopSrv" title="Estado del servidor del cooperativo"></span>
         <button id="coopCfg" class="small secondary" title="Dirección del servidor">⚙</button>
       </div>
       <div id="coopRoom" class="coopRow hidden">
@@ -299,6 +310,7 @@
   <!-- UI -->
   <script src="js/ui/hud.js"></script>
   <script src="js/ui/lobby.js"></script>
+  <script src="js/ui/touch.js"></script>
   <script src="js/ui/menus.js"></script>
   <script src="js/ui/armory.js"></script>
   <script src="js/ui/sanctuary.js"></script>

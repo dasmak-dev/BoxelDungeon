@@ -371,3 +371,84 @@ button.small { font-size: 16px; padding: 10px 24px; }
 .ctag em { display: block; color: #ff5a4a; font-style: normal; font-size: 11px; animation: ctagBlink 0.8s steps(2) infinite; }
 @keyframes ctagBlink { 50% { opacity: 0.35; } }
 #coopPlayers { position: absolute; left: 14px; top: 150px; font-size: 12px; line-height: 1.5; color: #ddd; text-shadow: 1px 1px 0 #000; pointer-events: none; }
+
+/* ---------- Controles táctiles (móvil) ---------- */
+#touchUI { display: none; }
+#rotateHint { display: none; }
+body.touch #touchUI { display: block; position: absolute; inset: 0; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; z-index: 5; }
+body.touch, body.touch #game { touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; }
+#touchUI .tbtn { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0;
+  border-radius: 50%; border: 2px solid rgba(242, 234, 216, 0.45); background: rgba(10, 8, 14, 0.38); color: rgba(242, 234, 216, 0.9);
+  font: inherit; font-size: 10px; letter-spacing: 1px; box-shadow: none; text-shadow: 1px 1px 0 #000; -webkit-tap-highlight-color: transparent; }
+#touchUI .tbtn.down { background: rgba(242, 234, 216, 0.35); transform: scale(0.94); }
+#touchUI .tbtn.lit { border-color: #ffd23f; color: #ffd23f; box-shadow: 0 0 12px rgba(255, 210, 63, 0.5); }
+#touchUI .tbtn.hidden { display: none; }
+/* cruceta */
+#touchUI .tpad { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: 18px; width: 150px; height: 150px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(10, 8, 14, 0.15), rgba(10, 8, 14, 0.4)); border: 2px solid rgba(242, 234, 216, 0.25); }
+#touchUI .tpad.sprint { border-color: #9fd3ff; box-shadow: 0 0 14px rgba(159, 211, 255, 0.45); }
+#touchUI .tarm { position: absolute; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+  background: rgba(242, 234, 216, 0.14); border: 2px solid rgba(242, 234, 216, 0.35); color: rgba(242, 234, 216, 0.75); font-size: 16px; pointer-events: none; }
+#touchUI .tarm.on { background: rgba(255, 210, 63, 0.35); border-color: #ffd23f; color: #fff; }
+#touchUI .tarm.up { left: 50px; top: 4px; } #touchUI .tarm.dn { left: 50px; bottom: 4px; }
+#touchUI .tarm.lf { left: 4px; top: 50px; } #touchUI .tarm.rt { right: 4px; top: 50px; }
+#touchUI .tknob { position: absolute; left: 57px; top: 57px; width: 32px; height: 32px; border-radius: 50%; background: rgba(242, 234, 216, 0.55); pointer-events: none; }
+#touchUI .trun { left: calc(38px + env(safe-area-inset-left)); bottom: 178px; width: 110px; height: 30px; border-radius: 15px; }
+/* botones de acción */
+#touchUI .t-fire { right: calc(26px + env(safe-area-inset-right)); bottom: 30px; width: 92px; height: 92px; background: rgba(170, 30, 25, 0.45); border-color: rgba(255, 120, 100, 0.7); }
+#touchUI .t-fire::after { content: ''; width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(255, 220, 210, 0.9); }
+#touchUI .t-jump { right: calc(134px + env(safe-area-inset-right)); bottom: 18px; width: 62px; height: 62px; }
+#touchUI .t-dash { right: calc(138px + env(safe-area-inset-right)); bottom: 92px; width: 56px; height: 56px; font-size: 9px; }
+#touchUI .t-reload { right: calc(92px + env(safe-area-inset-right)); bottom: 138px; width: 50px; height: 50px; font-size: 16px; }
+#touchUI .t-swap { right: calc(30px + env(safe-area-inset-right)); bottom: 138px; width: 52px; height: 52px; }
+#touchUI .t-knife { right: calc(150px + env(safe-area-inset-right)); bottom: 160px; width: 50px; height: 50px; font-size: 8px; }
+#touchUI .t-use { right: calc(214px + env(safe-area-inset-right)); bottom: 112px; width: 58px; height: 58px; }
+#touchUI .t-aim { right: calc(212px + env(safe-area-inset-right)); bottom: 30px; width: 60px; height: 60px; font-size: 8px; }
+/* fila de arriba */
+#touchUI .ttop { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+#touchUI .ttop .tbtn { position: static; width: auto; min-width: 40px; height: 32px; padding: 0 10px; border-radius: 16px; }
+/* HUD recolocado para dejar sitio a los pulgares */
+body.touch #bottomLeft { left: auto; right: calc(14px + env(safe-area-inset-right)); top: 10px; bottom: auto; width: 170px; }
+body.touch #bottomLeft .label { display: none; }
+body.touch #bottomLeft .bar { height: 12px; }
+body.touch #hpText { font-size: 13px; }
+body.touch #bottomRight { right: calc(14px + env(safe-area-inset-right)); top: 54px; bottom: auto; width: 170px; }
+body.touch #ammoText { font-size: 30px; }
+body.touch #weaponStats { display: none; }
+body.touch #weaponSlots { font-size: 9px; }
+body.touch #topLeft { left: calc(14px + env(safe-area-inset-left)); top: 8px; transform: scale(0.75); transform-origin: top left; }
+body.touch #upgradeList { top: 92px; left: 14px; transform: scale(0.8); transform-origin: top left; }
+body.touch #coopPlayers { top: 100px; }
+body.touch #bossBar { top: 48px; transform: translateX(-50%) scale(0.75); }
+body.touch #prompt { top: 28%; font-size: 13px; min-width: 200px; }
+body.touch #enemyCount { bottom: 8px; font-size: 12px; }
+body.touch #hordePerks { justify-content: flex-end; }
+/* menús en pantallas de móvil: se pueden desplazar */
+body.touch .screen { overflow-y: auto; justify-content: safe center; padding-top: 16px; padding-bottom: 16px; }
+@media (orientation: portrait) {
+  body.touch #rotateHint { display: flex; position: fixed; inset: 0; z-index: 50; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(4, 3, 6, 0.96); color: #f2ead8; text-align: center; gap: 12px; padding: 30px; }
+  body.touch #rotateHint div { font-size: 64px; }
+}
+body.touch #bannerTitle { font-size: 34px; }
+body.touch #bannerSub { font-size: 13px; }
+/* pantallas muy bajas (móvil en horizontal) */
+@media (max-height: 520px) {
+  .screen { gap: 10px; }
+  .screen h1 { font-size: 40px; letter-spacing: 6px; text-shadow: 4px 4px 0 #6b0f0f; }
+  .screen h2 { font-size: 34px; }
+  .titleBox { gap: 6px; }
+  .menuList { gap: 6px; }
+  .menuList button { padding: 6px 22px; font-size: 15px; }
+  .menuList button small { font-size: 10px; }
+  .hordeIntro { display: none; }
+  .hmapArt { height: 70px; }
+  .hmap { width: 190px; padding: 8px; gap: 5px; }
+  .hmap p { font-size: 10px; min-height: 0; line-height: 1.3; }
+  .hmap h3 { font-size: 13px; }
+}
+.coopSrv { font-size: 11px; letter-spacing: 1px; color: #8a8296; white-space: nowrap; }
+.coopSrv.waking { color: #ffb347; animation: srvPulse 1.2s infinite; }
+.coopSrv.ready { color: #7fd36b; }
+.coopSrv.fail { color: #ff6b5b; }
+@keyframes srvPulse { 50% { opacity: 0.45; } }

@@ -208,6 +208,8 @@
   R.setQuality = function (q, shadows) {
     const dpr = window.devicePixelRatio || 1;
     R.renderScale = q === 'alta' ? Math.min(dpr, 1.5) : q === 'media' ? Math.min(dpr, 1) * 0.85 : 0.6;
+    // móviles: pantallas pequeñas con mucha densidad; no hace falta tanta resolución
+    if (document.body.classList.contains('touch') || (window.matchMedia && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches)) R.renderScale = Math.min(R.renderScale, q === 'alta' ? 1 : q === 'media' ? 0.75 : 0.55);
     const size = q === 'alta' ? 2048 : q === 'media' ? 1024 : 512;
     R.shadowsOn = !!shadows;
     R.quality = q;

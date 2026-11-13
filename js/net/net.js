@@ -28,6 +28,44 @@
       return VX.NET_SERVER;
     },
 
+    // Despierta el servidor (Render lo duerme tras 15 min sin uso y tarda ~1 min en arrancar).
+    // Se llama al abrir el juego y al entrar en el menú de la horda; mientras se está en ese
+    // menú se repite cada 4 min para que no se vuelva a dormir.
+    wakeState: 'idle',     // idle | waking | ready | fail
+    onWake: null,
+    healthUrl() {
+      try {
+        const u = new URL(this.serverUrl().replace(/^ws/i, 'http'));
+        u.pathname = '/health'; u.search = '';
+        return u.toString();
+      } catch (e) { return null; }
+    },
+    wake(force) {
+      const url = this.healthUrl();
+      if (!url || typeof fetch !== 'function') return;
+      if (this.wakeState === 'waking' || (this.wakeState === 'ready' && !force && Date.now() - this.wokeAt < 60000)) return;
+      const first = this.wakeState !== 'ready';
+      if (first) this.setWake('waking');
+      const t0 = Date.now();
+      const tryOnce = () => {
+        const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+        const timer = setTimeout(() => ctl && ctl.abort(), 25000);
+        fetch(url, { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+          .then((r) => { clearTimeout(timer); if (!r.ok) throw new Error('http ' + r.status); this.wokeAt = Date.now(); this.setWake('ready'); })
+          .catch(() => {
+            clearTimeout(timer);
+            if (Date.now() - t0 < 120000) setTimeout(tryOnce, 4000);   // Render puede tardar en arrancar: sigue probando 2 min
+            else this.setWake('fail');
+          });
+      };
+      tryOnce();
+    },
+    setWake(s) { this.wakeState = s; if (this.onWake) this.onWake(s); },
+    keepAwake(on) {
+      clearInterval(this.awakeTimer);
+      if (on) { this.wake(); this.awakeTimer = setInterval(() => this.wake(true), 4 * 60000); }
+    },
+
     connect() {
       return new Promise((resolve, reject) => {
         if (this.ws && this.state === 'open') { resolve(); return; }

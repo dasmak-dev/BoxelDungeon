@@ -3,6 +3,27 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.24.1] — 2026-11-13
+
+### Añadido
+- **El servidor del cooperativo se despierta solo**: el juego lo llama nada más abrirse y otra vez al entrar en el menú de la horda, y lo mantiene despierto (cada 4 minutos) mientras estás en ese menú. Junto a los botones del cooperativo se ve su estado: «despertando servidor…» (naranja), «servidor listo» (verde) o «sin respuesta» (rojo).
+
+## [0.24.0] — 2026-11-13
+
+### Añadido
+- **Controles táctiles** para jugar en el móvil o la tableta (en horizontal):
+  - Cruceta de 8 direcciones a la izquierda; al empujarla más allá del borde hacia delante se corre. Botón CORRER para dejarlo fijo.
+  - Apuntar arrastrando el dedo por cualquier parte libre de la pantalla, o desde el propio botón de disparo para disparar y apuntar a la vez.
+  - Botones de disparo, salto, esquiva, recarga, cambiar arma, cuchillazo y USAR (se ilumina cuando hay algo cerca; mantenerlo para levantar a un compañero). MIRILLA sólo con el rifle.
+  - Fila superior: pausa, linterna, mapa (mazmorra) u oleada (horda) y pantalla completa.
+  - Al primer toque pasa a pantalla completa y en horizontal. En vertical pide girar el móvil.
+- Ajustes: **Controles táctiles** (automático, siempre o nunca) y **Sensibilidad táctil**.
+
+### Cambiado
+- En pantallas táctiles el HUD se recoloca (vida y munición arriba a la derecha) para dejar sitio a los pulgares.
+- En el móvil se dibuja a menor resolución interna y la primera vez empieza en calidad media.
+- Menús más compactos en pantallas bajas (móvil en horizontal); se pueden desplazar.
+
 ## [0.23.1] — 2026-11-13
 
 ### Añadido

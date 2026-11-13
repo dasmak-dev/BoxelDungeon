@@ -33,8 +33,17 @@
         $('coopServer').classList.add('hidden');
         this.msg('Servidor guardado');
       });
+      VX.Net.onWake = (st) => this.showWake(st);
+      VX.Net.wake();   // despierta el servidor nada más abrir el juego
       VX.Net.onLobby = (m) => this.onLobby(m);
       VX.Coop.initHandlers();
+    },
+
+    showWake(st) {
+      const el = $('coopSrv');
+      if (!el) return;
+      el.className = 'coopSrv ' + st;
+      el.textContent = { waking: '● despertando servidor…', ready: '● servidor listo', fail: '● servidor sin respuesta' }[st] || '';
     },
 
     name() { return ($('coopName').value || '').trim().slice(0, 14) || 'Jugador'; },

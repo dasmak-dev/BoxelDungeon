@@ -49,6 +49,8 @@
       bindRange('setSens', 'sensitivity', (v) => v.toFixed(2) + 'x', 'sensVal');
       bindRange('setFov', 'fov', (v) => v + '°', 'fovVal');
       $('setQuality').addEventListener('change', (e) => S.set('quality', e.target.value));
+      $('setTouch').addEventListener('change', (e) => S.set('touchMode', e.target.value));
+      bindRange('setTouchSens', 'touchSens', (v) => v.toFixed(2) + 'x', 'touchSensVal');
       $('setShadows').addEventListener('change', (e) => S.set('shadows', e.target.checked));
       $('setInvert').addEventListener('change', (e) => S.set('invertY', e.target.checked));
       $('setFps').addEventListener('change', (e) => S.set('showFps', e.target.checked));
@@ -128,6 +130,8 @@
       $('setSens').value = d.sensitivity; $('sensVal').textContent = d.sensitivity.toFixed(2) + 'x';
       $('setFov').value = d.fov; $('fovVal').textContent = d.fov + '°';
       $('setQuality').value = d.quality;
+      $('setTouch').value = d.touchMode || 'auto';
+      $('setTouchSens').value = d.touchSens || 1; $('touchSensVal').textContent = (d.touchSens || 1).toFixed(2) + 'x';
       $('setShadows').checked = d.shadows;
       $('setInvert').checked = d.invertY;
       $('setFps').checked = d.showFps;
@@ -157,6 +161,7 @@
 
     show(name) {
       for (const id of SCREENS) $(id).classList.toggle('hidden', id !== name);
+      if (VX.Net) VX.Net.keepAwake(name === 'hordeSelect');   // en el menú de la horda, el servidor despierto
     },
 
     hideAll() { this.show(null); },

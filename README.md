@@ -26,6 +26,15 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 | Esc o P → Guardar y salir | Suspende la partida (se reanuda una vez; se pierde si mueres) |
 | Esc o P | Pausa |
 
+### En el móvil o la tableta
+Se juega en horizontal con controles táctiles (aparecen solos en pantallas táctiles; se pueden forzar o quitar en **Ajustes → Controles táctiles**):
+- **Cruceta** (izquierda): moverse. Empujar más allá del borde hacia delante, o el botón **CORRER**, para correr.
+- **Arrastrar el dedo** por la pantalla: apuntar (también arrastrando desde el botón de disparo).
+- **Botones** (derecha): disparo, salto, esquiva, recarga, cambiar arma, cuchillazo, **USAR** (se ilumina cuando hay algo con lo que interactuar) y **MIRILLA** con el rifle.
+- Arriba: pausa, linterna, mapa u oleada, y pantalla completa.
+
+Va mejor en Chrome para Android. La primera vez el juego empieza en calidad media; la calidad automática la baja si hace falta.
+
 ## Características
 - **Mazmorra procedural** de salas continuas sacadas de un pool aleatorio: combate, tienda, recompensa, Fuente de almas y jefes. Caminos ramificados: el icono sobre cada puerta indica qué hay detrás.
 - **Todo es vóxel y destructible**: las balas abren túneles en los zombis (piernas → se arrastran, brazos → muerden, cabeza → mueren) y rompen paredes hasta cierto punto.
@@ -39,7 +48,7 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.23.1**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.24.1**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.
@@ -63,7 +72,7 @@ El juego sigue en GitHub Pages; sólo el servidor de salas va en [Render](https:
 3. Al terminar el despliegue Render te da una dirección como `https://boxel-dungeon-coop.onrender.com`. Comprueba que `…/health` responde `ok`. El servidor oficial del juego ya está configurado: `https://boxeldungeon.onrender.com`.
 4. En el juego: **Modo Horda → ⚙** y pega esa dirección (vale tal cual; se convierte en `wss://…/ws`). Para que nadie tenga que configurarlo, cambia `VX.NET_SERVER` en `js/net/net.js` por tu dirección y súbelo.
 
-El plan gratuito de Render apaga el servidor tras 15 minutos sin uso; la primera conexión después tarda alrededor de un minuto en despertarlo. También se puede forzar un servidor con `?server=wss://…/ws` en la URL del juego.
+El plan gratuito de Render apaga el servidor tras 15 minutos sin uso y tarda alrededor de un minuto en despertarlo. El juego lo despierta solo al abrirse y al entrar en el menú de la horda (allí se ve «servidor listo» en verde), y lo mantiene despierto mientras estáis en ese menú. También se puede forzar un servidor con `?server=wss://…/ws` en la URL del juego.
 
 ## Publicar en GitHub
 ```bash

@@ -18,6 +18,8 @@
     enemyLocator: false, // flechas con la distancia a los últimos enemigos
     bloom: true,         // resplandor de luces y brillos
     ssao: true,          // oclusión ambiental (rincones más oscuros; calidad alta)
+    touchMode: 'auto',   // controles táctiles: auto | on | off
+    touchSens: 1.0,      // sensibilidad al apuntar con el dedo
     keys: { flashlight: 'KeyF', inspect: 'ControlLeft', knife: 'KeyV' },   // teclas configurables
   };
   const KEY_DEFAULTS = { ...DEFAULTS.keys };
@@ -31,6 +33,8 @@
         // v0.13: el cuchillo rápido vuelve a la V y la inspección pasa a Ctrl
         if (s.keys && !s.keysV13) { s.keys.knife = 'KeyV'; s.keys.inspect = 'ControlLeft'; s.keysV13 = true; }
         this.data = { ...DEFAULTS, ...s, keys: { ...KEY_DEFAULTS, ...(s.keys || {}) } };
+        // primera vez en un móvil: calidad media (la automática la ajusta después)
+        if (!localStorage.getItem(KEY) && window.matchMedia && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches) this.data.quality = 'media';
       } catch (e) { this.data = { ...DEFAULTS }; }
       return this.data;
     },
@@ -75,6 +79,7 @@
         VX.Renderer.setPost(d.bloom && d.quality !== 'baja', d.ssao && d.quality === 'alta');
         if (VX.resetAutoQuality) VX.resetAutoQuality();
       }
+      if (VX.Touch && VX.Touch.el) VX.Touch.apply();
       const fps = document.getElementById('fps');
       if (fps) fps.classList.toggle('hidden', !d.showFps);
     },

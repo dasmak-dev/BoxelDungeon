@@ -18,6 +18,7 @@
   const game = new VX.Game();
   VX.game = game; // accesible desde la consola para depurar
   VX.Menus.init(game);
+  VX.Touch.init(game);
 
   VX.Input.onLockChange = (locked) => {
     if (!locked && game.state === 'playing') game.pause();
@@ -60,6 +61,7 @@
     if (realDt < 1) autoQuality(realDt);
     try {
       game.update(dt);
+      VX.Touch.update(game);
       game.render();
     } catch (e) { console.error(e); }
     VX.Input.endFrame();
