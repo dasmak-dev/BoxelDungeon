@@ -709,7 +709,30 @@
     return model;
   }
 
-  const Models = { humanoid, quadruped, addShield, addTool };
+  // Cuervo: cuerpo pequeño y negro, alas (armL/armR) que baten, pico amarillo y ojos rojos
+  function crow(cfg) {
+    const v = cfg.v, sd = (Math.random() * 9973) | 0;
+    const H = (i, j, k, s = 0) => M.hash3(i + sd + s * 31, j + s * 7, k + s * 17);
+    const feather = (i, j, k) => { const h = (H(i, j, k, 2) - 0.5) * 0.05; const c = H(i >> 1, j, k >> 1, 3) < 0.25 ? [0.13, 0.12, 0.17] : [0.06, 0.06, 0.08]; return [c[0] + h, c[1] + h, c[2] + h + 0.01]; };
+    const parts = [];
+    parts.push(makePart('torso', [0, 0, 0], [5, 4, 9], [-2.5, -2, -4.5], v, (i, j, k, d, surf) => (surf ? feather(i, j, k) : FLESH), null,
+      (i, j, k, [w, h, d]) => !((i === 0 || i === w - 1) && (j === 0 || j === h - 1)) && !(k === d - 1 && (i === 0 || i === w - 1))));
+    parts.push(makePart('head', [0, 1, 4], [4, 4, 4], [-2, -1, 0], v, (i, j, k, d) => {
+      if (k === 3 && j === 1 && i === 2) return [0.95, 0.75, 0.15];                       // pico
+      if (k === 2 && j === 2 && (i === 0 || i === 3)) return [1, 0.15, 0.1, 1];           // ojos
+      return feather(i, j, k);
+    }, null, (i, j, k) => !(k === 3 && !(j === 1 && i === 2))));
+    parts.push(makePart('beak', [0, 1, 7], [1, 1, 2], [-0.5, -1, 0], v, () => [0.9, 0.7, 0.12]));
+    parts.push(makePart('armL', [-2.5, 1, 0], [8, 1, 6], [-8, 0, -3], v, (i, j, k) => (k <= 1 && i % 2 === 0 ? [0.03, 0.03, 0.05] : feather(i, j, k)), null, (i, j, k) => !(i < 3 && k > 3 - Math.floor((3 - i) / 1.5))));
+    parts.push(makePart('armR', [2.5, 1, 0], [8, 1, 6], [0, 0, -3], v, (i, j, k) => (k <= 1 && i % 2 === 1 ? [0.03, 0.03, 0.05] : feather(i, j, k)), null, (i, j, k) => !(i > 4 && k > 3 - Math.floor((i - 4) / 1.5))));
+    parts.push(makePart('tail', [0, 0.5, -4.5], [5, 1, 5], [-2.5, 0, -5], v, (i, j, k) => feather(i, j, k), null, (i, j, k) => !(k === 0 && (i === 0 || i === 4))));
+    parts.push(makePart('legL', [-1, -2, 0], [1, 2, 1], [-0.5, -2, -0.5], v, () => [0.25, 0.2, 0.12]));
+    parts.push(makePart('legR', [1, -2, 0], [1, 2, 1], [-0.5, -2, -0.5], v, () => [0.25, 0.2, 0.12]));
+    for (const p of parts) if (p.name !== 'torso') p.parent = p.name === 'beak' ? 'head' : 'torso';
+    return { parts, height: 6 * v, width: 5 * v, v, depth: 9 * v, quad: true };
+  }
+
+  const Models = { humanoid, quadruped, addShield, addTool, crow };
 
   // Paletas para que cada zombi lleve ropa distinta
   const SHIRTS = [[0.28, 0.32, 0.44], [0.45, 0.4, 0.3], [0.55, 0.52, 0.45], [0.35, 0.18, 0.15], [0.22, 0.3, 0.22], [0.5, 0.45, 0.2]];
@@ -807,6 +830,24 @@
       v: 0.05, quad: true, leg: [3, 7, 3], torso: [14, 10, 11], head: [14, 7, 11], wood: true,
       fur: [0.42, 0.26, 0.12], eye: [1, 0.15, 0.1], lid: true, claws: true,
     }),
+    // ---- nuevos ----
+    bloater: () => ({
+      v: 0.055, blocky: true, leg: [6, 14, 6], torso: [16, 15, 11], arm: [5, 14, 5], head: [8, 8, 8],
+      skin: [0.55, 0.6, 0.34], shirt: [0.55, 0.6, 0.34], pants: [0.3, 0.27, 0.2], shoes: [0.12, 0.1, 0.08],
+      eye: [0.9, 1, 0.3], tear: 0.25, pustules: true, style: 'bare', stitches: true, jaw: true, barefoot: true, extras: ['belly', 'guts'],
+    }),
+    riot: () => ({
+      v: 0.05, blocky: true, leg: [5, 17, 5], torso: [10, 14, 6], arm: [4, 15, 4], head: [8, 8, 8],
+      skin: [0.45, 0.55, 0.38], shirt: [0.1, 0.12, 0.17], pants: [0.09, 0.1, 0.13], shoes: [0.05, 0.05, 0.06],
+      eye: [1, 0.35, 0.15], style: 'armor', jaw: true, extras: ['helmet', 'pauldron'],
+    }),
+    screamer: () => ({
+      v: 0.048, blocky: true, leg: [3, 19, 3], torso: [8, 14, 4], arm: [3, 20, 3], head: [7, 8, 7],
+      skin: [0.78, 0.78, 0.74], shirt: [0.78, 0.78, 0.74], pants: [0.2, 0.18, 0.2], shoes: [0.1, 0.1, 0.1],
+      eye: [1, 0.1, 0.1], tear: 0.4, style: 'gaunt', jaw: true, claws: true, barefoot: true, ribs: true,
+      hair: [0.85, 0.85, 0.82, 0.8], extras: ['hairLong'], headFwd: 1,
+    }),
+    crow: () => ({ v: 0.035 }),
     rat: () => ({
       v: 0.04, quad: true, leg: [2, 5, 2], torso: [7, 6, 15], head: [5, 5, 8],
       fur: pick([[0.3, 0.27, 0.25], [0.22, 0.2, 0.2], [0.4, 0.36, 0.3]]), eye: [1, 0.15, 0.1], snout: 4, ears: 2, roundEars: true, tail: 14, ratTail: true, ribs: Math.random() < 0.4,
@@ -816,6 +857,12 @@
   Models.zombieConfigs = new Proxy(Z, { get: (t, k) => (typeof t[k] === 'function' ? t[k]() : t[k]) });
 
   Models.bossConfigs = {
+    tanque: {
+      v: 0.078, leg: [9, 15, 9], torso: [20, 18, 14], arm: [9, 20, 9], head: [9, 9, 9],
+      skin: [0.66, 0.4, 0.38], shirt: [0.66, 0.4, 0.38], pants: [0.25, 0.18, 0.16], shoes: [0.12, 0.08, 0.06],
+      eye: [1, 0.85, 0.2], tear: 0.5, pustules: true, style: 'bare', stitches: true, manacles: true, jaw: true, brow: true,
+      forearm: 'thick', barefoot: true, extras: ['spikes', 'guts', 'belly'],
+    },
     capataz: {
       v: 0.072, leg: [8, 17, 8], torso: [17, 16, 12], arm: [8, 19, 8], head: [10, 10, 10],
       skin: [0.55, 0.45, 0.35], shirt: [0.42, 0.3, 0.18], sleeve: [0.35, 0.25, 0.15], pants: [0.25, 0.22, 0.2], shoes: [0.12, 0.1, 0.08],

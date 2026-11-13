@@ -81,6 +81,10 @@
       else if (m.t === 'error') { this.busy(false); this.msg(m.msg); VX.Net.leave(); }
       else if (m.t === 'peer') { VX.Audio.click(); if (VX.Coop.active) game.hud.toast(`${m.name} se ha unido`); }
       else if (m.t === 'leave') { if (VX.Coop.active) VX.Coop.peerLeft(m.id); }
+      else if (m.t === 'host') {
+        if (VX.Coop.active) VX.Coop.hostChanged(game, m.id, m.left);
+        else this.msg(m.id === VX.Net.id ? 'El anfitrión se ha ido: ahora eres tú quien elige el mapa.' : 'El anfitrión se ha ido; hay un anfitrión nuevo.');
+      }
       else if (m.t === 'closed') {
         const inGame = VX.Coop.active && (game.state === 'playing' || game.state === 'paused' || game.state === 'settings');
         VX.Coop.stop();

@@ -453,3 +453,10 @@ body.touch #bannerSub { font-size: 13px; }
 .coopSrv.fail { color: #ff6b5b; }
 @keyframes srvPulse { 50% { opacity: 0.45; } }
 .coopSrv.fail { cursor: pointer; text-decoration: underline dotted; }
+/* con 11 armas: el arsenal en dos columnas y la lista de la Armería compacta y desplazable */
+#startWeaponList { display: grid; grid-template-columns: 1fr 1fr; width: 360px; }
+#startWeaponList button { padding: 5px 8px; font-size: 12px; letter-spacing: 1px; }
+#startWeaponList button small { font-size: 10px; }
+#armoryWeapons { max-height: calc(100vh - 200px); overflow-y: auto; padding-right: 4px; flex-wrap: nowrap; }
+#armoryWeapons button { padding: 5px 14px; font-size: 14px; flex-shrink: 0; }
+#armoryWeapons button small { font-size: 10px; }

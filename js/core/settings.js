@@ -20,6 +20,9 @@
     ssao: true,          // oclusión ambiental (rincones más oscuros; calidad alta)
     touchMode: 'auto',   // controles táctiles: auto | on | off
     touchSens: 1.0,      // sensibilidad al apuntar con el dedo
+    aimAssist: true,     // la mira se frena y se pega un poco a los enemigos (sólo táctil)
+    vibrate: true,       // vibración del móvil al disparar, recibir daño y con las explosiones
+    fpsCap: 0,           // 0 = sin límite, 60 o 30
     keys: { flashlight: 'KeyF', inspect: 'ControlLeft', knife: 'KeyV' },   // teclas configurables
   };
   const KEY_DEFAULTS = { ...DEFAULTS.keys };

@@ -603,114 +603,31 @@
 
     // Techo: cada sala tiene un estilo según su bioma y su tipo
     // Estilo de techo de la sala (fijo según su posición, bioma y tipo)
-    ceilInfo() {
-      if (this._ceil) return this._ceil;
-      const M = VX.M, h0 = M.hash3(this.ox, 17, this.oz);
-      const byZone = [['vault', 'coffer', 'beams'], ['vault', 'vault', 'beams'], ['planks', 'cave', 'planks'], ['coffer', 'beams', 'planks'], ['cave', 'cave', 'vault'], ['cave', 'vault', 'coffer'], ['beams'], ['beams']][this.zone || 0] || ['beams'];
-      let style = byZone[Math.floor(h0 * byZone.length) % byZone.length];
-      if (this.type === 'boss') style = h0 < 0.5 ? 'vault' : 'coffer';
-      else if (this.type === 'shop') style = 'coffer';
-      else if (this.type === 'save') style = 'vault';
-      const W = this.W * S, Dd = this.D * S, alongX = W > Dd, span = alongX ? Dd : W;
-      // el techo visible está donde acaban paredes, pilares y columnas (las 4 últimas celdas son la losa)
-      return (this._ceil = { style, top: (this.H - 4) * S, alongX, span, rise: Math.min(3.2, span * 0.28) });
-    }
+    ceilInfo() { return VX.Ceilings.info(this); }
     // Altura (m) de la cara inferior del techo en un punto del mundo
-    ceilY(wx, wz) {
-      const C = this.ceilInfo();
-      if (C.style === 'vault') {
-        const t = C.alongX ? (wz - this.oz * S) / C.span : (wx - this.ox * S) / C.span;
-        return C.top + Math.sin(Math.max(0, Math.min(1, t)) * Math.PI) * C.rise;
-      }
-      if (C.style === 'coffer') return C.top + 0.4;
-      return C.top;
-    }
+    ceilY(wx, wz) { return VX.Ceilings.ceilY(this, wx, wz); }
 
+    // Techo vóxel decorado según el bioma (ver ceilings.js)
     buildCeiling(R) {
-      const b = this.ceiling = R.createBatch(512, false);
-      const CI = this.ceilInfo(), top = CI.top, M = VX.M;
+      const b = this.ceiling = VX.Ceilings.build(this, R);
+      const CI = this.ceilInfo(), top = CI.top;
       const Z = VX.ZONES[this.zone || 0] || VX.ZONES[0], tn = Z.tint || [1, 1, 1];
-      const W = this.W * S, Dd = this.D * S, x0 = this.ox * S, z0 = this.oz * S;
-      const cxw = x0 + W / 2, czw = z0 + Dd / 2;
-      const style = CI.style;
-      this.ceilStyle = style;
-      this.ceilingStale = false;
-      const stone = (k) => { const c = (0.13 + k * 0.05); return [c * tn[0], c * 0.95 * tn[1], c * 1.02 * tn[2]]; };
-      const wood = (k) => [0.24 * (0.8 + k * 0.4), 0.15 * (0.8 + k * 0.4), 0.08 * (0.8 + k * 0.4)];
       const BX = (x, y, z, sx, sy, sz, c, e = 0) => b.box(x, y, z, sx, sy, sz, c[0], c[1], c[2], e);
-      const flat = (y, col) => {
-        const T = 8;
-        for (let z = 0; z < this.D; z += T)
-          for (let x = 0; x < this.W; x += T) {
-            const sx = Math.min(T, this.W - x), sz = Math.min(T, this.D - z);
-            const h = M.hash3(x + this.ox, 99, z + this.oz);
-            BX((this.ox + x + sx / 2) * S, y, (this.oz + z + sz / 2) * S, sx * S, 0.5, sz * S, col(h));
-          }
-      };
-      if (style === 'vault') {
-        // bóveda de cañón escalonada a lo largo del lado largo, con arcos de refuerzo
-        const alongX = CI.alongX, span = CI.span, len = alongX ? W : Dd, rise = CI.rise;
-        const strips = Math.max(6, Math.round(span / 0.75));
-        for (let k = 0; k < strips; k++) {
-          const t0 = k / strips, t1 = (k + 1) / strips, tm = (t0 + t1) / 2;
-          const y = top + Math.sin(tm * Math.PI) * rise;
-          const c = stone(0.4 + M.hash3(k, this.ox, 3) * 0.6);
-          const off = (tm - 0.5) * span;
-          if (alongX) BX(cxw, y + 0.25, czw + off, len, 0.5, span / strips + 0.02, c);
-          else BX(cxw + off, y + 0.25, czw, span / strips + 0.02, 0.5, len, c);
-          // tímpanos: cierran la bóveda en los extremos
-          const hh = y - top + 0.3;
-          if (alongX) { BX(x0 + 0.1, top + hh / 2, czw + off, 0.2, hh, span / strips + 0.02, c); BX(x0 + W - 0.1, top + hh / 2, czw + off, 0.2, hh, span / strips + 0.02, c); }
-          else { BX(cxw + off, top + hh / 2, z0 + 0.1, span / strips + 0.02, hh, 0.2, c); BX(cxw + off, top + hh / 2, z0 + Dd - 0.1, span / strips + 0.02, hh, 0.2, c); }
-        }
-        for (let p = 3; p < len - 2; p += 6) {
-          for (let k = 0; k < strips; k++) {
-            const tm = (k + 0.5) / strips, y = top + Math.sin(tm * Math.PI) * rise - 0.18, off = (tm - 0.5) * span;
-            const c = stone(0.15);
-            if (alongX) BX(x0 + p, y, czw + off, 0.6, 0.4, span / strips + 0.02, c);
-            else BX(cxw + off, y, z0 + p, span / strips + 0.02, 0.4, 0.6, c);
-          }
-        }
-      } else if (style === 'coffer') {
-        // artesonado: losa alta y retícula de vigas que forma casetones
-        flat(top + 0.65, (h) => stone(0.2 + h * 0.3));
-        const step = 2.4, wc = this.type === 'shop' ? wood(0.6) : stone(0.55);
-        for (let x = 1.2; x < W - 0.5; x += step) BX(x0 + x, top + 0.2, czw, 0.3, 0.4, Dd, wc);
-        for (let z = 1.2; z < Dd - 0.5; z += step) BX(cxw, top + 0.2, z0 + z, W, 0.4, 0.3, wc);
-        BX(cxw, top + 0.05, czw, 0.5, 0.1, 0.5, [0.6, 0.45, 0.15], 0.2);   // rosetón central
-      } else if (style === 'planks') {
-        // tablones con viguetas juntas (minas, talleres)
-        flat(top + 0.25, (h) => wood(0.3 + h * 0.5));
-        for (let x = 0.8; x < W; x += 1.4) BX(x0 + x, top - 0.12, czw, 0.28, 0.3, Dd, wood(0.15));
-        for (let z = 4; z < Dd - 2; z += 8) BX(cxw, top - 0.35, z0 + z, W, 0.3, 0.35, wood(0.05));
-      } else if (style === 'cave') {
-        // roca irregular con estalactitas (y raíces colgando en el Jardín)
-        flat(top + 0.25, (h) => stone(0.05 + h * 0.4));
-        const n = Math.round((W * Dd) / 9);
-        for (let i = 0; i < n; i++) {
-          const x = x0 + M.hash3(i, this.ox, 5) * W, z = z0 + M.hash3(i, this.oz, 7) * Dd, hh = 0.3 + M.hash3(i, 3, 9) * 1.4;
-          const w = 0.4 + M.hash3(i, 8, 1) * 0.9, c = stone(0.1 + M.hash3(i, 2, 2) * 0.4);
-          BX(x, top - hh / 2 + 0.1, z, w, hh, w, c);
-          BX(x, top - hh - 0.15, z, w * 0.45, 0.4, w * 0.45, c);
-          if (this.zone === 4 && i % 3 === 0) BX(x + w * 0.6, top - 1.1, z, 0.06, 2, 0.06, [0.18, 0.3, 0.12]);   // raíz
-        }
-      } else {
-        flat(top + 0.25, (h) => stone(0.1 + h * 0.4));
-        for (let z = 16; z < this.D - 8; z += 32)
-          BX((this.ox + this.cx) * S, top - 0.15, (this.oz + z) * S, (this.W - 4) * S, 0.3, 0.35, [0.3, 0.2, 0.11]);
-      }
+      this.ceilStyle = CI.style;
+      this.ceilingStale = false;
       // lo que llega al techo (pilares, columnas, muros) sigue hasta tocarlo cuando el techo es más alto (bóvedas, artesonado)
       this.ceilExt = 0;
-      if (style === 'vault' || style === 'coffer') {
+      {
         const BL = VX.Blocks, yy = this.H - 5;
         for (let z = 2; z < this.D - 2; z++) {
           let run = null;
-          const flush = () => { if (!run) return; const wx0 = (this.ox + run.x0) * S, wx1 = (this.ox + run.x1 + 1) * S, wz = (this.oz + z + 0.5) * S; const yc = this.ceilY((wx0 + wx1) / 2, wz) + 0.15; const c = BL.info[run.t].color; const k = 0.75; BX((wx0 + wx1) / 2, (top + yc) / 2, wz, wx1 - wx0, yc - top, S, [c[0] * k * tn[0], c[1] * k * tn[1], c[2] * k * tn[2]]); this.ceilExt++; run = null; };
+          const flush = () => { if (!run) return; const wx0 = (this.ox + run.x0) * S, wx1 = (this.ox + run.x1 + 1) * S, wz = (this.oz + z + 0.5) * S; const yc = run.h + 0.15; const c = BL.info[run.t].color; const k = 0.75; BX((wx0 + wx1) / 2, (top + yc) / 2, wz, wx1 - wx0, yc - top, S, [c[0] * k * tn[0], c[1] * k * tn[1], c[2] * k * tn[2]]); this.ceilExt++; run = null; };
           for (let x = 2; x < this.W - 2; x++) {
             const t = this.grid[this.idx(x, yy, z)];
-            const ok = t && t !== BL.BEDROCK && !BL.invisible[t] && !BL.transparent[t] && this.ceilY((this.ox + x + 0.5) * S, (this.oz + z + 0.5) * S) > top + 0.05;
-            if (ok && run && run.t === t && run.x1 === x - 1) run.x1 = x;
-            else { flush(); if (ok) run = { x0: x, x1: x, t }; }
+            const hc = this.ceilY((this.ox + x + 0.5) * S, (this.oz + z + 0.5) * S);
+            const ok = t && t !== BL.BEDROCK && !BL.invisible[t] && !BL.transparent[t] && hc > top + 0.05;
+            if (ok && run && run.t === t && run.x1 === x - 1 && run.h === hc) run.x1 = x;
+            else { flush(); if (ok) run = { x0: x, x1: x, t, h: hc }; }
           }
           flush();
         }

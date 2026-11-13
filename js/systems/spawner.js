@@ -16,7 +16,7 @@
 
   function weaponDesc(id) {
     const d = VX.Weapons.DEFS[id];
-    return { pistol: 'Fiable y precisa', smg: 'Automática, cargador de 30', shotgun: 'Devastadora a corta distancia', rifle: 'Atraviesa varios enemigos', launcher: 'Granadas que lo revientan todo' }[id] + ` · daño ${Math.round(d.damage)}${d.pellets > 1 ? 'x' + d.pellets : ''}`;
+    return ({ pistol: 'Fiable y precisa', smg: 'Automática, cargador de 30', shotgun: 'Devastadora a corta distancia', rifle: 'Atraviesa varios enemigos', launcher: 'Granadas que lo revientan todo', hammer: 'Derriba paredes y lanza a los zombis' }[id] || d.desc || d.name) + ` · daño ${Math.round(d.damage)}${d.pellets > 1 ? 'x' + d.pellets : ''}`;
   }
   VX.weaponDesc = weaponDesc;
 
@@ -174,6 +174,8 @@
         if (champion) { game.champion = z; game.hud.showBoss(z); game.hud.toast('¡Un campeón ronda esta sala!'); }
         // las ratas vienen en manada
         if (kind === 'rat') for (let k = 0; k < (room.walkArea() > 380 ? 2 : 1); k++) this.spawnZombieNear(game, p.x, p.z, 1.5, 'rat');
+        // los cuervos llegan en bandada
+        if (kind === 'crow') for (let k = 0; k < 3; k++) this.spawnZombieNear(game, p.x, p.z, 1.5, 'crow');
       }
     }
 
@@ -321,6 +323,11 @@
         exploder: f >= 3 ? Math.min(0.12, (f - 2) * 0.025) : 0,
         shielder: f >= 4 ? Math.min(0.14, (f - 3) * 0.03) : 0,
         climber: f >= 4 ? Math.min(0.12, (f - 3) * 0.025) : 0,
+        // nuevos
+        crow: f >= 3 ? Math.min(0.07, (f - 2) * 0.015) : 0,
+        bloater: f >= 4 ? Math.min(0.08, (f - 3) * 0.02) : 0,
+        screamer: f >= 5 ? Math.min(0.05, (f - 4) * 0.012) : 0,
+        riot: f >= 6 ? Math.min(0.09, (f - 5) * 0.02) : 0,
       };
       let r = Math.random();
       for (const k in w) { if (r < w[k]) return k; r -= w[k]; }

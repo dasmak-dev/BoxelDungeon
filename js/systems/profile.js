@@ -33,6 +33,11 @@
     { id: 'rifle', cost: 130 },
     { id: 'launcher', cost: 190 },
     { id: 'hammer', cost: 80 },
+    { id: 'dbarrel', cost: 110 },
+    { id: 'crossbow', cost: 120 },
+    { id: 'flamer', cost: 160 },
+    { id: 'lmg', cost: 180 },
+    { id: 'raygun', cost: 280 },
   ];
 
   // Retos de cada skin: se cuentan por arma (stat dentro de wstats[arma])

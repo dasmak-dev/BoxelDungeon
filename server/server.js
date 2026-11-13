@@ -20,7 +20,7 @@ const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.md': 'text/plain; charset=utf-8',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.md': 'text/plain; charset=utf-8',
 };
 
 // ---------------- HTTP: archivos del juego y comprobación de estado ----------------
@@ -144,10 +144,15 @@ function onClose(conn) {
   if (!room) return;
   conn.room = null;
   room.members.delete(conn.id);
-  if (room.host === conn) {
-    for (const c of room.members.values()) { c.send({ t: 'closed', msg: 'El anfitrión ha cerrado la partida' }); c.room = null; }
+  if (room.members.size === 0) {
     rooms.delete(room.code);
     console.log(`sala ${room.code} cerrada (${rooms.size} activas)`);
+  } else if (room.host === conn) {
+    // se va el anfitrión: el que lleva más tiempo en la sala pasa a dirigir la partida
+    const next = [...room.members.values()].sort((a, b) => a.id - b.id)[0];
+    room.host = next;
+    for (const c of room.members.values()) c.send({ t: 'host', id: next.id, left: conn.id, players: roster(room) });
+    console.log(`sala ${room.code}: nuevo anfitrión ${next.id}`);
   } else {
     for (const c of room.members.values()) c.send({ t: 'leave', id: conn.id, players: roster(room) });
   }

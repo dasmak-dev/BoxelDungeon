@@ -63,7 +63,8 @@
       const wet = game.waterAt && game.waterAt(this.x, this.z) && this.y < 0.4;
       // cooperativo: en el suelo te arrastras muy despacio; muerto, no te mueves hasta la siguiente oleada
       const coopK = VX.Coop.down ? 0.16 : VX.Coop.deadWait ? 0 : 1;
-      const spd = this.speed * coopK * (sprint && fz > 0 && !game.weapon.scoped && coopK === 1 ? 1.45 : 1) * (wet ? 0.62 : 1) * (1 - (game.weapon.scopeK || 0) * 0.45);
+      this.slowT = Math.max(0, (this.slowT || 0) - dt);   // aturdido (grito del chillón) o en ácido
+      const spd = this.speed * coopK * (this.slowT > 0 ? 0.55 : 1) * (sprint && fz > 0 && !game.weapon.scoped && coopK === 1 ? 1.45 : 1) * (wet ? 0.62 : 1) * (1 - (game.weapon.scopeK || 0) * 0.45);
       if (wet && Math.hypot(this.vx, this.vz) > 1 && Math.random() < 0.3) game.particles.spawn(this.x + M.rand(-0.3, 0.3), 0.12, this.z + M.rand(-0.3, 0.3), M.rand(-0.6, 0.6), M.rand(0.8, 1.6), M.rand(-0.6, 0.6), 0.45, 0.55, 0.6, 0.03, 0.6);
       const accel = this.onGround ? 14 : 4;
       if (!(this.dashT > 0)) {
@@ -187,6 +188,7 @@
       const k = Math.min(1, amount / 30);
       game.shake(0.3 + amount / 45);
       VX.Audio.hurt(k);
+      VX.Haptics.buzz(Math.round(45 + k * 110), VX.Touch.on && VX.Settings.data.vibrate !== false);
       game.hud.flashDamage(Math.min(1, 0.45 + amount / 35));
       // sacudida de cámara: la cabeza se va hacia atrás y se ladea
       this.recoilPitch += 0.05 + k * 0.08;

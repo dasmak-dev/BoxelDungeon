@@ -39,8 +39,39 @@
       grenade: true, blast: 2.3,
       price: 110, vm: { x: 0.16, y: -0.16, z: -0.32, g: 0.0085 }, muzzle: [-0.5, 4.5, -34],
     },
+    // ---- armas desbloqueables nuevas (se compran en el Santuario con esencia) ----
+    crossbow: {
+      shake: 0.08, art: 'la ballesta', name: 'Ballesta', damage: 140, fireRate: 1.2, range: 60, mag: 1, reload: 1.05, spread: 0.0015,
+      pellets: 1, pierce: 4, destruction: 0.4, auto: false, recoil: 0.03, recoilPat: { up: 0.03, side: 0.006 }, kick: 0.05, sound: 0.4,
+      bolt: true, desc: 'Silenciosa; el virote atraviesa a 5 zombis',
+      price: 95, vm: { x: 0.15, y: -0.15, z: -0.3, g: 0.0085 }, muzzle: [-0.5, 7, -34],
+    },
+    dbarrel: {
+      shake: 0.5, art: 'la recortada', name: 'Recortada', damage: 13, fireRate: 5, range: 13, mag: 2, reload: 1.8, spread: 0.16,
+      pellets: 12, pierce: 0, destruction: 1.7, auto: false, recoil: 0.11, recoilPat: { up: 0.14, side: 0.03 }, kick: 0.12, sound: 2.6,
+      desc: 'Dos disparos brutales seguidos y a recargar',
+      price: 90, vm: { x: 0.15, y: -0.15, z: -0.29, g: 0.0085 }, muzzle: [-0.5, 5, -30],
+    },
+    lmg: {
+      shake: 0.09, art: 'la ametralladora', name: 'Ametralladora', damage: 19, fireRate: 13, range: 36, mag: 80, reload: 3.6, spread: 0.042,
+      pellets: 1, pierce: 1, destruction: 1.05, auto: true, recoil: 0.014, recoilPat: { up: 0.017, side: 0.011 }, kick: 0.025, sound: 1.1,
+      desc: 'Cinta de 80 balas; tarda en recargar',
+      price: 150, vm: { x: 0.16, y: -0.16, z: -0.3, g: 0.0082 }, muzzle: [-0.5, 4, -50],
+    },
+    flamer: {
+      shake: 0.03, art: 'el lanzallamas', name: 'Lanzallamas', damage: 7, fireRate: 16, range: 9, mag: 90, reload: 2.8, spread: 0.07,
+      pellets: 1, pierce: 3, destruction: 0.15, auto: true, recoil: 0.002, recoilPat: { up: 0.002, side: 0.002 }, kick: 0.01, sound: 0.5,
+      flame: true, desc: 'Corto alcance; prende fuego a todo lo que toca',
+      price: 140, vm: { x: 0.16, y: -0.16, z: -0.3, g: 0.0085 }, muzzle: [-0.5, 4, -38],
+    },
+    raygun: {
+      shake: 0.15, art: 'el desintegrador', name: 'Desintegrador', damage: 75, fireRate: 3.2, range: 50, mag: 14, reload: 1.9, spread: 0.003,
+      pellets: 1, pierce: 8, destruction: 2.4, auto: false, recoil: 0.03, recoilPat: { up: 0.035, side: 0.006 }, kick: 0.05, sound: 1.4,
+      ray: true, desc: 'Rayo que atraviesa filas enteras y abre boquetes',
+      price: 200, vm: { x: 0.14, y: -0.13, z: -0.28, g: 0.0092 }, muzzle: [-0.5, 5, -27],
+    },
   };
-  const GUNS = ['pistol', 'smg', 'shotgun', 'rifle', 'launcher', 'hammer'];
+  const GUNS = ['pistol', 'smg', 'shotgun', 'rifle', 'launcher', 'hammer', 'crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun'];
 
   // ---------------- Skins ----------------
   // Paletas por "etiqueta" de vóxel: main, dark, grip, steel, accent, blade. e = emisivo
@@ -162,6 +193,91 @@
       add(-1, 0, -2, 1, -14, -10, 'grip');
       for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, 1 - k, 1 - k, -2 + zo, 2 + zo, 'grip'); }
       addHand(add, 2, -1);
+      return vox;
+    },
+    // Ballesta: culata, raíl, palas curvas, cuerda tensada y el virote listo
+    crossbow() {
+      const { vox, add } = builder();
+      add(-2, 1, 1, 4, -10, 8, 'main');                                  // cuerpo y culata
+      add(-1, 0, 4, 5, -30, -6, 'dark');                                 // raíl
+      add(-1, 0, 2, 3, -30, -26, 'main');                                // cabeza del raíl
+      for (let x = -14; x <= 13; x++) {                                   // palas, curvadas hacia atrás
+        const ax = Math.abs(x + 0.5), bend = Math.round(ax * ax * 0.035);
+        add(x, x, 4, 5, -27 + bend, -26 + bend, ax > 3 ? 'accent' : 'dark');
+      }
+      for (let x = -13; x <= 12; x++) {                                   // cuerda hasta el gatillo
+        const ax = Math.abs(x + 0.5), z = -24 + Math.round((1 - ax / 13) * 14) + Math.round(ax * ax * 0.035);
+        add(x, x, 6, 6, z, z, 'steel');
+      }
+      add(-1, 0, 7, 7, -36, -10, 'blade');                                // virote
+      add(-1, 0, 7, 8, -37, -36, 'steel');
+      add(-2, 1, 7, 8, -12, -10, 'accent', (x) => x === -2 || x === 1);  // plumas
+      add(-1, 0, -2, 0, -6, -3, 'dark');                                  // gatillo
+      for (let k = 0; k <= 9; k++) add(-2, 1, 1 - k, 1 - k, -3 + Math.round(k * 0.3), 1 + Math.round(k * 0.3), 'grip');
+      addHand(add, 1, -2);
+      return vox;
+    },
+    // Recortada: dos cañones cortos uno junto al otro, báscula y culata de madera serrada
+    dbarrel() {
+      const { vox, add } = builder();
+      add(-3, -1, 4, 6, -30, -6, 'steel', (x, y, z) => !(x === -2 && y === 5 && z < -28));
+      add(0, 2, 4, 6, -30, -6, 'steel', (x, y, z) => !(x === 1 && y === 5 && z < -28));
+      add(-3, 2, 3, 3, -24, -8, 'grip');                                 // guardamanos de madera
+      add(-2, 1, 1, 3, -22, -10, 'grip');
+      add(-3, 2, 2, 7, -6, 2, 'main');                                   // báscula
+      add(-1, 0, 8, 8, -4, 0, 'dark');                                   // palanca de apertura
+      add(-1, 0, -2, 1, -3, 1, 'dark');
+      for (let k = 0; k <= 8; k++) add(-2, 1, 1 - k, 5 - Math.floor(k * 0.4), 2 + k * 2, 3 + k * 2, 'grip');   // culata serrada
+      add(-3, -3, 5, 5, -8, -2, 'accent'); add(2, 2, 5, 5, -8, -2, 'accent');
+      addHand(add, 2, -1);
+      return vox;
+    },
+    // Ametralladora ligera: cajón grande, cañón con camisa agujereada, caja de cinta y asa
+    lmg() {
+      const { vox, add } = builder();
+      add(-2, 1, 1, 7, -24, 6, 'main');
+      add(-1, 0, 3, 5, -50, -24, 'steel');
+      add(-2, 1, 2, 6, -44, -25, 'dark', (x, y, z) => !(z % 3 === 0 && (y === 4) && (x === -2 || x === 1)));   // camisa
+      add(-1, 0, 6, 7, -50, -49, 'dark');                                // punto de mira
+      add(-5, -3, -6, 2, -18, -8, 'dark');                               // caja de la cinta
+      add(-5, -3, -6, -6, -18, -8, 'accent');
+      for (let z = -18; z <= -9; z += 2) add(-3, -2, 3, 3, z, z, 'accent');   // cartuchos de la cinta
+      add(-1, 0, 8, 10, -16, -6, 'dark', (x, y, z) => y === 10 || z === -16 || z === -6);   // asa
+      add(-1, 0, -1, 0, -40, -38, 'dark');                               // bípode plegado
+      add(-1, 0, -1, -1, -38, -28, 'steel');
+      for (let k = 0; k <= 10; k++) add(-2, 1, 1 - k, 1 - k, -2 + Math.round(k * 0.3), 2 + Math.round(k * 0.3), 'grip');
+      for (let k = 0; k <= 8; k++) add(-2, 1, -k + 3, 6 - Math.floor(k * 0.3), 6 + k * 2, 7 + k * 2, 'main');   // culata
+      addHand(add, 1, -2);
+      return vox;
+    },
+    // Lanzallamas: depósito rojo bajo el arma, tubo, boquilla larga y llama piloto
+    flamer() {
+      const { vox, add } = builder();
+      add(-2, 1, 2, 6, -18, 4, 'main');
+      add(-1, 0, 3, 5, -38, -18, 'steel');
+      add(-2, 1, 2, 6, -38, -36, 'dark');                                // boquilla
+      add(-1, 0, 1, 1, -36, -36, 'accent');                              // llama piloto
+      add(-4, 3, -7, 0, -16, -3, 'accent', (x, y) => !((x === -4 || x === 3) && (y === -7 || y === 0)));   // depósito
+      add(-4, 3, -4, -4, -16, -3, 'dark');
+      add(-1, 0, 1, 1, -10, -6, 'steel');                                // manguera
+      add(-1, 0, -2, 1, -26, -22, 'grip');                               // asa delantera
+      for (let k = 0; k <= 9; k++) add(-2, 1, 1 - k, 1 - k, 0 + Math.round(k * 0.3), 4 + Math.round(k * 0.3), 'grip');
+      addHand(add, 2, -1);
+      return vox;
+    },
+    // Desintegrador: pistola retro de aletas, anillos que brillan y emisor de cristal
+    raygun() {
+      const { vox, add } = builder();
+      add(-2, 1, 2, 8, -14, 2, 'main', (x, y, z) => !((x === -2 || x === 1) && (y === 2 || y === 8) && (z === -14 || z === 2)));
+      add(-1, 0, 4, 6, -26, -14, 'steel');
+      for (const z of [-24, -20, -16]) add(-3, 2, 2, 8, z, z, 'accent', (x, y) => x === -3 || x === 2 || y === 2 || y === 8);   // anillos
+      add(-1, 0, 4, 6, -28, -27, 'blade');                               // emisor
+      add(-1, 0, 9, 12, -8, -2, 'dark');                                 // aleta
+      add(-4, -3, 4, 6, -10, -2, 'dark'); add(2, 3, 4, 6, -10, -2, 'dark');
+      add(-1, 0, 9, 9, -12, -10, 'accent');
+      for (let k = 0; k <= 10; k++) add(-2, 1, 1 - k, 1 - k, -3 + Math.round(k * 0.35), 1 + Math.round(k * 0.35), 'grip');
+      add(-1, 0, -3, 0, -9, -6, 'dark');
+      addHand(add, 1, -2);
       return vox;
     },
     // Mazo de demolición: mango largo de fibra amarilla con franjas, empuñadura de goma
@@ -394,6 +510,11 @@
     smg: { main: [0.25, 0.27, 0.24], dark: [0.15, 0.15, 0.16], grip: [0.2, 0.2, 0.2], steel: [0.6, 0.6, 0.64], accent: [0.9, 0.4, 0.1] },
     shotgun: { main: [0.3, 0.3, 0.33], dark: [0.15, 0.15, 0.16], grip: [0.45, 0.27, 0.13], steel: [0.5, 0.5, 0.54], accent: [0.9, 0.4, 0.1] },
     rifle: { main: [0.28, 0.28, 0.3], dark: [0.12, 0.12, 0.13], grip: [0.4, 0.24, 0.12], steel: [0.48, 0.48, 0.52], accent: [0.4, 0.8, 1, 0.8] },
+    crossbow: { main: [0.42, 0.28, 0.16], dark: [0.16, 0.16, 0.17], grip: [0.32, 0.2, 0.11], steel: [0.85, 0.83, 0.75], accent: [0.25, 0.26, 0.28], blade: [0.6, 0.62, 0.66] },
+    dbarrel: { main: [0.34, 0.33, 0.36], dark: [0.12, 0.12, 0.13], grip: [0.5, 0.3, 0.14], steel: [0.22, 0.22, 0.24], accent: [0.85, 0.65, 0.25] },
+    lmg: { main: [0.2, 0.22, 0.19], dark: [0.11, 0.11, 0.12], grip: [0.17, 0.17, 0.17], steel: [0.42, 0.42, 0.45], accent: [0.85, 0.65, 0.2] },
+    flamer: { main: [0.3, 0.31, 0.3], dark: [0.12, 0.12, 0.13], grip: [0.18, 0.18, 0.18], steel: [0.6, 0.6, 0.62], accent: [0.85, 0.15, 0.1] },
+    raygun: { main: [0.75, 0.72, 0.65], dark: [0.55, 0.12, 0.1], grip: [0.2, 0.2, 0.24], steel: [0.6, 0.62, 0.68], accent: [0.35, 1, 0.45, 0.9], blade: [0.6, 1, 0.7, 1] },
     launcher: { main: [0.3, 0.36, 0.24], dark: [0.15, 0.17, 0.13], grip: [0.18, 0.18, 0.18], steel: [0.55, 0.56, 0.6], accent: [1, 0.75, 0.1] },
   };
 
@@ -427,6 +548,7 @@
     DEFS.pistol.form = f.id;
   }
   DEFS.smg.sfx = 'smg'; DEFS.shotgun.sfx = 'shotgun'; DEFS.rifle.sfx = 'rifle'; DEFS.launcher.sfx = 'launcher';
+  for (const id of ['crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun']) DEFS[id].sfx = id;
 
   VX.Weapons = { DEFS, GUNS, SKINS, MODELS, KNIVES, PISTOLS, coloredModel, applyPistolForm };
 })();

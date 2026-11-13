@@ -30,11 +30,13 @@
       patterns: [['laser', 'blink', 'homing'], ['laser', 'blink', 'spiral2', 'homing'], ['laser2', 'blink', 'spiral2', 'rain', 'homing']] },
     { id: 'corazon', name: 'EL CORAZÓN DE LA MAZMORRA', hp: 5200, speed: 1.4, dmg: 34, col: RED, minions: 'skeleton',
       patterns: [['brood', 'ring', 'leap', 'dynamite'], ['hook', 'spin', 'laser', 'leap3', 'rockfall'], ['laser2', 'spiral2', 'brood', 'dynamite3', 'leap3', 'roots']] },
+    { id: 'tanque', name: 'EL TANQUE DE CARNE', hp: 3400, speed: 1.6, dmg: 32, col: RED, minions: 'runner', horde: true,
+      patterns: [['charge', 'slam', 'raise'], ['charge', 'slam', 'raise', 'leap'], ['charge3', 'slam', 'raise', 'leap3', 'raise']] },
   ];
 
   class Boss {
     constructor(x, z, floor, bossNum, forceId) {
-      const T = BOSSES.find((b) => b.id === forceId) || M.choice(BOSSES);
+      const T = BOSSES.find((b) => b.id === forceId) || M.choice(BOSSES.filter((b) => !b.horde));
       this.T = T;
       this.name = T.name;
       this.isBoss = true;
@@ -339,6 +341,22 @@
       }
       b.y = this.y + (this.T.hover ? 0.5 + Math.sin(game.time * 2) * 0.15 : 0);
       this.regenerate(dt);
+      // Tanque de carne: cada 20 % de vida perdida se le desprenden corredores
+      if (this.T.id === 'tanque' && this.state !== 'intro') {
+        const step = Math.floor((1 - this.hp / this.maxHp) * 5);
+        if (step > (this.burstN || 0) && !this.dead) {
+          this.burstN = step;
+          const n = 3 + Math.min(2, step);
+          for (let k = 0; k < n; k++) {
+            const z = game.spawner.spawnZombieNear(game, this.x, this.z, 3, 'runner');
+            if (z && game.mode === 'horde' && VX.HordeMode.phase === 'wave') { VX.HordeMode.spawned++; VX.HordeMode.total++; }
+          }
+          for (let i = 0; i < 50; i++) game.particles.spawn(this.x, this.y + 2, this.z, M.rand(-5, 5), M.rand(1, 6), M.rand(-5, 5), 0.6, 0.08, 0.08, M.rand(0.05, 0.12), M.rand(1, 2.2));
+          A.at(this.x, this.y + 2, this.z, () => { A.splat(); A.roar(); }, 6);
+          game.shake(0.4);
+          game.hud.toast('¡Se le desprenden corredores!');
+        }
+      }
 
       const room = game.currentRoom;
       if (room && !this.airborne && !room.contains(this.x, this.z)) {
@@ -684,7 +702,7 @@
       game.bullets.clear();
       game.addCorpse(new VX.Corpse(this.body, dir, { heavy: true, life: 25 }));
       for (let i = 0; i < 4; i++) game.particles.blood(this.x, this.y + 1 + i * 0.6, this.z, M.rand(-1, 1), 1, M.rand(-1, 1), 20);
-      VX.Audio.zombieDie(); VX.Audio.roar();
+      VX.Audio.at(this.x, this.y + 1.2, this.z, () => { VX.Audio.zombieDie(); VX.Audio.roar(); }, 4);
       game.shake(1);
       // cooperativo: cada uno se lleva el premio del jefe (oro y estadística) en su equipo
       game.pickups.dropGold(this.x, this.y + 1.5, this.z, 40 + game.stats.bosses * 10);

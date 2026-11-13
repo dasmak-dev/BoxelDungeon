@@ -147,6 +147,7 @@
 
     R.createShadowMap(R.shadowSize);
     R.shadow2 = makeDepthTarget(gl, 1024);
+    R.initSprites();
     R.initPost();
     R.resize();
     window.addEventListener('resize', R.resize);
@@ -625,6 +626,106 @@ void main() {
     }
     batch.draw();
     gl.uniform1f(U.u_water, 0);
+  };
+
+  // ---------- Sprites suaves (fuego, humo, destellos) ----------
+  // Cuadrados siempre de cara a la cámara con un borde difuso y algo de ruido: bolas de fuego y
+  // bocanadas de humo redondas en vez de cubos. Dos lotes: humo (mezcla normal) y fuego (aditivo).
+  const SPRITE_VS = `#version 300 es
+  layout(location=0) in vec2 a_corner;
+  layout(location=1) in vec3 a_pos;
+  layout(location=2) in float a_size;
+  layout(location=3) in vec4 a_col;
+  layout(location=4) in vec2 a_rs;
+  uniform mat4 u_proj, u_view;
+  out vec2 v_uv; out vec4 v_col; out float v_seed; out float v_dist;
+  void main() {
+    float c = cos(a_rs.x), s = sin(a_rs.x);
+    vec2 q = vec2(a_corner.x * c - a_corner.y * s, a_corner.x * s + a_corner.y * c);
+    vec3 right = vec3(u_view[0][0], u_view[1][0], u_view[2][0]);
+    vec3 up = vec3(u_view[0][1], u_view[1][1], u_view[2][1]);
+    vec4 vp = u_view * vec4(a_pos + (right * q.x + up * q.y) * a_size * 0.5, 1.0);
+    gl_Position = u_proj * vp;
+    v_uv = a_corner; v_col = a_col; v_seed = a_rs.y; v_dist = -vp.z;
+  }`;
+  const SPRITE_FS = `#version 300 es
+  precision highp float;
+  in vec2 v_uv; in vec4 v_col; in float v_seed; in float v_dist;
+  uniform vec3 u_fogColor; uniform float u_fogNear, u_fogFar, u_add;
+  out vec4 o;
+  float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float n2(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(h(i), h(i + vec2(1.0, 0.0)), f.x), mix(h(i + vec2(0.0, 1.0)), h(i + vec2(1.0, 1.0)), f.x), f.y); }
+  void main() {
+    float r = length(v_uv);
+    if (r > 1.0) discard;
+    vec2 p = v_uv * 2.3 + v_seed * 13.7;
+    float nz = n2(p) * 0.55 + n2(p * 2.07 + 3.1) * 0.3 + n2(p * 4.3 + 7.7) * 0.15;
+    float a = smoothstep(1.0, 0.2, r + (nz - 0.5) * 0.6) * v_col.a;
+    float fog = clamp((v_dist - u_fogNear) / max(1.0, u_fogFar - u_fogNear), 0.0, 1.0);
+    vec3 col = v_col.rgb * (0.7 + nz * 0.6);
+    if (u_add > 0.5) { col *= 1.0 + (1.0 - r) * 0.6; o = vec4(col * a * (1.0 - fog), 1.0); }
+    else o = vec4(mix(col, u_fogColor, fog), a);
+  }`;
+  class SpriteBatch {
+    constructor(gl, cap) {
+      this.gl = gl; this.cap = cap; this.n = 0;
+      this.data = new Float32Array(cap * 10);
+      this.vao = gl.createVertexArray(); this.buf = gl.createBuffer();
+      gl.bindVertexArray(this.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, R.spriteQuad);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+      gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW);
+      for (const [loc, size, off] of [[1, 3, 0], [2, 1, 12], [3, 4, 16], [4, 2, 32]]) {
+        gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 40, off); gl.vertexAttribDivisor(loc, 1);
+      }
+      gl.bindVertexArray(null);
+    }
+    clear() { this.n = 0; }
+    add(x, y, z, size, r, g, b, a, rot = 0, seed = 0) {
+      if (this.n >= this.cap || a <= 0.003 || size <= 0.001) return;
+      const d = this.data, i = this.n++ * 10;
+      d[i] = x; d[i + 1] = y; d[i + 2] = z; d[i + 3] = size;
+      d[i + 4] = r; d[i + 5] = g; d[i + 6] = b; d[i + 7] = a; d[i + 8] = rot; d[i + 9] = seed;
+    }
+    draw() {
+      if (!this.n) return;
+      const gl = this.gl;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.data, 0, this.n * 10);
+      gl.bindVertexArray(this.vao);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.n);
+      gl.bindVertexArray(null);
+    }
+  }
+  R.initSprites = function () {
+    const gl = R.gl;
+    R.sprProg = program(gl, SPRITE_VS, SPRITE_FS);
+    R.SU = {};
+    for (const n of ['u_proj', 'u_view', 'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_add']) R.SU[n] = gl.getUniformLocation(R.sprProg, n);
+    R.spriteQuad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, R.spriteQuad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
+    R.smoke = new SpriteBatch(gl, 1500);
+    R.fire = new SpriteBatch(gl, 1500);
+  };
+  // se llama con la escena ya dibujada (antes del arma en primera persona)
+  R.drawSprites = function () {
+    const gl = R.gl, U = R.SU;
+    if (!R.sprProg || (!R.smoke.n && !R.fire.n)) { if (R.smoke) { R.smoke.clear(); R.fire.clear(); } return; }
+    gl.useProgram(R.sprProg);
+    gl.uniformMatrix4fv(U.u_proj, false, R.proj);
+    gl.uniformMatrix4fv(U.u_view, false, R.view);
+    const f = R.fogColor;
+    gl.uniform3f(U.u_fogColor, f[0], f[1], f[2]);
+    gl.uniform1f(U.u_fogNear, R.fogNear || 8); gl.uniform1f(U.u_fogFar, R.fogFar || 36);
+    gl.disable(gl.CULL_FACE); gl.depthMask(false); gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(U.u_add, 0); R.smoke.draw();
+    gl.blendFunc(gl.ONE, gl.ONE); gl.uniform1f(U.u_add, 1); R.fire.draw();
+    gl.disable(gl.BLEND); gl.depthMask(true); gl.enable(gl.CULL_FACE);
+    gl.useProgram(R.prog);
+    R.smoke.clear(); R.fire.clear();
   };
 
   // Pasada de cristales: transparentes, sin escribir profundidad

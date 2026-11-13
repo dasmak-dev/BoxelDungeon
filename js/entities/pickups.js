@@ -154,6 +154,7 @@
       }
       if (it.kind === 'map') { it.taken = true; game.studyMap(); return; }
       if (it.kind === 'supply') { it.taken = true; VX.HordeMode.openSupply(game, it); return; }
+      if (it.kind === 'evac') { it.taken = true; VX.HordeMode.callEvac(game); return; }
       if (it.kind === 'chest') {
         it.taken = true;
         if (it.mimic) {

@@ -3,6 +3,7 @@
 // (le atacan, le escupen, le empujan) y le reenvía el daño a su dueño.
 (function () {
   const M = VX.M;
+  const tmp = [0, 0, 0];
   // colores de cada jugador (camiseta) y de su nombre en pantalla
   const COLORS = [[0.85, 0.3, 0.2], [0.25, 0.55, 0.9], [0.35, 0.75, 0.3], [0.9, 0.75, 0.2]];
 
@@ -28,6 +29,8 @@
       this.idx = idx;
       this.color = COLORS[idx % COLORS.length];
       this.body = new VX.VoxelBody(avatarModel(idx), 1);
+      // la pieza «gun» sólo marca dónde está la mano: el arma de verdad se dibuja aparte (la que lleve)
+      if (this.body.byName.gun) this.body.byName.gun.vox.length = 0;
       this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.pitch = 0;
       this.tx = 0; this.ty = 0; this.tz = 0; this.tyaw = 0; this.tpitch = 0;
       this.vx = 0; this.vz = 0;
@@ -100,6 +103,27 @@
     render(batch) {
       if (this.dead) return;
       this.body.render(batch);
+      this.renderWeapon(batch);
+    }
+
+    // El arma que lleva ahora (la misma maqueta vóxel que se ve en primera persona, en pequeño)
+    renderWeapon(batch) {
+      const p = this.body.byName.gun;
+      if (!p || !p.q) return;
+      const W = VX.Weapons, id = W.DEFS[this.weapon] ? this.weapon : 'pistol';
+      const form = id === 'knife' ? 'cuchillo' : null;
+      const model = W.coloredModel(id, 'default', form);
+      const s = this.body.scale || 1, v = 0.05 * s;
+      M.qRot(p.q, 0, -14.5 * v, 0.6 * v, tmp);
+      const hx = p.wp[0] + tmp[0], hy = p.wp[1] + tmp[1], hz = p.wp[2] + tmp[2];
+      // el cañón (-z del modelo) apunta a lo largo del brazo
+      const q = M.qMul(M.qMul(p.q, M.qX(-Math.PI / 2)), M.qZ(Math.PI));
+      const melee = W.DEFS[id].melee, g = (melee ? 0.016 : 0.0125) * s;
+      for (const vx of model) {
+        if (vx.tag === 'hand' || vx.tag === 'wrist' || vx.tag === 'sleeve') continue;
+        M.qRot(q, vx.x * g, vx.y * g, vx.z * g, tmp);
+        batch.rbox(hx + tmp[0], hy + tmp[1], hz + tmp[2], g * 1.02, g * 1.02, g * 1.02, q, vx.r, vx.g, vx.b, vx.e);
+      }
     }
 
     // ---- lo que usan los zombis en el anfitrión (game.player se cambia por este) ----

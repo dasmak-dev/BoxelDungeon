@@ -33,6 +33,11 @@ Se juega en horizontal con controles táctiles (aparecen solos en pantallas tác
 - **Botones** (derecha): disparo, salto, esquiva, recarga, cambiar arma, cuchillazo, **USAR** (se ilumina cuando hay algo con lo que interactuar) y **MIRILLA** con el rifle.
 - Arriba: pausa, linterna, mapa u oleada, y pantalla completa.
 
+- **Apuntado asistido**: sobre un enemigo la mira se frena y se arrastra un poco hacia él (se quita en Ajustes).
+- **Vibración** al disparar, recibir golpes y con las explosiones cercanas (Android).
+- **Límite de FPS** (sin límite, 60 o 30) en Ajustes, para ahorrar batería.
+- **Instalable**: botón «INSTALAR EL JUEGO» en el menú (Chrome/Android y ordenador); en iPhone, Safari → Compartir → «Añadir a pantalla de inicio». Instalado se abre a pantalla completa y funciona sin conexión (salvo el cooperativo).
+
 Va mejor en Chrome para Android. La primera vez el juego empieza en calidad media; la calidad automática la baja si hace falta.
 
 ## Características
@@ -48,15 +53,16 @@ Va mejor en Chrome para Android. La primera vez el juego empieza en calidad medi
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.24.2**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.26.0**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.
 
-- El **anfitrión** (quien crea la sala) lleva las oleadas y los zombis. Si se va, la partida termina para todos.
+- El **anfitrión** (quien crea la sala) lleva las oleadas y los zombis. Si se va, otro jugador pasa a ser el anfitrión y la partida sigue.
 - Cada uno tiene su oro, sus ventajas y sus cofres.
 - A 0 de vida caes al suelo: puedes arrastrarte, pero no disparar. Un compañero te levanta manteniendo **E** a tu lado 2,5 s. Si nadie te levanta en 30 s, mueres y vuelves en la siguiente oleada. Si caéis todos, fin de la partida.
 - No se puede entrar a una partida ya empezada.
+- **Evacuación**: desde la oleada 20 (y cada 5) aparece una radio. Al usarla, el helicóptero llega en 90 s; aguantad la horda sin fin y subid todos a la zona de aterrizaje para escapar y ganar la partida.
 
 ### Jugar en red local (sin internet)
 En Windows, haz doble clic en **`iniciar-servidor.bat`**. Si no tienes [Node.js](https://nodejs.org), la primera vez descarga una copia portable (unos 30 MB) en `server/node` sin instalar nada; después abre el juego en el navegador. En otros sistemas, con Node.js 18 o superior:

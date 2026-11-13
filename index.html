@@ -6,6 +6,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>BOXEL DUNGEON</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="img/icons/favicon.png">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#0a0810">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -73,6 +77,7 @@
         <button id="armoryBtn" class="secondary">ARMERÍA<small>Skins de armas</small></button>
         <button id="codexBtn" class="secondary">CÓDICE<small id="codexInfo">Enemigos, mejoras y récords</small></button>
         <button id="settingsBtn" class="secondary">AJUSTES</button>
+        <button id="installBtn" class="secondary hidden">INSTALAR EL JUEGO<small id="installInfo">Como una app, a pantalla completa y sin conexión</small></button>
       </div>
       <div class="controls">
         <div><b>WASD</b> moverse</div>
@@ -170,6 +175,16 @@
       </select>
       <label>Sensibilidad táctil <span id="touchSensVal"></span></label>
       <input type="range" id="setTouchSens" min="0.3" max="3" step="0.05">
+      <label>Apuntado asistido (táctil)</label>
+      <input type="checkbox" id="setAimAssist">
+      <label>Vibración (móvil)</label>
+      <input type="checkbox" id="setVibrate">
+      <label>Límite de FPS</label>
+      <select id="setFpsCap">
+        <option value="0">Sin límite</option>
+        <option value="60">60 FPS</option>
+        <option value="30">30 FPS (ahorra batería)</option>
+      </select>
       <label>Invertir eje Y</label>
       <input type="checkbox" id="setInvert">
       <label>Mostrar FPS</label>
@@ -275,6 +290,7 @@
   <!-- Mundo -->
   <script src="js/world/blocks.js"></script>
   <script src="js/world/room.js"></script>
+  <script src="js/world/ceilings.js"></script>
   <script src="js/world/roomPool.js"></script>
   <script src="js/world/world.js"></script>
   <script src="js/world/props.js"></script>

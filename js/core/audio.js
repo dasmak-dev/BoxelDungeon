@@ -37,8 +37,59 @@
     } catch (e) { A.enabled = false; }
   };
 
+  // ---------- Sonido en 3D ----------
+  // Mientras hay una «fuente» activa (A.source / A.at), todo lo que suena sale desde ese punto:
+  // panorama HRTF (se distingue delante, detrás, arriba y abajo), volumen por distancia,
+  // agudos que se apagan con la distancia y sonido ahogado si hay una pared en medio.
+  let src3 = null, chain3 = null;
+  A.listen = (P) => {
+    if (!A.ctx || !P) return;
+    const L = A.ctx.listener, t = A.ctx.currentTime;
+    const x = P.x, y = P.eyeY ? P.eyeY() : P.y + 1.6, z = P.z;
+    const cp = Math.cos(P.pitch || 0), fx = Math.sin(P.yaw) * cp, fy = Math.sin(P.pitch || 0), fz = Math.cos(P.yaw) * cp;
+    const ux = -Math.sin(P.yaw) * fy, uy = cp, uz = -Math.cos(P.yaw) * fy;
+    if (L.positionX) {
+      L.positionX.setValueAtTime(x, t); L.positionY.setValueAtTime(y, t); L.positionZ.setValueAtTime(z, t);
+      L.forwardX.setValueAtTime(fx, t); L.forwardY.setValueAtTime(fy, t); L.forwardZ.setValueAtTime(fz, t);
+      L.upX.setValueAtTime(ux, t); L.upY.setValueAtTime(uy, t); L.upZ.setValueAtTime(uz, t);
+    } else { L.setPosition(x, y, z); L.setOrientation(fx, fy, fz, ux, uy, uz); }
+  };
+  // fija la fuente (null = sonidos normales, sin posición)
+  A.source = (x, y, z, ref) => { src3 = x === null || x === undefined ? null : { x, y, z, ref: ref || 2.5 }; chain3 = null; };
+  // hace sonar fn() desde un punto
+  A.at = (x, y, z, fn, ref) => {
+    const s = src3, c = chain3;
+    A.source(x, y, z, ref);
+    try { fn(); } finally { src3 = s; chain3 = c; }
+  };
+  // sonido sin posición aunque haya una fuente activa (el dolor del jugador, la interfaz…)
+  A.direct = (fn) => { const s = src3, c = chain3; src3 = null; chain3 = null; try { fn(); } finally { src3 = s; chain3 = c; } };
+  function chain() {
+    if (chain3 !== null) return chain3;
+    const g = VX.game, P = g && g.player, S = src3;
+    if (!P) { chain3 = A.sfx; return chain3; }
+    const ey = P.eyeY ? P.eyeY() : P.y + 1.6;
+    const d = Math.hypot(S.x - P.x, S.y - ey, S.z - P.z);
+    if (d > 75) { chain3 = false; return chain3; }   // demasiado lejos: no se oye
+    const pn = A.ctx.createPanner();
+    const q = VX.Settings && VX.Settings.data && VX.Settings.data.quality;
+    pn.panningModel = q === 'baja' ? 'equalpower' : 'HRTF';
+    pn.distanceModel = 'inverse'; pn.refDistance = S.ref; pn.rolloffFactor = 1.15; pn.maxDistance = 90;
+    if (pn.positionX) { pn.positionX.value = S.x; pn.positionY.value = S.y; pn.positionZ.value = S.z; } else pn.setPosition(S.x, S.y, S.z);
+    // pared en medio: sonido apagado
+    let occl = false;
+    try { if (d > 2 && g.world && g.world.lineOfSight) occl = !g.world.lineOfSight(P.x, ey, P.z, S.x, S.y, S.z); } catch (e) { /* nada */ }
+    const f = A.ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.5;
+    f.frequency.value = occl ? 650 : Math.max(1800, 19000 * Math.exp(-d / 35));
+    const gn = A.ctx.createGain(); gn.gain.value = occl ? 0.65 : 1;
+    f.connect(gn); gn.connect(pn); pn.connect(A.sfx);
+    chain3 = f;
+    return chain3;
+  }
+
   // salida con panorama estéreo opcional
   function out(pan) {
+    if (src3) return chain();
     if (pan === undefined || pan === null || !A.ctx.createStereoPanner) return A.sfx;
     const p = A.ctx.createStereoPanner();
     p.pan.value = Math.max(-1, Math.min(1, pan));
@@ -56,7 +107,8 @@
     if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(slideTo, 1), t + dur);
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(out(pan));
+    const dst = out(pan); if (!dst) return;
+    o.connect(g); g.connect(dst);
     o.start(t); o.stop(t + dur + 0.02);
   }
 
@@ -70,7 +122,8 @@
     const g = A.ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(out(pan));
+    const dst = out(pan); if (!dst) return;
+    s.connect(f); f.connect(g); g.connect(dst);
     s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
   }
 
@@ -106,6 +159,17 @@
         noise(0.05, 0.7, 5200 * j, 'highpass', 0, 0.7); noise(0.16, 0.6, 2200, 'lowpass');
         tone(62, 0.55, 'sine', 0.55, 26);
         noise(1.4, 0.2, 700, 'lowpass', 0.06, 0.7); noise(1.1, 0.08, 1400, 'bandpass', 0.35, 1.5); return;
+      case 'crossbow':   // chasquido de la cuerda y zumbido del virote
+        tone(240 * j, 0.2, 'triangle', 0.22, 110); noise(0.05, 0.3, 2600, 'bandpass', 0, 3); noise(0.25, 0.08, 1200, 'bandpass', 0.03, 6); return;
+      case 'dbarrel':   // estampido doble, más grave que la escopeta
+        noise(0.35, 0.95, 1400 * j, 'lowpass'); noise(0.1, 0.4, 2400, 'highpass', 0, 0.6);
+        tone(46, 0.6, 'sine', 0.7, 22); tone(100, 0.2, 'sawtooth', 0.15, 40); noise(1.1, 0.24, 330, 'lowpass', 0.05, 0.7); return;
+      case 'lmg':   // golpe seco y pesado
+        noise(0.09, 0.5, 2600 * j, 'lowpass'); tone(170 * j, 0.06, 'square', 0.09, 70); tone(68, 0.14, 'sine', 0.32, 36); noise(0.3, 0.08, 600, 'lowpass', 0.02); return;
+      case 'flamer':   // soplido de la llama
+        noise(0.16, 0.13, 700 + Math.random() * 300, 'lowpass', 0, 0.6); noise(0.12, 0.05, 2800, 'bandpass', 0, 1.5); return;
+      case 'raygun':   // zumbido eléctrico que cae
+        tone(1500 * j, 0.2, 'sawtooth', 0.11, 260); tone(760, 0.22, 'square', 0.05, 140); noise(0.12, 0.16, 4200, 'highpass'); tone(90, 0.18, 'sine', 0.25, 50); return;
       case 'launcher':   // "tunk" hueco y siseo del proyectil
         tone(150 * j, 0.16, 'sine', 0.45, 55); noise(0.25, 0.35, 420, 'lowpass');
         noise(0.45, 0.07, 3200, 'bandpass', 0.04, 1.2); return;
@@ -123,7 +187,7 @@
   };
   A.wall = () => { noise(0.08, 0.22, 3200, 'bandpass', 0, 1.5); tone(900 + Math.random() * 400, 0.04, 'square', 0.04); };
   A.gold = () => { tone(1320, 0.08, 'square', 0.07); tone(1760, 0.12, 'square', 0.07, null, 0.06); };
-  A.hurt = (k = 0.5) => {
+  A.hurt = (k = 0.5) => { if (src3) return A.direct(() => A.hurt(k));
     tone(240 - k * 60, 0.25, 'sawtooth', 0.18 + k * 0.1, 80); noise(0.15, 0.2 + k * 0.15, 500);
     tone(70, 0.3, 'sine', 0.35 * k + 0.15, 35);                // golpe sordo en el pecho
     if (k > 0.6) noise(0.4, 0.12, 3200, 'bandpass', 0.05, 6);  // pitido de oídos
@@ -272,6 +336,15 @@
     noise(3.5, 0.32, 160 + (1 - dist) * 200, 'lowpass', 0.05 + dist * 0.6, 0.7);
     tone(42, 2.8, 'sine', 0.3, 28, 0.1 + dist * 0.5);
   };
+  // chillón: grito agudo que sube y vibra; antes, una inspiración ronca
+  A.screamWind = () => { noise(0.9, 0.08, 900, 'bandpass', 0, 3); tone(140, 0.9, 'sawtooth', 0.04, 220); };
+  A.scream = () => {
+    tone(700, 1.1, 'sawtooth', 0.16, 1500); tone(1050, 1.0, 'square', 0.07, 1900, 0.03); tone(520, 1.2, 'sawtooth', 0.1, 980, 0.05);
+    noise(1.1, 0.22, 2600, 'bandpass', 0, 2.5); noise(0.5, 0.15, 5000, 'highpass', 0.1, 1);
+  };
+  // graznido de cuervo
+  A.crow = () => { if (!A.ctx) return; const f = 520 + Math.random() * 160; tone(f, 0.16, 'sawtooth', 0.07, f * 0.6); noise(0.14, 0.06, 1400, 'bandpass', 0, 4); tone(f * 0.9, 0.12, 'square', 0.03, f * 0.5, 0.2); };
+  A.rotor = () => { noise(0.07, 0.22, 260, 'lowpass', 0, 1.2); tone(48, 0.08, 'sine', 0.18, 38); };
   A.splat = () => { noise(0.18, 0.45, 600, 'lowpass'); noise(0.12, 0.25, 2400, 'bandpass', 0.04, 2); tone(70, 0.15, 'sine', 0.2, 40); };
   A.dash = () => { noise(0.22, 0.3, 1600, 'bandpass', 0, 1.2); tone(300, 0.15, 'sine', 0.05, 150); };
   A.fuse = () => { for (let i = 0; i < 6; i++) tone(900 + i * 120, 0.06, 'square', 0.06, null, i * 0.14); };
@@ -284,14 +357,14 @@
     const rx = -Math.cos(P.yaw), rz = Math.sin(P.yaw);  // vector "derecha"
     return { pan: (dx * rx + dz * rz) / d * 0.85, vol: Math.max(0, 1 - d / 22) };
   };
-  A.groanAt = (x, z, P, dog) => {
+  A.groanAt = (x, z, P, dog, y) => {
     if (!A.ctx) return;
-    const s = A.spatial(x, z, P);
-    if (s.vol <= 0.02) return;
-    if (dog) { tone(220, 0.25, 'sawtooth', 0.06 * s.vol, 120, 0, s.pan); noise(0.2, 0.1 * s.vol, 900, 'bandpass', 0.05, 2, s.pan); return; }
-    const f = 70 + Math.random() * 50;
-    tone(f, 0.9, 'sawtooth', 0.07 * s.vol, f * 0.7, 0, s.pan);
-    tone(f * 1.02, 0.9, 'sawtooth', 0.05 * s.vol, f * 0.6, 0, s.pan);
+    A.at(x, (y !== undefined ? y : (P ? P.y : 0)) + 1.5, z, () => {
+      if (dog) { tone(220, 0.25, 'sawtooth', 0.09, 120); noise(0.2, 0.14, 900, 'bandpass', 0.05, 2); return; }
+      const f = 70 + Math.random() * 50;
+      tone(f, 0.9, 'sawtooth', 0.11, f * 0.7);
+      tone(f * 1.02, 0.9, 'sawtooth', 0.08, f * 0.6);
+    });
   };
 
   // Ambiente: viento continuo y goteos al azar

@@ -32,7 +32,7 @@
     reserveMax(id) {
       const d = VX.Weapons.DEFS[id];
       if (d.melee) return 0;
-      const mags = { pistol: 8, smg: 6, shotgun: 6, rifle: 6, grenade: 4 }[id] || 6;
+      const mags = { pistol: 8, smg: 6, shotgun: 6, rifle: 6, grenade: 4, crossbow: 20, dbarrel: 12, lmg: 4, flamer: 4, raygun: 5 }[id] || 6;
       return Math.round(d.mag * (this.mods ? this.mods.mag : 1)) * mags;
     }
     reserveStart(id) { return Math.round(this.reserveMax(id) * 0.5); }
@@ -319,6 +319,7 @@
         for (let i = 0; i < 40; i++) game.particles.spawn(ix, Math.max(iy, g) + 0.05, iz, M.rand(-4, 4), M.rand(1, 5), M.rand(-4, 4), 0.42, 0.39, 0.35, M.rand(0.04, 0.1), M.rand(1, 2.2));
         VX.Audio.slam();
         game.shake(smash ? 0.5 : 0.3);
+        VX.Haptics.buzz(smash ? 70 : 45);
       } else if (hits) { VX.Audio.slam(); game.shake(0.25); }
       if (hits) VX.Audio.flesh && VX.Audio.flesh();
       P.knock(-sy * 0.8, -cy * 0.8);
@@ -354,6 +355,7 @@
         game.dmgSource = null;
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
         game.shake(0.12);
+        VX.Haptics.buzz(25);
         VX.Audio.slash();
         P.knock(Math.sin(P.yaw) * 1.5, Math.cos(P.yaw) * 1.5);
         return;
@@ -392,6 +394,7 @@
       game.roomShots = (game.roomShots || 0) + 1;
       VX.Audio.shoot(d.sound, d.sfx);
       game.shake(d.shake || 0.1);
+      VX.Haptics.buzz(Math.round(8 + (d.shake || 0.1) * 70));
 
       const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
       const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
@@ -410,6 +413,15 @@
         });
         if (coopDirs) VX.Coop.shareGrenade(this.grenades[this.grenades.length - 1]);
       } else {
+        if (d.flame) {
+          // chorro de fuego: lenguas de llama que salen de la boquilla
+          for (let k = 0; k < 4; k++) {
+            const sp = M.rand(7, 11);
+            game.particles.spawn(mx, my, mzz, fwd[0] * sp + M.rand(-0.8, 0.8) + P.vx * 0.6, fwd[1] * sp + M.rand(-0.4, 1), fwd[2] * sp + M.rand(-0.8, 0.8) + P.vz * 0.6,
+              1, M.rand(0.35, 0.75), 0.1, M.rand(0.06, 0.12), M.rand(0.45, 0.8), 1, 1);
+          }
+          if (Math.random() < 0.3) game.particles.spawn(mx + fwd[0] * 5, my + fwd[1] * 5 + 0.3, mzz + fwd[2] * 5, M.rand(-0.5, 0.5), M.rand(0.8, 1.5), M.rand(-0.5, 0.5), 0.12, 0.11, 0.1, M.rand(0.12, 0.2), M.rand(1, 2), 0, 1);
+        }
         for (let p = 0; p < st.pellets; p++) {
           // la dispersión crece si mantienes el gatillo (ráfagas largas = menos precisión)
           const bloom = 1 + Math.min(0.7, (this.heat || 0) * 0.045) * (this.mods.recoil || 1);
@@ -464,6 +476,7 @@
         if (!best) break;
         const killed = bestE.hit(best, dmg, ray, game);
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
+        if (this.def.flame && !killed && !bestE.isBoss && !(bestE.T && bestE.T.fireImmune)) bestE.burn = Math.max(bestE.burn || 0, 3);   // lanzallamas: arde
         ignore.add(bestE);
         if (pierce > 0) { pierce--; dmg *= 0.75; continue; }
         endT = best.t + 0.4; stoppedByEnemy = true;
@@ -473,6 +486,12 @@
       if (!stoppedByEnemy && ph) {
         ph.prop.hit(ph, dmg * st.destruction, ray, game);
         stoppedByEnemy = true; endT = ph.t;
+      }
+      if (!stoppedByEnemy && wHit && this.def.flame) {
+        // el fuego no agujerea: chamusca y a veces prende el suelo
+        if (Math.random() < 0.05 && wHit.ny > 0.5 && game.addFire) game.addFire(wHit.x, wHit.z, 0.5, 2.5);
+        game.dmgSource = null;
+        return;
       }
       if (!stoppedByEnemy && wHit) {
         const hx = wHit.x + dx * 0.02, hy = wHit.y + dy * 0.02, hz = wHit.z + dz * 0.02;
@@ -507,7 +526,10 @@
       game.dmgSource = null;
       game.world.cutSoft(ox, oy, oz, dx, dy, dz, endT, st.damage, game);
       const ex = ox + dx * endT, ey = oy + dy * endT, ez = oz + dz * endT;
-      this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.06 });
+      if (this.def.flame) return;
+      if (this.def.ray) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.14, max: 0.14, c: [0.35, 1, 0.45], w: 3 });
+      else if (this.def.bolt) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.09, max: 0.09, c: [0.75, 0.7, 0.6], w: 1.6 });
+      else this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.06 });
     }
 
     // ---------------- Granadas ----------------
@@ -543,8 +565,9 @@
         const len = Math.hypot(dx, dy, dz);
         if (len < 0.01) continue;
         const q = M.qFromDir(dx / len, dy / len, dz / len);
-        const w = 0.012 * (t.life / 0.06);
-        batch.rbox((t.x0 + t.x1) / 2, (t.y0 + t.y1) / 2, (t.z0 + t.z1) / 2, w, w, len, q, 1, 0.85, 0.5, 1);
+        const w = 0.012 * (t.w || 1) * (t.life / (t.max || 0.06));
+        const c = t.c || [1, 0.85, 0.5];
+        batch.rbox((t.x0 + t.x1) / 2, (t.y0 + t.y1) / 2, (t.z0 + t.z1) / 2, w, w, len, q, c[0], c[1], c[2], 1);
       }
       for (const g of this.grenades) {
         const q = M.qAxis(0.6, 0.3, 0.74, g.rot);

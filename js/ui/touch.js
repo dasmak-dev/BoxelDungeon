@@ -108,7 +108,8 @@
         // apuntar: con el dedo libre y también arrastrando desde disparo o mirilla
         if (s.role === 'look' || s.act === 'fire' || s.act === 'aim') {
           const dx = t.clientX - s.x, dy = t.clientY - s.y;
-          if (Math.abs(dx) < 200 && Math.abs(dy) < 200) { I.dx += dx * LOOK_K * this.sens(); I.dy += dy * LOOK_K * this.sens(); }
+          const k = LOOK_K * this.sens() * (this.friction || 1);   // sobre un enemigo la mira se frena (apuntado asistido)
+          if (Math.abs(dx) < 200 && Math.abs(dy) < 200) { I.dx += dx * k; I.dy += dy * k; this.lookMoved = true; }
         }
         s.x = t.clientX; s.y = t.clientY;
       }
@@ -214,10 +215,54 @@
       } catch (e) { /* nada */ }
     },
 
+    // Apuntado asistido: con el dedo apuntar es más difícil que con el ratón. Si la mira pasa
+    // cerca de un enemigo, el giro se frena (más fácil quedarse encima) y la mira se arrastra un
+    // poco hacia él, sólo mientras mueves el dedo o disparas (nunca apunta sola).
+    assist(game, dt) {
+      this.friction = 1;
+      const S = VX.Settings.data;
+      if (S.aimAssist === false || !dt) return;
+      let looking = false;
+      for (const s of this.touches.values()) if (s.role === 'look' || s.act === 'fire' || s.act === 'aim') looking = true;
+      const firing = I.mouseDown;
+      if (!looking && !firing) { this.lookMoved = false; return; }
+      const P = game.player, W = game.weapon, st = W.stats();
+      const range = st.melee ? 4 : Math.min(60, st.range || 30);
+      const ex = P.eyeX(), ey = P.eyeY(), ez = P.eyeZ();
+      const cp = Math.cos(P.pitch), fx = Math.sin(P.yaw) * cp, fy = Math.sin(P.pitch), fz = Math.cos(P.yaw) * cp;
+      let best = null, bestScore = 1;
+      for (const e of game.enemies) {
+        if (e.dead || (e.spawnT && e.spawnT > 0.4)) continue;
+        const b = e.body, tx = b.cx !== undefined ? b.cx : e.x, ty = b.cy !== undefined ? b.cy : e.y + 1.1, tz = b.cz !== undefined ? b.cz : e.z;
+        const dx = tx - ex, dy = ty - ey, dz = tz - ez, d = Math.hypot(dx, dy, dz);
+        if (d > range || d < 0.5) continue;
+        const dot = (dx * fx + dy * fy + dz * fz) / d;
+        if (dot < 0.9) continue;
+        const ang = Math.acos(Math.min(1, dot));
+        const cone = Math.max(0.05, Math.min(0.2, (e.isBoss ? 2.2 : 0.9) / d));   // más ancho de cerca
+        const score = ang / cone;
+        if (score < bestScore && game.world.lineOfSight(ex, ey, ez, tx, ty, tz)) { bestScore = score; best = { tx, ty, tz, d }; }
+      }
+      if (!best) return;
+      this.friction = 0.45 + 0.4 * bestScore;
+      if (!this.lookMoved && !firing) return;
+      // imán: un poco hacia el centro del enemigo
+      const dx = best.tx - ex, dy = best.ty - ey, dz = best.tz - ez;
+      let dyaw = Math.atan2(dx, dz) - P.yaw;
+      while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+      while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+      const dpit = Math.atan2(dy, Math.hypot(dx, dz)) - P.pitch;
+      const k = Math.min(1, dt * 5) * 0.35 * (1 - bestScore * 0.6);
+      P.yaw += dyaw * k;
+      P.pitch += dpit * k * 0.6;
+      this.lookMoved = false;
+    },
+
     // cada frame: qué botones tienen sentido ahora
-    update(game) {
+    update(game, dt) {
       if (!this.on) return;
       if (game.state !== 'playing') { if (this.touches.size) this.releaseAll(); return; }
+      this.assist(game, dt);
       const B = this.btn, W = game.weapon, slot = W && W.slot;
       const show = (b, v) => { if (b && b._v !== v) { b._v = v; b.classList.toggle('hidden', !v); } };
       show(B.aim, !!slot && slot.id === 'rifle');
@@ -236,4 +281,18 @@
   I.unlock = function () { if (Touch.on) { I.locked = false; Touch.releaseAll(); return; } unlock0(); };
 
   VX.Touch = Touch;
+
+  // Vibración del móvil (Android; iPhone no la permite en el navegador)
+  const Haptics = {
+    last: 0,
+    buzz(ms, force) {
+      if (!force && (!Touch.on || VX.Settings.data.vibrate === false)) return;
+      if (!navigator.vibrate) return;
+      const now = performance.now();
+      if (!force && !Array.isArray(ms) && now - this.last < 70) return;   // no saturar con las armas automáticas
+      this.last = now;
+      try { navigator.vibrate(ms); } catch (e) { /* nada */ }
+    },
+  };
+  VX.Haptics = Haptics;
 })();

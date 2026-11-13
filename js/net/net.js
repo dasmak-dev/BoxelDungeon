@@ -103,6 +103,7 @@
           try { m = JSON.parse(ev.data); } catch (e) { return; }
           if (m.t === 'msg') { const h = this.handlers[m.d && m.d.k]; if (h) h(m.d, m.from); return; }
           if (m.t === 'created' || m.t === 'joined') { this.id = m.id; this.code = m.code; this.role = m.id === 0 ? 'host' : 'client'; }
+          if (m.t === 'host') this.role = m.id === this.id ? 'host' : 'client';   // el anfitrión se ha ido
           if (m.players) this.players = m.players;
           this.lobby(m);
         };

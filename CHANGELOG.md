@@ -3,6 +3,53 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.26.0] — 2026-11-13
+
+### Añadido
+- **Enemigos nuevos**:
+  - **Gordo hinchado**: lento y con mucha vida; al reventar deja una nube de ácido que quema y te frena.
+  - **Antidisturbios**: casco y chaleco que paran casi todo el daño de las balas que le llegan de frente. Dale en las piernas, por la espalda, con explosivos o con el cuchillo y el mazo.
+  - **Chillón**: no pelea; guarda las distancias y grita. El grito te aturde (te frena un momento) y trae dos o tres zombis más. Grita hasta tres veces.
+  - **Cuervos**: llegan volando en bandadas de cuatro o cinco, dan vueltas sobre ti y se lanzan en picado a picotearte.
+  - **El Tanque de carne**: jefe de la Horda en la oleada 15 (y 35, 55…). Embiste, aplasta y, cada vez que pierde un 20 % de vida, se le desprenden corredores.
+  Todos salen en la mazmorra (según el piso) y en la Horda, tienen su entrada en el Códice y funcionan en cooperativo.
+- **Techos vóxel en la mazmorra**: losa de 4 vóxeles de grosor con relieve y decoración propia de cada bioma:
+  - Cripta: bóveda con nervios de hueso, calaveras, nichos funerarios, jaulas colgando de cadenas y telarañas.
+  - Cloacas: bóveda de ladrillo con musgo, rejillas, tuberías con abrazaderas y goteras.
+  - Minas: roca con entibado de madera, vetas de cristal, faroles y estalactitas.
+  - Forja: piedra tiznada con vigas de hierro, grietas al rojo y cadenas con garfios.
+  - Jardín fúngico: roca con musgo, setas luminosas y raíces colgando.
+  - Vacío: roca violeta con vetas y racimos de cristales que brillan.
+  - Capillas, templos, salas del trono, salas de jefe y fuentes de almas: **bóveda de crucería alta** tipo catedral, con nervios, claves doradas, plementos azules con estrellas y lámparas colgantes.
+  - Tienda: artesonado de madera con lámpara de araña.
+- **Cooperativo: cada compañero lleva en la mano el arma que tiene seleccionada** (la misma maqueta que en primera persona).
+
+### Cambiado
+- **Explosiones**: la bola de fuego, el destello, el polvo y el humo son ahora bocanadas redondas y difusas (sprites suaves) en lugar de cubos.
+- **Niebla permanente en todos los mapas de la Horda**, más cerrada que antes (ciudad, coliseo, base y barco); con el evento de niebla, mucho más.
+
+## [0.25.0] — 2026-11-13
+
+### Añadido
+- **Final con huida en la Horda**: desde la oleada 20 (y cada 5 más) aparece una radio de rescate. Al usarla, un helicóptero viene a por vosotros en 90 s: la horda no para hasta que llega. Se ve la zona de aterrizaje (anillo, bengala de humo y columna de luz), el helicóptero llega volando y aterriza, y al subir todos los que siguen en pie se gana la partida con mucha más esencia. El récord del mapa marca si escapaste.
+- **Cinco armas nuevas** que se desbloquean en el Santuario (Arsenal) con esencia y luego aparecen en vendedores y botines de jefe:
+  - **Recortada** (110): dos cañones, doce perdigones cada uno, a quemarropa.
+  - **Ballesta** (120): virote silencioso que atraviesa a cinco zombis.
+  - **Lanzallamas** (160): chorro de fuego corto que prende a los enemigos y a veces el suelo.
+  - **Ametralladora** (180): cinta de 80 balas, perfora, recarga lenta.
+  - **Desintegrador** (280): rayo verde que atraviesa filas enteras y abre boquetes.
+  Cada una con su modelo, sonido, munición y las skins de siempre.
+- **Cooperativo: si se va el anfitrión, la partida sigue**. El servidor elige otro anfitrión; sus zombis pasan a ser de verdad y la oleada continúa donde estaba. También en la sala de espera. (Hay que volver a desplegar el servidor en Render.)
+- **Móvil**:
+  - **Apuntado asistido**: sobre un enemigo la mira se frena y se arrastra un poco hacia él mientras mueves el dedo o disparas.
+  - **Vibración** al disparar, al dar con el cuchillo o el mazo, al recibir golpes, con explosiones cercanas y al caer en el cooperativo.
+  - **Instalable como app** (PWA): icono propio, pantalla completa en horizontal y sin conexión. Botón «INSTALAR EL JUEGO» en el menú; en iPhone explica cómo hacerlo desde Safari.
+- **Límite de FPS** en Ajustes: sin límite, 60 o 30 (ahorra batería). La calidad automática lo tiene en cuenta.
+- **Sonido en 3D**: gruñidos, golpes, mordiscos, muertes, explosiones y disparos de los compañeros suenan desde donde están (HRTF: se distingue delante, detrás, arriba y abajo), pierden agudos con la distancia y se oyen ahogados si hay una pared en medio.
+
+### Cambiado
+- El Arsenal del Santuario se muestra en dos columnas y la lista de armas de la Armería se puede desplazar.
+
 ## [0.24.2] — 2026-11-13
 
 ### Corregido

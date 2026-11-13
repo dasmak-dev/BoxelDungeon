@@ -50,6 +50,9 @@
       bindRange('setFov', 'fov', (v) => v + '°', 'fovVal');
       $('setQuality').addEventListener('change', (e) => S.set('quality', e.target.value));
       $('setTouch').addEventListener('change', (e) => S.set('touchMode', e.target.value));
+      $('setAimAssist').addEventListener('change', (e) => S.set('aimAssist', e.target.checked));
+      $('setVibrate').addEventListener('change', (e) => { S.set('vibrate', e.target.checked); if (e.target.checked) VX.Haptics.buzz(60, true); });
+      $('setFpsCap').addEventListener('change', (e) => S.set('fpsCap', +e.target.value));
       bindRange('setTouchSens', 'touchSens', (v) => v.toFixed(2) + 'x', 'touchSensVal');
       $('setShadows').addEventListener('change', (e) => S.set('shadows', e.target.checked));
       $('setInvert').addEventListener('change', (e) => S.set('invertY', e.target.checked));
@@ -131,6 +134,7 @@
       $('setFov').value = d.fov; $('fovVal').textContent = d.fov + '°';
       $('setQuality').value = d.quality;
       $('setTouch').value = d.touchMode || 'auto';
+      $('setAimAssist').checked = d.aimAssist !== false; $('setVibrate').checked = d.vibrate !== false; $('setFpsCap').value = String(d.fpsCap || 0);
       $('setTouchSens').value = d.touchSens || 1; $('touchSensVal').textContent = (d.touchSens || 1).toFixed(2) + 'x';
       $('setShadows').checked = d.shadows;
       $('setInvert').checked = d.invertY;
@@ -189,7 +193,7 @@
         return `<div class="hmap" data-map="${m.id}">
           <div class="hmapArt ${m.id}"></div>
           <h3>${m.name.toUpperCase()}</h3><p>${m.desc}</p>
-          <div class="hrec">${b ? `Récord: <b>oleada ${b.wave}</b> · ${b.kills} bajas` : 'Sin récord todavía'}</div>
+          <div class="hrec">${b ? `Récord: <b>oleada ${b.wave}</b> · ${b.kills} bajas${b.escaped ? " · ¡escapó!" : ""}` : 'Sin récord todavía'}</div>
           <button class="hplay" data-map="${m.id}">JUGAR</button></div>`;
       });
       if (cards.length < 3) cards.push(`<div class="hmap locked"><div class="hmapArt soon"></div><h3>PRÓXIMAMENTE</h3><p>Más mapas en futuras versiones.</p><div class="hrec">&nbsp;</div><button disabled>BLOQUEADO</button></div>`);
@@ -205,8 +209,10 @@
     showGameOver(stats, floor, essence = 0, res = null, time = 0) {
       const acc = stats.shots ? Math.round((stats.hits / stats.shots) * 100) : 0;
       $('restartBtn').textContent = res && res.horde ? 'OTRA VEZ' : 'NUEVA PARTIDA';
+      document.querySelector('#gameover h2').textContent = res && res.escaped ? '¡HAS ESCAPADO!' : 'HAS CAÍDO';
       if (res && res.horde) {
         $('stats').innerHTML =
+          (res.escaped ? '<span style="color:#7fd36b">Evacuado en helicóptero</span><br>' : '') +
           `Oleadas superadas: <b>${res.done}</b>` + (res.record ? ' <span style="color:#7fd36b">¡NUEVO RÉCORD!</span>' : res.prev ? ` (récord: ${res.prev.wave})` : '') + '<br>' +
           `Zombis eliminados: <b>${stats.kills}</b><br>` +
           `Cabezas reventadas: <b>${stats.headshots}</b><br>` +

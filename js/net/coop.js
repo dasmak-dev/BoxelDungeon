@@ -60,11 +60,15 @@
       N.on('hurt', (d) => this.onHurt(g(), d));
       N.on('knock', (d) => { const P = g().player; if (!this.down && !this.deadWait) P.knock(d.kx, d.kz, d.up); });
       N.on('rv', () => this.revived(g()));
-      N.on('callwave', () => { const H = VX.HordeMode; if (this.isHost && H.phase !== 'wave' && H.timer > 3) { H.timer = 3; g().hud.toast('¡Un compañero ha llamado a la oleada!'); } });
+      N.on('callwave', () => { const H = VX.HordeMode; if (this.isHost && (H.phase === 'prep' || H.phase === 'break') && H.timer > 3) { H.timer = 3; g().hud.toast('¡Un compañero ha llamado a la oleada!'); } });
       N.on('wave', (d) => this.onWave(g(), d));
       N.on('ewave', (d) => this.onEndWave(g(), d));
       N.on('over', () => this.allDown(g()));
       N.on('chat', (d) => g().hud.toast(d.m));
+      // evacuación: un invitado usa la radio, el anfitrión elige la zona y avisa; al subir todos, se acaba
+      N.on('evaccall', () => { if (this.isHost) VX.HordeMode.callEvac(g()); });
+      N.on('evac', (d) => { if (this.isClient) VX.HordeMode.startEvac(g(), d.x, d.z); });
+      N.on('escaped', () => { if (this.isClient) g().hordeWin(); });
     },
 
     // el anfitrión elige mapa y arranca para todos
@@ -117,6 +121,32 @@
     peerLeft(id) {
       const r = this.remotes.get(id);
       if (r) { VX.game.hud.toast(`${r.name} ha salido de la partida`); this.remotes.delete(id); }
+    },
+
+    // El anfitrión se ha ido y el servidor ha elegido a otro. Si soy yo, mis réplicas pasan a
+    // ser zombis de verdad (con su IA) y sigo la oleada donde estaba; los demás no notan nada.
+    hostChanged(game, newId, leftId) {
+      this.peerLeft(leftId);
+      const N = VX.Net, H = VX.HordeMode;
+      if (newId !== N.id) {
+        const p = N.players.find((q) => q.id === newId);
+        game.hud.toast(`El anfitrión se ha ido · ahora dirige ${p ? p.name : 'otro jugador'}`);
+        return;
+      }
+      this.role = 'host';
+      for (const e of this.reps.values()) {
+        if (e.dead) continue;
+        e.net = null; e.replica = false; e.coopT = 0;
+        e.state = 'chase'; e.stateT = M.rand(0.3, 1);
+        e.windup = 0; e.spitting = false; e.fuse = 0;
+        e.vx = 0; e.vz = 0; e.pathT = 0;
+        if (e.body.byName.blade) e.body.byName.blade.hidden = !e.swordOut;
+      }
+      this.reps.clear();
+      H.championAt = -1; H.spawnT = 1.5; H.straggleT = 0;
+      if (H.phase === 'wave' && game.boss && !game.boss.dead) H.bossWave = true;
+      this.snapT = 0; this.overT = 0;
+      game.hud.banner('ERES EL ANFITRIÓN', 'El anfitrión se ha ido: la partida sigue y ahora la diriges tú', 3.5);
     },
 
     // ---------------- cada fotograma ----------------
@@ -186,12 +216,13 @@
     // ---------------- foto del anfitrión ----------------
     snapshot(game) {
       const P = game.player, H = VX.HordeMode;
-      const pl = [[0, r2(P.x), r2(P.y), r2(P.z), r3(P.yaw), r3(P.pitch), Math.round(P.hp), P.maxHp, (this.down ? 1 : 0) | (this.deadWait ? 2 : 0), game.weapon.slot.id]];
+      const pl = [[VX.Net.id, r2(P.x), r2(P.y), r2(P.z), r3(P.yaw), r3(P.pitch), Math.round(P.hp), P.maxHp, (this.down ? 1 : 0) | (this.deadWait ? 2 : 0), game.weapon.slot.id]];
       for (const r of this.remotes.values()) if (r.seen) pl.push([r.id, r2(r.tx), r2(r.ty), r2(r.tz), r3(r.tyaw), r3(r.tpitch), Math.round(r.hp), r.maxHp, (r.down ? 1 : 0) | (r.dead ? 2 : 0), r.weapon]);
       const en = [];
       for (const e of game.enemies) {
         if (e.dead && e !== game.boss) continue;
-        if (!e.netId) e.netId = e.uid || (e.uid = 900000 + ((Math.random() * 99999) | 0));
+        // id de red único aunque cambie el anfitrión: cada equipo numera en su propio tramo
+        if (!e.netId) e.netId = (VX.Net.id + 1) * 1000000 + (this.netSeq = (this.netSeq || 0) + 1);
         let f = 0;
         if (e.dead) f |= 1;
         if (e.crawling) f |= 2;
@@ -203,6 +234,8 @@
         if (e.burn > 0) f |= 128;
         if (e.state === 'leap') f |= 256;
         if (e.fuse > 0) f |= 512;
+        if (e.screamT > 0) f |= 1024;
+        if (e.state === 'dive') f |= 2048;
         const k = e.windup > 0 ? r2(1 - e.windup / (e.windTotal || 0.45)) : 0;
         const kind = e.isBoss ? 'boss:' + e.T.id + ':' + (e.bossNum || 1) : e.kind;
         en.push([e.netId, kind, r2(e.x), r2(e.y), r2(e.z), r3(e.body.yaw), Math.max(0, Math.round(e.hp)), Math.round(e.maxHp), f, k, e.spawnT > 0 ? r2(e.spawnT) : 0]);
@@ -325,7 +358,9 @@
         if (e.burn && Math.random() < 0.15) game.particles.spawn(e.x + M.rand(-0.25, 0.25), e.y + M.rand(0.8, 1.8), e.z + M.rand(-0.25, 0.25), M.rand(-0.3, 0.3), M.rand(1.5, 2.5), M.rand(-0.3, 0.3), 1, M.rand(0.5, 0.8), 0.15, 0.018, M.rand(0.4, 0.8), 1, 1);
         if (e.champion && Math.random() < 0.5) game.particles.spawn(e.x + M.rand(-0.5, 0.5), e.y + M.rand(0.2, b.height), e.z + M.rand(-0.5, 0.5), 0, M.rand(0.3, 0.9), 0, 1, 0.8, 0.25, 0.025, 0.7, 1, 1);
         if (e.fuse > 0) b.flash = (Math.sin(game.time * 40) > 0) ? 1 : 0.2;
-        if (e.T.quad) e.animateDog(dt, spd); else e.animate(dt, spd);
+        e.screamT = (f & 1024) ? Math.max(0.05, (e.screamT || 1.1) - dt) : 0;
+        if (e.T.fly) { e.state = (f & 2048) ? 'dive' : 'circle'; e.vy = (s[3] - e.y) / Math.max(dt, 1e-3); e.animateCrow(dt); }
+        else if (e.T.quad) e.animateDog(dt, spd); else e.animate(dt, spd);
         b.x = e.x; b.z = e.z; b.y = e.y;
         b.computeWorld();
       }
@@ -347,12 +382,12 @@
     },
     // (anfitrión) que los demás vean la herida
     shareHitFx(e, dmg, ray, opts, by = 0) {
-      if (!e.netId) e.netId = e.uid;
+      if (!e.netId) e.netId = (VX.Net.id + 1) * 1000000 + (this.netSeq = (this.netSeq || 0) + 1);
       VX.Net.send({ k: 'hx', by, id: e.netId, dmg: r2(dmg), o: [r2(ray.ox), r2(ray.oy), r2(ray.oz)], d: [r3(ray.dx), r3(ray.dy), r3(ray.dz)], sl: opts && opts.slash ? 1 : 0 });
     },
     findEnemy(game, id) {
       if (this.isClient) return this.reps.get(id);
-      for (const e of game.enemies) if (e.netId === id || e.uid === id) return e;
+      for (const e of game.enemies) if (e.netId === id) return e;
       return null;
     },
     // el impacto se repite con el mismo rayo sobre el cuerpo de este equipo
@@ -408,11 +443,18 @@
       if (r) r.shotT = 0.12;
       const def = VX.Weapons.DEFS[d.w] || VX.Weapons.DEFS.pistol;
       const P = game.player, dist = Math.hypot(d.o[0] - P.x, d.o[2] - P.z);
-      if (dist < 40) VX.Audio.shoot((def.sound || 1) * Math.max(0.15, 0.8 - dist / 50), def.sfx);
+      if (dist < 70) VX.Audio.at(d.m[0], d.m[1], d.m[2], () => VX.Audio.shoot(def.sound || 1, def.sfx), 5);   // se oye desde donde dispara
+      if (def.flame) {   // lanzallamas de un compañero: sólo las llamas
+        const v = d.ds[0];
+        for (let k = 0; k < 4; k++) { const sp = M.rand(7, 11); game.particles.spawn(d.m[0], d.m[1], d.m[2], v[0] * sp + M.rand(-0.8, 0.8), v[1] * sp + M.rand(-0.4, 1), v[2] * sp + M.rand(-0.8, 0.8), 1, M.rand(0.35, 0.75), 0.1, M.rand(0.06, 0.12), M.rand(0.45, 0.8), 1, 1); }
+        return;
+      }
       for (const v of d.ds) {
-        const hit = game.world.raycast(d.o[0], d.o[1], d.o[2], v[0], v[1], v[2], 60);
-        const t = hit ? hit.t : 40;
-        game.weapon.tracers.push({ x0: d.m[0], y0: d.m[1], z0: d.m[2], x1: d.o[0] + v[0] * t, y1: d.o[1] + v[1] * t, z1: d.o[2] + v[2] * t, life: 0.06 });
+        const hit = game.world.raycast(d.o[0], d.o[1], d.o[2], v[0], v[1], v[2], def.range || 60);
+        const t = hit ? hit.t : Math.min(40, def.range || 40);
+        const tr = { x0: d.m[0], y0: d.m[1], z0: d.m[2], x1: d.o[0] + v[0] * t, y1: d.o[1] + v[1] * t, z1: d.o[2] + v[2] * t, life: 0.06 };
+        if (def.ray) Object.assign(tr, { life: 0.14, max: 0.14, c: [0.35, 1, 0.45], w: 3 });
+        game.weapon.tracers.push(tr);
         if (hit) {
           const radius = 0.16 + 0.14 * d.de + d.dmg / 300;
           const n = game.world.damageSphere(hit.x + v[0] * 0.02, hit.y + v[1] * 0.02, hit.z + v[2] * 0.02, radius, Math.min(140, d.dmg * 1.4) * d.de, game);
@@ -466,6 +508,7 @@
     // ---------------- caer, levantarse y morir ----------------
     // en vez de morir, caes al suelo: un compañero te puede levantar
     goDown(game) {
+      VX.Haptics.buzz([200, 90, 260], VX.Touch.on && VX.Settings.data.vibrate !== false);
       const P = game.player;
       P.hp = 0;
       this.down = true;

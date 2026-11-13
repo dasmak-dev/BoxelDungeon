@@ -39,7 +39,8 @@
     if (AQ.t < 2) return;
     const fps = AQ.frames / AQ.t;
     AQ.t = 0; AQ.frames = 0;
-    if (fps < 42) { AQ.low++; AQ.high = 0; } else if (fps > 58) { AQ.high++; AQ.low = 0; } else { AQ.low = 0; AQ.high = 0; }
+    const tgt = S.fpsCap || 60;   // con límite de FPS, "ir bien" es llegar a ese límite
+    if (fps < tgt * 0.7) { AQ.low++; AQ.high = 0; } else if (fps > tgt * 0.96) { AQ.high++; AQ.low = 0; } else { AQ.low = 0; AQ.high = 0; }
     if (AQ.low >= 2 && AQ.level > 0) {
       AQ.level--; AQ.low = 0;
       VX.Renderer.setQuality(LEVELS[AQ.level], S.shadows);
@@ -53,15 +54,36 @@
   }
   VX.resetAutoQuality = () => { AQ.level = null; };
 
+  // Instalable (PWA): service worker y botón «Instalar» en el menú
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  const installBtn = document.getElementById('installBtn');
+  const standalone = window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches) || navigator.standalone;
+  let deferredInstall = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; if (installBtn) installBtn.classList.remove('hidden'); });
+  window.addEventListener('appinstalled', () => { deferredInstall = null; if (installBtn) installBtn.classList.add('hidden'); });
+  // iPhone/iPad: Safari no avisa; se explica cómo hacerlo a mano
+  const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (installBtn && iOS && !standalone) { installBtn.classList.remove('hidden'); document.getElementById('installInfo').textContent = 'En Safari: Compartir → «Añadir a pantalla de inicio»'; }
+  if (installBtn) installBtn.addEventListener('click', async () => {
+    VX.Audio.click && VX.Audio.click();
+    if (deferredInstall) { deferredInstall.prompt(); try { await deferredInstall.userChoice; } catch (e) { /* nada */ } deferredInstall = null; installBtn.classList.add('hidden'); }
+    else if (iOS) game.hud.toast('En Safari pulsa Compartir y luego «Añadir a pantalla de inicio»');
+  });
+
   let last = performance.now();
   function loop(now) {
+    // límite de FPS (30 o 60): se salta los refrescos de pantalla que sobran
+    const cap = VX.Settings.data.fpsCap;
+    if (cap && now - last < 1000 / cap - 2) { requestAnimationFrame(loop); return; }
     const realDt = (now - last) / 1000;
     const dt = Math.min(0.05, realDt);
     last = now;
     if (realDt < 1) autoQuality(realDt);
     try {
       game.update(dt);
-      VX.Touch.update(game);
+      VX.Touch.update(game, dt);
       game.render();
     } catch (e) { console.error(e); }
     VX.Input.endFrame();

@@ -72,7 +72,7 @@
       const s = VX.Weapons.SKINS.find((x) => x.id === skin);
       const locked = !VX.Profile.isUnlocked(this.weapon, skin);
       const fname = form ? (this.weapon === 'pistol' ? VX.Weapons.PISTOLS : VX.Weapons.KNIVES).find((x) => x.id === form).name : VX.Weapons.DEFS[this.weapon].name;
-      const desc = form && this.weapon === 'pistol' ? (VX.Weapons.PISTOLS.find((x) => x.id === form).desc || '') : '';
+      const desc = form && this.weapon === 'pistol' ? (VX.Weapons.PISTOLS.find((x) => x.id === form).desc || '') : (VX.Weapons.DEFS[this.weapon].desc || '');
       $('armoryCaption').innerHTML = `<b>${fname.toUpperCase()}</b> · ${s.name}` + (desc ? `<br><small>${desc}</small>` : '') +
         (locked ? `<br><span class="bad">Bloqueada: ${VX.Profile.condText(s, this.weapon)}</span>` : (skin === VX.Profile.skinFor(this.weapon) ? '<br><span class="ok">Equipado</span>' : ''));
     },

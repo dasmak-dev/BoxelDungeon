@@ -43,6 +43,7 @@
     gigantes: { name: 'GIGANTES', sub: 'Pocos, pero enormes', kinds: ['brute', 'brute', 'shielder'], count: 0.5 },
     oro: { name: 'FIEBRE DEL ORO', sub: 'Cada zombi suelta el doble de oro' },
   };
+  const EVAC_FROM = 20, EVAC_TIME = 90;   // desde qué oleada se puede pedir la evacuación y cuánto tarda el helicóptero
   const ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 
   const H = {
@@ -64,6 +65,7 @@
       for (let i = 0; i < 4; i++) this.addSupply(game, true);
       this.perks = {};
       this.event = null;
+      this.evac = null; this.evacOffer = null;
       for (const sp of this.room.perkSpots || []) {
         const P = PERKS[sp.perk];
         game.pickups.addItem({ kind: 'perk', perk: sp.perk, price: P.price, x: sp.x, y: game.world.groundAt(sp.x, sp.z) + 0.2, z: sp.z, title: P.name, desc: P.desc, action: 'Comprar', color: P.color, shape: 'plus', machine: true });
@@ -83,6 +85,7 @@
     // invitado del cooperativo: sólo efectos y llamar a la oleada (las oleadas las lleva el anfitrión)
     clientUpdate(game, dt) {
       this.updateFx(game, dt);
+      if (this.phase === 'evac') { this.updateEvac(game, dt, false); return; }
       if (this.phase !== 'wave' && VX.Input.wasPressed('KeyG') && this.timer > 3) { VX.Net.send({ k: 'callwave' }); game.hud.toast('Le has pedido al anfitrión que traiga la oleada'); }
     },
 
@@ -117,6 +120,7 @@
     update(game, dt) {
       const P = game.player;
       this.updateFx(game, dt);
+      if (this.phase === 'evac') { this.updateEvac(game, dt, true); return; }
       if (this.phase === 'prep' || this.phase === 'break') {
         this.timer -= dt;
         if (VX.Input.wasPressed('KeyG') && this.timer > 3) { this.timer = 3; game.hud.toast('¡Que vengan!'); }
@@ -156,8 +160,10 @@
       this.spawnT = 1.2;
       this.straggleT = 0;
       game.floor = this.levelFor(n);
-      this.eliteWave = n % 5 === 0 && n % 10 !== 0;
-      this.bossWave = n % 10 === 0;
+      // jefe cada 10 oleadas y, en la 15 (35, 55…), el Tanque de carne
+      this.tankWave = n % 20 === 15;
+      this.bossWave = n % 10 === 0 || this.tankWave;
+      this.eliteWave = n % 5 === 0 && !this.bossWave;
       this.championAt = this.eliteWave ? Math.floor(this.total * M.rand(0.3, 0.6)) : -1;
       this.dismissMerchant(game);
       // evento especial en algunas oleadas (desde la 3, nunca con jefe)
@@ -175,12 +181,13 @@
       VX.Audio.roar(); game.shake(0.3);
       if (this.bossWave) {
         const sp = this.pickSpawn(game, 22, 50) || { x: 0, z: 0 };
-        const kind = BOSS_ROT[(n / 10 - 1) % BOSS_ROT.length];
-        const boss = new VX.Boss(sp.x, sp.z, game.floor, n / 10, kind);
+        const num = Math.ceil(n / 10);
+        const kind = this.tankWave ? 'tanque' : BOSS_ROT[(n / 10 - 1) % BOSS_ROT.length];
+        const boss = new VX.Boss(sp.x, sp.z, game.floor, num, kind);
         boss.y = game.world.groundAt(sp.x, sp.z);
         game.enemies.push(boss);
         game.boss = boss;
-        boss.bossNum = n / 10;
+        boss.bossNum = num;
         game.hud.showBoss(boss);
       }
       if (VX.Coop.isHost) VX.Coop.hostWave(game, this);
@@ -268,6 +275,8 @@
         game.boss = null;
       }
       if (game.champion) { game.champion = null; game.hud.hideBoss(); }
+      // desde la oleada 20 (y cada 5): radio para pedir la evacuación
+      if (n >= EVAC_FROM && n % 5 === 0) this.offerEvac(game, n);
       // reponer cajas de suministros
       const want = Math.min(4, 2 + Math.floor(n / 4));
       for (let i = this.supplies.filter((s) => !s.taken).length; i < want; i++) this.addSupply(game);
@@ -308,7 +317,7 @@
       const champion = this.spawned === this.championAt;
       let kind = game.spawner.pickKind(f, this.room.zone || 6);
       if (this.event && this.event.kinds && Math.random() < 0.75) kind = M.choice(this.event.kinds);
-      if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro'].includes(kind)) kind = 'walker';
+      if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro', 'crow', 'screamer'].includes(kind)) kind = 'walker';
       const elite = !champion && Math.random() < game.spawner.difficulty(f).elite;
       let z;
       if (champion || elite) {
@@ -321,6 +330,7 @@
       this.spawned++;
       if (champion) { game.champion = z; game.hud.showBoss(z); game.hud.toast('¡Un campeón se acerca!'); }
       if (kind === 'rat') for (let k = 0; k < 2 && this.spawned < this.total; k++) if (game.spawner.spawnZombieNear(game, sp.x, sp.z, 1.5, 'rat')) this.spawned++;
+      if (kind === 'crow') for (let k = 0; k < 4 && this.spawned < this.total; k++) if (game.spawner.spawnZombieNear(game, sp.x, sp.z, 1.5, 'crow')) this.spawned++;
     },
 
     onKill(game, z) {
@@ -425,6 +435,145 @@
       this.merchant = null;
     },
 
+    // ---------- Evacuación: el final de la Horda ----------
+    // Desde la oleada 20 aparece una radio. Al usarla, un helicóptero viene a por ti: hay que
+    // aguantar 90 s de horda sin fin y subir todos a la zona de aterrizaje para escapar.
+    offerEvac(game, n) {
+      if (this.evacOffer && !this.evacOffer.taken) return;
+      const P = game.player;
+      let x = P.x, z = P.z;
+      for (let tries = 0; tries < 12; tries++) {
+        const a = P.yaw + Math.PI + tries * 0.6, cx = P.x + Math.sin(a) * 2.4, cz = P.z + Math.cos(a) * 2.4, gy = game.world.groundAt(cx, cz);
+        if (!game.world.boxCollides(cx - 0.3, gy + 0.1, cz - 0.3, cx + 0.3, gy + 1.2, cz + 0.3)) { x = cx; z = cz; break; }
+      }
+      this.evacOffer = game.pickups.addItem({ kind: 'evac', price: 0, x, y: game.world.groundAt(x, z) + 0.3, z,
+        title: 'Radio de rescate', desc: `Pide el helicóptero: aguanta ${EVAC_TIME} s y subid todos para escapar`, action: 'Llamar', color: [0.35, 1, 0.45], shape: 'star' });
+      game.hud.toast(n === EVAC_FROM ? '¡Hay una radio de rescate! Ya podéis pedir la evacuación (o seguir aguantando)' : 'Nueva radio de rescate disponible');
+    },
+
+    // alguien usa la radio (el anfitrión decide; un invitado se lo pide)
+    callEvac(game) {
+      if (this.phase === 'evac') return;
+      if (VX.Coop.isClient) { VX.Net.send({ k: 'evaccall' }); game.hud.toast('Has llamado al helicóptero'); return; }
+      const sp = this.pickEvacSpot(game);
+      this.startEvac(game, sp.x, sp.z);
+      if (VX.Coop.isHost) VX.Net.send({ k: 'evac', x: Math.round(sp.x * 100) / 100, z: Math.round(sp.z * 100) / 100 });
+    },
+
+    // zona de aterrizaje: terreno llano, cielo despejado y a cierta distancia
+    pickEvacSpot(game) {
+      const r = this.room, P = game.player, W = game.world;
+      const cands = [...(r.merchantSpots || []), ...(r.chestSpots || []), ...(r.spawns || [])].map((s) => ({ x: s.x, z: s.z }));
+      for (let i = 0; i < 40; i++) { const c = r.randomFreeCell(10, P.x, P.z); if (c) cands.push(c); }
+      let best = null, bs = -1e9;
+      for (const c of cands) {
+        const g = W.groundAt(c.x, c.z);
+        let ok = true, flat = 0;
+        for (let a = 0; a < 8 && ok; a++) {
+          const x = c.x + Math.cos(a * 0.785) * 3.2, z = c.z + Math.sin(a * 0.785) * 3.2, gg = W.groundAt(x, z);
+          flat += Math.abs(gg - g);
+          if (W.raycast(x, gg + 1.2, z, 0, 1, 0, 40)) ok = false;   // techo o algo encima
+          if (W.boxCollides(x - 0.4, gg + 0.1, z - 0.4, x + 0.4, gg + 2, z + 0.4)) ok = false;
+        }
+        if (!ok || W.raycast(c.x, g + 1.2, c.z, 0, 1, 0, 40)) continue;
+        const d = Math.hypot(c.x - P.x, c.z - P.z);
+        const score = -flat * 8 - Math.abs(d - 28) * 0.5 + Math.random();
+        if (score > bs) { bs = score; best = c; }
+      }
+      return best || { x: P.x, z: P.z };
+    },
+
+    startEvac(game, x, z) {
+      this.dismissMerchant(game);
+      this.endEvent(game);
+      if (this.evacOffer) this.evacOffer.taken = true;
+      game.pickups.items = game.pickups.items.filter((it) => it.kind !== 'evac');
+      this.phase = 'evac';
+      this.timer = EVAC_TIME;
+      this.spawnT = 2;
+      this.total = this.spawned + 9999;
+      this.evac = { x, z, y: game.world.groundAt(x, z), boardT: 0, rotor: 0, beepT: 0 };
+      game.hud.banner('¡EVACUACIÓN!', `El helicóptero llega en ${EVAC_TIME} s · aguanta y subid todos a la zona de aterrizaje`, 4.5);
+      VX.Audio.roar(); game.shake(0.3);
+    },
+
+    updateEvac(game, dt, host) {
+      const E = this.evac;
+      if (!E) return;
+      const P = game.player;
+      if (host) this.timer -= dt;
+      E.rotor += dt * 28;
+      // bengala de humo rojo en la zona
+      if (Math.random() < 0.6) game.particles.spawn(E.x + M.rand(-0.2, 0.2), E.y + 0.2, E.z + M.rand(-0.2, 0.2), M.rand(-0.3, 0.3), M.rand(1.5, 2.6), M.rand(-0.3, 0.3), 0.95, 0.42, 0.32, M.rand(0.14, 0.24), M.rand(2, 3.5), 0, 1);
+      // ruido de las palas cada vez más cerca
+      if (this.timer < 16) {
+        E.beepT -= dt;
+        if (E.beepT <= 0) {
+          E.beepT = 0.11;
+          const h = this.heliPos(game);
+          VX.Audio.at(h.x, h.y + 2, h.z, () => VX.Audio.rotor && VX.Audio.rotor(), 10);
+        }
+      }
+      if (!host) return;
+      // horda sin fin mientras llega
+      const alive = this.alive(game);
+      this.spawnT -= dt;
+      if (alive < this.maxAlive(this.wave) + 6 && this.spawnT <= 0) { this.spawnT = M.rand(0.25, 0.6); this.spawnOne(game); }
+      if (this.timer > 0) return;
+      // subir: todos los que siguen en pie dentro de la zona
+      const C = VX.Coop;
+      const standing = C.active ? C.targets(game) : (P.dead ? [] : [P]);
+      const inZone = standing.filter((p) => Math.hypot(p.x - E.x, p.z - E.z) < 4.2 && Math.abs(p.y - E.y) < 2.5);
+      E.inZone = inZone.length; E.standing = standing.length;
+      if (standing.length && inZone.length === standing.length) E.boardT += dt; else E.boardT = Math.max(0, E.boardT - dt * 2);
+      if (E.boardT >= 2.5) {
+        if (C.isHost) VX.Net.send({ k: 'escaped' });
+        game.hordeWin();
+      }
+    },
+
+    // posición del helicóptero: llega volando en los últimos 12 s y aterriza en la zona
+    heliPos(game) {
+      const E = this.evac, k = Math.max(0, Math.min(1, this.timer / 12));
+      const e = k * k;
+      return { x: E.x - 70 * e, y: E.y + 0.05 + (E.lift || 0) + 45 * e + (k > 0 ? Math.min(1, k * 8) * 2 : 0), z: E.z + 30 * e, yaw: Math.atan2(70, -30) };
+    },
+
+    renderEvac(b, game) {
+      const E = this.evac, t = game.time;
+      if (!E) return;
+      const landed = this.timer <= 0;
+      // anillo de la zona de aterrizaje
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2, x = E.x + Math.cos(a) * 4.2, z = E.z + Math.sin(a) * 4.2;
+        const on = landed || ((i + Math.floor(t * 8)) % 6 < 3);
+        if (on) b.box(x, game.world.groundAt(x, z) + 0.04, z, 0.35, 0.06, 0.35, landed ? 0.3 : 1, landed ? 1 : 0.2, landed ? 0.35 : 0.1, 1);
+      }
+      // columna de luz mientras llega (se ve desde todo el mapa)
+      if (!landed) for (let i = 0; i < 26; i++) { const k = 0.5 + Math.sin(t * 4 - i * 0.4) * 0.3; b.box(E.x, E.y + 3 + i * 0.9, E.z, 0.14, 0.85, 0.14, 1 * k, 0.25 * k, 0.15 * k, 1); }
+      if (this.timer > 12) return;
+      const h = this.heliPos(game), q = M.qY(h.yaw), c = Math.cos(h.yaw), s = Math.sin(h.yaw);
+      const put = (lx, ly, lz, sx, sy, sz, col, e = 0, qq = q) => b.rbox(h.x + lx * c + lz * s, h.y + ly, h.z - lx * s + lz * c, sx, sy, sz, qq, col[0], col[1], col[2], e);
+      const OL = [0.27, 0.32, 0.2], DK = [0.12, 0.13, 0.11], GL = [0.35, 0.5, 0.6];
+      put(0, 1.35, 0, 2.3, 2.0, 4.2, OL);                 // cabina
+      put(0, 1.5, 2.45, 2.0, 1.4, 0.9, GL, 0.25);         // morro acristalado
+      put(1.16, 1.2, -0.2, 0.05, 1.3, 1.8, DK);           // puerta abierta
+      put(0, 2.45, 0.2, 1.6, 0.4, 2.6, OL);               // motor
+      put(0, 1.7, -4.4, 0.6, 0.6, 4.6, OL);               // cola
+      put(0, 2.5, -6.6, 0.18, 1.7, 1.0, OL);              // deriva
+      put(0, 3.0, 0, 0.3, 0.7, 0.3, DK);                  // mástil
+      for (const sx of [-1.15, 1.15]) { put(sx, 0.12, 0, 0.14, 0.14, 4.6, DK); put(sx * 0.85, 0.5, 1.2, 0.12, 0.8, 0.12, DK); put(sx * 0.85, 0.5, -1.2, 0.12, 0.8, 0.12, DK); }
+      // rotor principal y de cola
+      for (let k = 0; k < 2; k++) put(0, 3.35, 0, 0.32, 0.06, 11, DK, 0, M.qY(h.yaw + E.rotor + k * Math.PI / 2));
+      put(0.36, 2.5, -6.6, 0.06, 1.8, 0.2, DK, 0, M.qMul(q, M.qX(E.rotor * 1.7)));
+      // luces
+      if (Math.sin(t * 6) > 0) put(0, 3.3, -6.9, 0.18, 0.18, 0.18, [1, 0.1, 0.05], 1);
+      put(0, 0.5, 2.6, 0.3, 0.2, 0.2, [1, 1, 0.85], 1);
+      if (!landed) for (let i = 0; i < 4; i++) game.particles.spawn(h.x + M.rand(-3, 3), h.y + 3.2, h.z + M.rand(-3, 3), M.rand(-1, 1), M.rand(-3, -1), M.rand(-1, 1), 0.5, 0.48, 0.44, 0.05, 0.4, 0, 0);
+      // polvo que levantan las palas al aterrizar
+      if (h.y - E.y < 8 && Math.random() < 0.7) { const a = Math.random() * 6.28; game.particles.spawn(E.x + Math.cos(a) * 2, E.y + 0.1, E.z + Math.sin(a) * 2, Math.cos(a) * M.rand(4, 7), M.rand(0.2, 1), Math.sin(a) * M.rand(4, 7), 0.45, 0.42, 0.38, M.rand(0.08, 0.16), M.rand(0.6, 1.2), 0, 1); }
+    },
+
     // ---------- HUD ----------
     arrowTo(game, x, z) {
       const P = game.player;
@@ -435,9 +584,14 @@
       return `${ARROWS[k]} ${Math.round(Math.hypot(x - P.x, z - P.z))} m`;
     },
 
-    hudTop() { return this.wave ? `OLEADA ${this.wave}` : 'PREPÁRATE'; },
+    hudTop() { return this.phase === 'evac' ? 'EVACUACIÓN' : this.wave ? `OLEADA ${this.wave}` : 'PREPÁRATE'; },
 
     hudSub(game) {
+      if (this.phase === 'evac' && this.evac) {
+        const E = this.evac, arrow = this.arrowTo(game, E.x, E.z);
+        if (this.timer > 0) return `Helicóptero en ${Math.ceil(this.timer)} s · ¡aguanta! · Zona ${arrow}`;
+        return `¡SUBID AL HELICÓPTERO! ${arrow}` + (E.standing > 1 ? ` · ${E.inZone || 0}/${E.standing} dentro` : '');
+      }
       if (this.phase !== 'wave') {
         let s = `Siguiente oleada en ${Math.max(0, Math.ceil(this.timer))} s · [G] ya`;
         if (this.merchant) s += ` · Vendedor ${this.arrowTo(game, this.merchant.x, this.merchant.z)}`;
@@ -457,6 +611,7 @@
     // Columna de luz sobre el vendedor (se ve desde toda la ciudad) y pilotos de las torres
     render(b, game) {
       const t = game.time;
+      if (this.phase === 'evac') this.renderEvac(b, game);
       if (this.room && this.room.renderSea) this.room.renderSea(b, t, game.player, game);
       if (this.merchant) {
         const m = this.merchant;

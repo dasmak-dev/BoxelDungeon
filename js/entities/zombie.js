@@ -26,6 +26,11 @@
     sporeling: { name: 'Esporado', hp: 60, speed: 1.9, dmg: 9, gold: [2, 4], reach: 1.0, lean: 0.2, sporeBurst: true },
     mimic: { name: 'Mímico', hp: 260, speed: 3.6, dmg: 20, gold: [12, 18], reach: 1.2, lean: 0, quad: true, mimic: true },
     rat: { name: 'Rata gigante', hp: 16, speed: 4.4, dmg: 5, gold: [1, 1], reach: 0.75, lean: 0, quad: true },
+    // nuevos
+    bloater: { name: 'Gordo hinchado', hp: 230, speed: 1.0, dmg: 15, gold: [5, 8], reach: 1.25, lean: 0.04, heavy: true, bloat: true },
+    riot: { name: 'Antidisturbios', hp: 150, speed: 1.45, dmg: 16, gold: [5, 8], reach: 1.1, lean: 0.04, riot: true },
+    screamer: { name: 'Chillón', hp: 60, speed: 1.9, dmg: 6, gold: [4, 7], reach: 1.0, lean: 0.15, scream: true },
+    crow: { name: 'Cuervo', hp: 12, speed: 5.5, dmg: 5, gold: [1, 1], reach: 0.8, lean: 0, quad: true, fly: true },
   };
 
   const FALL_TIME = 0.6;
@@ -50,6 +55,10 @@
     mimic: { ring: false, accel: 9, turn: 8, mass: 2.5 },
     miner: { ring: true, accel: 4, turn: 5, mass: 1.5, ringAdd: -0.3 },
     sporeling: { ring: true, accel: 8, turn: 8, mass: 0.8, ringAdd: 0.8, eager: 1 },
+    bloater: { ring: true, accel: 3, turn: 3, mass: 3.2, ringAdd: -0.4 },
+    riot: { ring: true, accel: 4, turn: 6, mass: 2, ringAdd: -0.3, faceAlways: true },
+    screamer: { ring: false, accel: 6, turn: 7, mass: 0.8, keep: [9, 15] },
+    crow: { ring: false, accel: 8, turn: 10, mass: 0.2 },
   };
 
   class Zombie {
@@ -61,7 +70,7 @@
       this.elite = !!opts.elite || !!opts.champion;
       this.champion = !!opts.champion;
       const cfg = VX.Models.zombieConfigs[kind];
-      let model = T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
+      let model = T.fly ? VX.Models.crow(cfg) : T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
       if (T.shield) model = VX.Models.addShield(model, cfg);
       if (cfg.tool) model = VX.Models.addTool(model, cfg);
       // el arquero lleva además una espada corta envainada para cuando lo acorralan
@@ -126,6 +135,9 @@
       this.leapCd = M.rand(1, 3); this.chargeCd = M.rand(1.5, 4);
       this.sideDir = M.chance(0.5) ? 1 : -1;
       this.body.yaw = opts.yaw ?? Math.PI;
+      // el cuervo llega volando desde arriba
+      if (T.fly) { this.spawnT = 0; this.y += M.rand(5, 8); this.flyH = M.rand(2.0, 3.0); this.state = 'circle'; this.attackCd = M.rand(1, 3); }
+      if (T.scream) { this.screamCd = M.rand(2, 4); this.screams = 0; this.screamT = 0; }
     }
 
     get speed() {
@@ -147,6 +159,7 @@
     }
 
     followGround(dt, world) {
+      if (this.T.fly) { this.body.y = this.y; return; }
       if (this.climbing > 0 || this.state === 'leap') { this.body.y = this.y; return; }
       // desatasco: si el cuerpo ha quedado metido en algo sólido (al bajar de un coche,
       // un trozo de pared que le cae encima…), sale al hueco libre más cercano
@@ -210,8 +223,18 @@
         return;
       }
 
+      if (this.T.fly) { this.updateFly(dt, game); return; }
       const dx = P.x - this.x, dz = P.z - this.z;
       const dist = Math.hypot(dx, dz);
+
+      // ---- chillón: grita para llamar a más zombis y aturdirte ----
+      if (this.T.scream && !this.crawling) {
+        this.screamCd -= dt;
+        if (this.screamT > 0) { this.screamT -= dt; if (this.screamT <= 0) this.scream(game); }
+        else if (this.los && dist < 16 && this.screamCd <= 0 && this.screams < 3 && this.windup <= 0) {
+          this.screamT = 1.1; VX.Audio.screamWind && VX.Audio.screamWind();
+        }
+      }
 
       // ---- explosivo: mecha ----
       if (this.T.explode) {
@@ -277,6 +300,7 @@
             }
             break;
           }
+          case 'screamer':
           case 'spitter': {
             const [lo, hi] = B.keep;
             if (!this.los || dist > hi) { const p = this.pathTo(game, dist, toX, toZ); gx = p[0]; gz = p[1]; want = 1; }
@@ -470,7 +494,7 @@
       this.attackCd -= dt;
       const wind = this.T.quad ? 0.25 : this.biter ? 0.32 : 0.45;
       const canAttack = this.state === 'chase' || this.crawling;
-      if (this.T.explode) { /* el explosivo no golpea: revienta */ }
+      if (this.T.explode || this.screamT > 0) { /* el explosivo no golpea: revienta; el chillón está gritando */ }
       else if (this.windup > 0) {
         this.windup -= dt;
         if (this.windup <= 0) {
@@ -650,6 +674,7 @@
 
     // ---------------- Animación ----------------
     animate(dt, spd) {
+      if (this.T.fly) return this.animateCrow(dt);
       if (this.T.quad) return this.animateDog(dt, spd);
       const b = this.body, P_ = b.byName, T = this.T;
       this.walkT += dt * (spd > 0 ? (this.crawling ? 5.5 : spd * 3.2 * this.gait) : 1.2);
@@ -717,6 +742,10 @@
       } else if (this.biter) { S.torso = 0.35; S.head = 0.2; }
       if (this.fuse > 0) { S.armL = S.armR = -2.8; S.head = -0.4; S.torsoZ += Math.sin(this.fuse * 50) * 0.08; }
       if (this.spawnT > 0) { S.armL = S.armR = -2.9 + Math.sin(this.walkT * 3) * 0.2; S.head = 0.4; }
+      if (this.screamT > 0) {   // chillón: echa la cabeza atrás, abre los brazos y chilla
+        const kk = 1 - this.screamT / 1.1, sh = kk > 0.8 ? Math.sin(this.walkT * 40) * 0.05 : 0;
+        S.head = -0.25 - kk * 0.65 + sh; S.torso = 0.1 - kk * 0.35; S.armL = S.armR = -0.6 - kk * 0.9; S.armLz = -0.4 - kk * 0.6; S.armRz = 0.4 + kk * 0.6;
+      }
 
       const C = {};
       C.legL = sw * 0.25; C.legR = -sw * 0.25;
@@ -780,13 +809,89 @@
       if (jaw && !jaw.detached) {
         const growl = 0.12 + Math.max(0, Math.sin(this.walkT * 0.9 + this.tilt * 9)) * 0.22;
         const bite = this.windup > 0 ? Math.sin(Math.min(1, k * 1.4) * Math.PI) * 0.75 : 0;
-        jaw.ax = this.dead ? 0.6 : Math.max(growl, bite) + (this.spawnT > 0 ? 0.5 : 0);
+        jaw.ax = this.dead ? 0.6 : this.screamT > 0 ? 0.3 + Math.min(1, (1.1 - this.screamT) * 2) * 0.9 : Math.max(growl, bite) + (this.spawnT > 0 ? 0.5 : 0);
       }
       if (P_.teeth && !P_.teeth.detached && this.T.mimic) P_.head.ax -= 0.25 + Math.abs(Math.sin(this.walkT * 2)) * 0.5;
       for (const p of this.body.parts) {
         if (p.detached) continue;
         if (p.flicker) { p.ax = Math.sin(this.walkT * 7 + p.alive) * 0.12; p.az = Math.cos(this.walkT * 5.3) * 0.08; }
         if (p.sway) { p.ax = Math.sin(this.walkT * 1.1) * p.sway + 0.1; p.az = Math.sin(this.walkT * 0.7 + 1) * p.sway * 0.6; }
+      }
+    }
+
+    // ---- Cuervo: vuela en círculos sobre ti y se lanza en picado a picotearte ----
+    updateFly(dt, game) {
+      const P = game.player, b = this.body, W = game.world;
+      const dx = P.x - this.x, dz = P.z - this.z, dist = Math.hypot(dx, dz);
+      this.attackCd -= dt; this.stateT -= dt;
+      this.losT = (this.losT || 0) - dt;
+      if (this.losT <= 0) { this.losT = 0.3; this.los = W.lineOfSight(this.x, this.y, this.z, P.x, P.y + 1.4, P.z); }
+      let tx, ty, tz, spd = this.baseSpeed;
+      const floorY = Math.max(W.groundAt(this.x, this.z), P.y);
+      if (this.state === 'dive') {
+        tx = P.x; tz = P.z; ty = P.y + 1.35; spd *= 1.45;
+        if (Math.hypot(tx - this.x, ty - this.y, tz - this.z) < 0.75) {
+          P.damage(this.dmg, this.x, this.z, game);
+          VX.Audio.bite();
+          this.state = 'climb'; this.stateT = 1.2; this.attackCd = M.rand(1.8, 3.2);
+        }
+        if (this.stateT <= 0) { this.state = 'climb'; this.stateT = 0.8; }
+      } else {
+        const a = game.time * (1.1 + (this.uid % 5) * 0.08) + this.uid * 1.7, R = this.state === 'climb' ? 5 : 3.6;
+        tx = P.x + Math.cos(a) * R; tz = P.z + Math.sin(a) * R; ty = floorY + this.flyH + (this.state === 'climb' ? 1.5 : 0) + Math.sin(game.time * 2 + this.uid) * 0.3;
+        if (this.state === 'climb' && this.stateT <= 0) this.state = 'circle';
+        if (this.state === 'circle' && this.attackCd <= 0 && dist < 9 && this.los) { this.state = 'dive'; this.stateT = 2; VX.Audio.crow && VX.Audio.crow(); }
+      }
+      let gx = tx - this.x, gy = ty - this.y, gz = tz - this.z;
+      const gl = Math.hypot(gx, gy, gz) || 1;
+      const acc = Math.min(1, dt * this.B.accel);
+      this.vx += (gx / gl * spd - this.vx) * acc; this.vz += (gz / gl * spd - this.vz) * acc;
+      this.vy += (gy / gl * spd - this.vy) * acc;
+      const nx = this.x + (this.vx + this.kx) * dt, ny = this.y + this.vy * dt, nz = this.z + (this.vz + this.kz) * dt;
+      this.kx *= Math.pow(0.05, dt); this.kz *= Math.pow(0.05, dt);
+      if (W.isSolidAt(nx, ny, nz)) { this.vy = 3; this.y += 3 * dt; }   // algo delante: sube
+      else { this.x = nx; this.y = ny; this.z = nz; }
+      const g = W.groundAt(this.x, this.z);
+      if (this.y < g + 0.35) { this.y = g + 0.35; this.vy = Math.max(0, this.vy); }
+      if (Math.random() < dt * 0.15) VX.Audio.crow && VX.Audio.crow();
+      b.yaw = Math.atan2(this.vx, this.vz);
+      this.animateCrow(dt);
+      b.x = this.x; b.y = this.y; b.z = this.z;
+      b.computeWorld();
+    }
+
+    animateCrow(dt) {
+      const b = this.body, P_ = b.byName;
+      const dive = this.state === 'dive';
+      this.walkT += dt * (dive ? 9 : 15);
+      const f = dive ? 0.25 + Math.sin(this.walkT) * 0.15 : Math.sin(this.walkT) * 0.8;
+      if (P_.armL) P_.armL.az = f;
+      if (P_.armR) P_.armR.az = -f;
+      if (P_.tail) P_.tail.ax = Math.sin(this.walkT * 0.5) * 0.1;
+      if (P_.head) P_.head.ax = dive ? 0.2 : Math.sin(this.walkT * 0.3) * 0.15;
+      b.pitch = dive ? 0.45 : (this.vy || 0) < -1 ? 0.25 : -0.05;
+      b.yOff = 0;
+    }
+
+    // ---- Chillón: el grito aturde a quien esté cerca y atrae a más zombis ----
+    scream(game) {
+      this.screams++;
+      this.screamCd = M.rand(6, 9);
+      const P = game.player, d = Math.hypot(P.x - this.x, P.z - this.z);
+      VX.Audio.at(this.x, this.y + 1.6, this.z, () => VX.Audio.scream && VX.Audio.scream(), 8);
+      for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2; game.particles.spawn(this.x, this.y + 1.5, this.z, Math.cos(a) * 9, M.rand(-0.5, 0.5), Math.sin(a) * 9, 0.85, 0.85, 0.9, 0.035, 0.5, 1, 1); }
+      if (d < 14 && !P.isRemote && this.los) {
+        P.slowT = Math.max(P.slowT || 0, 1.4);
+        game.shake(0.45);
+        game.hud.flashDamage && game.hud.flashDamage(0.25);
+        game.hud.toast('¡Un chillón! Te ha aturdido y llama a la horda');
+      }
+      // refuerzos
+      const n = 2 + (game.floor > 10 ? 1 : 0), H = VX.HordeMode;
+      for (let k = 0; k < n; k++) {
+        if (game.mode === 'horde' && H.alive(game) >= H.maxAlive(H.wave) + 4) break;
+        const z = game.spawner.spawnZombieNear(game, this.x, this.z, 3.5, Math.random() < 0.6 ? 'runner' : 'walker');
+        if (z && game.mode === 'horde' && H.phase === 'wave') { H.spawned++; H.total++; }
       }
     }
 
@@ -861,6 +966,20 @@
           game.hud.toast({ shield: '¡Escudo destrozado!', helmet: '¡Casco reventado!', buckler: '¡Rodela rota!', pauldron: '¡Hombrera arrancada!' }[p.name] || '¡Armadura rota!');
         }
         return false;
+      }
+      // antidisturbios: el casco y el chaleco paran las balas que le llegan de frente
+      if (this.T.riot && !(opts && (opts.slash || opts.blunt)) && (pn === 'torso' || pn === 'head' || pn.startsWith('arm'))) {
+        const fx0 = Math.sin(b.yaw), fz0 = Math.cos(b.yaw);
+        if (-(dir[0] * fx0 + dir[2] * fz0) > 0.25) {
+          if (!game.visualOnly) this.hp -= dmg * 0.1;
+          b.flash = 0.4;
+          game.particles.sparks(hit.vox.wx, hit.vox.wy, hit.vox.wz, -dir[0], 0.3, -dir[2], 7);
+          VX.Audio.wall();
+          this.kx += dir[0] * 0.5; this.kz += dir[2] * 0.5;
+          if (!this.riotHint && game.hud) { this.riotHint = true; game.hud.toast('Blindado por delante: dale en las piernas, por la espalda o con explosivos'); }
+          if (this.hp <= 0 && !game.visualOnly) { this.die(dir, game); return true; }
+          return false;
+        }
       }
       const mult = pn === 'head' ? 2.5 : (pn.startsWith('arm') || pn.startsWith('leg') ? 0.7 : 1);
       if (!game.visualOnly) this.hp -= dmg * mult;
@@ -957,6 +1076,13 @@
         game.hud.banner('MÍMICO DERROTADO', 'Ha escupido su tesoro', 2.5);
       }
       if (this.T.sporeBurst) { game.addFire(this.x, this.z, 1.5, 4, 'poison'); VX.Audio.splat && VX.Audio.splat(); }
+      if (this.T.bloat) {   // gordo: revienta en una nube de ácido que quema y frena
+        game.addFire(this.x, this.z, 2.6, 6, 'poison');
+        const f = game.fires[game.fires.length - 1]; if (f && f.kind === 'poison') f.slow = true;
+        for (let i = 0; i < 40; i++) game.particles.spawn(this.x, this.y + 1, this.z, M.rand(-4, 4), M.rand(1, 5), M.rand(-4, 4), 0.55, 0.85, 0.15, M.rand(0.04, 0.09), M.rand(0.8, 1.8), 0.5);
+        VX.Audio.at(this.x, this.y + 1, this.z, () => { VX.Audio.splat(); VX.Audio.splat(); }, 5);
+        game.shake(0.2);
+      }
       // el explosivo revienta también al morir (reacción en cadena)
       if (this.T.explode) game.queueExplosion({ x: this.x, y: this.y + 0.8, z: this.z, R: 2.6, dmg: 42 + game.floor * 2, selfK: 1, delay: 0.25 });
       else if (game.weapon.mods.corpseBlast) game.queueExplosion({ x: this.x, y: this.y + 0.7, z: this.z, R: game.weapon.mods.bigCorpse ? 2.8 : 1.7, dmg: game.weapon.mods.bigCorpse ? 70 : 40, selfK: 0, delay: 0.3 });
@@ -971,7 +1097,7 @@
       }
       b.collapse(game.gibs, dir[0], dir[2], 2.2);
       game.particles.blood(this.x, this.y + 0.9, this.z, dir[0], 0.5, dir[2], 14);
-      VX.Audio.zombieDie();
+      VX.Audio.at(this.x, this.y + 1.2, this.z, () => { VX.Audio.zombieDie(); }, 4);
       this.reward(game, dir);
     }
 
