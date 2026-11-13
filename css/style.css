@@ -452,3 +452,4 @@ body.touch #bannerSub { font-size: 13px; }
 .coopSrv.ready { color: #7fd36b; }
 .coopSrv.fail { color: #ff6b5b; }
 @keyframes srvPulse { 50% { opacity: 0.45; } }
+.coopSrv.fail { cursor: pointer; text-decoration: underline dotted; }

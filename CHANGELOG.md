@@ -3,6 +3,11 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.24.2] — 2026-11-13
+
+### Corregido
+- El aviso del servidor del cooperativo se quedaba en «sin respuesta» aunque el servidor estaba funcionando. Ahora comprueba a la vez `/health` y una conexión de prueba por WebSocket (la misma con la que se juega), sigue intentándolo hasta 3 minutos y, si falla, muestra a qué servidor intenta conectar. Pulsando el aviso en rojo se reintenta.
+
 ## [0.24.1] — 2026-11-13
 
 ### Añadido

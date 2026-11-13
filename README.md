@@ -48,7 +48,7 @@ Va mejor en Chrome para Android. La primera vez el juego empieza en calidad medi
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.24.1**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.24.2**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.

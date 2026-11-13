@@ -41,25 +41,40 @@
       } catch (e) { return null; }
     },
     wake(force) {
-      const url = this.healthUrl();
-      if (!url || typeof fetch !== 'function') return;
       if (this.wakeState === 'waking' || (this.wakeState === 'ready' && !force && Date.now() - this.wokeAt < 60000)) return;
-      const first = this.wakeState !== 'ready';
-      if (first) this.setWake('waking');
+      if (this.wakeState !== 'ready') this.setWake('waking');
       const t0 = Date.now();
+      const ok = () => { if (this.wakeState === 'ready' && Date.now() - this.wokeAt < 1000) return; this.wokeAt = Date.now(); this.setWake('ready'); };
+      // dos caminos a la vez: GET /health y una conexión WebSocket de prueba (no depende de CORS
+      // y comprueba justo la dirección con la que se juega). Basta con que responda uno.
       const tryOnce = () => {
-        const ctl = typeof AbortController === 'function' ? new AbortController() : null;
-        const timer = setTimeout(() => ctl && ctl.abort(), 25000);
-        fetch(url, { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
-          .then((r) => { clearTimeout(timer); if (!r.ok) throw new Error('http ' + r.status); this.wokeAt = Date.now(); this.setWake('ready'); })
-          .catch(() => {
-            clearTimeout(timer);
-            if (Date.now() - t0 < 120000) setTimeout(tryOnce, 4000);   // Render puede tardar en arrancar: sigue probando 2 min
-            else this.setWake('fail');
-          });
+        let done = false, pending = 2;
+        const finish = (good) => {
+          if (done) return;
+          if (good) { done = true; ok(); return; }
+          if (--pending > 0) return;
+          done = true;
+          if (Date.now() - t0 < 180000) setTimeout(tryOnce, 4000);   // Render puede tardar en arrancar: sigue probando 3 min
+          else this.setWake('fail');
+        };
+        const url = this.healthUrl();
+        if (url && typeof fetch === 'function') {
+          const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+          const timer = setTimeout(() => ctl && ctl.abort(), 30000);
+          fetch(url, { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+            .then((r) => { clearTimeout(timer); finish(r.ok); })
+            .catch(() => { clearTimeout(timer); finish(false); });
+        } else finish(false);
+        let ws = null;
+        try { ws = new WebSocket(this.serverUrl()); } catch (e) { finish(false); return; }
+        const wt = setTimeout(() => { try { ws.close(); } catch (e) { /* nada */ } finish(false); }, 30000);
+        ws.onopen = () => { clearTimeout(wt); finish(true); try { ws.close(); } catch (e) { /* nada */ } };
+        ws.onerror = () => { clearTimeout(wt); finish(false); };
+        ws.onclose = () => { clearTimeout(wt); finish(false); };
       };
       tryOnce();
     },
+    serverHost() { try { return new URL(this.serverUrl().replace(/^ws/i, 'http')).host; } catch (e) { return '?'; } },
     setWake(s) { this.wakeState = s; if (this.onWake) this.onWake(s); },
     keepAwake(on) {
       clearInterval(this.awakeTimer);
