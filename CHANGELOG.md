@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.23.1] — 2026-11-13
+
+### Añadido
+- **`iniciar-servidor.bat`**: doble clic para arrancar el servidor en red local en Windows. Si no hay Node.js instalado, descarga una copia portable la primera vez (en `server/node`) y abre el juego en el navegador.
+
+### Cambiado
+- El cooperativo usa por defecto el servidor de Render `boxeldungeon.onrender.com`: desde GitHub Pages ya no hay que configurar nada.
+
 ## [0.23.0] — 2026-11-13
 
 ### Añadido

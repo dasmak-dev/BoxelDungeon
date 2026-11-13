@@ -39,7 +39,7 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.23.0**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.23.1**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.
@@ -50,7 +50,7 @@ Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéi
 - No se puede entrar a una partida ya empezada.
 
 ### Jugar en red local (sin internet)
-Necesita [Node.js](https://nodejs.org) 18 o superior en un solo ordenador:
+En Windows, haz doble clic en **`iniciar-servidor.bat`**. Si no tienes [Node.js](https://nodejs.org), la primera vez descarga una copia portable (unos 30 MB) en `server/node` sin instalar nada; después abre el juego en el navegador. En otros sistemas, con Node.js 18 o superior:
 ```bash
 node server/server.js
 ```
@@ -60,7 +60,7 @@ La consola muestra las direcciones (por ejemplo `http://192.168.1.20:8080`). Tod
 El juego sigue en GitHub Pages; sólo el servidor de salas va en [Render](https://render.com):
 1. Entra en Render con tu cuenta de GitHub → **New → Web Service** → elige este repositorio.
 2. **Root Directory**: `server` · **Runtime**: Node · **Build Command**: vacío (o `npm install`) · **Start Command**: `node server.js` · **Instance type**: Free.
-3. Al terminar el despliegue Render te da una dirección como `https://boxel-dungeon-coop.onrender.com`. Comprueba que `…/health` responde `ok`.
+3. Al terminar el despliegue Render te da una dirección como `https://boxel-dungeon-coop.onrender.com`. Comprueba que `…/health` responde `ok`. El servidor oficial del juego ya está configurado: `https://boxeldungeon.onrender.com`.
 4. En el juego: **Modo Horda → ⚙** y pega esa dirección (vale tal cual; se convierte en `wss://…/ws`). Para que nadie tenga que configurarlo, cambia `VX.NET_SERVER` en `js/net/net.js` por tu dirección y súbelo.
 
 El plan gratuito de Render apaga el servidor tras 15 minutos sin uso; la primera conexión después tarda alrededor de un minuto en despertarlo. También se puede forzar un servidor con `?server=wss://…/ws` en la URL del juego.

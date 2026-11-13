@@ -4,7 +4,7 @@
 (function () {
   // Dirección del servidor desplegado (Render). Si el juego se abre desde el propio servidor
   // (red local: http://IP:8080) se usa ese mismo servidor y esto no hace falta.
-  VX.NET_SERVER = VX.NET_SERVER || 'wss://boxel-dungeon-coop.onrender.com/ws';
+  VX.NET_SERVER = VX.NET_SERVER || 'wss://boxeldungeon.onrender.com/ws';
 
   const Net = {
     ws: null,
