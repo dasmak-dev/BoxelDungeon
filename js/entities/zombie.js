@@ -74,6 +74,20 @@
     hydrabud: { ring: false, accel: 0, turn: 0, mass: 50 },
   };
 
+  // Paleta de la hidra según dónde aparece: carne viva (Cripta, Minas, Jardín, Coliseo, Base militar)
+  // o morada (Cloacas, Forja, Vacío, Ciudad, Barco)
+  function hydraPal(x, z) {
+    const g = VX.game;
+    if (g && g.mode === 'horde') {
+      const m = VX.HordeMode && VX.HordeMode.map;
+      const id = m && (m.id || m);
+      return id === 'coliseo' || id === 'base' ? 'carne' : 'morado';
+    }
+    let zone = 0;
+    if (g && g.world) { const r = g.world.rooms.find((q) => q.contains(x, z)) || g.currentRoom; zone = r ? r.zone || 0 : 0; }
+    return [0, 2, 4].includes(zone) ? 'carne' : 'morado';
+  }
+
   class Zombie {
     constructor(kind, x, z, floor, opts = {}) {
       const T = TYPES[kind];
@@ -83,7 +97,8 @@
       this.elite = !!opts.elite || !!opts.champion;
       this.champion = !!opts.champion;
       const cfg = VX.Models.zombieConfigs[kind];
-      let model = T.knight ? VX.Models.knight(cfg) : T.pile ? VX.Models.pile(cfg) : T.fly ? VX.Models.crow(cfg) : T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
+      const hpal = T.hydra || T.grows ? hydraPal(x, z) : null;   // la hidra (y sus brotes) cambian de color según el bioma
+      let model = T.knight ? VX.Models.knight(cfg) : T.hydra ? VX.Models.hydra({ ...cfg, hstyle: 'boca3', hpal }) : T.pile ? VX.Models.pile(T.grows ? { ...cfg, flesh: 'hydra-' + hpal } : cfg) : T.fly ? VX.Models.crow(cfg) : T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
       if (T.shield) model = VX.Models.addShield(model, cfg);
       if (cfg.tool) model = VX.Models.addTool(model, cfg);
       // el arquero lleva además una espada corta envainada para cuando lo acorralan
@@ -159,6 +174,10 @@
       }
       if (T.scream) { this.screamCd = M.rand(2, 4); this.screams = 0; this.screamT = 0; }
       if (T.knight) { this.swordOut = true; this.regenQ = []; this.coreHp = this.hp; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.body.byName.torso) this.body.byName.torso.noBreak = true; }
+      if (T.hydra && !opts.gen && VX.game && VX.game.hud && !VX.game.hydraWarned) {   // la primera vez, que se sepa qué es
+        VX.game.hydraWarned = true;
+        VX.game.hud.banner('¡UNA HIDRA!', 'Le vuelve a crecer todo: sólo muere si le revientas la cabeza', 3);
+      }
       if (T.hydra) { this.regenQ = []; this.gen = opts.gen || 0; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.gen) this.spawnT = 0.3; }   // orig: lo que vuelve a crecer   // orig: lo que hay que reconstruir; el torso no se parte (lleva el corazón)
       if (T.pile) { this.spawnT = 0; this.gen = opts.gen || 1; this.pileT = 8; this.pileMax = 8; this.maxHp = this.hp = 65 + this.gen * 22; this.body.hitPad = 0.05; }
       if (T.grows) { this.pileT = this.pileMax = 3.5; this.maxHp = this.hp = 28; this.body.hitPad = 0.06; }   // brote de hidra: poco tiempo para romperlo   // vida fija (no crece con el nivel) y algo de margen al apuntar

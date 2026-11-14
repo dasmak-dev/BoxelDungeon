@@ -219,7 +219,7 @@
 
   // Vainas y cartuchos expulsados (en el espacio del arma)
   const EJECT = {
-    pistol: { x: 2, y: 6, z: -8, kind: 'brass', at: 0 }, smg: { x: 2, y: 5, z: -10, kind: 'brass', at: 0 },
+    pistol: { x: 2, y: 8, z: -9, kind: 'brass', at: 0.02, vx: -25, vy: 35, vz: -10 }, smg: { x: 2, y: 5, z: -10, kind: 'brass', at: 0 },
     lmg: { x: 2, y: 4, z: -14, kind: 'brass', at: 0 }, rifle: { x: 2, y: 6, z: -6, kind: 'brass', at: 0.42 },
     shotgun: { x: 2, y: 4, z: -6, kind: 'shell', at: 0.2 },
   };
@@ -233,6 +233,16 @@
   }
   function spawn(w, e) {
     const sh = e.kind === 'shell';
+    // y en el mundo: la vaina sale por la derecha, cae al suelo y rebota (se ve al mirar abajo)
+    const g = VX.game, P = g && g.player;
+    if (P && g.particles && !g.visualOnly) {
+      const c = Math.cos(P.yaw), s = Math.sin(P.yaw), ey = P.eyeY ? P.eyeY() : P.y + 1.6;
+      const rx = -c, rz = s;   // derecha de la cámara
+      const fx = s, fz = c;
+      const x = P.x + rx * 0.22 + fx * 0.3, z = P.z + rz * 0.22 + fz * 0.3;
+      g.particles.spawn(x, ey - 0.12, z, rx * M.rand(1.2, 2) + fx * M.rand(-0.3, 0.3), M.rand(1.5, 2.6), rz * M.rand(1.2, 2) + fz * M.rand(-0.3, 0.3),
+        sh ? 0.62 : 0.86, sh ? 0.1 : 0.66, sh ? 0.07 : 0.26, sh ? 0.03 : 0.018, M.rand(1.6, 2.4), 0.1);
+    }
     w.casings.push({ x: e.x, y: e.y, z: e.z, vx: 70 + Math.random() * 50 + (e.vx || 0), vy: 90 + Math.random() * 50 + (e.vy || 0), vz: 30 + Math.random() * 40 + (e.vz || 0),
       a: Math.random() * 3, va: 12 + Math.random() * 10, t: 0.7, kind: e.kind, big: sh });
   }
@@ -255,7 +265,7 @@
       M.qRot(q, c.x * g, c.y * g, c.z * g, tmp);
       const cq = M.qMul(q, M.qMul(M.qX(c.a), M.qY(c.a * 0.7)));
       if (c.big) batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], g * 2, g * 2, g * 5, cq, 0.62, 0.1, 0.07, 0);
-      else batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], g, g, g * 2.5, cq, 0.86, 0.66, 0.26, 0.15);
+      else batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], g * 1.4, g * 1.4, g * 3.2, cq, 0.86, 0.66, 0.26, 0.2);
     }
   }
 

@@ -255,7 +255,10 @@
         if (e.state === 'dive') f |= 2048;
         const k = e.windup > 0 ? r2(1 - e.windup / (e.windTotal || 0.45)) : 0;
         const kind = e.isBoss ? 'boss:' + e.T.id + ':' + (e.bossNum || 1) : e.kind;
-        en.push([e.netId, kind, r2(e.x), r2(e.y), r2(e.z), r3(e.body.yaw), Math.max(0, Math.round(e.hp)), Math.round(e.maxHp), f, k, e.spawnT > 0 ? r2(e.spawnT) : 0]);
+        // generación (renacido que vuelve más grande, brotes de hidra…) y partes arrancadas
+        let dm = 0;
+        if (e.body && e.body.parts) { const a = []; e.body.parts.forEach((p, i) => { if (p.detached) a.push(i); }); if (a.length) dm = a; }
+        en.push([e.netId, kind, r2(e.x), r2(e.y), r2(e.z), r3(e.body.yaw), Math.max(0, Math.round(e.hp)), Math.round(e.maxHp), f, k, e.spawnT > 0 ? r2(e.spawnT) : 0, e.gen || 0, dm]);
       }
       return { k: 's', pl, en, w: [H.wave, H.phase, r2(H.timer), H.total, H.spawned, H.killed, H.event ? H.event.id : 0] };
     },
@@ -287,6 +290,7 @@
           game.enemies.push(e);
         }
         e.net = s;
+        this.syncParts(game, e, s[12]);
         e.hp = Math.min(e.hp, s[6]);
         e.maxHp = s[7];
         if ((s[8] & 1) && !e.dead) this.killReplica(game, e);
@@ -308,7 +312,7 @@
           game.boss = e;
           game.hud.showBoss(e);
         } else {
-          e = new VX.Zombie(kind, s[2], s[4], game.floor, { elite: !!(s[8] & 32), champion: !!(s[8] & 64), y: s[3] });
+          e = new VX.Zombie(kind, s[2], s[4], game.floor, { elite: !!(s[8] & 32), champion: !!(s[8] & 64), y: s[3], gen: s[11] || 0 });
           e.spawnT = s[10] || 0;
           if (e.champion) { game.champion = e; game.hud.showBoss(e); }
         }
@@ -321,6 +325,19 @@
       e.body.x = e.x; e.body.y = e.y; e.body.z = e.z;
       e.body.computeWorld();
       return e;
+    },
+
+    // lo que el anfitrión ve arrancado (piernas, brazos, cabeza…) también se cae aquí; y si al
+    // caballero o a la hidra les ha vuelto a crecer, aquí también empieza a crecer
+    syncParts(game, e, dm) {
+      const b = e.body;
+      if (!b || !b.parts || e.dead) return;
+      const set = new Set(Array.isArray(dm) ? dm : []);
+      b.parts.forEach((p, i) => {
+        if (set.has(i) && !p.detached) {
+          try { b.detach(p.name, game.gibs, M.rand(-1, 1), 1.5, M.rand(-1, 1)); } catch (err) { /* nada */ }
+        } else if (!set.has(i) && p.detached && (e.T.knight || e.T.hydra) && !p.regrowT) p.regrowT = 0.05;
+      });
     },
 
     killReplica(game, e) {

@@ -582,6 +582,258 @@
   // rendija que brilla, hombreras con púas, capa hecha jirones y un mandoble. Dentro no hay carne:
   // al abrirle un agujero se ve una sustancia violeta que brilla. Su único punto débil es el
   // corazón de cristal engastado en el pecho, dentro de una jaula dorada.
+  // Hidra. hstyle elige el diseño (para comparar propuestas):
+  //   actual · cabezas (dos cuellos con cabezas de más que salen de los hombros) ·
+  //   tentaculos (brazos larguísimos que se arrastran y una cabeza hinchada llena de ojos) ·
+  //   brotes (cuerpo de raíces y bulbos que brillan, con un brazo de más creciéndole de la espalda)
+  // Hidras con otra forma de cuerpo (mismas piezas para que se animen y se rompan igual)
+  function hydraShape(S, cfg) {
+    const v = 0.055, parts = [];
+    const h3 = (i, j, k, s) => M.hash3(i + s * 13, j + s * 7, k + s * 3);
+    const GL = [0.75, 1, 0.25, 0.9], EYE = [1, 0.95, 0.2, 1], TOOTH = [0.92, 0.9, 0.78], MOUTH = [0.35, 0.04, 0.06];
+    const P = (name, pivot, dims, min, fn, attach, shape, parent) => { const p = makePart(name, pivot, dims, min, v, fn, attach, shape); if (parent) p.parent = parent; parts.push(p); return p; };
+    const ell = (i, j, k, [w, h, d], sx = 1, sy = 1, sz = 1) => Math.hypot((i - (w - 1) / 2) / (w / 2) * sx, (j - (h - 1) / 2) / (h / 2) * sy, (k - (d - 1) / 2) / (d / 2) * sz) <= 1.02;
+    if (S === 'bestia') {
+      // a cuatro patas: lomo largo y bajo con púas que brillan, patas delanteras (los «brazos») y la cabeza delante, abajo
+      const SK = [0.26, 0.42, 0.22], SKD = [0.15, 0.26, 0.13], BELLY = [0.55, 0.6, 0.4];
+      const skin = (i, j, k) => (h3(i, j, k, 1) < 0.15 ? SKD : SK);
+      P('legL', [-3.5, 10, -1], [4, 10, 5], [-2, -10, -2.5], (i, j) => (j <= 1 ? SKD : skin(i, j, 0)), 'top');
+      P('legR', [3.5, 10, -1], [4, 10, 5], [-2, -10, -2.5], (i, j) => (j <= 1 ? SKD : skin(i, j, 1)), 'top');
+      P('torso', [0, 8, 0], [12, 11, 22], [-6, 0, -5], (i, j, k, [w, h, d]) => {
+        if (j === h - 1 && i === Math.floor(w / 2) && k % 3 === 0) return GL;   // espinazo que brilla
+        if (j <= 1) return BELLY;
+        return skin(i, j, k);
+      }, 'bottom', (i, j, k, [w, h, d]) => { const t = k / (d - 1), top = h - 1 - Math.round(Math.abs(t - 0.45) * 6); return j <= top && Math.hypot((i - (w - 1) / 2) / (w / 2), Math.max(0, j - top + 3) / 4) <= 1.05; });
+      // púas en el lomo
+      P('spines', [0, 8 + 11, 0], [2, 4, 18], [-1, 0, -4], () => GL, null, (i, j, k) => k % 4 === 0 && j <= 3 - Math.abs(k - 7) / 4, 'torso');
+      P('armL', [-5, 16, 13], [4, 16, 5], [-2, -15, -2.5], (i, j) => (j <= 1 ? [0.85, 0.82, 0.7] : skin(i, j, 2)), 'top', null, 'torso');
+      P('armR', [5, 16, 13], [4, 16, 5], [-2, -15, -2.5], (i, j) => (j <= 1 ? [0.85, 0.82, 0.7] : skin(i, j, 3)), 'top', null, 'torso');
+      P('head', [0, 11, 16], [9, 8, 10], [-4.5, 0, 0], (i, j, k, [w, h, d]) => {
+        if (k === d - 1 && j === 5 && (i === 1 || i === w - 2)) return EYE;
+        if (k >= d - 2 && j === 2) return MOUTH;
+        if (k >= d - 2 && (j === 1 || j === 3) && i % 2 === 0) return TOOTH;
+        return skin(i, j, k);
+      }, 'bottom', (i, j, k, [w, h, d]) => !(j === h - 1 && (i === 0 || i === w - 1)) && !(k === d - 1 && j >= h - 2), 'torso');
+      return { parts, height: 1.25, width: 0.7, v, depth: 1.3 };
+    }
+    if (S === 'masa') {
+      // una bola enorme de carne sobre dos patas cortas, llena de ojos; la cabeza, pequeña, arriba
+      const SK = [0.5, 0.38, 0.45], SKD = [0.32, 0.22, 0.28];
+      P('legL', [-4, 6, 0], [5, 6, 5], [-2.5, -6, -2.5], (i, j) => (j <= 0 ? SKD : SK), 'top');
+      P('legR', [4, 6, 0], [5, 6, 5], [-2.5, -6, -2.5], (i, j) => (j <= 0 ? SKD : SK), 'top');
+      P('torso', [0, 5, 0], [18, 18, 16], [-9, 0, -8], (i, j, k, [w, h, d]) => {
+        const r = h3(i, j, k, 4);
+        if (r < 0.025) return EYE;
+        if (r < 0.06) return [0.08, 0.04, 0.05];
+        if (r < 0.14) return GL;
+        return Math.sin(i * 0.8 + j * 0.5) + Math.cos(k * 0.7) > 1.4 ? SKD : SK;
+      }, 'bottom', (i, j, k, dm) => ell(i, j, k, dm));
+      for (const sd of [-1, 1]) for (let n = 0; n < 2; n++) {
+        const nm = (sd < 0 ? 'armL' : 'armR') + (n ? '2' : '');
+        P(nm, [sd * 9, 16 - n * 5, n ? 3 : -2], [3, 14, 3], [-1.5, -13, -1.5], (i, j) => (j % 3 === 0 ? SKD : SK), 'top', (i, j) => j > 0 || i === 1, 'torso');
+      }
+      P('head', [0, 23, 3], [7, 6, 7], [-3.5, 0, -3.5], (i, j, k, [w, h, d]) => (k === d - 1 && j === 3 && (i === 2 || i === 4) ? EYE : (k === d - 1 && j === 1 && i > 0 && i < w - 1 ? MOUTH : SK)), 'bottom', (i, j, k, dm) => ell(i, j, k, dm, 1, 0.9, 1), 'torso');
+      return { parts, height: 1.5, width: 1.1, v, depth: 0.9 };
+    }
+    // bocazas: cuerpo alto con una boca vertical enorme que le parte el pecho; la cabeza es un muñón con ojos.
+    // Variantes con más detalle: boca1 (carnosa: encías, lengua, babas, garras), boca2 (ósea: costillas
+    // abiertas como colmillos, cráneo, púas en la espalda), boca3 (ojos alrededor de la boca y otra boca en la cabeza)
+    const VAR = S === 'bocazas' ? 0 : +S.slice(4);
+    // paletas (para elegir): piel, ojos, lo que brilla y el interior de la boca
+    const PALS = {
+      verde: { sk: [0.3, 0.46, 0.34], eye: [1, 0.95, 0.2, 1], gl: [0.75, 1, 0.25, 0.9], gum: [0.62, 0.16, 0.2], mouth: [0.35, 0.04, 0.06] },
+      morado: { sk: [0.38, 0.26, 0.46], eye: [0.4, 1, 0.95, 1], gl: [0.4, 0.95, 1, 0.9], gum: [0.75, 0.2, 0.5], mouth: [0.18, 0.02, 0.12] },
+      carne: { sk: [0.62, 0.28, 0.26], eye: [1, 0.9, 0.25, 1], gl: [1, 0.55, 0.15, 0.9], gum: [0.8, 0.12, 0.12], mouth: [0.22, 0.02, 0.02] },
+      palido: { sk: [0.66, 0.66, 0.6], eye: [0.6, 1, 0.3, 1], gl: [0.5, 1, 0.4, 0.8], gum: [0.55, 0.3, 0.32], mouth: [0.1, 0.06, 0.06] },
+      abismo: { sk: [0.1, 0.1, 0.12], eye: [1, 0.45, 0.1, 1], gl: [1, 0.35, 0.05, 0.9], gum: [0.5, 0.06, 0.04], mouth: [0.03, 0.01, 0.01] },
+      pantano: { sk: [0.32, 0.36, 0.2], eye: [1, 0.3, 0.2, 1], gl: [0.85, 0.75, 0.2, 0.8], gum: [0.5, 0.35, 0.15], mouth: [0.12, 0.08, 0.02] },
+    };
+    const PL = VAR === 3 ? (PALS[cfg.hpal || VX.HYDRA_PAL] || PALS.verde) : null;
+    const SK = VAR === 2 ? [0.5, 0.55, 0.44] : PL ? PL.sk : [0.36, 0.5, 0.3];
+    const EYE3 = PL ? PL.eye : EYE, GL3 = PL ? PL.gl : GL, GUM3 = PL ? PL.gum : [0.62, 0.16, 0.2], MOUTH3 = PL ? PL.mouth : MOUTH;
+    const SKD = [SK[0] * 0.55, SK[1] * 0.58, SK[2] * 0.55], GUM = [0.62, 0.16, 0.2], GUM2 = [0.45, 0.08, 0.12], BONE = [0.86, 0.84, 0.74], VEIN = [0.45, 0.85, 0.25, 0.7];
+    const skin = (i, j, k) => (h3(i >> 1, j >> 1, k, 2) < 0.2 ? SKD : SK);
+    const legFn = (i, j, k, [w, h, d]) => {
+      if (j <= 1) return VAR ? (k === d - 1 && i % 2 === 0 ? BONE : SKD) : SKD;   // pies con uñas
+      if (VAR && Math.abs(j - 8) <= 0 && k === d - 1) return VAR === 2 ? BONE : SKD;   // rodilla
+      if (VAR === 1 && (i + j * 2) % 9 === 0) return VEIN;
+      return skin(i, j, k);
+    };
+    P('legL', [-3, 15, 0], [4, 15, 4], [-2, -15, -2], legFn, 'top');
+    P('legR', [3, 15, 0], [4, 15, 4], [-2, -15, -2], legFn, 'top');
+    P('torso', [0, 15, 0], [13, 19, 8], [-6.5, 0, -4], (i, j, k, [w, h, d]) => {
+      const c = (w - 1) / 2, open = Math.round(3.2 * Math.sin(Math.PI * (j - 2) / (h - 5)));
+      if (k >= d - 2 && j >= 2 && j <= h - 3) {
+        const di = Math.abs(i - c);
+        if (di < open - 0.5) return k === d - 1 ? null : (VAR === 1 && di < 0.6 ? GUM : MOUTH3);
+        if (di < open + 0.6) return VAR === 2 && j % 2 ? BONE : (VAR === 1 && k === d - 2 ? GUM : TOOTH);
+        if (VAR === 1 && di < open + 1.6 && k === d - 1) return GUM2;   // encías hinchadas alrededor
+        if (VAR === 3 && di < open + 2.2 && k === d - 1 && (j % 4 === 1) ) return EYE3;   // ojos rodeando la boca
+      }
+      // costillas a los lados y en la espalda
+      if (VAR === 2 && (i === 0 || i === w - 1 || k === 0) && j > 4 && j < h - 3 && j % 2 === 0) return BONE;
+      if (VAR === 1 && (i === 0 || i === w - 1) && j > 4 && j < h - 3 && j % 3 === 0) return SKD;
+      if (VAR === 3 && h3(i, j, k, 7) < 0.08) return GL3;   // bultos que brillan
+      if (h3(i, j, k, 7) < (VAR ? 0.03 : 0.06)) return GL3;
+      return skin(i, j, k);
+    }, 'bottom', (i, j, k, [w, h, d]) => !(j >= h - 2 && (i === 0 || i === w - 1)));
+    const armFn = (i, j, k, [w, h, d]) => {
+      if (j <= 2) return VAR ? (j === 0 || (i + k) % 2 === 0 ? BONE : SKD) : (j <= 1 ? TOOTH : skin(i, j, k));   // garras
+      if (VAR === 2 && j < h * 0.5 && (i === 0 || i === w - 1) && j % 2) return BONE;   // antebrazo descarnado
+      if (VAR === 1 && (j * 3 + i) % 7 === 0) return VEIN;
+      return skin(i, j, k);
+    };
+    P('armL', [-8.5, 32, 0], [4, 22, 4], [-2, -21, -2], armFn, 'top', null, 'torso');
+    P('armR', [8.5, 32, 0], [4, 22, 4], [-2, -21, -2], armFn, 'top', null, 'torso');
+    P('head', [0, 34, 1], [6, 5, 6], [-3, 0, -3], (i, j, k, [w, h, d]) => {
+      if (k === d - 1 && j === 2 && (i === 1 || i === 4)) return VAR === 2 ? [0.05, 0.05, 0.05] : EYE3;
+      if (VAR === 2 && k === d - 1 && j === 3 && (i === 1 || i === 4)) return [0.9, 1, 0.3, 1];
+      if (VAR === 2) return j === 0 && k === d - 1 && i % 2 ? TOOTH : BONE;   // cráneo
+      if (VAR === 3 && k === d - 1 && j <= 1) return j === 0 ? MOUTH3 : TOOTH;   // otra boquita en la cabeza
+      return skin(i, j, k);
+    }, 'bottom', (i, j, k, [w, h, d]) => !(VAR === 2 && j === h - 1 && (i === 0 || i === w - 1)), 'torso');
+    if (VAR) {
+      // hombros con espolones de hueso
+      for (const sd of [-1, 1]) P(sd < 0 ? 'spurL' : 'spurR', [sd * 7.5, 33, -1], [3, 5, 3], [-1.5, 0, -1.5], (i, j) => (j >= 3 ? BONE : SKD), null,
+        (i, j, k) => j < 3 || (i === 1 && k === 1) || (j === 3 && (i === 1 || k === 1)), 'torso');
+    }
+    if (VAR === 1) {
+      // lengua larga colgando de la boca y babas
+      P('tongue', [0, 22, 4], [3, 9, 3], [-1.5, -9, 0], (i, j) => (j % 3 === 0 ? GUM2 : GUM), 'top', (i, j, k) => (i === 1 || j > 5) && (k <= 1 || j < 2), 'torso').sway = 0.4;
+      for (const x of [-1.5, 1.5]) P('drool' + (x < 0 ? 'L' : 'R'), [x, 19, 4], [1, 5, 1], [-0.5, -5, 0], () => [0.75, 0.9, 0.7, 0.35], 'top', null, 'torso').sway = 0.5;
+    }
+    if (VAR === 2) {
+      // púas del espinazo
+      P('spines', [0, 18, -4.5], [2, 16, 3], [-1, 0, -2], () => BONE, null, (i, j, k) => j % 3 === 0 && k >= 2 - Math.floor(j / 6), 'torso');
+    }
+    if (VAR === 3) {
+      // lengua-tentáculo que sale de la boca y se enrosca hacia arriba
+      P('tongue', [0, 24, 4], [3, 10, 6], [-1.5, 0, 0], (i, j) => (j % 2 ? GUM3 : [GUM3[0] * 0.7, GUM3[1] * 0.6, GUM3[2] * 0.6]), null,
+        (i, j, k) => Math.abs(k - (2 + Math.sin(j * 0.6) * 2)) < 1.2 && i === 1, 'torso').sway = 0.5;
+    }
+    return { parts, height: 2.1, width: 0.9, v, depth: 0.5 };
+  }
+
+  function hydra(cfg) {
+    const S = cfg.hstyle || VX.HYDRA_STYLE || 'actual';
+    const v = cfg.v;
+    const GL = [0.75, 1, 0.25, 0.9], GL2 = [0.5, 0.9, 0.2, 0.6], EYE = [1, 0.95, 0.2, 1];
+    const SK = cfg.skin, SKD = [SK[0] * 0.65, SK[1] * 0.65, SK[2] * 0.65], SKL = [SK[0] * 1.2, SK[1] * 1.15, SK[2] * 1.1];
+    const h3 = (i, j, k, s) => M.hash3(i + s * 13, j + s * 7, k + s * 3);
+    if (S === 'bestia' || S === 'masa' || S.startsWith('boca')) return hydraShape(S, cfg);
+    let c2 = { ...cfg };
+    if (S === 'tentaculos') c2 = { ...cfg, arm: [3, 32, 3], head: [10, 9, 9], headFwd: 2, claws: false };
+    if (S === 'brotes') c2 = { ...cfg, pustules: false };
+    // por tamaño: un coloso de carne viva, un larguirucho pálido o uno pequeño y gelatinoso
+    if (S === 'coloso') c2 = { ...cfg, v: 0.072, leg: [5, 14, 5], torso: [15, 14, 9], arm: [6, 19, 6], head: [6, 6, 6], headFwd: 3,
+      skin: [0.62, 0.3, 0.3], shirt: [0.62, 0.3, 0.3], pants: [0.45, 0.2, 0.2], pustules: false, eye: [0.6, 1, 0.3], claws: true };
+    if (S === 'alto') c2 = { ...cfg, v: 0.056, leg: [3, 27, 3], torso: [8, 16, 4], arm: [3, 27, 3], head: [6, 11, 6], headFwd: 1,
+      skin: [0.6, 0.66, 0.56], shirt: [0.6, 0.66, 0.56], pants: [0.6, 0.66, 0.56], pustules: false, eye: [0.7, 1, 0.3], claws: true, ribs: true };
+    if (S === 'pequeno') c2 = { ...cfg, v: 0.042, leg: [4, 10, 4], torso: [11, 11, 8], arm: [4, 12, 4], head: [10, 10, 10], headFwd: 1,
+      skin: [0.3, 0.62, 0.42], shirt: [0.3, 0.62, 0.42], pants: [0.3, 0.62, 0.42], pustules: false, eye: [1, 0.9, 0.2] };
+    const model = humanoid(c2);
+    if (S === 'actual') return model;
+    const [tw, th, td] = c2.torso, [hw, hh, hd] = c2.head, [aw, ah] = c2.arm, hipY = c2.leg[1];
+    const add = (name, parent, pivot, dims, min, fn, shape, extra = {}) => {
+      const pt = makePart(name, pivot, dims, min, v, fn, null, shape);
+      pt.parent = parent; Object.assign(pt, extra);
+      if (pt.alive > 0) model.parts.push(pt);
+      return pt;
+    };
+    const top = hipY + th;
+    if (S === 'coloso') {
+      // carne viva sin piel: fibras de músculo, venas verdes que brillan y la cabeza hundida entre los hombros
+      for (const p of model.parts) for (const vx of p.vox) {
+        if (!vx.alive) continue;
+        const fib = (vx.j + (vx.i >> 1)) % 3 === 0, vein = Math.abs(Math.sin(vx.i * 0.7 + vx.j * 0.4) + Math.cos(vx.k * 0.9 + vx.j * 0.2)) < 0.12;
+        if (p.name === 'head' && vx.e > 0.5) continue;
+        if (vein) { vx.r = GL[0]; vx.g = GL[1]; vx.b = GL[2]; vx.e = 0.7; }
+        else if (fib) { vx.r *= 0.7; vx.g *= 0.6; vx.b *= 0.6; }
+      }
+      add('hump', 'torso', [0, top - 4, -1], [tw - 2, 6, td - 1], [-(tw - 2) / 2, 0, -(td - 1) / 2], (i, j, k) => (h3(i, j, k, 6) < 0.18 ? GL : SKD),
+        (i, j, k, [w, h, d]) => Math.hypot((i - (w - 1) / 2) / (w / 2), j / h, (k - (d - 1) / 2) / (d / 2)) < 1);
+      return model;
+    }
+    if (S === 'alto') {
+      // pálido y larguísimo: costillas marcadas, cuencas negras con una chispa verde y venas finas
+      for (const p of model.parts) for (const vx of p.vox) {
+        if (!vx.alive || vx.e > 0.5) continue;
+        if ((vx.j * 3 + vx.i) % 11 === 0) { vx.r = 0.35; vx.g = 0.6; vx.b = 0.3; }
+      }
+      add('spine', 'torso', [0, hipY + 2, -c2.torso[2] / 2 - 0.5], [2, th - 2, 1], [-1, 0, -0.5], (i, j) => (j % 2 ? [0.82, 0.84, 0.76] : GL2));
+      return model;
+    }
+    if (S === 'pequeno') {
+      // gelatina verde semitransparente con un núcleo que brilla dentro del pecho
+      for (const p of model.parts) for (const vx of p.vox) {
+        if (!vx.alive || vx.e > 0.5) continue;
+        vx.e = Math.max(vx.e, 0.18 + h3(vx.i, vx.j, vx.k, 2) * 0.15);
+      }
+      add('core', 'torso', [0, hipY + 4, td / 2 + 0.5], [4, 4, 1], [-2, 0, -0.5], () => [1, 0.95, 0.3, 1], (i, j) => !((i === 0 || i === 3) && (j === 0 || j === 3)));
+      return model;
+    }
+    if (S === 'cabezas') {
+      // dos cuellos que suben en diagonal desde los hombros, cada uno con una cabeza pequeña
+      // de boca abierta y ojos amarillos (la cabeza del centro sigue siendo el punto débil)
+      for (const sd of [-1, 1]) {
+        const nm = sd < 0 ? 'L' : 'R', W = 8, Hh = 14;
+        add('neck' + nm, 'torso', [sd * (tw / 2 - 1), top - 2, 0], [W, Hh, 3], [sd < 0 ? -W : 0, 0, -1.5],
+          (i, j, k) => (h3(i, j, k, 2) < 0.12 ? GL2 : (j % 3 === 0 ? SKD : SK)),
+          (i, j) => { const c = sd < 0 ? W - 2 - j * 0.45 : 1 + j * 0.45; return Math.abs(i - c) < 1.8; }, { sway: 0.2 });
+        const hx = sd * (tw / 2 - 1 + 6.8);
+        add('head' + nm, 'neck' + nm, [hx, top + Hh - 3, 1], [6, 6, 8], [-3, 0, -4], (i, j, k, [w, h, d]) => {
+          if (k === d - 1 && j === 3 && (i === 1 || i === 3)) return EYE;
+          if (k >= d - 2 && j === 1) return [0.25, 0.05, 0.05];   // boca abierta
+          if (k === d - 1 && j === 0 && i % 2 === 0) return [0.9, 0.88, 0.75];   // dientes
+          return h3(i, j, k, 5) < 0.15 ? GL2 : (j === h - 1 ? SKD : SK);
+        }, (i, j, k, [w, h, d]) => !(corner(i, k, w, d) <= 0 && j === h - 1) && !(k >= d - 2 && j === 1 && i > 0 && i < w - 1));
+      }
+      // collar de bultos que laten en la base de los cuellos
+      add('sacs', 'torso', [0, top - 3, 0], [tw + 2, 3, td + 2], [-(tw + 2) / 2, 0, -(td + 2) / 2], (i, j, k) => (h3(i, j, k, 9) < 0.4 ? GL : SKL),
+        (i, j, k, [w, h, d]) => (i === 0 || i === w - 1 || k === 0 || k === d - 1) && h3(i, j, k, 8) < 0.45);
+    } else if (S === 'tentaculos') {
+      // cúpula hinchada sobre la cabeza con venas que brillan y un racimo de ojos
+      add('dome', 'head', [0, top + hh - 3, 2], [hw + 4, 9, hd + 4], [-(hw + 4) / 2, 0, -(hd + 4) / 2], (i, j, k, [w, h, d]) => {
+        if (k === d - 1 && j <= 2 && ((i + j) % 3 === 0)) return EYE;
+        return (Math.abs(Math.sin(i * 0.9 + j * 0.6) + Math.cos(k * 0.8)) < 0.25) ? GL : (h3(i, j, k, 3) < 0.2 ? SKD : SKL);
+      }, (i, j, k, [w, h, d]) => Math.hypot((i - (w - 1) / 2) / (w / 2), (j - 0.5) / h, (k - (d - 1) / 2) / (d / 2)) < 1.05);
+      // dos tentáculos más que salen de la espalda y se abren hacia los lados, curvándose hacia abajo
+      for (const sd of [-1, 1]) {
+        const W = 12, Hh = 16;
+        add('tent' + (sd < 0 ? 'L' : 'R'), 'torso', [sd * (tw / 2 - 2), top - 3, -td / 2], [W, Hh, 2], [sd < 0 ? -W : 0, -Hh + 4, -2],
+          (i, j, k) => ((j + i) % 4 === 0 ? [0.85, 0.55, 0.6] : (j % 5 === 0 ? GL2 : SK)),
+          (i, j) => { const t = sd < 0 ? (W - 1 - i) / (W - 1) : i / (W - 1); const yc = Hh - 5 + Math.sin(t * 2.4) * 4 - t * t * 10; return Math.abs(j - yc) < 1.5 - t * 0.6; }, { sway: 0.35 });
+      }
+      // ventosas a lo largo de los tentáculos
+      for (const p of model.parts) if (p.name === 'armL' || p.name === 'armR') for (const vx of p.vox) {
+        if (vx.j <= 1) { vx.r = SKD[0]; vx.g = SKD[1]; vx.b = SKD[2]; }
+        else if (vx.j % 3 === 0 && vx.k === 0) { vx.r = 0.85; vx.g = 0.55; vx.b = 0.6; }
+        else if (vx.j % 5 === 0) { vx.r = GL2[0]; vx.g = GL2[1]; vx.b = GL2[2]; vx.e = GL2[3]; }
+      }
+    } else if (S === 'brotes') {
+      // raíces que cuelgan del cuerpo, bulbos que brillan y un brazo de más saliendo de la espalda
+      // un brazo de más brotando del hombro izquierdo hacia arriba, con su mano de garras
+      add('armX', 'torso', [-(tw / 2 + 1), top - 1, 0], [9, 15, 3], [-9, 0, -1.5],
+        (i, j, k) => (j >= 12 ? SKD : (j % 4 === 0 ? GL2 : SK)),
+        (i, j) => { const c = 7 - j * 0.45; return Math.abs(i - c) < (j >= 12 ? 1.8 : 1.3) || (j === 14 && (i === Math.round(c) - 2 || i === Math.round(c) + 2)); }, { sway: 0.3 });
+      for (let n = 0; n < 7; n++) {
+        const x = M.rand(-tw / 2, tw / 2), z = M.choice([-td / 2 - 0.5, td / 2 + 0.5]), len = M.randInt(7, 14);
+        add('root' + n, 'torso', [x, M.randInt(3, th - 2), z], [2, len, 1], [-1, -len, -0.5], (i, j) => (j === 0 ? GL : [0.3, 0.22, 0.1]), (i, j) => (j < len * 0.6 || i === 0), { sway: 0.35 });
+      }
+      add('bulbs', 'torso', [0, top - 2, 0], [tw + 2, 3, td + 2], [-(tw + 2) / 2, 0, -(td + 2) / 2], () => GL,
+        (i, j, k, [w, h, d]) => (i === 0 || i === w - 1 || k === 0 || k === d - 1 || j === h - 1) && h3(i, j, k, 4) < 0.3);
+      add('crown', 'head', [0, top + hh, 0], [hw, 4, hd], [-hw / 2, 0, -hd / 2], (i, j) => (j === 3 ? GL : [0.35, 0.28, 0.14]),
+        (i, j, k, [w, h, d]) => (i + k) % 3 === 0 && j < 2 + ((i * 7 + k * 3) % 3));
+      // piel a parches de distintos tonos (cosida a trozos)
+      for (const p of model.parts) if (['torso', 'legL', 'legR', 'armL', 'armR'].includes(p.name)) for (const vx of p.vox) {
+        const pz = Math.floor(h3(vx.i >> 2, vx.j >> 2, vx.k >> 2, p.name.length) * 3);
+        const m = [0.85, 1, 1.18][pz];
+        vx.r *= m; vx.g *= m; vx.b *= m * 0.95;
+      }
+    }
+    return model;
+  }
+
   // Caballero negro. kstyle elige el diseño (para comparar propuestas):
   //   actual · errante (yelmo de cubo con rendija en cruz, sin oro) · celada (casco redondeado con visera)
   //   hueco (yelmo abierto: dentro sólo oscuridad y dos ojos) · luto (capucha y manto de tela sobre la armadura)
@@ -761,6 +1013,8 @@
     const H = (i, j, k, s = 0) => M.hash3(i + sd + s * 31, j + s * 7, k + s * 17);
     const FL = (i, j, k) => {
       const h = H(i, j, k, 1);
+      if (cfg.flesh === 'hydra-carne') return h < 0.14 ? [1, 0.55, 0.15, 0.6] : h < 0.5 ? [0.5, 0.2, 0.18] : h < 0.8 ? [0.62, 0.28, 0.26] : [0.7, 0.4, 0.35];   // brote de carne
+      if (cfg.flesh === 'hydra-morado') return h < 0.14 ? [0.4, 0.95, 1, 0.6] : h < 0.5 ? [0.28, 0.18, 0.34] : h < 0.8 ? [0.38, 0.26, 0.46] : [0.5, 0.35, 0.55];   // brote morado
       if (cfg.flesh === 'hydra') return h < 0.14 ? [0.75, 1, 0.3, 0.6] : h < 0.5 ? [0.4, 0.5, 0.28] : h < 0.8 ? [0.52, 0.62, 0.38] : [0.6, 0.55, 0.4];   // brote verde que late
       if (h < 0.08) return [0.86, 0.8, 0.66];                     // hueso
       if (h < 0.16) return [0.9, 0.35, 0.2, 0.55];                // brasa de vida que late
@@ -1106,8 +1360,8 @@
     revpile: () => ({ v: 0.064, eye: [0.45, 0.9, 1] }),   // un poco más grande que antes (0.05)
     // hidra: carne pálida verdosa con bultos que laten y ojos amarillos (la cabeza es su punto débil)
     hydra: () => ({
-      v: 0.05, blocky: true, leg: [4, 18, 4], torso: [10, 14, 6], arm: [4, 18, 4], head: [8, 8, 8],
-      skin: [0.52, 0.6, 0.4], shirt: [0.52, 0.6, 0.4], pants: [0.26, 0.3, 0.2], shoes: [0.15, 0.17, 0.1],
+      v: 0.056, blocky: true, leg: [4, 18, 4], torso: [10, 14, 6], arm: [4, 18, 4], head: [8, 8, 8],
+      skin: [0.36, 0.56, 0.26], shirt: [0.36, 0.56, 0.26], pants: [0.26, 0.3, 0.2], shoes: [0.15, 0.17, 0.1],
       eye: [0.85, 1, 0.2], tear: 0.15, style: 'bare', pustules: true, jaw: true, claws: true, barefoot: true, ribs: true,
       extras: ['ridge'], hydra: true,
     }),
@@ -1170,7 +1424,7 @@
     shoes: [0.2, 0.12, 0.08], eye: [0.3, 0.9, 1.0], tear: 0, clean: true, hood: [0.28, 0.14, 0.38],
   });
 
-  Models.knight = knight; Models.pile = pile;
+  Models.knight = knight; Models.pile = pile; Models.hydra = hydra;
   Models.makePart = makePart; Models.corner = corner;   // para piezas de fuera (personalización del jugador)
   VX.Models = Models;
 })();

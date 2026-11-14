@@ -1915,7 +1915,10 @@
         // los señuelos encendidos también son destino del mapa de caminos
         let fx = VX.Coop.flowExtra();
         if (VX.Throw.decoys.length) { fx = fx ? fx.slice() : []; for (const d of VX.Throw.decoys) if (!d.dead) fx.push(d.x, d.z); }
-        this.world.updateFlow(this.currentRoom, P.x, P.z, dt, fx);
+        // cooperativo: si el anfitrión está en el suelo o muerto, los caminos llevan a los que siguen en pie
+        let ox = P.x, oz = P.z;
+        if (VX.Coop.isHost && (VX.Coop.down || VX.Coop.deadWait || P.dead) && fx && fx.length >= 2) { ox = fx[0]; oz = fx[1]; }
+        this.world.updateFlow(this.currentRoom, ox, oz, dt, fx);
       }
 
       this.enemyLod();   // detalle de cada zombi según la distancia y la calidad

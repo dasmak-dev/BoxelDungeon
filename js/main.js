@@ -99,4 +99,25 @@
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+
+  // Con la ventana minimizada o en otra pestaña el navegador deja de llamar a requestAnimationFrame.
+  // En el cooperativo eso congelaba la partida de todos si era el anfitrión (y al invitado lo dejaba
+  // quieto). Un «reloj» en un worker (que el navegador no frena tanto) sigue moviendo el juego, sin dibujar.
+  try {
+    const src = 'let t=null;onmessage=(e)=>{clearInterval(t);if(e.data)t=setInterval(()=>postMessage(0),50);};';
+    const tick = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    let hidLast = 0;
+    tick.onmessage = () => {
+      if (!document.hidden || !VX.Coop.active) return;
+      const now = performance.now();
+      let realDt = (now - (hidLast || now - 50)) / 1000;
+      hidLast = now; last = now;
+      realDt = Math.min(realDt, 0.5);
+      try {
+        while (realDt > 0.0001) { const step = Math.min(0.05, realDt); game.update(step); realDt -= step; }
+      } catch (e) { console.error(e); }
+      VX.Input.endFrame();
+    };
+    document.addEventListener('visibilitychange', () => { hidLast = 0; tick.postMessage(document.hidden ? 1 : 0); });
+  } catch (e) { /* sin workers: como antes */ }
 })();

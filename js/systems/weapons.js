@@ -508,6 +508,7 @@
     { id: 'pistola', name: 'Pistola', desc: 'Equilibrada: precisa y rápida' },
     { id: 'deagle', name: 'Desert Eagle', cond: { stat: 'headshots', n: 75 }, txt: 'Revienta 75 cabezas',
       desc: 'Calibre .50: mucho daño y atraviesa, pero dispara despacio y retrocede mucho',
+      vm: { x: 0.14, y: -0.115, z: -0.29, g: 0.0068 },   // modelo grande: a menos escala para que no tape media pantalla
       stats: { name: 'Desert Eagle', damage: 58, fireRate: 2.6, mag: 7, reload: 1.7, spread: 0.007, pierce: 1, destruction: 1.5, recoil: 0.06, recoilPat: { up: 0.09, side: 0.02 }, kick: 0.075, shake: 0.26, sound: 1.9, sfx: 'deagle', muzzle: [-0.5, 6.5, -36] } },
     { id: 'revolver', name: 'Revólver', cond: { stat: 'bosses', n: 2 }, txt: 'Remata a 2 jefes',
       desc: 'Seis balas que derriban: daño alto, muy preciso, recarga lenta',
@@ -1007,10 +1008,9 @@
   PISTOL_BASE.sfx = 'pistol';
   function applyPistolForm(id) {
     const f = PISTOLS.find((p) => p.id === id) || PISTOLS[0];
-    const vm = DEFS.pistol.vm;
     for (const k of Object.keys(DEFS.pistol)) delete DEFS.pistol[k];
     Object.assign(DEFS.pistol, JSON.parse(JSON.stringify(PISTOL_BASE)), f.stats ? JSON.parse(JSON.stringify(f.stats)) : {});
-    DEFS.pistol.vm = vm;
+    DEFS.pistol.vm = { ...(f.vm || PISTOL_BASE.vm) };
     DEFS.pistol.form = f.id;
   }
   DEFS.smg.sfx = 'smg'; DEFS.shotgun.sfx = 'shotgun'; DEFS.rifle.sfx = 'rifle'; DEFS.launcher.sfx = 'launcher';

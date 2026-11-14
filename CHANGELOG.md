@@ -3,6 +3,32 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.42.0] — 2026-11-14
+
+### Cambiado
+- **Hidra con aspecto nuevo**: ya no parece un zombi más. Ahora es alta (unos 2 m), de brazos larguísimos con garras, con una **boca vertical enorme que le parte el pecho** rodeada de ojos, una lengua-tentáculo que sale de ella y se enrosca, bultos que brillan, espolones de hueso en los hombros y una cabeza pequeña con otra boquita. **La cabeza pequeña sigue siendo lo único que la mata.**
+- **Cambia de color según el bioma**: de **carne viva** con ojos amarillos y bultos naranjas (Cripta, Minas, Jardín fúngico, Coliseo y Base militar) o **morada** con ojos y bultos cian (Cloacas, Forja, Vacío, Ciudad nocturna y Barco). Los brotes que deja en el suelo van del mismo color.
+
+## [0.41.5] — 2026-11-14
+
+### Cambiado
+- **La hidra se reconoce**: es algo más grande (+12 %) y de un verde más vivo, y la primera vez que aparece sale el aviso «¡UNA HIDRA!» (sólo muere si le revientas la cabeza). Comprobado que sí sale en la Horda cooperativa: en la oleada 8, unas 4 de cada 100 apariciones; antes se confundía con un zombi normal.
+- **Desert Eagle aún más pequeña en pantalla** (un 10 % menos que en la 0.41.3).
+
+## [0.41.4] — 2026-11-14
+
+### Arreglado (cooperativo)
+- **Los zombis ya no se quedan con quien está en el suelo o muerto**: si el anfitrión caía, el mapa de caminos seguía llevando a los zombis hasta su cuerpo aunque ya no fuera su objetivo. Ahora, con el anfitrión en el suelo o muerto, los caminos llevan a los compañeros que siguen en pie.
+- **El renacido se ve igual en todas las pantallas**: cuando vuelve a levantarse más grande (y más fuerte), los compañeros ahora lo ven con su tamaño nuevo, no con el de siempre.
+- **Las partes arrancadas se ven en todas las pantallas**: si alguien le arranca las piernas (o un brazo, la cabeza…) a un zombi, a los demás también se les cae y lo ven arrastrarse. Al caballero y a la hidra les vuelve a crecer también en la pantalla de los compañeros.
+- **Minimizar ya no congela la partida**: si el anfitrión minimizaba la ventana o cambiaba de pestaña (por ejemplo, mientras estaba en el suelo), el navegador dejaba de mover el juego y la partida se paraba para todos. Ahora sigue funcionando en segundo plano (sin dibujar ni sonar) y los demás pueden seguir jugando.
+
+## [0.41.3] — 2026-11-14
+
+### Cambiado
+- **Casquillos de la pistola**: al disparar, la vaina sale despedida por arriba a la derecha (más grande y más lenta, para que se vea) y además cae al suelo de verdad y rebota. Las vainas de las demás armas (subfusil, rifle, ametralladora, escopeta) también caen al suelo.
+- **Desert Eagle más pequeña en pantalla**: se dibuja a un 80 % de la escala de antes, más o menos como la pistola normal, para que no tape tanto.
+
 ## [0.41.2] — 2026-11-14
 
 ### Cambiado
