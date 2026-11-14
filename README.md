@@ -21,6 +21,8 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 | Ctrl | Inspeccionar el arma (configurable) |
 | 1 · 2 · 3 / rueda / Q | Cambiar de arma (Q = la anterior) |
 | V | Cuchillazo rápido (configurable) |
+| T | Lanzar granada, cóctel molotov o señuelo (configurable) |
+| B | Cambiar el objeto que se lanza (configurable) |
 | C / clic derecho | Esquivar (impulso corto con invulnerabilidad) |
 | Clic derecho (con el rifle) | Mantener para mirar por la mirilla |
 | Esc o P → Guardar y salir | Suspende la partida (se reanuda una vez; se pierde si mueres) |
@@ -51,11 +53,13 @@ Va mejor en Chrome para Android. La primera vez el juego empieza en calidad medi
 - **Puertas con llave**: algunas salas guardan un cofre tras una puertecita con una marca roja, azul o dorada; su llave está escondida dentro de algún objeto de la sala que se puede romper.
 - **Niebla baja** según el bioma, que se abre al pasar, disparar o con las explosiones; en las salas de niebla espesa sólo se ven los ojos de los zombis y se oyen sus pasos.
 - **6 armas** + mejoras normales, raras y maldiciones; esquiva; retos opcionales por sala.
+- **Objetos arrojables** con tecla propia: granadas que rebotan, cócteles molotov que dejan un charco de fuego y señuelos que pitan y atraen a los zombis antes de reventar.
+- **Accesorios de arma** para la partida (mira réflex, silenciador, compensador, empuñadura vertical, láser, cargador ampliado y doble cargador): se montan en el arma, se ven en el modelo y la mejoran. Los accesorios, el molotov y el señuelo **se desbloquean con misiones** (Armería → Equipo).
 - **Progresión permanente**: esencia para el Santuario (bendiciones y arsenal), skins por arma que se desbloquean con retos **formas del cuchillo** (karambit, daga, machete, bayoneta, navaja mariposa) y **modelos de pistola** (Desert Eagle, revólver y pistola automática, cada uno con su daño, cadencia, cargador y sonido) que se desbloquean con misiones.
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.35.4**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.36.1**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.

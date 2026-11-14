@@ -13,6 +13,7 @@
     ['reload', 'R', 'KeyR'],
     ['swap', 'ARMA', 'swap'],
     ['knife', 'CUCHILLO', 'knife'],
+    ['throw', 'LANZAR', 'throw'],
     ['use', 'USAR', 'KeyE'],
     ['aim', 'MIRILLA', 'aim'],
   ];
@@ -20,6 +21,7 @@
     ['pause', '❚❚', 'pause'],
     ['light', 'LUZ', 'flashlight'],
     ['map', 'MAPA', 'KeyM'],
+    ['tnext', 'OBJETO ⇄', 'throwNext'],
     ['wave', 'OLEADA', 'KeyG'],
     ['full', '⛶', 'full'],
   ];
@@ -175,6 +177,7 @@
         case 'full': this.toggleFullscreen(); break;
         case 'flashlight': this.key(VX.Settings.key('flashlight'), true); break;
         case 'knife': this.key(VX.Settings.key('knife'), true); break;
+        case 'throw': case 'throwNext': this.key(VX.Settings.key(act), true); break;
         default: this.key(act, true);
       }
     },
@@ -185,6 +188,7 @@
         case 'aim': I.rightDown = false; break;
         case 'flashlight': this.key(VX.Settings.key('flashlight'), false); break;
         case 'knife': this.key(VX.Settings.key('knife'), false); break;
+        case 'throw': case 'throwNext': this.key(VX.Settings.key(act), false); break;
         case 'swap': case 'run': case 'pause': case 'full': break;
         default: this.key(act, false);
       }

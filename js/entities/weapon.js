@@ -27,6 +27,40 @@
       this.explosions = [];
       this.queued = false;
       this.accent = null;
+      this.att = {};                                       // accesorios montados por arma: { smg: ['reflex', 'extmag'] }
+      this.throws = { frag: 2, molotov: 0, decoy: 0 };     // objetos arrojables de la partida
+      this.throwSel = 'frag'; this.throwCd = 0;
+    }
+
+    // ---- accesorios ----
+    attList(id = this.slot.id) { return this.att[id] || []; }
+    attMul(id = this.slot.id) {
+      const m = { damage: 1, spread: 1, range: 1, mag: 1, reload: 1, recoil: 1, sound: 1 };
+      for (const a of this.attList(id)) { const d = VX.Weapons.ATTACH[a]; if (d) for (const k in d.mul) m[k] *= d.mul[k]; }
+      return m;
+    }
+    formOf(id) { return id === 'pistol' ? VX.Weapons.DEFS.pistol.form || 'pistola' : null; }
+    // monta un accesorio: primero en el arma de la mano, si no cabe en la otra. Devuelve el arma o null
+    giveAttach(a, game) {
+      const def = VX.Weapons.ATTACH[a];
+      const guns = [this.slot, ...this.slots.filter((s) => s !== this.slot)].filter((s) => !VX.Weapons.DEFS[s.id].melee && VX.Weapons.attFits(s.id, this.formOf(s.id), a));
+      if (!def || !guns.length) return null;
+      // mejor un arma que aún no lo tenga y con ese hueco libre
+      const score = (s) => (this.attList(s.id).includes(a) ? 2 : 0) + (this.attList(s.id).some((x) => VX.Weapons.ATTACH[x].slot === def.slot) ? 1 : 0);
+      const g = guns.slice().sort((p, q) => score(p) - score(q))[0];
+      const list = this.attList(g.id).filter((x) => VX.Weapons.ATTACH[x].slot !== def.slot);
+      const old = this.attList(g.id).find((x) => VX.Weapons.ATTACH[x].slot === def.slot);
+      list.push(a); this.att[g.id] = list;
+      if (game) game.hud.banner('ACCESORIO: ' + def.name.toUpperCase(), VX.Weapons.DEFS[g.id].name + ' · ' + def.desc + (old && old !== a ? ' (sustituye a ' + VX.Weapons.ATTACH[old].name.toLowerCase() + ')' : ''), 3);
+      return g.id;
+    }
+    // un accesorio que le sirva a alguna de tus armas (mejor uno que todavía no tengas)
+    randomAttach() {
+      const ids = Object.keys(VX.Weapons.ATTACH).filter((a) => VX.Profile.attachUnlocked(a));   // sólo los desbloqueados con su misión
+      const fits = ids.filter((a) => this.slots.some((s) => !VX.Weapons.DEFS[s.id].melee && VX.Weapons.attFits(s.id, this.formOf(s.id), a)));
+      const fresh = fits.filter((a) => !this.slots.some((s) => this.attList(s.id).includes(a)));
+      const pool = fresh.length ? fresh : fits;
+      return pool.length ? pool[(Math.random() * pool.length) | 0] : null;
     }
 
     mk(id) { return { id, ammo: this.magFor(id), reserve: this.reserveStart(id) }; }
@@ -63,11 +97,11 @@
     get id() { return this.slot.id; }
 
     stats(id = this.slot.id) {
-      const d = VX.Weapons.DEFS[id], m = this.mods;
+      const d = VX.Weapons.DEFS[id], m = this.mods, a = this.attMul(id);
       if (d.melee) return { melee: true, damage: d.damage * Math.sqrt(m.damage), fireRate: d.fireRate, reach: d.reach, destruction: 1 };
       return {
-        damage: d.damage * m.damage, fireRate: d.fireRate * m.rate, range: d.range * m.range,
-        mag: Math.round(d.mag * m.mag), reload: d.reload * m.reload, spread: d.spread * m.spread,
+        damage: d.damage * m.damage * a.damage, fireRate: d.fireRate * m.rate, range: d.range * m.range * a.range,
+        mag: Math.round(d.mag * m.mag * a.mag), reload: d.reload * m.reload * a.reload, spread: d.spread * m.spread * a.spread,
         pellets: d.pellets + (d.pellets > 1 ? m.pellets * 2 : m.pellets), pierce: d.pierce + m.pierce,
         destruction: d.destruction * m.destruction, auto: d.auto || m.auto, ricochet: m.ricochet || 0,
       };
@@ -130,7 +164,7 @@
     // al soltar, la mira vuelve sola en parte. Las mejoras de retroceso lo reducen.
     applyRecoil(P, d) {
       const R = d.recoilPat || { up: d.recoil * 0.35, side: d.recoil * 0.12 };
-      const m = this.mods.recoil || 1;
+      const m = (this.mods.recoil || 1) * this.attMul().recoil;
       this.heat = Math.min(30, (this.heat || 0) + 1);
       const climb = R.up * (1 + Math.min(1.2, this.heat * 0.06)) * m;
       // deriva lateral: tira hacia un lado y cambia de sentido a ráfagas
@@ -194,6 +228,10 @@
       if (I.wasPressed('Digit3')) this.select(2);
       if (I.wasPressed('KeyQ')) this.select(this.prev);
       if (I.wheel) this.select((this.cur + (I.wheel > 0 ? 1 : this.slots.length - 1)) % this.slots.length);
+      // objetos arrojables: lanzar y cambiar el elegido
+      this.throwCd = Math.max(0, this.throwCd - dt);
+      if (I.wasPressed(KS.key('throwNext'))) VX.Throw.cycle(game);
+      if (I.wasPressed(KS.key('throw'))) VX.Throw.toss(game);
       if (I.wasPressed(kKnife)) {
         const k = this.slots.findIndex((s) => s.id === 'knife');
         if (this.cur !== k) { this.select(k); this.switchT = 0.08; }
@@ -477,10 +515,10 @@
       this.cooldown = 1 / st.fireRate;
       this.kick = 1; this.slide = 1; this.flash = 1;
       VX.GunAnim.onFire(this, this.slot.id, d.form);
-      P.recoilPitch += d.recoil + st.damage * 0.0002;
+      P.recoilPitch += (d.recoil + st.damage * 0.0002) * this.attMul().recoil;
       game.stats.shots++;
       game.roomShots = (game.roomShots || 0) + 1;
-      VX.Audio.shoot(d.sound, d.sfx);
+      VX.Audio.shoot(d.sound * this.attMul().sound, d.sfx);
       game.shake(d.shake || 0.1);
       VX.Haptics.buzz(Math.round(8 + (d.shake || 0.1) * 70));
 
@@ -638,6 +676,7 @@
     // ---------------- Granadas ----------------
     updateGrenades(dt, game) {
       for (const g of this.grenades) {
+        if (g.type) { g.life -= dt; VX.Throw.step(this, game, g, dt); continue; }   // objetos arrojables
         g.vy -= 14 * dt;
         g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
         g.rot += dt * 10; g.life -= dt;
@@ -655,6 +694,7 @@
         }
       }
       this.grenades = this.grenades.filter((g) => !g.dead);
+      VX.Throw.update();
     }
 
     explode(game, g) {
@@ -673,6 +713,7 @@
         batch.rbox((t.x0 + t.x1) / 2, (t.y0 + t.y1) / 2, (t.z0 + t.z1) / 2, w, w, len, q, c[0], c[1], c[2], 1);
       }
       for (const g of this.grenades) {
+        if (g.type) { VX.Throw.render(batch, g, (VX.game && VX.game.time) || 0); continue; }
         const q = M.qAxis(0.6, 0.3, 0.74, g.rot);
         batch.rbox(g.x, g.y, g.z, 0.09, 0.09, 0.13, q, 0.3, 0.36, 0.22, 0);
         batch.rbox(g.x, g.y + 0.05, g.z, 0.03, 0.03, 0.03, q, 1, 0.2, 0.1, 1);
@@ -687,7 +728,7 @@
       const d = VX.Weapons.DEFS[id];
       const vm = d.vm;
       let g = vm.g;
-      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id), id === 'knife' ? (pose && pose.form) || VX.Profile.knifeForm() : id === 'pistol' ? (pose && pose.form) || d.form || null : null, !pose);
+      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id), id === 'knife' ? (pose && pose.form) || VX.Profile.knifeForm() : id === 'pistol' ? (pose && pose.form) || d.form || null : null, !pose, pose ? (pose.atts || null) : this.attList(id));
       const A = !pose && !d.melee && !idOverride ? VX.GunAnim.animate(this, id, d, d.form) : null;
       let bx = vm.x, by = vm.y, bz = vm.z, q;
       let bYaw = 0, bPitch = 0, bRoll = 0;   // giro de la hoja sobre la empuñadura (sólo cuchillo)
@@ -902,7 +943,7 @@
     }
 
     // Guardado / carga
-    serialize() { return { mods: { ...this.mods }, slots: this.slots.map((s) => s.id), accent: this.accent }; }
+    serialize() { return { mods: { ...this.mods }, slots: this.slots.map((s) => s.id), accent: this.accent, att: JSON.parse(JSON.stringify(this.att)), throws: { ...this.throws } }; }
     load(data) {
       this.reset();
       if (!data) return;
@@ -911,6 +952,8 @@
       if (!this.slots.some((s) => !VX.Weapons.DEFS[s.id].melee)) this.slots.unshift(this.mk('pistol'));
       if (!this.has('knife')) this.slots.push(this.mk('knife'));
       if (data.accent) this.accent = data.accent;
+      if (data.att) this.att = data.att;
+      if (data.throws) this.throws = { ...this.throws, ...data.throws };
       this.cur = 0;
     }
   }

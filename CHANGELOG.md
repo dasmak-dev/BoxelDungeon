@@ -3,6 +3,53 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.36.1] — 2026-11-14
+
+### Cambiado
+- **El equipo nuevo ya no está todo disponible desde el principio: se desbloquea con misiones.** Hasta cumplirlas, ese accesorio u objeto no sale en tiendas, cofres, salas de recompensa ni cajas, ni lo sueltan los zombis.
+  - **Para lanzar**: la **granada** viene de serie; el **cóctel molotov** se desbloquea al descubrir 2 cámaras secretas y el **señuelo** al abrir 3 puertas con llave.
+  - **Accesorios**:
+    - Mira réflex: revienta 50 cabezas.
+    - Silenciador: remata a un jefe con la pistola.
+    - Compensador: elimina 120 zombis con la escopeta.
+    - Empuñadura vertical: elimina 150 zombis con el subfusil.
+    - Láser: llega al piso 8.
+    - Cargador ampliado: elimina 300 zombis en total.
+    - Doble cargador: derrota a 3 jefes.
+  - Al cumplir una misión durante la partida sale un aviso, y desde ese momento ya puede aparecer.
+  - Nueva sección **EQUIPO** en la Armería: cada misión con su progreso, y el subfusil girando con los accesorios que ya tengas.
+  - El progreso que ya tuvieras cuenta: lo que ya cumplas se desbloquea solo.
+
+## [0.36.0] — 2026-11-14
+
+### Añadido
+- **Objetos arrojables con tecla propia** (**T** lanza, **B** cambia el elegido; las dos se pueden cambiar en Ajustes; en el móvil, botón **LANZAR** y **OBJETO ⇄** arriba):
+  - **Granada**: rebota por el suelo y las paredes y explota a los 2 segundos.
+  - **Cóctel molotov**: se rompe al tocar algo y deja un charco de fuego que quema a los zombis y prende el aceite y la madera (en el agua se apaga).
+  - **Señuelo**: cae, pita y parpadea; durante unos segundos los zombis cercanos van a por él en vez de a por ti, y al final revienta.
+  - Se empieza con 2 granadas. Se consiguen en tiendas, cofres, vendedores y cajas de la Horda, y a veces los suelta un zombi (bastante más los élites y campeones). Máximo 4 granadas, 4 molotov y 3 señuelos.
+  - En el HUD se ve cuántos llevas de cada uno y cuál se lanza. En el cooperativo los compañeros también los ven.
+- **Accesorios de arma para la partida**: se montan en el arma (primero en la que llevas en la mano; si no cabe, en la otra), **se ven en el modelo** y mejoran sus estadísticas:
+  - **Mira réflex** (encima): −30 % de dispersión y +15 % de alcance.
+  - **Silenciador** (boca): +12 % de daño y disparos mucho más silenciosos.
+  - **Compensador** (boca): −45 % de retroceso.
+  - **Empuñadura vertical** (debajo): −25 % de retroceso y −15 % de dispersión.
+  - **Láser** (debajo): −25 % de dispersión y +10 % de daño.
+  - **Cargador ampliado** (cargador): +50 % de balas.
+  - **Doble cargador** (cargador): recarga un 35 % más rápido.
+  - Cada arma tiene sus huecos: por ejemplo, el rifle ya lleva visor y bípode, y la ballesta no admite ninguno. Un accesorio nuevo en un hueco ocupado sustituye al anterior. Se ven en las estadísticas del arma y se guardan al «Guardar y salir».
+  - Aparecen en tiendas, cofres, salas de recompensa, vendedores y cajas de suministros de la Horda.
+
+### Cambiado
+- **Las siete formas del cuchillo, rediseñadas con más detalle** (las animaciones de combate son las mismas):
+  - **Cuchillo**: punta de clip, filo brillante, acanaladura, sierra en el lomo, guarda, mango de anillas de cuero y pomo con agujero.
+  - **Karambit**: acanaladura en la hoja, espolón con muescas, forro en el mango y anilla gruesa con remaches.
+  - **Katana**: línea de templado ondulada, habaki dorado, tsuba calada, menuki y kashira.
+  - **Daga**: filos brillantes con nervio central, guarda curvada, mango de alambre trenzado y pomo con gema.
+  - **Machete**: lomo pavonado, filo brillante, agujero para colgar, empuñadura de goma con dedos y anilla para el cordón.
+  - **Bayoneta**: acanaladura, sierra más marcada, anilla del cañón, tornillos, pomo con ranura y botón de retén.
+  - **Navaja mariposa**: hoja tanto con acanaladura, cachas caladas con remaches, pasadores y pestillo.
+
 ## [0.35.4] — 2026-11-14
 
 ### Cambiado

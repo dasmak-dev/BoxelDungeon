@@ -51,6 +51,7 @@
 
     <div id="bottomRight">
       <div id="weaponSlots"></div>
+      <div id="throwSlots"></div>
       <div id="ammoText">10 <small>/ 10</small></div>
       <div class="bar reload"><div id="reloadFill"></div></div>
       <div id="weaponStats"></div>
@@ -93,6 +94,7 @@
         <div><b data-key="inspect">Ctrl</b> inspeccionar arma</div>
         <div><b>1·2·3 / Q / RUEDA</b> cambiar arma</div>
         <div><b data-key="knife">V</b> cuchillazo rápido</div>
+        <div><b data-key="throw">T</b> lanzar granada / molotov / señuelo (<b data-key="throwNext">B</b> cambia)</div>
         <div><b>C / CLIC DCHO</b> esquivar</div>
       </div>
       <div id="versionTag"></div>
@@ -207,6 +209,10 @@
       <button class="small keyBind" data-action="inspect"></button>
       <label>Tecla: cuchillazo rápido</label>
       <button class="small keyBind" data-action="knife"></button>
+      <label>Tecla: lanzar objeto</label>
+      <button class="small keyBind" data-action="throw"></button>
+      <label>Tecla: cambiar objeto a lanzar</label>
+      <button class="small keyBind" data-action="throwNext"></button>
       <label>Perfil (esencia, Santuario, skins…) <small id="profileMsg"></small></label>
       <div class="row tight">
         <button id="exportProfileBtn" class="small secondary">EXPORTAR</button>
@@ -325,6 +331,7 @@
   <script src="js/systems/weapons.js"></script>
   <script src="js/systems/profile.js"></script>
   <script src="js/systems/upgrades.js"></script>
+  <script src="js/systems/throwables.js"></script>
   <script src="js/systems/spawner.js"></script>
   <script src="js/systems/horde.js"></script>
   <script src="js/systems/hordeMode.js"></script>

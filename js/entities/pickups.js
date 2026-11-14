@@ -23,6 +23,10 @@
     coin: ['.XXX.', 'XX.XX', 'X.X.X', 'XX.XX', '.XXX.'],
     chest: ['.XXX.', 'XXXXX', 'XX.XX', 'XXXXX', 'XXXXX'],
     key: ['.XXX.', '.X.X.', '.XXX.', '..X..', '..XX.'],
+    grenade: ['..XX.', '.XX.X', 'XXXX.', 'XXXX.', '.XX..'],
+    bottle: ['..X..', '..X..', '.XXX.', '.XXX.', '.XXX.'],
+    decoy: ['X...X', '.X.X.', '..X..', '.XXX.', '.XXX.'],
+    scope: ['.....', 'XXXXX', 'X.X.X', 'XXXXX', '..X..'],
   };
   // Precalcular offsets
   const SHAPE_VOX = {};
@@ -172,6 +176,9 @@
           const up = VX.Upgrades.random(1, game, [], Math.random() < 0.5 ? 'rare' : 'normal')[0];
           if (up) this.addItem({ kind: 'upgrade', up, price: 0, x: it.x, y: it.y + 0.2, z: it.z, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape });
           game.pickups.dropGold(it.x, it.y + 0.5, it.z, 8 + game.floor);
+          // y a veces un accesorio o algo para lanzar
+          const ex = Math.random() < 0.5 ? VX.Throw.attachItem(game.weapon, 0) : VX.Throw.item(VX.Throw.randomType(game.weapon), 2, 0);
+          if (ex) this.addItem({ ...ex, x: it.x + 0.7, y: it.y + 0.2, z: it.z });
           game.hud.banner('COFRE', 'Dentro había algo útil', 2);
         }
         return;
@@ -197,6 +204,13 @@
         else if (r === 'added') game.hud.banner('NUEVA ARMA: ' + name.toUpperCase(), 'Cambia de arma con 1·2·3, la rueda o Q');
         else game.hud.banner('NUEVA ARMA: ' + name.toUpperCase(), `Sustituye a: ${VX.Weapons.DEFS[r].name}`);
         if (it.onTake) it.onTake(game);
+      } else if (it.kind === 'throw') {
+        VX.Throw.give(game, it.type, it.n || 1);
+        if (it.price > 0) VX.Audio.buy();
+      } else if (it.kind === 'attach') {
+        const g = game.weapon.giveAttach(it.att, game);
+        if (!g) { game.stats.gold += it.price; it.taken = false; VX.Audio.deny(); game.hud.toast('No le cabe a ninguna de tus armas'); return; }
+        VX.Audio.upgrade(); if (it.price > 0) VX.Audio.buy();
       } else if (it.kind === 'refill') {
         game.weapon.refillAll();
         VX.Audio.buy(); VX.Audio.reload();

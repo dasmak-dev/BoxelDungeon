@@ -159,6 +159,12 @@ button.small { font-size: 16px; padding: 10px 24px; }
 #weaponSlots { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 4px; font-size: 11px; letter-spacing: 1px; }
 #weaponSlots span { padding: 2px 6px; background: rgba(0,0,0,.5); border: 1px solid rgba(242,234,216,.25); opacity: .6; }
 #weaponSlots span.on { opacity: 1; border-color: #ffd23f; color: #ffd23f; }
+#throwSlots { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 4px; font-size: 10px; letter-spacing: 1px; }
+#throwSlots span { padding: 1px 5px; background: rgba(0,0,0,.45); border: 1px solid rgba(242,234,216,.2); opacity: .45; }
+#throwSlots span.on { opacity: 1; border-color: #ff9a3c; color: #ffb066; }
+#throwSlots span.none { opacity: .25; }
+#weaponStats .att { color: #9fd3ff; }
+body.touch #throwSlots { font-size: 8px; }
 
 /* ---------- Armería ---------- */
 #armory { flex-direction: row; justify-content: space-between; align-items: stretch; padding: 4vh 3vw; gap: 0;
@@ -439,6 +445,7 @@ body.touch, body.touch #game { touch-action: none; overscroll-behavior: none; -w
 #touchUI .t-reload { right: calc(92px + env(safe-area-inset-right)); bottom: 138px; width: 50px; height: 50px; font-size: 16px; }
 #touchUI .t-swap { right: calc(30px + env(safe-area-inset-right)); bottom: 138px; width: 52px; height: 52px; }
 #touchUI .t-knife { right: calc(150px + env(safe-area-inset-right)); bottom: 160px; width: 50px; height: 50px; font-size: 8px; }
+#touchUI .t-throw { right: calc(42px + env(safe-area-inset-right)); bottom: 200px; width: 50px; height: 50px; font-size: 8px; }
 #touchUI .t-use { right: calc(214px + env(safe-area-inset-right)); bottom: 112px; width: 58px; height: 58px; }
 #touchUI .t-aim { right: calc(212px + env(safe-area-inset-right)); bottom: 30px; width: 60px; height: 60px; font-size: 8px; }
 /* fila de arriba */

@@ -29,7 +29,10 @@
         const n = VX.Weapons.SKINS.filter((s) => VX.Profile.isUnlocked(id, s.id)).length;
         const lock = VX.Profile.weaponUnlocked(id) ? '' : ' 🔒';
         return `<button class="wpn ${id === this.weapon ? 'on' : ''}" data-id="${id}">${d.name.toUpperCase()}${lock}<small>Skins ${n}/${VX.Weapons.SKINS.length}</small></button>`;
-      }).join('');
+      }).join('') + (() => {
+        const G = VX.Profile.gearList(), n = G.filter((g) => VX.Profile.gearUnlocked(g.id)).length;
+        return `<button class="wpn gear ${this.weapon === 'gear' ? 'on' : ''}" data-id="gear">EQUIPO<small>Accesorios y lanzables ${n}/${G.length}</small></button>`;
+      })();
       for (const b of $('armoryWeapons').querySelectorAll('button')) {
         b.onclick = () => { VX.Audio.click(); this.select(b.dataset.id); };
       }
@@ -38,6 +41,13 @@
 
     renderStats() {
       const P = VX.Profile.data, w = P.wstats[this.weapon] || {};
+      if (this.weapon === 'gear') {
+        $('armoryStats').innerHTML = `<u>EQUIPO</u><br>Los accesorios de arma y los objetos para lanzar se desbloquean con misiones. ` +
+          `Una vez desbloqueados pueden salir en tiendas, cofres, salas de recompensa y cajas de la Horda.<br>` +
+          `<u>TOTAL</u><br>Zombis: <b>${P.kills}</b> · Cabezas: <b>${P.headshots}</b> · Jefes: <b>${P.bosses}</b> · Mejor piso: <b>${P.bestFloor}</b><br>` +
+          `Cámaras secretas: <b>${P.secrets || 0}</b> · Puertas con llave: <b>${P.vaults || 0}</b>`;
+        return;
+      }
       $('armoryStats').innerHTML =
         `<u>CON ESTA ARMA</u><br>Zombis: <b>${w.kills || 0}</b> · Cabezas: <b>${w.heads || 0}</b> · Élites: <b>${w.elites || 0}</b><br>` +
         `Jefes rematados: <b>${w.bosses || 0}</b> · Mejor piso: <b>${w.floor || 0}</b><br>` +
@@ -54,6 +64,15 @@
     },
 
     updateShowcase() {
+      if (this.weapon === 'gear') {
+        // el subfusil con todo lo desbloqueado que le cabe, para ver cómo quedan los accesorios
+        const bySlot = {};
+        for (const a in VX.Weapons.ATTACH) if (VX.Profile.attachUnlocked(a) && VX.Weapons.attFits('smg', null, a) && !bySlot[VX.Weapons.ATTACH[a].slot]) bySlot[VX.Weapons.ATTACH[a].slot] = a;
+        const atts = Object.values(bySlot);
+        this.game.showcase = { id: 'smg', skin: VX.Profile.skinFor('smg'), atts };
+        $('armoryCaption').innerHTML = `<b>EQUIPO</b><br><small>${atts.length ? 'Subfusil con: ' + atts.map((a) => VX.Weapons.ATTACH[a].name.toLowerCase()).join(', ') : 'Aún no tienes accesorios: cumple sus misiones'}</small>`;
+        return;
+      }
       const skin = this.preview || VX.Profile.skinFor(this.weapon);
       const isP = this.weapon === 'pistol';
       const form = this.weapon === 'knife' ? (this.previewForm || VX.Profile.knifeForm()) : isP ? (this.previewForm || VX.Profile.pistolForm()) : null;
@@ -78,6 +97,22 @@
     },
 
     renderSkins() {
+      const h3 = document.querySelector('#armory .armCol.right h3');
+      if (h3) h3.textContent = this.weapon === 'gear' ? 'MISIONES' : 'SKINS';
+      if (this.weapon === 'gear') {
+        const row = (g) => {
+          const un = VX.Profile.gearUnlocked(g.id), c = g.cond, v = c ? Math.min(VX.Profile.gearValue(c), c.n) : 0;
+          return `<button class="skin form ${un ? '' : 'locked'}" data-gear="${g.id}" title="${g.desc}">
+            <span class="nm">${g.name}${un ? '' : ' 🔒'}</span>
+            <span class="ds">${un ? g.desc : c.txt}</span>
+            ${c && !un ? `<span class="pb"><i style="width:${Math.round(v / c.n * 100)}%"></i></span><span class="pt">${v}/${c.n}</span>` : ''}
+          </button>`;
+        };
+        const G = VX.Profile.gearList();
+        $('armorySkins').innerHTML = '<div class="armSec">PARA LANZAR</div>' + G.filter((g) => g.kind === 'throw').map(row).join('') +
+          '<div class="armSec">ACCESORIOS DE ARMA</div>' + G.filter((g) => g.kind === 'attach').map(row).join('');
+        return;
+      }
       const cur = VX.Profile.skinFor(this.weapon);
       const def = VX.Weapons.DEFS[this.weapon];
       let forms = '';

@@ -33,6 +33,7 @@
     }
 
     resetCollections() {
+      if (VX.Throw) VX.Throw.reset();
       this.enemies = [];
       this.corpses = [];
       this.gibs = [];
@@ -1859,7 +1860,12 @@
         }
       }
 
-      if (this.currentRoom) this.world.updateFlow(this.currentRoom, P.x, P.z, dt, VX.Coop.flowExtra());
+      if (this.currentRoom) {
+        // los señuelos encendidos también son destino del mapa de caminos
+        let fx = VX.Coop.flowExtra();
+        if (VX.Throw.decoys.length) { fx = fx ? fx.slice() : []; for (const d of VX.Throw.decoys) if (!d.dead) fx.push(d.x, d.z); }
+        this.world.updateFlow(this.currentRoom, P.x, P.z, dt, fx);
+      }
 
       this.enemyLod();   // detalle de cada zombi según la distancia y la calidad
       if (VX.Coop.isClient) VX.Coop.updateReplicas(dt, this);   // los zombis los mueve el anfitrión
@@ -1868,8 +1874,13 @@
         if (VX.Coop.isHost) {
           // cada zombi va a por el jugador más cercano (el anfitrión o un compañero)
           const me = this.player;
-          for (const e of this.enemies) if (!e.dead) { this.player = VX.Coop.targetFor(e, this); VX.Audio.source(e.x, e.y + 1.3, e.z); try { e.update(dt, this); } finally { this.player = me; } }
-        } else for (const e of this.enemies) if (!e.dead) { VX.Audio.source(e.x, e.y + 1.3, e.z); e.update(dt, this); }
+          for (const e of this.enemies) if (!e.dead) { const dc = VX.Throw.decoyFor(e); this.player = dc ? VX.Throw.proxy(me, dc) : VX.Coop.targetFor(e, this); VX.Audio.source(e.x, e.y + 1.3, e.z); try { e.update(dt, this); } finally { this.player = me; } }
+        } else for (const e of this.enemies) if (!e.dead) {
+          VX.Audio.source(e.x, e.y + 1.3, e.z);
+          const dc = VX.Throw.decoyFor(e);   // señuelo encendido cerca: va a por él
+          if (dc) { const me = this.player; this.player = VX.Throw.proxy(me, dc); try { e.update(dt, this); } finally { this.player = me; } }
+          else e.update(dt, this);
+        }
         VX.Audio.source(null);   // lo que suena dentro de cada zombi sale desde donde está
         VX.Horde.separate(this);
       }
@@ -2338,7 +2349,7 @@
         R.beginViewmodel(0, [0.35, 0.33, 0.38]);
         this.gun.clear();
         const q = M.qMul(M.qMul(M.qY(this.time * 0.6), M.qX(0.2)), M.qZ(0.1));
-        this.weapon.renderViewmodel(this.gun, this, sc.id, { x: 0.08, y: 0.0, z: -0.75, q, size: 0.42, noHand: true, form: sc.form }, sc.skin);
+        this.weapon.renderViewmodel(this.gun, this, sc.id, { x: 0.08, y: 0.0, z: -0.75, q, size: 0.42, noHand: true, form: sc.form, atts: sc.atts }, sc.skin);
         this.gun.upload();
         this.gun.draw();
       }

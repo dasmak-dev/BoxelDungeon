@@ -1317,6 +1317,11 @@
       // cooperativo: el oro y las estadísticas son de quien lo mata
       if (game.noReward || (VX.Coop.isClient && !game.localAct)) { if (VX.Coop.isHost && game.mode === 'horde') VX.HordeMode.killed++; return; }
       game.pickups.dropGold(this.x, this.y + 0.8, this.z, M.randInt(this.gold[0], this.gold[1]) * (game.weapon.mods.greed ? 2 : 1));
+      // a veces suelta algo para lanzar (los élites y campeones, bastante más)
+      if (Math.random() < (this.champion ? 0.5 : this.elite ? 0.25 : 0.02)) {
+        const t = VX.Throw.randomType(game.weapon), gy = game.world.groundAt(this.x, this.z);
+        game.pickups.addItem({ ...VX.Throw.item(t, 1, 0), x: this.x, y: gy + 0.3, z: this.z });
+      }
       game.stats.kills++;
       VX.Profile.add('kills', 1, game);
       if (game.dmgSource === 'knife') { VX.Profile.add('knifeKills', 1, game); if (this.elite || this.champion) VX.Profile.add('knifeElites', 1, game); }

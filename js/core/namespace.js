@@ -7,4 +7,4 @@ VX.K = 2;      // vóxeles por "unidad" de diseño de sala
 VX.U = 0.5;    // tamaño de una unidad de diseño (metros)
 
 // Versión del juego (ver CHANGELOG.md). Formato semántico: MAYOR.MENOR.PARCHE
-VX.VERSION = '0.35.4';
+VX.VERSION = '0.36.1';

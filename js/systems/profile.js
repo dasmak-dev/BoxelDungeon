@@ -128,7 +128,34 @@
       return skinId === 'default' || this.data.unlocked.includes(weapon + ':' + skinId);
     },
 
+    // ---- equipo: accesorios de arma y objetos arrojables (se desbloquean con misiones) ----
+    // lista de todo lo que tiene misión: { id: 'att:reflex' | 'thr:molotov', name, kind, cond }
+    gearList() {
+      const out = [];
+      if (VX.Throw) for (const t of VX.Throw.ORDER) out.push({ id: 'thr:' + t, key: t, kind: 'throw', name: VX.Throw.TYPES[t].name, desc: VX.Throw.TYPES[t].desc, cond: VX.Throw.TYPES[t].unlock || null });
+      if (VX.Weapons && VX.Weapons.ATTACH) for (const a in VX.Weapons.ATTACH) out.push({ id: 'att:' + a, key: a, kind: 'attach', name: VX.Weapons.ATTACH[a].name, desc: VX.Weapons.ATTACH[a].desc, cond: VX.Weapons.ATTACH[a].unlock || null });
+      return out;
+    },
+    gearValue(cond) { return cond.w ? ((this.data.wstats[cond.w] || {})[cond.stat] || 0) : (this.data[cond.stat] || 0); },
+    gearUnlocked(id) { const g = this.gearList().find((x) => x.id === id); return !g || !g.cond || (this.data.gear || []).includes(id); },
+    attachUnlocked(a) { return this.gearUnlocked('att:' + a); },
+    throwUnlocked(t) { return this.gearUnlocked('thr:' + t); },
+    checkGear(game) {
+      this.data.gear = this.data.gear || [];
+      for (const g of this.gearList()) {
+        if (!g.cond || this.data.gear.includes(g.id)) continue;
+        if (this.gearValue(g.cond) >= g.cond.n) {
+          this.data.gear.push(g.id); this.dirty = true;
+          if (game && game.hud && game.state === 'playing') {
+            game.hud.banner(g.kind === 'attach' ? '¡NUEVO ACCESORIO!' : '¡NUEVO OBJETO PARA LANZAR!', `«${g.name}» — ya puede aparecer en tiendas, cofres y cajas`, 3.5);
+            VX.Audio.upgrade();
+          }
+        }
+      }
+    },
+
     checkUnlocks(game, onlyWeapon) {
+      this.checkGear(game);
       if (VX.Weapons && VX.Weapons.KNIVES) this.checkKnives(game);
       if (VX.Weapons && VX.Weapons.PISTOLS) this.checkPistols(game);
       const list = onlyWeapon ? [onlyWeapon] : WEAPON_IDS();

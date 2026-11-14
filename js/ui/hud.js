@@ -298,14 +298,23 @@
         this.slotKey = sk;
         el.slots.innerHTML = W.slots.map((s, i) => `<span class="${i === W.cur ? 'on' : ''}">${i + 1} ${VX.Weapons.DEFS[s.id].name.toUpperCase()}</span>`).join('');
       }
+      // objetos arrojables: cuántos de cada uno y cuál se lanza
+      const tk = VX.Throw.ORDER.map((t) => W.throws[t] || 0).join(',') + W.throwSel + VX.Settings.key('throw') + ((VX.Profile.data.gear || []).length);
+      if (tk !== this.throwKey) {
+        this.throwKey = tk;
+        const kn = VX.Settings.keyName(VX.Settings.key('throw'));
+        const tEl = this.throwEl || (this.throwEl = document.getElementById('throwSlots'));
+        if (tEl) tEl.innerHTML = VX.Throw.ORDER.filter((t) => VX.Throw.unlocked(t) || W.throws[t] > 0).map((t) => `<span class="${t === W.throwSel ? 'on' : ''}${W.throws[t] ? '' : ' none'}">${t === W.throwSel ? '[' + kn + '] ' : ''}${VX.Throw.TYPES[t].short} ${W.throws[t] || 0}</span>`).join('');
+      }
       el.reloadBar.classList.toggle('on', W.reloading);
       if (W.reloading) el.reload.style.width = `${(1 - W.reloadT / W.reloadTime) * 100}%`;
-      const key = `${W.id}|${W.auto}|${W.mods.recoil}|${W.damage.toFixed(0)}|${W.fireRate.toFixed(1)}|${W.range.toFixed(0)}|${W.pierce}|${W.pellets}`;
+      const key = `${W.id}|${W.attList().join('+')}|${W.auto}|${W.mods.recoil}|${W.damage.toFixed(0)}|${W.fireRate.toFixed(1)}|${W.range.toFixed(0)}|${W.pierce}|${W.pellets}`;
       if (key !== this.lastKey) {
         this.lastKey = key;
         el.stats.innerHTML = melee ? `CUERPO A CUERPO<br>DAÑO ${W.damage.toFixed(0)} · TAJOS ${W.fireRate.toFixed(1)}/s` :
           `${W.auto ? 'AUTOMÁTICA' : 'SEMIAUTOMÁTICA'}<br>DAÑO ${W.damage.toFixed(0)}${W.pellets > 1 ? 'x' + W.pellets : ''} · CADENCIA ${W.fireRate.toFixed(1)}/s<br>ALCANCE ${W.range.toFixed(0)}m${(W.mods.recoil || 1) < 0.99 ? ` · RETROCESO -${Math.round((1 - W.mods.recoil) * 100)}%` : ''}` +
-          (W.pierce ? ` · PERFORA ${W.pierce}` : '');
+          (W.pierce ? ` · PERFORA ${W.pierce}` : '') +
+          (W.attList().length ? `<br><span class="att">◆ ${W.attList().map((a) => VX.Weapons.ATTACH[a].name).join(' · ')}</span>` : '');
       }
 
       this.hitT = Math.max(0, this.hitT - dt);

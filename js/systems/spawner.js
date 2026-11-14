@@ -195,6 +195,12 @@
             if (i === 2 && gun) {
               const d = VX.Weapons.DEFS[gun];
               game.pickups.addItem({ kind: 'weapon', weapon: gun, price: d.price + game.floor * 2, x: s.x, y: s.y, z: s.z, title: d.name, desc: weaponDesc(gun), color: [1, 0.85, 0.5], shape: 'star' });
+            } else if (i === 2 && Math.random() < 0.6 && VX.Throw.attachItem(game.weapon, 0)) {
+              const it = VX.Throw.attachItem(game.weapon, Math.round((26 + game.floor * 2) * (game.priceMul || 1)));
+              game.pickups.addItem({ ...it, x: s.x, y: s.y, z: s.z, onTake: (g) => g.stats.purchases++ });
+            } else if (i === 1 && Math.random() < 0.35) {
+              const t = VX.Throw.randomType(game.weapon);
+              game.pickups.addItem({ ...VX.Throw.item(t, 2, Math.round(VX.Throw.TYPES[t].price * 1.6 + game.floor)), x: s.x, y: s.y, z: s.z });
             } else if (i === 0) {
               game.pickups.addItem({ kind: 'heal', amount: 40, price: 15 + game.floor, x: s.x, y: s.y, z: s.z, title: 'Botiquín', desc: '+40 de vida', color: [1, 0.2, 0.25], shape: 'plus' });
             } else {
@@ -236,6 +242,9 @@
           }
           const rr = Math.random();
           const kind = rr < 0.3 ? 'rare' : rr < 0.45 ? 'curse' : 'normal';
+          // a veces el premio es un accesorio para el arma
+          const ai = kind !== 'curse' && Math.random() < 0.2 ? VX.Throw.attachItem(game.weapon, 0) : null;
+          if (ai) { game.pickups.addItem({ ...ai, x: f.x, y: f.y, z: f.z }); break; }
           const up = VX.Upgrades.random(1, game, [], kind)[0];
           const tag = up.rare ? ' ★ RARA' : up.curse ? ' ☠ MALDICIÓN' : '';
           game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: f.x, y: f.y, z: f.z, title: up.name + tag, desc: up.desc, color: up.color, shape: up.shape });

@@ -210,6 +210,9 @@
   A.heartbeat = (v = 0.5) => { tone(55, 0.12, 'sine', 0.35 * v, 40); tone(50, 0.14, 'sine', 0.28 * v, 35, 0.18); };
   A.reload = () => { tone(500, 0.04, 'square', 0.08); tone(350, 0.05, 'square', 0.08, null, 0.25); tone(800, 0.05, 'square', 0.1, null, 0.5); };
   A.empty = () => tone(1200, 0.03, 'square', 0.06);
+  // objetos arrojables: anilla de la granada y pitido del señuelo
+  A.pin = () => { tone(2600, 0.03, 'triangle', 0.08); tone(1800, 0.04, 'square', 0.04, null, 0.04); };
+  A.beep = (vol = 1) => tone(1650, 0.06, 'square', 0.07 * vol);
   A.door = () => { noise(0.8, 0.3, 300); tone(60, 0.8, 'sawtooth', 0.12, 40); };
   // rastrillo de hierro subiendo: chirrido de cadenas y golpe al final
   A.gate = () => {

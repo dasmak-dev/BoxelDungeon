@@ -466,11 +466,11 @@
       }
     },
     shareGrenade(g) {
-      VX.Net.send({ k: 'gr', by: VX.Net.id, x: r2(g.x), y: r2(g.y), z: r2(g.z), vx: r2(g.vx), vy: r2(g.vy), vz: r2(g.vz), dmg: g.dmg, bl: g.blast, de: g.destr }, this.isHost ? undefined : 'all');
+      VX.Net.send({ k: 'gr', by: VX.Net.id, t: g.type || undefined, x: r2(g.x), y: r2(g.y), z: r2(g.z), vx: r2(g.vx), vy: r2(g.vy), vz: r2(g.vz), dmg: g.dmg, bl: g.blast, de: g.destr }, this.isHost ? undefined : 'all');
     },
     onGrenade(game, d) {
       if (d.by === VX.Net.id) return;
-      game.weapon.grenades.push({ x: d.x, y: d.y, z: d.z, vx: d.vx, vy: d.vy, vz: d.vz, life: 4, rot: 0, dmg: d.dmg, blast: d.bl, destr: d.de, remote: true });
+      game.weapon.grenades.push({ type: d.t, x: d.x, y: d.y, z: d.z, vx: d.vx, vy: d.vy, vz: d.vz, life: d.t === 'frag' ? 1.8 : d.t === 'decoy' ? 12 : d.t ? 5 : 4, rot: 0, dmg: d.dmg, blast: d.bl, destr: d.de, remote: true });
     },
 
     // ---------------- proyectiles enemigos ----------------

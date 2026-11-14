@@ -332,7 +332,7 @@
         kind = M.choice(pool);
       }
       // caballero negro y renacido: desde la oleada 3, pocos (≈3 % y 4 % de cada zombi)
-      if (this.wave >= 3) { const r = Math.random(); if (r < 0.03) kind = 'knight'; else if (r < 0.07) kind = 'revenant'; }
+      if (this.wave >= 3 && !champion) { const r = Math.random(); if (r < 0.03) kind = 'knight'; else if (r < 0.07) kind = 'revenant'; }
       else if (kind === 'knight' || kind === 'revenant') kind = 'walker';
       if (this.event && this.event.kinds && Math.random() < 0.75) kind = M.choice(this.event.kinds);
       if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro', 'crow', 'screamer', 'revenant'].includes(kind)) kind = 'walker';
@@ -403,6 +403,8 @@
         const up = VX.Upgrades.random(1, game, [], Math.random() < 0.2 ? 'rare' : 'normal')[0];
         if (up) { game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: it.x, y: it.y + 0.2, z: it.z, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape }); msg += ' · ¡y una mejora!'; }
       } else if (roll < 0.5) { game.pickups.dropHeart(it.x, it.y + 0.6, it.z, 25); msg += ' · botiquín'; }
+      else if (roll < 0.68) { VX.Throw.give(game, VX.Throw.randomType(game.weapon), 2, true); msg += ' · objetos para lanzar'; }
+      else if (roll < 0.8) { const ai = VX.Throw.attachItem(game.weapon, 0); if (ai) { game.pickups.addItem({ ...ai, x: it.x, y: it.y + 0.2, z: it.z }); msg += ' · ¡un accesorio!'; } }
       game.hud.toast('Caja de suministros: ' + msg);
     },
 
@@ -430,6 +432,8 @@
         const gid = M.choice(notOwned), d = VX.Weapons.DEFS[gid];
         goods.push({ kind: 'weapon', weapon: gid, price: d.price + n * 2, title: d.name, desc: VX.weaponDesc(gid), color: [1, 0.85, 0.5], shape: 'star' });
       }
+      { const ai = VX.Throw.attachItem(game.weapon, 28 + n * 2); if (ai) goods.push(ai); }
+      { const t = VX.Throw.randomType(game.weapon); goods.push(VX.Throw.item(t, 2, VX.Throw.TYPES[t].price + n)); }
       goods.forEach((it, i) => {
         const a = (i - (goods.length - 1) / 2) * 0.55;
         const ca = Math.cos(a), sa = Math.sin(a);
