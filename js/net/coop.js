@@ -53,8 +53,10 @@
       N.on('hit', (d, from) => this.onHit(g(), d, from));
       N.on('hx', (d) => this.onHitFx(g(), d));
       N.on('kill', (d, from) => this.onKill(g(), d, from));
+      N.on('prise', (d) => { const e = this.isClient && this.reps.get(d.id); if (e) e.rose = true; });   // restos del renacido que se levantan
       N.on('bl', (d, from) => this.onBlast(g(), d, from));
       N.on('shot', (d, from) => this.onShot(g(), d, from));
+      N.on('wd', (d) => this.onWorld(g(), d));
       N.on('gr', (d, from) => this.onGrenade(g(), d, from));
       N.on('pj', (d) => this.onProjectiles(g(), d));
       N.on('hurt', (d) => this.onHurt(g(), d));
@@ -65,6 +67,9 @@
       N.on('ewave', (d) => this.onEndWave(g(), d));
       N.on('over', () => this.allDown(g()));
       N.on('chat', (d) => g().hud.toast(d.m));
+      // aspecto y skins de cada compañero, y sus estadísticas para la tabla de cada oleada
+      N.on('look', (d, from) => { this.looks.set(from, d); });
+      N.on('st', (d, from) => { this.pstats.set(from, d.s); });
       // evacuación: un invitado usa la radio, el anfitrión elige la zona y avisa; al subir todos, se acaba
       N.on('evaccall', () => { if (this.isHost) VX.HordeMode.callEvac(g()); });
       N.on('evac', (d) => { if (this.isClient) VX.HordeMode.startEvac(g(), d.x, d.z); });
@@ -89,6 +94,8 @@
       this.remotes.clear(); this.reps.clear();
       this.down = false; this.deadWait = false; this.reviveT = 0;
       this.lastWave = 0; this.lastPhase = 'prep';
+      this.cnt = { rv: 0, as: 0, sv: 0, dn: 0 }; this.pstats = new Map(); this.waveBase = new Map(); this.looks = new Map();
+      this.spec = null; this.lookT = 0; this.stT = 0;
       for (const p of N.players) {
         if (p.id === N.id) continue;
         this.remotes.set(p.id, new VX.RemotePlayer(p.id, p.name, Math.max(0, this.order.indexOf(p.id))));
@@ -153,7 +160,17 @@
     update(dt, game) {
       if (!this.active) return;
       const N = VX.Net;
-      for (const r of this.remotes.values()) r.update(dt);
+      for (const r of this.remotes.values()) {
+        r.update(dt);
+        const lk = this.looks && this.looks.get(r.id);
+        if (lk && r._lk !== lk) { r._lk = lk; r.setLook(lk); }
+      }
+      this.lookT -= dt;
+      if (this.lookT <= 0) { this.lookT = 3; N.send(this.lookMsg(game), 'all'); }
+      this.stT -= dt;
+      if (this.stT <= 0) { this.stT = 1.5; N.send({ k: 'st', s: this.myStats(game) }, 'all'); }
+      this.updateSpectate(dt, game);
+      this.flushWorld(game, dt);
       if (this.isHost) {
         this.shareProjectiles(game);
         this.snapT -= dt;
@@ -322,6 +339,8 @@
         const s = e.net, b = e.body;
         e.game = game;
         if (e.T && e.T.knight && e.knightRegen) e.knightRegen(dt, game);   // la armadura del caballero se recompone también en las réplicas
+        // restos del renacido: sólo laten (antes se animaban como un zombi andando y el cráneo y los huesos se descolocaban)
+        if (e.T && e.T.pile) { e.x = s[2]; e.y = s[3]; e.z = s[4]; e.pileVisual(dt, game); continue; }
         const ox = e.x, oz = e.z;
         const k = Math.min(1, dt * 10);
         if (Math.hypot(s[2] - e.x, s[4] - e.z) > 5) { e.x = s[2]; e.z = s[4]; e.y = s[3]; }
@@ -350,7 +369,8 @@
         e.biter = !!(f & 8);
         e.fuse = (f & 512) ? 0.5 : 0;
         if ((f & 2) && !e.crawling) { e.crawling = true; e.crawlC = 1; }
-        e.crawlC = e.crawling ? Math.min(1, e.crawlC + dt * 3) : 0;
+        if (!(f & 2) && e.crawling && e.T.knight) e.rising = true;   // el caballero se levanta cuando le vuelven a crecer las piernas
+        e.crawlC = e.crawling ? (e.rising ? e.crawlC : Math.min(1, e.crawlC + dt * 3)) : 0;
         e.windTotal = 1; e.windup = s[9] > 0 ? 1 - s[9] : 0;
         e.spawnT = s[10] || 0;
         if (e.spawnT > 0) b.yOff = -b.height * Math.max(0, e.spawnT) / 1.1;
@@ -435,9 +455,16 @@
       try { e.blast(d.x, d.y, d.z, d.R, d.dmg, game); } finally { game.noReward = false; }
     },
 
-    // disparo: los demás repiten el trazo, el sonido y el agujero en la pared
-    shareShot(game, ox, oy, oz, dirs, w, dmg, destr, mx, my, mz) {
-      VX.Net.send({ k: 'shot', by: VX.Net.id, o: [r2(ox), r2(oy), r2(oz)], m: [r2(mx), r2(my), r2(mz)], ds: dirs.map((v) => [r3(v[0]), r3(v[1]), r3(v[2])]), w, dmg: r2(dmg), de: r2(destr) }, this.isHost ? undefined : 'all');
+    // disparo: los demás repiten el trazo, el sonido y los efectos de la munición especial
+    // (lo que se rompe en el mapa llega aparte, con la lista exacta de celdas: ver noteCell)
+    shareShot(game, ox, oy, oz, dirs, w, dmg, destr, mx, my, mz, mods) {
+      const m = mods || {};
+      const fx = (m.shock ? 1 : 0) | (m.frost ? 2 : 0) | (m.toxic ? 4 : 0) | (m.explosive ? 8 : 0) | (m.frostBlast ? 16 : 0);
+      const cal = m.caliber === 'magnum' ? 1 : m.caliber === 'subsonic' ? 2 : m.caliber === 'highvel' ? 3 : 0;
+      const tc = !fx && m.tracer ? m.tracer.map(r2) : undefined;
+      VX.Net.send({ k: 'shot', by: VX.Net.id, o: [r2(ox), r2(oy), r2(oz)], m: [r2(mx), r2(my), r2(mz)],
+        ds: dirs.map((v) => v.length > 3 ? [r3(v[0]), r3(v[1]), r3(v[2]), r2(v[3]), v[4]] : [r3(v[0]), r3(v[1]), r3(v[2])]),
+        w, dmg: r2(dmg), de: r2(destr), fx: fx || undefined, cal: cal || undefined, tc }, this.isHost ? undefined : 'all');
     },
     onShot(game, d) {
       if (d.by === VX.Net.id || game.mode !== 'horde') return;
@@ -451,19 +478,119 @@
         for (let k = 0; k < 4; k++) { const sp = M.rand(7, 11); game.particles.spawn(d.m[0], d.m[1], d.m[2], v[0] * sp + M.rand(-0.8, 0.8), v[1] * sp + M.rand(-0.4, 1), v[2] * sp + M.rand(-0.8, 0.8), 1, M.rand(0.35, 0.75), 0.1, M.rand(0.06, 0.12), M.rand(0.45, 0.8), 1, 1); }
         return;
       }
+      const fx = d.fx | 0, cal = d.cal | 0;
+      const W = game.weapon;
+      // la trazadora con el mismo color y grosor que ve quien dispara
+      const col = fx & 1 ? [0.55, 0.85, 1] : fx & 2 ? [0.7, 0.95, 1] : fx & 4 ? [0.5, 1, 0.35] : fx & 8 ? [1, 0.55, 0.2] : d.tc;
+      const life = cal === 1 || cal === 2 ? 0.1 : 0.06;
+      const wd = cal === 1 ? 2 : cal === 2 ? 1.5 : cal === 3 ? 0.7 : 1;
+      let booms = 0;
       for (const v of d.ds) {
-        const hit = game.world.raycast(d.o[0], d.o[1], d.o[2], v[0], v[1], v[2], def.range || 60);
-        const t = hit ? hit.t : Math.min(40, def.range || 40);
-        const tr = { x0: d.m[0], y0: d.m[1], z0: d.m[2], x1: d.o[0] + v[0] * t, y1: d.o[1] + v[1] * t, z1: d.o[2] + v[2] * t, life: 0.06 };
+        let t, kind;
+        if (v.length > 3) { t = v[3]; kind = v[4]; }
+        else { const h = game.world.raycast(d.o[0], d.o[1], d.o[2], v[0], v[1], v[2], def.range || 60); t = h ? h.t : Math.min(40, def.range || 40); kind = h ? 2 : 0; }
+        const ex = d.o[0] + v[0] * t, ey = d.o[1] + v[1] * t, ez = d.o[2] + v[2] * t;
+        const tr = { x0: d.m[0], y0: d.m[1], z0: d.m[2], x1: ex, y1: ey, z1: ez, life };
         if (def.ray) Object.assign(tr, { life: 0.14, max: 0.14, c: [0.35, 1, 0.45], w: 3 });
-        game.weapon.tracers.push(tr);
-        if (hit) {
-          const radius = 0.16 + 0.14 * d.de + d.dmg / 300;
-          const n = game.world.damageSphere(hit.x + v[0] * 0.02, hit.y + v[1] * 0.02, hit.z + v[2] * 0.02, radius, Math.min(140, d.dmg * 1.4) * d.de, game);
-          game.particles.sparks(hit.x, hit.y, hit.z, hit.nx, hit.ny, hit.nz, 3);
-          if (!n && game.addBulletHole) game.addBulletHole(hit);
+        else if (def.bolt) Object.assign(tr, { life: 0.09, max: 0.09, c: [0.75, 0.7, 0.6], w: 1.6 });
+        else Object.assign(tr, { max: life, c: col, w: wd });
+        W.tracers.push(tr);
+        if (kind === 2) {
+          // pared: chispas y agujero (las celdas rotas llegan en el mensaje del mapa)
+          const h = game.world.raycast(ex - v[0] * 0.3, ey - v[1] * 0.3, ez - v[2] * 0.3, v[0], v[1], v[2], 0.6);
+          if (h) {
+            game.particles.sparks(h.x, h.y, h.z, h.nx, h.ny, h.nz, 3);
+            if (d.de < 0.6 && game.addBulletHole) game.addBulletHole(h);
+          }
+        }
+        if (!kind) continue;
+        // efectos de la munición especial en el impacto (sólo se ven: el daño lo cuenta quien dispara)
+        if (fx & 2) for (let i = 0; i < 4; i++) game.particles.spawn(ex, ey, ez, M.rand(-1, 1), M.rand(0, 1.5), M.rand(-1, 1), 0.7, 0.92, 1, 0.025, 0.6, 0.8, 1);
+        if (fx & 4) for (let i = 0; i < 4; i++) game.particles.spawn(ex, ey, ez, M.rand(-0.8, 0.8), M.rand(0.2, 1.4), M.rand(-0.8, 0.8), 0.45, 1, 0.3, M.rand(0.02, 0.04), M.rand(0.5, 1), 0.6, 1);
+        if (fx & 1 && kind === 1) this.shockArc(game, ex, ey, ez);
+        if (fx & 8 && booms < 2) {
+          booms++;
+          game.visualOnly = true;
+          try { game.explode({ x: ex - v[0] * 0.1, y: ey - v[1] * 0.1, z: ez - v[2] * 0.1, R: 1.0, dmg: 0, destr: 0.5, selfK: 0, small: true, frost: !!(fx & 16) }); }
+          finally { game.visualOnly = false; }
         }
       }
+    },
+    // rayo de la munición eléctrica de un compañero: salta en zigzag a los zombis de al lado
+    shockArc(game, x, y, z) {
+      let fx = x, fy = y, fz = z;
+      const seen = new Set();
+      for (let k = 0; k < 2; k++) {
+        let best = null, bd = 5.5;
+        for (const o of game.enemies) {
+          if (o.dead || seen.has(o)) continue;
+          const dd = Math.hypot(o.body.cx - fx, o.body.cy - fy, o.body.cz - fz);
+          if (dd > 0.6 && dd < bd) { bd = dd; best = o; }
+        }
+        if (!best) break;
+        seen.add(best);
+        const bx = best.body.cx, by = best.body.cy, bz = best.body.cz;
+        let px = fx, py = fy, pz = fz;
+        for (let s = 1; s <= 4; s++) {
+          const t = s / 4, j = s < 4 ? 0.25 : 0;
+          const nx = fx + (bx - fx) * t + M.rand(-j, j), ny = fy + (by - fy) * t + M.rand(-j, j), nz = fz + (bz - fz) * t + M.rand(-j, j);
+          game.weapon.tracers.push({ x0: px, y0: py, z0: pz, x1: nx, y1: ny, z1: nz, life: 0.12, max: 0.12, w: 1.6, c: [0.55, 0.85, 1] });
+          px = nx; py = ny; pz = nz;
+        }
+        fx = bx; fy = by; fz = bz;
+      }
+    },
+
+    // ---------------- el mapa roto, igual para todos ----------------
+    // Cada equipo apunta las celdas que rompe él mismo (disparos, golpes, granadas) y el
+    // anfitrión además las que rompen los zombis y los jefes. Cada ~0,15 s manda la lista
+    // (3 números por celda) y los demás las quitan también. Repetirlas no hace nada, así que
+    // da igual que llegue dos veces o que el otro ya la hubiera roto.
+    wdCells: [], wdProps: [], wdT: 0,
+    noteCell(game, gx, gy, gz) {
+      if (!this.active || game.applyingRemote || game.mode !== 'horde') return;
+      if (!game.localAct && !this.isHost) return;
+      if (this.wdCells.length < 6000) this.wdCells.push(gx, gy, gz);
+    },
+    noteProp(game, p, h, dmg, ray) {
+      if (!this.active || game.applyingRemote || game.mode !== 'horde') return;
+      if (!game.localAct && !this.isHost) return;
+      const ri = game.world.rooms.indexOf(p.room), pi = ri < 0 ? -1 : p.room.props.indexOf(p);
+      if (pi < 0 || this.wdProps.length > 400) return;
+      this.wdProps.push(ri, pi, r2(h.x), r2(h.y), r2(h.z), Math.round(dmg), r2(ray.dx), r2(ray.dz));
+    },
+    flushWorld(game, dt) {
+      this.wdT -= dt;
+      if (this.wdT > 0 || (!this.wdCells.length && !this.wdProps.length)) return;
+      this.wdT = 0.15;
+      const msg = { k: 'wd' };
+      if (this.wdCells.length) msg.c = this.wdCells;
+      if (this.wdProps.length) msg.p = this.wdProps;
+      this.wdCells = []; this.wdProps = [];
+      VX.Net.send(msg, this.isHost ? undefined : 'all');
+    },
+    onWorld(game, d) {
+      if (!game || game.mode !== 'horde' || game.state === 'title') return;
+      const W = game.world, c = d.c || [], p = d.p || [];
+      game.applyingRemote = true; game.visualOnly = true;
+      try {
+        let n = 0;
+        for (let i = 0; i + 2 < c.length; i += 3) {
+          const gx = c[i], gy = c[i + 1], gz = c[i + 2];
+          const r = W.roomAtG(gx, gz);
+          if (!r) continue;
+          const lx = gx - r.ox, lz = gz - r.oz;
+          if (!r.inBounds(lx, gy, lz)) continue;
+          const t = r.get ? r.get(lx, gy, lz) : r.grid[r.idx(lx, gy, lz)];
+          if (!t || t === VX.Blocks.PROP) continue;
+          W.destroyCell(r, lx, gy, lz, t, game, n++ < 40 ? 1 : 0);   // con pocos cascotes: el ruido ya lo hizo quien lo rompió
+        }
+        for (let i = 0; i + 7 < p.length; i += 8) {
+          const room = W.rooms[p[i]], pr = room && room.props[p[i + 1]];
+          if (!pr || pr.dead) continue;
+          pr.hit({ x: p[i + 2], y: p[i + 3], z: p[i + 4] }, p[i + 5], { dx: p[i + 6], dy: 0, dz: p[i + 7] }, game);
+        }
+      } finally { game.applyingRemote = false; game.visualOnly = false; }
     },
     shareGrenade(g) {
       VX.Net.send({ k: 'gr', by: VX.Net.id, t: g.type || undefined, x: r2(g.x), y: r2(g.y), z: r2(g.z), vx: r2(g.vx), vy: r2(g.vy), vz: r2(g.vz), dmg: g.dmg, bl: g.blast, de: g.destr }, this.isHost ? undefined : 'all');
@@ -516,7 +643,8 @@
       this.down = true;
       this.downT = DOWN_TIME;
       P.vx = P.vz = 0;
-      game.hud.banner('¡HAS CAÍDO!', 'Un compañero puede levantarte manteniendo E a tu lado', 3);
+      this.cnt.dn++;
+      game.hud.banner('¡HAS CAÍDO!', `Un compañero puede levantarte manteniendo ${VX.Settings.keyName(VX.Settings.key('use'))} a tu lado`, 3);
       VX.Audio.hurt(1);
       VX.Net.send({ k: 'chat', m: `${this.myName()} ha caído: ¡levántalo!` }, this.isHost ? undefined : 'all');
     },
@@ -537,7 +665,7 @@
         this.downT -= dt;
         if (this.downT <= 0) {
           this.down = false; this.deadWait = true;
-          game.hud.banner('HAS MUERTO', 'Volverás al empezar la siguiente oleada', 3.5);
+          game.hud.banner('HAS MUERTO', 'Volverás al empezar la siguiente oleada si tus compañeros aguantan · mientras, ves la partida con ellos', 4);
         }
       } else if (this.deadWait) {
         P.eyeOffset = M.lerp(P.eyeOffset, -1.4, Math.min(1, dt * 3));
@@ -546,8 +674,10 @@
       const H = VX.HordeMode;
       if (H.wave !== this.lastWave && H.phase === 'wave') {
         this.lastWave = H.wave;
-        if (this.deadWait) {
-          this.deadWait = false;
+        this.markWaveStart(game);
+        // al empezar la oleada vuelven los muertos y los que seguían en el suelo (la partida sigue porque alguien aguantó)
+        if (this.deadWait || this.down) {
+          this.deadWait = false; this.down = false; this.spec = null;
           P.hp = Math.round(P.maxHp * 0.5); P.invuln = 3; P.eyeOffset = 0;
           const st = game.currentRoom.playerStart;
           if (st) { P.x = st.x; P.z = st.z; P.y = game.world.groundAt(st.x, st.z); }
@@ -566,21 +696,22 @@
           if (d < bd && Math.abs(r.y - P.y) < 1.5) { bd = d; target = r; }
         }
       }
-      if (!target) { this.reviveT = 0; game.coopPrompt = null; return; }
-      if (VX.Input.keys.KeyE) {
+      if (!target) { this.reviveT = 0; game.coopPrompt = this.specPrompt || null; return; }
+      if (VX.Input.keys[VX.Settings.key('use')]) {
         if (this.reviveId !== target.id) { this.reviveId = target.id; this.reviveT = 0; }
         this.reviveT += dt;
         if (this.reviveT >= REVIVE_TIME) {
           VX.Net.send({ k: 'rv' }, target.id);
           target.down = false;
           this.reviveT = 0;
-          game.hud.toast(`Has levantado a ${target.name}`);
+          this.cnt.rv++; game.stats.gold += 20; game.stats.totalGold += 20;   // premio por levantar a un compañero
+          game.hud.toast(`Has levantado a ${target.name} · +20 oro`);
           game.coopPrompt = null;
           return;
         }
       } else this.reviveT = 0;
       const pct = Math.round(this.reviveT / REVIVE_TIME * 100);
-      game.coopPrompt = `<b>${target.name}</b> está en el suelo<br>[mantén E] Levantar${pct ? ` · ${pct}%` : ''}`;
+      game.coopPrompt = `<b>${target.name}</b> está en el suelo<br>[mantén ${VX.Settings.keyName(VX.Settings.key('use'))}] Levantar${pct ? ` · ${pct}%` : ''}`;
     },
     checkAllDown(game) {
       if (game.state !== 'playing') return;
@@ -623,6 +754,99 @@
       VX.HordeMode.endWaveLocal(game, d.n, !!d.m, !!d.sp);
     },
 
+    // ---------------- aspecto, skins y estadísticas de equipo ----------------
+    lookMsg(game) {
+      const W = game.weapon, sk = {};
+      for (const s of W.slots) sk[s.id] = VX.Profile.skinFor(s.id);
+      return { k: 'look', lk: VX.Look ? VX.Look.mine() : null, sk, fm: { knife: VX.Profile.knifeForm(), pistol: VX.Weapons.DEFS.pistol.form || null } };
+    },
+    myStats(game) {
+      const S = game.stats, c = this.cnt || { rv: 0, as: 0, sv: 0, dn: 0 };
+      return { k: S.kills || 0, h: S.headshots || 0, d: Math.round(S.dmgDealt || 0), rv: c.rv, as: c.as, sv: c.sv, dn: c.dn };
+    },
+    // daño que haces (y, en el cooperativo, la marca para las asistencias)
+    noteHit(e, dmg, game) {
+      game.stats.dmgDealt = (game.stats.dmgDealt || 0) + Math.max(0, Math.min(dmg, e.hp > 0 ? e.hp : dmg));
+      e.myHitT = game.time;
+    },
+    // lo ha matado otro, pero le diste hace poco: asistencia
+    noteAssist(e, game) {
+      if (!this.active || game.mode !== 'horde' || !e.myHitT || game.time - e.myHitT > 6 || e.assisted) return;
+      e.assisted = true;
+      this.cnt.as++; game.stats.gold += 2; game.stats.totalGold += 2;
+    },
+    // lo has matado tú y estaba encima de un compañero: le has salvado
+    noteSave(e, game) {
+      if (!this.active || game.mode !== 'horde') return;
+      for (const r of this.remotes.values()) {
+        if (!r.seen || r.dead || Math.hypot(r.x - e.x, r.z - e.z) > 2.4) continue;
+        if (game.time - (r.savedT || -99) < 6) return;
+        r.savedT = game.time;
+        this.cnt.sv++; game.stats.gold += 5; game.stats.totalGold += 5;
+        game.hud.toast(`¡Has salvado a ${r.name}! · +5 oro`);
+        return;
+      }
+    },
+    allStats(game) {
+      const out = [{ id: VX.Net.id, name: this.myName(), color: VX.Look ? VX.Look.OPT.shirt.list[VX.Look.mine().shirt][1] : [1, 1, 1], s: this.myStats(game), me: true }];
+      for (const r of this.remotes.values()) out.push({ id: r.id, name: r.name, color: r.color, s: this.pstats.get(r.id) || { k: 0, h: 0, d: 0, rv: 0, as: 0, sv: 0, dn: 0 } });
+      return out;
+    },
+    markWaveStart(game) { for (const p of this.allStats(game)) this.waveBase.set(p.id, { ...p.s }); },
+    score(s) { return s.k + s.h * 0.5 + s.rv * 4 + s.sv * 3 + s.as * 0.5 + s.d / 250 - s.dn * 2; },
+    // tabla de la oleada (o de toda la partida): bajas, cabezas, daño, levantadas, asistencias, salvadas y caídas
+    table(game, whole) {
+      const rows = this.allStats(game).map((p) => {
+        const b = whole ? null : this.waveBase.get(p.id), s = {};
+        for (const k of ['k', 'h', 'd', 'rv', 'as', 'sv', 'dn']) s[k] = (p.s[k] || 0) - (b ? b[k] || 0 : 0);
+        return { ...p, s };
+      });
+      let mvp = null;
+      for (const r of rows) if (!mvp || this.score(r.s) > this.score(mvp.s)) mvp = r;
+      const head = '<tr><th></th><th>Bajas</th><th>Cabezas</th><th>Daño</th><th>Levantó</th><th>Asist.</th><th>Salvó</th><th>Caídas</th></tr>';
+      const body = rows.sort((a, b) => this.score(b.s) - this.score(a.s)).map((r) => `<tr class="${r.me ? 'me' : ''}"><td><b style="color:rgb(${r.color.map((v) => Math.round(v * 255)).join(',')})">${r === mvp && this.score(r.s) > 0 ? '★ ' : ''}${r.name}</b></td><td>${r.s.k}</td><td>${r.s.h}</td><td>${r.s.d}</td><td>${r.s.rv}</td><td>${r.s.as}</td><td>${r.s.sv}</td><td>${r.s.dn}</td></tr>`).join('');
+      const why = mvp && this.score(mvp.s) > 0 ? `<div class="ctMvp">★ Mejor ${whole ? 'de la partida' : 'de la oleada'}: <b>${mvp.name}</b></div>` : '';
+      return `<table class="coopTable">${head}${body}</table>${why}`;
+    },
+    showWaveTable(game, n) {
+      if (!this.active) return;
+      const el = document.getElementById('coopTable');
+      if (!el) return;
+      // primero cada uno manda sus números al momento; la tabla sale un instante después, ya al día
+      VX.Net.send({ k: 'st', s: this.myStats(game) }, 'all');
+      clearTimeout(this.tableTimer);
+      this.tableTimer = setTimeout(() => {
+        if (!this.active) return;
+        el.innerHTML = `<div class="ctTitle">OLEADA ${n}</div>` + this.table(game, false);
+        el.classList.remove('hidden');
+        this.tableTimer = setTimeout(() => el.classList.add('hidden'), 7000);
+      }, 900);
+    },
+
+    // ---------------- muerto: ver la partida con un compañero ----------------
+    // mientras estás muerto, la cámara sigue a un compañero (por detrás); clic o saltar cambia a otro
+    updateSpectate(dt, game) {
+      this.specPrompt = null;
+      if (!this.deadWait || game.state !== 'playing') { this.spec = null; return; }
+      const alive = [...this.remotes.values()].filter((r) => r.seen && !r.dead);
+      if (!alive.length) { this.spec = null; return; }
+      const I = VX.Input;
+      let i = Math.max(0, alive.findIndex((r) => r.id === this.spec));
+      if (I.mouseClicked || I.wasPressed(VX.Settings.key('jump'))) i = (i + 1) % alive.length;
+      this.spec = alive[i].id;
+      this.specPrompt = `Viendo a <b>${alive[i].name}</b>${alive.length > 1 ? ` · clic o ${VX.Settings.tag('jump')} para cambiar` : ''}<br><small>Vuelves al empezar la siguiente oleada</small>`;
+    },
+    // posición de la cámara mientras miras a un compañero (null si no hay nadie a quien mirar)
+    spectateCam(game) {
+      const r = this.spec != null && this.remotes.get(this.spec);
+      if (!r) return null;
+      const W = game.world, yaw = r.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
+      const hx = r.x, hy = r.y + 1.75, hz = r.z;
+      let d = 3.2;
+      for (let t = 0.3; t <= 3.2; t += 0.15) if (W.isSolidAt(hx - fx * t, hy + 0.5 * t / 3.2, hz - fz * t)) { d = Math.max(0.3, t - 0.3); break; }
+      return { x: hx - fx * d, y: hy + 0.5 * d / 3.2, z: hz - fz * d, yaw, pitch: -0.18 + r.pitch * 0.5, roll: 0, name: r.name };
+    },
+
     // ---------------- nombres sobre los compañeros y lista en pantalla ----------------
     myName() { const p = VX.Net.players.find((q) => q.id === VX.Net.id); return p ? p.name : 'Jugador'; },
     renderTags(force) {
@@ -655,7 +879,8 @@
       if (!pl) return;
       let s = '';
       const me = VX.game.player;
-      s += `<div><b style="color:rgb(${(VX.RemotePlayer.COLORS[Math.max(0, this.order.indexOf(VX.Net.id)) % 4]).map((v) => Math.round(v * 255)).join(',')})">${this.myName()} (tú)</b> ${this.down ? '· CAÍDO' : this.deadWait ? '· muerto' : `· ${Math.round(me.hp)}`}</div>`;
+      const myCol = VX.Look ? VX.Look.OPT.shirt.list[VX.Look.mine().shirt][1] : VX.RemotePlayer.COLORS[Math.max(0, this.order.indexOf(VX.Net.id)) % 4];
+      s += `<div><b style="color:rgb(${myCol.map((v) => Math.round(v * 255)).join(',')})">${this.myName()} (tú)</b> ${this.down ? '· CAÍDO' : this.deadWait ? '· muerto' : `· ${Math.round(me.hp)}`}</div>`;
       for (const r of this.remotes.values()) s += `<div><b style="color:rgb(${r.color.map((v) => Math.round(v * 255)).join(',')})">${r.name}</b> ${r.down ? '· CAÍDO' : r.dead ? '· muerto' : `· ${Math.round(r.hp)}`}</div>`;
       pl.innerHTML = s;
     },

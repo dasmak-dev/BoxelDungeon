@@ -328,10 +328,10 @@
 
     puddle(v, opt) {
       const m = mk(20, 1, 16);
-      const col = opt === 'acid' ? [0.15, 0.3, 0.1] : [0.06, 0.07, 0.09];
+      const col = opt === 'acid' ? [0.15, 0.3, 0.1] : [0.07, 0.085, 0.1];
       for (let k = 0; k < 16; k++) for (let i = 0; i < 20; i++) {
         const n = M.vnoise(i / 5, k / 5, v * 13) + 0.4 - Math.hypot((i - 10) / 10, (k - 8) / 8) * 0.8;
-        if (n > 0.35) put(m, i, 0, k, col, opt === 'acid' ? 0.15 : 0.02, 0.05, v);
+        if (n > 0.35) put(m, i, 0, k, n > 0.55 || opt === 'acid' ? col : mul(col, 1.5), opt === 'acid' ? 0.15 : -1.25, 0.05, v);   // agua: brillo y ondas del sombreador
       }
       return m;
     },
@@ -935,7 +935,7 @@
               debris++;
               game.particles.spawn(this.ox + (i + 0.5) * PV, this.oy + (j + 0.5) * PV, this.oz + (k + 0.5) * PV,
                 dx * M.rand(1, 3) + M.rand(-1.5, 1.5), M.rand(1, 3.5), dz * M.rand(1, 3) + M.rand(-1.5, 1.5),
-                col[q * 4], col[q * 4 + 1], col[q * 4 + 2], PV * M.rand(0.8, 1.1), M.rand(2, 4), col[q * 4 + 3]);
+                col[q * 4], col[q * 4 + 1], col[q * 4 + 2], PV * M.rand(0.8, 1.1), M.rand(2, 4), Math.max(0, col[q * 4 + 3]));
             }
           }
       this.alive -= n;
@@ -1014,7 +1014,7 @@
           const i = q % this.w, k = Math.floor(q / this.w) % this.d, j = Math.floor(q / (this.w * this.d));
           game.particles.spawn(this.ox + (i + 0.5) * PV, this.oy + (j + 0.5) * PV, this.oz + (k + 0.5) * PV,
             dx * M.rand(0.3, 1.5) + M.rand(-0.6, 0.6), M.rand(-0.5, 1.5), dz * M.rand(0.3, 1.5) + M.rand(-0.6, 0.6),
-            col[q * 4], col[q * 4 + 1], col[q * 4 + 2], PV * Math.min(2.2, step * 0.9 + 0.2), M.rand(2.5, 4.5), col[q * 4 + 3]);
+            col[q * 4], col[q * 4 + 1], col[q * 4 + 2], PV * Math.min(2.2, step * 0.9 + 0.2), M.rand(2.5, 4.5), Math.max(0, col[q * 4 + 3]));
         }
         this.fill[q] = 0;
       }
@@ -1031,6 +1031,7 @@
 
     hit(h, dmg, ray, game) {
       if (this.dead) return;
+      if (VX.Coop.active) VX.Coop.noteProp(game, this, h, dmg, ray);
       const k = CARVE_K[this.def.mat] ?? 1;
       this.carve(h.x, h.y, h.z, PV * (1.3 + dmg / 22) * k, game, ray.dx, ray.dy, ray.dz);
       if (this.def.mat === 'metal' || this.def.mat === 'stone') game.particles.sparks(h.x, h.y, h.z, -ray.dx, 0.3, -ray.dz, 3);

@@ -34,12 +34,36 @@
 
     toast(msg) { this.banner('', msg, 1.4); },
 
+    // Comparación de un arma de la tienda con la que llevas en la mano (o la que sustituiría)
+    weaponCompare(game, id) {
+      const W = game.weapon;
+      if (!W || !VX.Weapons.DEFS[id] || VX.Weapons.DEFS[id].melee) return '';
+      if (W.slots.some((s) => s.id === id)) return '<div class="cmp"><span class="cmpEq">Ya la llevas: te llena la munición</span></div>';
+      const guns = W.slots.filter((s) => !VX.Weapons.DEFS[s.id].melee);
+      const ref = W.def.melee ? guns[0] : W.slot;
+      if (!ref) return '';
+      const a = W.stats(id), b = W.stats(ref.id);
+      const dps = (s) => s.damage * (s.pellets || 1) * s.fireRate;
+      const rows = [
+        ['DPS', dps(a), dps(b), true], ['Daño', a.damage * (a.pellets || 1), b.damage * (b.pellets || 1), true],
+        ['Cadencia', a.fireRate, b.fireRate, true], ['Cargador', a.mag, b.mag, true],
+        ['Recarga', a.reload, b.reload, false], ['Alcance', a.range, b.range, true], ['Dispersión', a.spread, b.spread, false],
+      ];
+      const chip = ([n, x, y, up]) => {
+        if (!y || Math.abs(x - y) / Math.abs(y) < 0.04) return `<span class="cmpEq">= ${n}</span>`;
+        const p = Math.round((x - y) / Math.abs(y) * 100), good = up ? x > y : x < y;
+        return `<span class="${good ? 'cmpUp' : 'cmpDn'}">${good ? '▲' : '▼'} ${n} ${p > 0 ? '+' : ''}${p}%</span>`;
+      };
+      const note = guns.length < 2 ? 'se añade' : 'sustituye a ' + VX.Weapons.DEFS[ref.id].name.toLowerCase();
+      return `<div class="cmp"><small>Frente a tu ${VX.Weapons.DEFS[ref.id].name.toLowerCase()} (${note}):</small><br>${rows.map(chip).join(' ')}</div>`;
+    },
+
     // Llaves de colores que llevas (para las rejas de las cámaras)
     setKeys(k) {
       const el = $('keyLabel');
       if (!el) return;
       const parts = [];
-      for (const c of ['red', 'blue', 'gold']) if (k && k[c]) parts.push(`<span class="key k-${c}"></span>${k[c] > 1 ? '×' + k[c] : ''}`);
+      for (const c of ['red', 'blue', 'gold']) if (k && k[c]) parts.push(`<span class="key k-${c}"></span>${VX.Settings.data.colorblind ? '<b class="ksym">' + { red: '▲', blue: '■', gold: '✚' }[c] + '</b>' : ''}${k[c] > 1 ? '×' + k[c] : ''}`);
       el.innerHTML = parts.join(' ');
       el.classList.toggle('hidden', !parts.length);
     },
@@ -148,7 +172,7 @@
         if (n.gfog) t.push(n.gfog.thick ? 'niebla espesa' : 'niebla');
         const hz = [...new Set((n.spikes || []).map((s) => HZ[s.kind]).filter(Boolean))];
         if (hz.length) t.push(hz.join(', '));
-        if (n.vault) t.push(`<span class="mkey k-${n.vault.color}"></span> puerta con llave`);
+        if (n.vault) t.push(`<span class="mkey k-${n.vault.color}"></span> puerta con llave ${VX.Settings.keyColorName(n.vault.color)}`);
         if (n.secret) t.push(`<span class="msecret">${n.secret.stairs ? '✦ grieta con escalera' : '✦ grieta secreta'}</span>`);
         return t.join(' · ');
       };
@@ -192,7 +216,7 @@
         const zc = Z[p.zone].fog.map((v) => Math.round(Math.min(1, v * 12) * 255)).join(',');
         return `<span class="mstep" style="border-color:rgb(${zc})">${chip(p.type, i === path.length - 1 ? 'mcur' : '')}</span>`;
       }).join('<span class="mlink">›</span>') + '</div>';
-      h += '</div></div><div class="mhint">[M] cerrar</div>';
+      h += '</div></div><div class="mhint">' + VX.Settings.tag('map') + ' cerrar</div>';
       el.innerHTML = h;
       el.classList.remove('hidden');
       this.mapOpen = true; this.mapT = 0;
@@ -238,10 +262,14 @@
       ctx.drawImage(this._mapImg, ox, oz, W * sc, D * sc);
       const P2 = (wx, wz) => [ox + (wx / S - r.ox) * sc, oz + (wz / S - r.oz) * sc];
       const dot = (wx, wz, rad, col) => { const [x, y] = P2(wx, wz); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); };
+      // modo para daltónicos: los enemigos son cruces y los objetos rombos (no sólo rojo y amarillo)
+      const cb = VX.Settings.data.colorblind;
+      const cross = (wx, wz, rad, col) => { const [x, y] = P2(wx, wz); ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, rad * 0.7); ctx.beginPath(); ctx.moveTo(x - rad, y - rad); ctx.lineTo(x + rad, y + rad); ctx.moveTo(x + rad, y - rad); ctx.lineTo(x - rad, y + rad); ctx.stroke(); };
+      const diamond = (wx, wz, rad, col) => { const [x, y] = P2(wx, wz); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, y - rad); ctx.lineTo(x + rad, y); ctx.lineTo(x, y + rad); ctx.lineTo(x - rad, y); ctx.closePath(); ctx.fill(); };
       // antorchas
       for (const t of r.torches || []) if (t.alive) dot(t.x, t.z, 2.2, '#ff9a3a');
       // reja y grieta
-      if (r.vault && !r.vault.open) { const c = { red: '#e3392c', blue: '#4f7dff', gold: '#f0c040' }[r.vault.color]; const [x, y] = P2(r.vault.x, r.vault.z); ctx.fillStyle = c; ctx.fillRect(x - 5, y - 5, 10, 10); }
+      if (r.vault && !r.vault.open) { const c = { red: '#e3392c', blue: '#4f7dff', gold: '#f0c040' }[r.vault.color]; const [x, y] = P2(r.vault.x, r.vault.z); ctx.fillStyle = c; ctx.fillRect(x - 5, y - 5, 10, 10); if (cb) { ctx.save(); ctx.translate(x, y); ctx.scale(1, -1); ctx.fillStyle = '#000'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText({ red: '▲', blue: '■', gold: '✚' }[r.vault.color], 0, 1); ctx.restore(); } }
       if (r.secret && (r.secret.found || game.mapReveal > 0)) { const [x, y] = P2(r.secret.x, r.secret.z); ctx.strokeStyle = '#c79bff'; ctx.lineWidth = 2; ctx.strokeRect(x - 6, y - 6, 12, 12); }
       // puertas: color del tipo de sala que hay detrás
       for (const s in r.doors) {
@@ -251,9 +279,9 @@
         ctx.fillRect(x - 7, y - 7, 14, 14);
       }
       // objetos que se pueden coger/usar
-      for (const it of game.pickups.items) if (!it.taken && r.contains(it.x, it.z) && it.kind !== 'lockdoor') dot(it.x, it.z, 3.2, '#ffd23f');
+      for (const it of game.pickups.items) if (!it.taken && r.contains(it.x, it.z) && it.kind !== 'lockdoor') (cb ? diamond : dot)(it.x, it.z, cb ? 4.2 : 3.2, '#ffd23f');
       // enemigos
-      for (const e of game.enemies) if (!e.dead) dot(e.x, e.z, e.isBoss ? 6 : 3, '#ff4a3a');
+      for (const e of game.enemies) if (!e.dead) (cb ? cross : dot)(e.x, e.z, e.isBoss ? 6 : cb ? 3.5 : 3, '#ff4a3a');
       // tú: flecha hacia donde miras
       const P = game.player, [px, py] = P2(P.x, P.z);
       ctx.save(); ctx.translate(px, py); ctx.rotate(-Math.atan2(Math.sin(P.yaw), Math.cos(P.yaw)));
@@ -338,14 +366,14 @@
         const can = f.price <= game.stats.gold;
         const price = f.price > 0 ? ` · <span class="${can ? 'price' : 'bad'}">${f.price} oro</span>` : (f.kind === 'rest' || f.kind === 'supply' || f.kind === 'secretChest' || f.kind === 'stairs' ? '' : ' · <span class="price">GRATIS</span>');
         const act = f.action || (f.price > 0 ? 'Comprar' : 'Recoger');
-        el.prompt.innerHTML = `<b>${f.title}</b> — ${f.desc}<br>[E] ${act}${price}`;
+        el.prompt.innerHTML = `<b>${f.title}</b> — ${f.desc}<br>${VX.Settings.tag('use')} ${act}${price}` + (f.kind === 'weapon' ? this.weaponCompare(game, f.weapon) : '');
         el.prompt.classList.remove('hidden');
       } else if (game.coopPrompt) {
         el.prompt.innerHTML = game.coopPrompt;
         el.prompt.classList.remove('hidden');
       } else if (game.doorFocus) {
         const info = VX.ROOM_TYPES[game.doorFocus.type] || {};
-        el.prompt.innerHTML = `<b>Puerta</b> — ${info.label || 'Siguiente sala'}<br>[E] Abrir`;
+        el.prompt.innerHTML = `<b>Puerta</b> — ${info.label || 'Siguiente sala'}<br>${VX.Settings.tag('use')} Abrir`;
         el.prompt.classList.remove('hidden');
       } else el.prompt.classList.add('hidden');
 

@@ -4,6 +4,8 @@
   const DEFAULTS = {
     music: 0.55,
     sfx: 0.8,
+    ambVol: 1,           // volumen del ambiente (fondo de cada bioma, goteos, cadenas…), sobre «Efectos»
+    enemyVol: 1,         // volumen de los enemigos (gruñidos, pasos, ataques), sobre «Efectos»
     sensitivity: 1.0,
     invertY: false,
     fov: 75,
@@ -25,9 +27,20 @@
     aimAssist: true,     // la mira se frena y se pega un poco a los enemigos (sólo táctil)
     vibrate: true,       // vibración del móvil al disparar, recibir daño y con las explosiones
     fpsCap: 0,           // 0 = sin límite, 60 o 30
-    keys: { flashlight: 'KeyF', inspect: 'ControlLeft', knife: 'KeyV', throw: 'KeyT', throwNext: 'KeyB' },   // teclas configurables
+    uiScale: 1,          // tamaño de la interfaz de juego (HUD)
+    colorblind: false,   // modo para daltónicos: símbolos además de colores (llaves, mapa…)
+    keys: {   // teclas configurables (todas salvo 1·2·3, la rueda, las flechas y Esc)
+      fwd: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', run: 'ShiftLeft', dash: 'KeyC',
+      reload: 'KeyR', use: 'KeyE', prev: 'KeyQ', map: 'KeyM', wave: 'KeyG', pause: 'KeyP',
+      flashlight: 'KeyF', inspect: 'ControlLeft', knife: 'KeyV', throw: 'KeyT', throwNext: 'KeyB',
+    },
   };
   const KEY_DEFAULTS = { ...DEFAULTS.keys };
+  // preajustes de gráficos
+  const PRESETS = {
+    movil: { quality: 'media', shadows: false, torchShadows: false, ssao: false, bloom: false, dust: false, groundFog: false, autoQuality: true, fpsCap: 60 },
+    pc: { quality: 'alta', shadows: true, torchShadows: true, ssao: true, bloom: true, dust: true, groundFog: true, autoQuality: true, fpsCap: 0 },
+  };
 
   const Settings = {
     data: { ...DEFAULTS },
@@ -38,9 +51,9 @@
         // v0.13: el cuchillo rápido vuelve a la V y la inspección pasa a Ctrl
         if (s.keys && !s.keysV13) { s.keys.knife = 'KeyV'; s.keys.inspect = 'ControlLeft'; s.keysV13 = true; }
         this.data = { ...DEFAULTS, ...s, keys: { ...KEY_DEFAULTS, ...(s.keys || {}) } };
-        // primera vez en un móvil: calidad media (la automática la ajusta después)
-        // primera vez en un móvil: calidad media, sin oclusión ambiental (la automática ajusta el resto)
-        if (!localStorage.getItem(KEY) && window.matchMedia && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches) { this.data.quality = 'media'; this.data.ssao = false; }
+        // en el móvil, la primera vez (y una vez para quien ya jugaba antes de la 0.40) se pone el
+        // preajuste de móvil: así va fluido sin tener que tocar nada
+        if (this.isMobile() && !s.mobilePreset) { Object.assign(this.data, PRESETS.movil); this.data.mobilePreset = 1; this.save(); }
       } catch (e) { this.data = { ...DEFAULTS }; }
       return this.data;
     },
@@ -49,7 +62,16 @@
       try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) {}
     },
 
-    reset() { this.data = { ...DEFAULTS, keys: { ...KEY_DEFAULTS } }; this.save(); this.apply(); },
+    reset() { this.data = { ...DEFAULTS, keys: { ...KEY_DEFAULTS } }; if (this.isMobile()) Object.assign(this.data, PRESETS.movil, { mobilePreset: 1 }); this.save(); this.apply(); },
+    PRESETS,
+    preset(name) { Object.assign(this.data, PRESETS[name]); this.save(); this.apply(); },
+    // ¿móvil o tableta? (pantalla táctil sin ratón, o lo dice el navegador)
+    isMobile() {
+      try {
+        const mm = window.matchMedia;
+        return !!((mm && mm('(pointer: coarse)').matches && !mm('(any-pointer: fine)').matches) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || ''));
+      } catch (e) { return false; }
+    },
 
     // Tecla asignada a una acción
     key(action) { return (this.data.keys && this.data.keys[action]) || KEY_DEFAULTS[action]; },
@@ -61,6 +83,12 @@
       k[action] = code;
       this.save();
     },
+
+    // nombre de una llave (con su símbolo en el modo para daltónicos)
+    keyColorName(c) { const n = { red: 'roja', blue: 'azul', gold: 'dorada' }[c]; return this.data.colorblind ? n + ' ' + { red: '▲', blue: '■', gold: '✚' }[c] : n; },
+
+    // «[E]»: la tecla de una acción entre corchetes, para los textos de ayuda
+    tag(action) { return '[' + this.keyName(this.key(action)) + ']'; },
 
     // Nombre legible de una tecla
     keyName(code) {
@@ -76,7 +104,7 @@
     // Aplica los ajustes a los sistemas
     apply() {
       const d = this.data;
-      if (VX.Audio) VX.Audio.setVolume(d.sfx);
+      if (VX.Audio) { VX.Audio.setVolume(d.sfx); if (VX.Audio.setBusVolumes) VX.Audio.setBusVolumes(d.ambVol ?? 1, d.enemyVol ?? 1); }
       if (VX.Music) VX.Music.setVolume(d.music);
       if (VX.Input) { VX.Input.sensitivity = 0.0022 * d.sensitivity; VX.Input.invertY = d.invertY; }
       if (VX.Renderer && VX.Renderer.gl) {
@@ -86,6 +114,9 @@
         if (VX.resetAutoQuality) VX.resetAutoQuality();
       }
       if (VX.Touch && VX.Touch.el) VX.Touch.apply();
+      const hud = document.getElementById('hud');
+      if (hud) hud.style.zoom = d.uiScale || 1;
+      document.body.classList.toggle('cb', !!d.colorblind);
       const fps = document.getElementById('fps');
       if (fps) fps.classList.toggle('hidden', !d.showFps);
     },

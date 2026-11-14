@@ -291,6 +291,29 @@ void main() {
     return;
   }
 
+  // agua quieta (charcos, pozas): alfa entre -1,1 y -1,45. Ondas suaves que se mueven y
+  // anillos de gotas que caen; sin bordes de vóxel, así no se ve la cuadrícula
+  float wet = (v_col.a < -1.1 && v_col.a > -1.45 && n.y > 0.5) ? 1.0 : 0.0;
+  if (wet > 0.5) {
+    vec2 w = v_world.xz;
+    vec2 g = vec2(sin(w.x * 5.1 + u_time * 1.3 + sin(w.y * 3.7)), cos(w.y * 4.6 - u_time * 1.1 + sin(w.x * 2.9))) * 0.045;
+    g += vec2(sin(w.y * 11.0 + u_time * 2.3), cos(w.x * 9.0 - u_time * 2.0)) * 0.012;
+    for (int q = 0; q < 2; q++) {
+      float sc = q == 0 ? 0.9 : 1.37;
+      vec2 cell = floor(w / sc + float(q) * 0.5);
+      vec2 f = fract(w / sc + float(q) * 0.5) - 0.5;
+      float hh = fract(sin(dot(cell, vec2(12.9898, 78.233)) + float(q) * 3.1) * 43758.5453);
+      vec2 cc = (vec2(fract(hh * 7.13), fract(hh * 3.71)) - 0.5) * 0.45;
+      vec2 dv = f - cc;
+      float dd = length(dv) * sc;
+      float ph = fract(u_time * (0.28 + hh * 0.2) + hh);
+      float rr = ph * 0.42;
+      float ring = exp(-pow((dd - rr) * 22.0, 2.0)) * (1.0 - ph) * (1.0 - ph);
+      g += dv / max(length(dv), 1e-3) * ring * 0.3 * sin((dd - rr) * 55.0);
+    }
+    n = normalize(vec3(g.x, 1.0, g.y));
+  }
+
   if (v_col.a < -1.5) {
     // ventana con piso detrás (sin tonemapping de nuevo: se calcula en lineal)
     float em;
@@ -306,7 +329,7 @@ void main() {
   vec3 d = (0.5 - abs(v_local)) * v_scale;
   vec3 an = abs(v_lnrm);
   float e = an.x > 0.5 ? min(d.y, d.z) : (an.y > 0.5 ? min(d.x, d.z) : min(d.x, d.y));
-  float shade = mix(0.78, 1.0, smoothstep(0.0, u_edge, e));
+  float shade = wet > 0.5 ? 1.0 : mix(0.78, 1.0, smoothstep(0.0, u_edge, e));
 
   vec3 base = pow(max(v_col.rgb, vec3(0.0)), vec3(2.2));
   vec3 V = normalize(u_camPos - v_world);
@@ -317,6 +340,7 @@ void main() {
   // alfa > 0: emisivo · alfa < 0: material brillante (metal, agua, ácido, cristal)
   float emis = max(v_col.a, 0.0), shiny = clamp(-v_col.a, 0.0, 1.0);
   float sAmt = mix(0.22, 2.4, shiny), sExp = mix(18.0, 90.0, shiny);
+  if (wet > 0.5) { float wk = clamp((-v_col.a - 1.1) / 0.25, 0.0, 1.0); emis = 0.0; shiny = 1.0; sAmt = mix(1.3, 3.0, wk); sExp = mix(70.0, 150.0, wk); }
 
   for (int i = 0; i < 16; i++) {
     if (i >= u_numLights) break;
@@ -351,6 +375,7 @@ void main() {
   // reflejo tenue del entorno en las superficies brillantes (bordes de Fresnel)
   float fres = pow(1.0 - max(dot(n, V), 0.0), 4.0) * shiny;
   col += u_ambient * 6.0 * fres + spec * 0.2 * shiny;
+  if (wet > 0.5) col += u_ambient * 9.0 * fres + u_fogColor * 0.6 * fres;   // el agua refleja el ambiente en ángulo
   col = mix(col, base * 2.2, emis);
 
   // Tonemapping filmico (ACES aprox.)

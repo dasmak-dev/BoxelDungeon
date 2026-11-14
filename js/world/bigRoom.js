@@ -153,7 +153,8 @@
           const gx = this.ox + cx, gz = this.oz + cz;
           this.floorColor(gt, mx, mz, gx, gz, M.hash3(gx, 3, gz), M.hash3(gx >> 3, 5, gz >> 3), c);
           let [r, g, b, mat] = c;
-          if (c[4] && this.isPuddle(gx, gz, this.damp || 0.5)) { r *= 0.7; g *= 0.72; b *= 0.8; mat = -0.4; }   // charco: algo de brillo, sin destellos de golpe
+          const pud = c[4] && this.isPuddle(gx, gz, this.damp || 0.5);
+          if (pud) { r *= 0.8; g *= 0.8; b *= 0.85; mat = -0.35; this.emitPuddleFilm(batch, gx, gz, C, (x, z) => this.isPuddle(x, z, this.damp || 0.5), r, g, b); }   // charco: suelo mojado y lámina de agua encima
           const a00 = this.floorAO(cx, cz), a10 = this.floorAO(cx + C, cz), a01 = this.floorAO(cx, cz + C), a11 = this.floorAO(cx + C, cz + C);
           ao[0] = a00; ao[1] = a10; ao[2] = a00; ao[3] = a10; ao[4] = a01; ao[5] = a11; ao[6] = a01; ao[7] = a11;
           batch.aobox((gx + 2) * S, -0.12, (gz + 2) * S, C * S, 0.24, C * S, r, g, b, mat, ao);

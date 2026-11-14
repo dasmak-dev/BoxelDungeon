@@ -8,21 +8,21 @@
   // botones: id, texto, acción (tecla, 'fire', 'aim', 'swap', 'run', 'pause', 'full')
   const BUTTONS = [
     ['fire', '', 'fire'],
-    ['jump', 'SALTO', 'Space'],
-    ['dash', 'ESQUIVA', 'KeyC'],
-    ['reload', 'R', 'KeyR'],
+    ['jump', 'SALTO', 'jump'],
+    ['dash', 'ESQUIVA', 'dash'],
+    ['reload', 'R', 'reload'],
     ['swap', 'ARMA', 'swap'],
     ['knife', 'CUCHILLO', 'knife'],
     ['throw', 'LANZAR', 'throw'],
-    ['use', 'USAR', 'KeyE'],
+    ['use', 'USAR', 'use'],
     ['aim', 'MIRILLA', 'aim'],
   ];
   const TOP = [
     ['pause', '❚❚', 'pause'],
     ['light', 'LUZ', 'flashlight'],
-    ['map', 'MAPA', 'KeyM'],
+    ['map', 'MAPA', 'map'],
     ['tnext', 'OBJETO ⇄', 'throwNext'],
-    ['wave', 'OLEADA', 'KeyG'],
+    ['wave', 'OLEADA', 'wave'],
     ['full', '⛶', 'full'],
   ];
 
@@ -141,10 +141,11 @@
       if (d > R * 0.22) {
         const a = Math.atan2(-dy, dx);   // 0 = derecha, π/2 = arriba
         const sec = Math.round(a / (Math.PI / 4));   // -4..4
-        const dirs = { 0: ['KeyD'], 1: ['KeyW', 'KeyD'], 2: ['KeyW'], 3: ['KeyW', 'KeyA'], 4: ['KeyA'], '-4': ['KeyA'], '-3': ['KeyS', 'KeyA'], '-2': ['KeyS'], '-1': ['KeyS', 'KeyD'] };
+        const K = (a) => VX.Settings.key(a), W = K('fwd'), S = K('back'), A = K('left'), D = K('right');
+        const dirs = { 0: [D], 1: [W, D], 2: [W], 3: [W, A], 4: [A], '-4': [A], '-3': [S, A], '-2': [S], '-1': [S, D] };
         keys.push(...dirs[sec]);
       }
-      const sprint = d > R * 1.15 && keys.includes('KeyW');
+      const sprint = d > R * 1.15 && keys.includes(VX.Settings.key('fwd'));
       this.setPad(keys, sprint);
       const k = Math.min(1, d / R);
       const m = d > 0 ? (k * R * 0.55) / d : 0;
@@ -159,8 +160,8 @@
       for (const k of keys) { if (!I.keys[k]) I.pressed[k] = true; I.keys[k] = true; }
       this.padKeys = keys;
       // con "Correr siempre" de los ajustes ya se corre: Shift serviría para andar, así que no se toca
-      I.keys.ShiftLeft = !VX.Settings.data.autoRun && (this.run || sprint);
-      for (const a of ['up', 'dn', 'lf', 'rt']) this.pad.querySelector('.' + a).classList.toggle('on', keys.includes({ up: 'KeyW', dn: 'KeyS', lf: 'KeyA', rt: 'KeyD' }[a]));
+      I.keys[VX.Settings.key('run')] = !VX.Settings.data.autoRun && (this.run || sprint);
+      for (const a of ['up', 'dn', 'lf', 'rt']) this.pad.querySelector('.' + a).classList.toggle('on', keys.includes(VX.Settings.key({ up: 'fwd', dn: 'back', lf: 'left', rt: 'right' }[a])));
     },
 
     key(code, down) {
@@ -178,7 +179,7 @@
         case 'flashlight': this.key(VX.Settings.key('flashlight'), true); break;
         case 'knife': this.key(VX.Settings.key('knife'), true); break;
         case 'throw': case 'throwNext': this.key(VX.Settings.key(act), true); break;
-        default: this.key(act, true);
+        default: this.key(VX.Settings.key(act) || act, true);
       }
     },
 
@@ -190,7 +191,7 @@
         case 'knife': this.key(VX.Settings.key('knife'), false); break;
         case 'throw': case 'throwNext': this.key(VX.Settings.key(act), false); break;
         case 'swap': case 'run': case 'pause': case 'full': break;
-        default: this.key(act, false);
+        default: this.key(VX.Settings.key(act) || act, false);
       }
     },
 

@@ -28,12 +28,12 @@
       this.queued = false;
       this.accent = null;
       this.att = {};                                       // accesorios montados por arma: { smg: ['reflex', 'extmag'] }
-      this.throws = { frag: 2, molotov: 0, decoy: 0 };     // objetos arrojables de la partida
+      this.throws = { frag: 0, molotov: 0, decoy: 0 };     // objetos arrojables de la partida (se empieza sin nada: se encuentran)
       this.throwSel = 'frag'; this.throwCd = 0;
     }
 
     // ---- accesorios ----
-    attList(id = this.slot.id) { return this.att[id] || []; }
+    attList(id = this.slot && this.slot.id) { return (this.att && this.att[id]) || []; }
     attMul(id = this.slot.id) {
       const m = { damage: 1, spread: 1, range: 1, mag: 1, reload: 1, recoil: 1, sound: 1 };
       for (const a of this.attList(id)) { const d = VX.Weapons.ATTACH[a]; if (d) for (const k in d.mul) m[k] *= d.mul[k]; }
@@ -90,7 +90,7 @@
       for (const s of this.slots) { if (VX.Weapons.DEFS[s.id].melee) continue; a += s.ammo + (s.reserve || 0); m += this.magFor(s.id) + this.reserveMax(s.id); }
       return m ? a / m : 1;
     }
-    magFor(id) { const d = VX.Weapons.DEFS[id]; return d.melee ? 0 : Math.round(d.mag * (this.mods ? this.mods.mag : 1)); }
+    magFor(id) { const d = VX.Weapons.DEFS[id]; return d.melee ? 0 : Math.round(d.mag * (this.mods ? this.mods.mag : 1) * this.attMul(id).mag); }   // con el cargador ampliado si lo lleva
 
     get slot() { return this.slots[this.cur]; }
     get def() { return VX.Weapons.DEFS[this.slot.id]; }
@@ -98,9 +98,9 @@
 
     stats(id = this.slot.id) {
       const d = VX.Weapons.DEFS[id], m = this.mods, a = this.attMul(id);
-      if (d.melee) return { melee: true, damage: d.damage * Math.sqrt(m.damage), fireRate: d.fireRate, reach: d.reach, destruction: 1 };
+      if (d.melee) return { melee: true, damage: d.damage * Math.sqrt(m.damage) * (m.meleeDmg || 1), fireRate: d.fireRate * (m.meleeRate || 1), reach: d.reach * (m.reach || 1), destruction: 1 };
       return {
-        damage: d.damage * m.damage * a.damage, fireRate: d.fireRate * m.rate, range: d.range * m.range * a.range,
+        damage: d.damage * m.damage * a.damage, fireRate: d.fireRate * m.rate * (m.spinup ? 1 + Math.min(0.5, (this.heat || 0) * 0.035) : 1), range: d.range * m.range * a.range,
         mag: Math.round(d.mag * m.mag * a.mag), reload: d.reload * m.reload * a.reload, spread: d.spread * m.spread * a.spread,
         pellets: d.pellets + (d.pellets > 1 ? m.pellets * 2 : m.pellets), pierce: d.pierce + m.pierce,
         destruction: d.destruction * m.destruction, auto: d.auto || m.auto, ricochet: m.ricochet || 0,
@@ -214,7 +214,7 @@
         this.inspectT = this.inspectT > 0 ? 0 : 2.6;
         if (this.inspectT) VX.Audio.reload();
       }
-      if (I.mouseClicked || I.wasPressed('KeyR') || I.wheel || I.wasPressed('KeyQ') || I.wasPressed(kKnife) ||
+      if (I.mouseClicked || I.wasPressed(KS.key('reload')) || I.wheel || I.wasPressed(KS.key('prev')) || I.wasPressed(kKnife) ||
           I.wasPressed('Digit1') || I.wasPressed('Digit2') || I.wasPressed('Digit3')) this.inspectT = 0;
       for (const t of this.tracers) t.life -= dt;
       this.tracers = this.tracers.filter((t) => t.life > 0);
@@ -226,7 +226,7 @@
       if (I.wasPressed('Digit1')) this.select(0);
       if (I.wasPressed('Digit2')) this.select(1);
       if (I.wasPressed('Digit3')) this.select(2);
-      if (I.wasPressed('KeyQ')) this.select(this.prev);
+      if (I.wasPressed(KS.key('prev'))) this.select(this.prev);
       if (I.wheel) this.select((this.cur + (I.wheel > 0 ? 1 : this.slots.length - 1)) % this.slots.length);
       // objetos arrojables: lanzar y cambiar el elegido
       this.throwCd = Math.max(0, this.throwCd - dt);
@@ -249,7 +249,7 @@
           } else this.slot.ammo = st.mag;
         }
       }
-      if (I.wasPressed('KeyR')) this.startReload();
+      if (I.wasPressed(KS.key('reload'))) this.startReload();
 
       if (this.pendingHit >= 0) {
         this.pendingHit -= dt;
@@ -433,6 +433,7 @@
         const killed = bestE.hit(best, st.damage * mult, ray, game, { slash: [ax / al, ay / al, az / al] });
         game.dmgSource = null;
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
+        if (killed && this.mods.meleeHeal && !bestE.isCorpse) game.player.heal(4);   // sinergia Berserker
         game.shake(0.12);
         VX.Haptics.buzz(25);
         VX.Audio.slash();
@@ -535,7 +536,7 @@
         const sp0 = 17;
         this.grenades.push({
           x: mx, y: my, z: mzz, vx: fwd[0] * sp0 + P.vx * 0.5, vy: fwd[1] * sp0 + 2.5, vz: fwd[2] * sp0 + P.vz * 0.5,
-          life: 4, rot: 0, dmg: st.damage, blast: d.blast * Math.sqrt(st.destruction), destr: st.destruction,
+          life: 4, rot: 0, dmg: st.damage, blast: d.blast * Math.sqrt(st.destruction) * (this.mods.blastR || 1), destr: st.destruction,
         });
         if (coopDirs) VX.Coop.shareGrenade(this.grenades[this.grenades.length - 1]);
       } else {
@@ -558,9 +559,9 @@
           let dz = fwd[2] + right[2] * Math.cos(a) * r + up[2] * Math.sin(a) * r;
           const l = Math.hypot(dx, dy, dz); dx /= l; dy /= l; dz /= l;
           this.shootRay(game, st, ox, oy, oz, dx, dy, dz, mx, my, mzz);
-          if (coopDirs) coopDirs.push([dx, dy, dz]);
+          if (coopDirs) coopDirs.push([dx, dy, dz, this.rayEnd, this.rayKind]);
         }
-        if (coopDirs) VX.Coop.shareShot(game, ox, oy, oz, coopDirs, this.slot.id, st.damage, st.destruction, mx, my, mzz);
+        if (coopDirs) VX.Coop.shareShot(game, ox, oy, oz, coopDirs, this.slot.id, st.damage, st.destruction, mx, my, mzz, this.mods);
       }
       this.applyRecoil(P, d);
       const shell = d.pellets > 1;
@@ -614,6 +615,9 @@
         ph.prop.hit(ph, dmg * st.destruction, ray, game);
         stoppedByEnemy = true; endT = ph.t;
       }
+      // para el cooperativo: dónde acabó la bala y qué tocó (los compañeros lo repiten igual)
+      this.rayEnd = stoppedByEnemy ? endT : wHit ? wHit.t : st.range;
+      this.rayKind = stoppedByEnemy ? 1 : wHit ? 2 : 0;
       if (!stoppedByEnemy && wHit && this.def.flame) {
         // el fuego no agujerea: chamusca y a veces prende el suelo
         if (Math.random() < 0.05 && wHit.ny > 0.5 && game.addFire) game.addFire(wHit.x, wHit.z, 0.5, 2.5);

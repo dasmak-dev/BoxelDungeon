@@ -25,8 +25,9 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 | B | Cambiar el objeto que se lanza (configurable) |
 | C / clic derecho | Esquivar (impulso corto con invulnerabilidad) |
 | Clic derecho (con el rifle) | Mantener para mirar por la mirilla |
-| Esc o P → Guardar y salir | Suspende la partida (se reanuda una vez; se pierde si mueres) |
 | Esc o P | Pausa |
+
+Todas las teclas (salvo 1·2·3, la rueda, las flechas y Esc) se pueden cambiar en **Ajustes → Teclas**.
 
 ### En el móvil o la tableta
 Se juega en horizontal con controles táctiles (aparecen solos en pantallas táctiles; se pueden forzar o quitar en **Ajustes → Controles táctiles**):
@@ -54,12 +55,14 @@ Va mejor en Chrome para Android. La primera vez el juego empieza en calidad medi
 - **Niebla baja** según el bioma, que se abre al pasar, disparar o con las explosiones; en las salas de niebla espesa sólo se ven los ojos de los zombis y se oyen sus pasos.
 - **6 armas** + mejoras normales, raras y maldiciones; esquiva; retos opcionales por sala.
 - **Objetos arrojables** con tecla propia: granadas que rebotan, cócteles molotov que dejan un charco de fuego y señuelos que pitan y atraen a los zombis antes de reventar.
-- **Accesorios de arma** para la partida (mira réflex, silenciador, compensador, empuñadura vertical, láser, cargador ampliado y doble cargador): se montan en el arma, se ven en el modelo y la mejoran. Los accesorios, el molotov y el señuelo **se desbloquean con misiones** (Armería → Equipo).
+- **Accesorios de arma** para la partida (mira réflex, silenciador, compensador, empuñadura vertical, láser, cargador ampliado y doble cargador): se montan en el arma, se ven en el modelo y la mejoran. Los accesorios y todos los objetos para lanzar **se desbloquean con misiones** (Armería → Equipo) y luego hay que encontrarlos por los pisos.
 - **Progresión permanente**: esencia para el Santuario (bendiciones y arsenal), skins por arma que se desbloquean con retos **formas del cuchillo** (karambit, daga, machete, bayoneta, navaja mariposa) y **modelos de pistola** (Desert Eagle, revólver y pistola automática, cada uno con su daño, cadencia, cargador y sonido) que se desbloquean con misiones.
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.36.1**.
+Cooperativo: personaliza tu personaje en **Armería → PERSONAJE** (tus compañeros te ven así, con tus skins); al morir ves la partida con un compañero y vuelves en la siguiente oleada; al final de cada oleada sale la tabla del equipo.
+
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.40.0**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.

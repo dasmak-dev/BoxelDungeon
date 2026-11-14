@@ -21,7 +21,8 @@
       $('startWeaponList').innerHTML = P.ARSENAL.map((w) => {
         const own = d.weapons.includes(w.id), sel = d.startWeapon === w.id;
         const name = VX.Weapons.DEFS[w.id].name.toUpperCase();
-        const sub = sel ? 'Arma inicial' : own ? 'En tiendas y jefes · clic: arma inicial' : `Bloqueada · ${w.cost} esencia`;
+        const sty = 'Mejoras: ' + VX.Upgrades.POOL_NAME[VX.Upgrades.POOL_OF[w.id]];
+        const sub = (sel ? 'Arma inicial' : own ? 'En tiendas y jefes · clic: arma inicial' : `Bloqueada · ${w.cost} esencia`) + ' · ' + sty;
         return `<button data-weapon="${w.id}" class="${sel ? 'on' : ''}" ${!own && d.essence < w.cost ? 'disabled' : ''}>${name}<small>${sub}</small></button>`;
       }).join('');
       // mercancía para las tiendas

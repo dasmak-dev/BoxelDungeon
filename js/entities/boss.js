@@ -646,6 +646,7 @@
       if (VX.Codex && VX.Codex.bonus && game.dmgSource) dmg *= VX.Codex.bonus('boss:' + this.T.id);   // conocer al enemigo (bestiario)
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
       if (this.dead) return false;
+      if (game.localAct && !game.visualOnly) VX.Coop.noteHit && VX.Coop.noteHit(this, dmg, game);
       const C = VX.Coop;
       if (C.active && !game.visualOnly) {
         if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts); }

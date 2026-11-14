@@ -3,6 +3,118 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.40.0] — 2026-11-14
+
+### Añadido
+- **Chico o chica** en la personalización del personaje (Armería → PERSONAJE): la chica tiene el cuerpo y los brazos algo más finos, pestañas, colorete y labios.
+- **Prendas de arriba**: camiseta, polo, sudadera (con bolsillo y cordones), camisa de cuadros, rayas, chaqueta abierta con cremallera, tirantes, chaleco táctico, top corto y vestido. **16 colores** (antes 10).
+- **Prendas de abajo**: pantalón, pantalón corto (con calcetines), falda, cargo con bolsillos, vaquero roto y mallas. **10 colores** (antes 5).
+- **Más cosas para la cabeza**: gorra al revés, bandana, boina, lazo, diadema, auriculares, orejas de gato y corona de flores.
+- **Más cosas para la cara**: gafas redondas, barba, bigote, pendientes, máscara de hockey, pintura de guerra, pecas, collar y gafas de esquí.
+- **Más pelo**: dos coletas, moño y tres colores nuevos (rosa, verde y platino).
+- **Preajuste de móvil**: en móviles y tabletas el juego arranca con calidad media, sin sombras, sin resplandor, sin oclusión, sin polvo ni niebla baja y a 60 FPS como mucho (con la calidad automática activada). Se aplica solo la primera vez, también si ya habías jugado antes en el móvil. En Ajustes → GRÁFICOS hay dos botones para cambiar de un preajuste a otro: **MÓVIL** y **PC**. «Restablecer» en el móvil vuelve al preajuste de móvil.
+
+## [0.39.0] — 2026-11-14
+
+### Añadido
+- **Hidra** (enemigo nuevo, mazmorra desde el piso 7): le puedes arrancar piernas, brazos o partirla por la mitad y **todo le vuelve a crecer** en 2,5–3,5 s; además, **de cada trozo arrancado sale un brote verde** que, si no lo rompes en 3,5 s, crece y se convierte en otra hidra. **Sólo muere si le revientas la cabeza.** (Como mucho dos generaciones y 9 a la vez, para que no se desmadre.)
+- **Mejoras según el arma inicial**: en la mazmorra, las mejoras que salen (cofres, tiendas, jefes, salas de premio) son del **estilo del arma con la que empiezas**: Precisión (pistola, rifle, ballesta, desintegrador), Ráfaga (subfusil, ametralladora), Perdigones (escopetas), Explosivos (lanzagranadas), Cuerpo a cuerpo (mazo) o Fuego (lanzallamas). Cada estilo tiene **mejoras propias** (Cazacabezas, Pulso de cirujano, Cañón caliente, Tambor, Choke cerrado, Postas, Carga reforzada, Espoleta rápida, Golpe brutal, Muñecas de hierro, Brazo largo, Depósito grande, Mezcla caliente) y **sinergias nuevas** (Ejecutor, Tormenta de plomo, Muro de plomo, Demolición, Berserker, Infierno). El estilo se ve en el Santuario y al empezar la partida. En la Horda no cambia nada.
+- **Peinados** para tu personaje: corto, rapado, largo, cresta, coleta, afro, tupé, melena o calvo.
+- **Gira tu personaje** en la Armería arrastrando con el ratón (o el dedo); por defecto mira de frente.
+
+### Cambiado
+- **Cara de persona** para los jugadores: ojos con blanco, cejas del color del pelo, nariz y boca (antes tenían la cara de zombi, con ojeras).
+- **Los compañeros ya no van con los brazos en cruz**: sujetan el arma con las dos manos (la izquierda bajo el cañón), la bajan un poco si llevan un rato sin disparar y con el cuchillo o el mazo el otro brazo se balancea al andar.
+- **Menos mejoras gratis**: el campeón suelta sólo su mejora (ya no además un objeto para lanzar) y la cámara secreta da **sólo la mejora del cofre** (antes a veces había otra rara al lado).
+- **Caballero negro y renacido salen más tarde** en la mazmorra: desde el piso 8 y el 6 (antes 4 y 3).
+- **Zombi explosivo**: más rápido (1,8 en vez de 1,35), la mecha dura 0,5 s (antes 0,9) y casi no frena mientras se enciende.
+
+## [0.38.1] — 2026-11-14
+
+### Añadido (Horda cooperativa)
+- **Ves la munición especial de tus compañeros**: si un compañero lleva balas explosivas ves las explosiones; con eléctricas, el rayo saltando entre zombis; con congelantes o tóxicas, el hielo y el veneno al impactar. Las trazadoras salen del mismo color y grosor que las ve él (magnum gruesas, alta velocidad finas…). La bala acaba exactamente donde acabó en su pantalla.
+- **El mapa roto es el mismo para todos**: lo que rompe cada jugador (disparos, golpes, granadas, barriles) y lo que rompen zombis y jefes llega a los demás con la lista exacta de bloques. También los objetos (cajas, barriles, mesas…) que golpea cada uno. Se manda en paquetes cada 0,15 s con 3 números por bloque, así que **apenas pesa en el servidor**: sólo reenvía mensajes pequeños, no calcula nada.
+
+### Cambiado
+- **Cuervos**: ya no se quedan atascados en las paredes. Si no te ven, rodean los muros siguiendo el camino del suelo; si dejan de avanzar, se apartan de lado y suben; y se deslizan por la pared en vez de pararse en seco.
+- **Caballero oscuro**: regenera antes las partes que le arrancas (4–5,5 s en vez de 6–8) y los vóxeles sueltos también.
+- **Renacido**: la pila de carne y huesos es más grande y aguanta más (65 de vida +22 por cada vez que ha vuelto, antes 40 +15).
+- **Ajustes ordenados por pestañas**: SONIDO, GRÁFICOS, CONTROLES, TECLAS, INTERFAZ y PERFIL.
+- **Armería en pantallas grandes** (1440p, 4K…): columnas, botones, textos y muestras crecen con la ventana en vez de quedarse pequeños. Los modelos de pistola ya no parten el nombre letra a letra.
+- **Charcos de agua nuevos**: orilla redondeada e irregular en vez de losas cuadradas, lámina de agua sin juntas con ondas que se mueven, anillos de gotas que caen y brillos de las luces y la linterna. Las pozas de las cloacas tienen orilla de barro mojado y son más oscuras en el centro.
+
+## [0.38.0] — 2026-11-14
+
+### Añadido (Horda cooperativa)
+- **Personaliza tu personaje** (Armería → PERSONAJE): color de camiseta (10), pantalón (5), piel (5) y pelo (6); algo en la cabeza (gorra, casco militar, gorro de lana, capucha, sombrero, cinta o casco de minero) y un complemento (gafas de sol, mascarilla, mochila, bufanda o parche). Se ve girando en la vitrina.
+- **Los compañeros te ven como eres**: con tu ropa y con **las skins y modelos de arma que tengas equipados** (cuchillo y pistola incluidos). Tu nombre en la lista sale del color de tu camiseta.
+- **Ver la partida al morir**: si se te acaban los 30 s en el suelo, la cámara sigue a un compañero desde detrás en lugar de quedarse mirando al suelo. Con clic o saltar cambias de compañero.
+- **Recompensas por jugar en equipo**:
+  - **+20 de oro** por levantar a un compañero.
+  - **+2** por cada **asistencia** (le diste en los últimos 6 s y lo remató otro).
+  - **+5** por **salvar** a un compañero (matar a un zombi que estaba encima de él).
+- **Tabla al acabar cada oleada**: bajas, cabezas, daño, compañeros levantados, asistencias, salvadas y caídas de cada jugador en esa oleada, con **★ el mejor de la oleada**. Al acabar la partida sale la tabla de toda la partida.
+
+### Cambiado
+- **Jefes, campeones y élites con más vida en el cooperativo**: +75 %, +60 % y +30 % por cada compañero (con cuatro jugadores, el jefe tiene más del triple). Antes sólo aumentaba el número de zombis.
+- Al empezar cada oleada vuelven con la mitad de vida **todos los que estaban muertos y también los que seguían en el suelo**, siempre que algún compañero haya aguantado.
+
+### Arreglado
+- **Cooperativo: a veces no volvías en la siguiente oleada.** Estando caído o muerto, el fuego, el ácido u otra cosa del suelo te podían volver a «tumbar»: se reiniciaba la cuenta y te quedabas en el suelo para siempre. Ahora, mientras estás caído o muerto, nada te hace daño.
+
+## [0.37.1] — 2026-11-14
+
+### Cambiado
+- **Ya no se empieza con granadas.** La granada también se desbloquea con una misión: **llegar al piso 3**. Hasta entonces no sale nada para lanzar en tiendas, cofres, vendedores ni cajas, y los zombis tampoco lo sueltan. Una vez desbloqueada, hay que **encontrarla por los pisos**: en tiendas, cofres y cajas, o la sueltan los zombis (sobre todo los élites y campeones). Lo mismo con el molotov y el señuelo, cada uno con su misión.
+- Si pulsas la tecla de lanzar sin tener nada, el aviso te dice si aún no lo has desbloqueado (Armería → Equipo) o si sólo te falta encontrarlo.
+
+## [0.37.0] — 2026-11-14
+
+### Cambiado
+- **Ya no se puede guardar a mitad de partida**: se quitan «Guardar y salir» de la pausa y «Continuar» del título. Cada partida va de principio a fin. Si quedaba alguna partida suspendida de una versión anterior, se borra.
+
+### Añadido (calidad de vida)
+- **Todas las teclas configurables** (Ajustes → Teclas): avanzar, retroceder, izquierda, derecha, saltar, correr, esquivar, recargar, usar, arma anterior, mapa, llamar la oleada y pausa, además de las que ya se podían cambiar. Las flechas siguen moviendo, y 1·2·3, la rueda y Esc no cambian. Los avisos en pantalla («[E] Abrir», «[G] llamarla ya», «[M] cerrar»…), la ayuda del título y los botones táctiles usan la tecla que hayas puesto.
+- **Pantalla de muerte con lo que pasó**:
+  - **Quién te mató** (con élites, campeones y jefes por su nombre, y también trampas, fuego, púas, derrumbes o tu propia explosión).
+  - **Daño recibido** de cada fuente, con barras.
+  - **Lo que llevabas**: mejoras y accesorios.
+  - **Te falta poco para**: las tres misiones de skins o de equipo que tienes más cerca de cumplir, con su progreso.
+- **Comparar armas en la tienda**: al mirar un arma aparecen sus diferencias con la que llevas en la mano, con tus mejoras ya aplicadas (DPS, daño, cadencia, cargador, recarga, alcance y dispersión), en verde ▲ o rojo ▼. También dice si se añade o a cuál sustituye.
+- **Pausa con resumen de la partida**: piso u oleada, tiempo, oro, zombis, cabezas y vida; tus armas con la munición y los accesorios; lo que llevas para lanzar y las llaves; y **todas tus mejoras con lo que hacen** (★ raras, ☠ maldiciones).
+- **Tamaño de la interfaz** (70-150 %) en Ajustes.
+- **Modo para daltónicos** en Ajustes:
+  - Las llaves llevan símbolo (▲ roja, ■ azul, ✚ dorada) en el HUD, en los avisos, en la pausa y en el mapa.
+  - En el mapa, los enemigos son cruces y los objetos rombos.
+  - En la comparación de armas, azul y naranja en lugar de verde y rojo.
+  - Además, la placa de las puertas con llave tiene ahora una forma distinta por color para todo el mundo: pirámide la roja, marco la azul y cruz la dorada.
+- **Volumen de ambiente y de enemigos** por separado, bajo «Efectos»: el fondo de cada bioma y los ruidos de la sala por un lado, y los gruñidos, pasos y ataques de los enemigos por otro.
+
+### Arreglado
+- El **cargador ampliado** no rellenaba las balas de más al recoger munición ni al comprar el arma otra vez (sólo al recargar).
+
+## [0.36.3] — 2026-11-14
+
+### Cambiado
+- **Caballero negro con un diseño más sobrio («Errante»)**: acero gris oscuro sin adornos dorados, **yelmo de cubo plano con una rendija en cruz** y dos puntos de luz apagada, hombreras lisas redondeadas, sin púas ni capa roja y con una **sobreveste gris raída** por delante que deja a la vista el corazón, enmarcado ahora por una jaula de acero oscuro. Se juega igual que antes.
+
+## [0.36.2] — 2026-11-14
+
+### Cambiado
+- **Caballero negro**: ahora se le puede destrozar como a cualquier otro enemigo, pero **mientras el corazón aguante le vuelve a crecer todo**:
+  - Si le arrancas una pierna cae y **se arrastra**; a los 6-8 segundos la pierna le vuelve a crecer desde la cadera y **se levanta**.
+  - Lo mismo con los brazos (sin brazos muerde) y con la cabeza (decapitado sigue andando).
+  - Los trozos sueltos de armadura tardan más en volver (3-5 s en vez de 1-2).
+  - Sólo muere si le rompes el corazón. El torso ya no se parte en dos, para no arrancarle el corazón por accidente.
+  - En el cooperativo los compañeros también lo ven arrastrarse y levantarse.
+- **Armería en pantallas pequeñas**: la lista de armas va en dos columnas compactas, sin barra de desplazamiento horizontal. Las columnas se encogen con la ventana, las tarjetas de skins son más pequeñas y en pantallas muy bajas se ocultan las estadísticas.
+
+### Arreglado
+- **Renacido en el cooperativo**:
+  - A un jugador no le salía bien la «calavera con carne y huesos»: en el equipo que no era anfitrión, los restos se animaban como si fueran un zombi andando y el cráneo y los huesos se descolocaban. Ahora sólo laten, igual para todos.
+  - Los restos podían quedarse **«vivos» sin carne que darles**: los disparos atravesaban el agujero ya abierto y en la Horda su vida crecía mucho con la oleada. Ahora tienen una vida fija (55 la primera vez, más en cada vuelta), algo de margen al apuntar y **se destrozan en cuanto les quitas la mitad de la carne**.
+  - Cuando los restos se levantaban en el anfitrión, a los demás les salía «Restos destrozados: ya no volverá». Ahora simplemente desaparecen y aparece el renacido.
+
 ## [0.36.1] — 2026-11-14
 
 ### Cambiado

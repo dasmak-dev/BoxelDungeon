@@ -14,7 +14,6 @@
       click('hordeBtn', () => this.showHorde());
       click('hordeBack', () => { if (VX.Lobby.inRoom()) VX.Lobby.leave(); this.showTitle(); });
       VX.Lobby.init(game);
-      click('continueBtn', () => { if (VX.Save.has()) game.continueGame(); });
       click('settingsBtn', () => this.openSettings('title'));
       click('armoryBtn', () => VX.Armory.open(game));
       click('armoryBack', () => VX.Armory.close());
@@ -25,18 +24,25 @@
       click('resumeBtn', () => game.resume());
       click('pauseSettingsBtn', () => this.openSettings('pause'));
       click('quitBtn', () => game.abandonRun());
-      click('saveQuitBtn', () => game.saveAndQuit());
       click('gameoverSanctBtn', () => { game.quitToTitle(); VX.Sanctuary.open(); });
       click('restartBtn', () => (game.mode === 'horde' ? game.startHorde(game.hordeMap) : game.newGame()));
       click('toTitleBtn', () => game.quitToTitle());
       click('backSettingsBtn', () => this.show(this.settingsFrom));
       click('resetSettingsBtn', () => { VX.Settings.reset(); this.syncSettings(); });
+      click('presetMobile', () => { VX.Settings.preset('movil'); this.syncSettings(); });
+      click('presetPc', () => { VX.Settings.preset('pc'); this.syncSettings(); });
 
       // clic en el canvas durante la partida = recapturar ratón
       $('game').addEventListener('click', () => {
         if (game.state === 'playing' && !VX.Input.locked) VX.Input.lock();
       });
 
+      // pestañas de los ajustes (sonido, gráficos, controles, teclas, interfaz, perfil)
+      for (const b of document.querySelectorAll('.setTab')) b.addEventListener('click', () => {
+        VX.Audio.click();
+        for (const o of document.querySelectorAll('.setTab')) o.classList.toggle('on', o === b);
+        for (const p of document.querySelectorAll('.setPane')) p.classList.toggle('hidden', p.dataset.pane !== b.dataset.tab);
+      });
       // controles de ajustes
       const S = VX.Settings;
       const bindRange = (id, key, fmt, valId) => {
@@ -46,6 +52,8 @@
       const pct = (v) => Math.round(v * 100) + '%';
       bindRange('setMusic', 'music', pct, 'musicVal');
       bindRange('setSfx', 'sfx', pct, 'sfxVal');
+      bindRange('setAmb', 'ambVol', pct, 'ambVal');
+      bindRange('setEnemy', 'enemyVol', pct, 'enemyVal');
       bindRange('setSens', 'sensitivity', (v) => v.toFixed(2) + 'x', 'sensVal');
       bindRange('setFov', 'fov', (v) => v + '°', 'fovVal');
       $('setQuality').addEventListener('change', (e) => S.set('quality', e.target.value));
@@ -57,6 +65,8 @@
       $('setShadows').addEventListener('change', (e) => S.set('shadows', e.target.checked));
       $('setInvert').addEventListener('change', (e) => S.set('invertY', e.target.checked));
       $('setFps').addEventListener('change', (e) => S.set('showFps', e.target.checked));
+      $('setColorblind').addEventListener('change', (e) => { S.set('colorblind', e.target.checked); if (VX.game && VX.game.hud) VX.game.hud.setKeys(VX.game.keys); });
+      bindRange('setUiScale', 'uiScale', pct, 'uiScaleVal');
       $('setAutoRun').addEventListener('change', (e) => S.set('autoRun', e.target.checked));
       $('setHurtFx').addEventListener('change', (e) => S.set('hurtFx', e.target.checked));
       $('setTorchShadows').addEventListener('change', (e) => S.set('torchShadows', e.target.checked));
@@ -132,6 +142,8 @@
       const d = VX.Settings.data;
       $('setMusic').value = d.music; $('musicVal').textContent = Math.round(d.music * 100) + '%';
       $('setSfx').value = d.sfx; $('sfxVal').textContent = Math.round(d.sfx * 100) + '%';
+      $('setAmb').value = d.ambVol ?? 1; $('ambVal').textContent = Math.round((d.ambVol ?? 1) * 100) + '%';
+      $('setEnemy').value = d.enemyVol ?? 1; $('enemyVal').textContent = Math.round((d.enemyVol ?? 1) * 100) + '%';
       $('setSens').value = d.sensitivity; $('sensVal').textContent = d.sensitivity.toFixed(2) + 'x';
       $('setFov').value = d.fov; $('fovVal').textContent = d.fov + '°';
       $('setQuality').value = d.quality;
@@ -141,6 +153,8 @@
       $('setShadows').checked = d.shadows;
       $('setInvert').checked = d.invertY;
       $('setFps').checked = d.showFps;
+      $('setColorblind').checked = !!d.colorblind;
+      $('setUiScale').value = d.uiScale || 1; $('uiScaleVal').textContent = Math.round((d.uiScale || 1) * 100) + '%';
       $('setAutoRun').checked = d.autoRun;
       $('setHurtFx').checked = d.hurtFx;
       $('setTorchShadows').checked = d.torchShadows;
@@ -173,10 +187,8 @@
     hideAll() { this.show(null); },
 
     showTitle() {
-      const save = VX.Save.peek();
-      const btn = $('continueBtn');
-      btn.disabled = !save;
-      $('continueInfo').textContent = save ? `Piso ${save.floor} · ${save.stats.gold} oro` : 'Sin partida suspendida';
+      // ya no se puede suspender una partida: si quedaba alguna guardada de versiones anteriores, se borra
+      if (VX.Save.has()) VX.Save.clear();
       $('versionTag').textContent = 'v' + VX.VERSION;
       $('essenceInfo').textContent = `Esencia: ${VX.Profile.data.essence || 0}`;
       { const hb = VX.Profile.data.hordeBest || {}, w = Math.max(0, ...Object.values(hb).map((x) => x.wave));
@@ -208,7 +220,54 @@
       this.show('hordeSelect');
     },
 
-    showGameOver(stats, floor, essence = 0, res = null, time = 0) {
+    // resumen de la partida en la pausa: cómo vas, tus mejoras (con su efecto), armas y equipo
+    fillPause(game) {
+      const el = $('pauseInfo');
+      if (!el) return;
+      const esc = (t) => String(t).replace(/[<>&]/g, '');
+      const S = game.stats, t = game.runTime || 0, W = game.weapon;
+      const where = game.mode === 'horde' ? `Oleada <b>${VX.HordeMode.wave}</b>` : `Piso <b>${game.floor}</b>`;
+      let h = `<div class="pRow">${where} · Tiempo <b>${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}</b> · Oro <b>${S.gold}</b> · Zombis <b>${S.kills}</b> · Cabezas <b>${S.headshots}</b> · Vida <b>${Math.ceil(game.player.hp)}/${game.player.maxHp}</b></div>`;
+      // armas con sus accesorios
+      h += '<div class="pCol"><u>ARMAS</u>' + W.slots.map((s) => {
+        const d = VX.Weapons.DEFS[s.id], at = W.attList(s.id);
+        return `<div><b>${esc(d.name)}</b>${d.melee ? '' : ` <small>${s.ammo}/${W.magFor(s.id)} · reserva ${s.reserve ?? '∞'}</small>`}${at.length ? '<br><span class="att">◆ ' + at.map((a) => VX.Weapons.ATTACH[a].name).join(' · ') + '</span>' : ''}</div>`;
+      }).join('');
+      const th = VX.Throw.ORDER.filter((k) => W.throws[k] > 0).map((k) => `${VX.Throw.TYPES[k].name} ×${W.throws[k]}`);
+      h += `<div><small>Para lanzar (${VX.Settings.tag('throw')}): ${th.length ? th.join(' · ') : 'nada'}</small></div>`;
+      if (game.keys && (game.keys.red || game.keys.blue || game.keys.gold)) h += `<div><small>Llaves: ${['red', 'blue', 'gold'].filter((c) => game.keys[c]).map((c) => VX.Settings.keyColorName(c) + (game.keys[c] > 1 ? ' ×' + game.keys[c] : '')).join(', ')}</small></div>`;
+      h += '</div>';
+      // mejoras con su efecto
+      const ups = new Map();
+      for (const u of game.upgradesTaken || []) { const e = ups.get(u.id) || { u, n: 0 }; e.n++; ups.set(u.id, e); }
+      h += '<div class="pCol pUps"><u>MEJORAS</u>' + (ups.size ? [...ups.values()].map(({ u, n }) => {
+        const tag = u.rare ? ' ★' : u.curse ? ' ☠' : '';
+        const c = (u.color || [1, 1, 1]).map((x) => Math.round(x * 255)).join(',');
+        return `<div><i style="background:rgb(${c})"></i><b>${esc(u.name)}${tag}${n > 1 ? ' ×' + n : ''}</b> <small>${esc(u.desc || '')}</small></div>`;
+      }).join('') : '<div><small>Todavía ninguna</small></div>') + '</div>';
+      el.innerHTML = h;
+    },
+
+    // lo que pasó: quién te mató, quién te hizo más daño, qué llevabas y qué te faltaba
+    deathInfo(game) {
+      if (!game) return '';
+      const esc = (t) => String(t).replace(/[<>&]/g, '');
+      let h = '<div id="deathInfo">';
+      const res = game.runResult || {};
+      if (!res.escaped && game.lastHitBy) h += `<div class="dRow dKill">Te mató: <b>${esc(game.lastHitBy)}</b></div>`;
+      const dm = Object.entries(game.dmgTaken || {}).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const tot = Object.values(game.dmgTaken || {}).reduce((a, b) => a + b, 0) || 1;
+      if (dm.length) h += '<div class="dCol"><u>DAÑO RECIBIDO</u>' + dm.map(([k, v]) => `<div class="dBar"><span>${esc(k)}</span><i style="width:${Math.round(v / tot * 100)}%"></i><b>${Math.round(v)}</b></div>`).join('') + '</div>';
+      const ups = {};
+      for (const u of game.upgradesTaken || []) ups[u.name] = (ups[u.name] || 0) + 1;
+      const W = game.weapon, atts = W ? W.slots.filter((s) => W.attList(s.id).length).map((s) => VX.Weapons.DEFS[s.id].name + ': ' + W.attList(s.id).map((a) => VX.Weapons.ATTACH[a].name).join(', ')) : [];
+      if (Object.keys(ups).length || atts.length) h += '<div class="dCol"><u>LLEVABAS</u><div class="dUps">' + Object.entries(ups).map(([n, c]) => `<span>${esc(n)}${c > 1 ? ' ×' + c : ''}</span>`).join('') + atts.map((t) => `<span class="att">◆ ${esc(t)}</span>`).join('') + '</div></div>';
+      const goals = VX.Profile.nearestGoals(3);
+      if (goals.length) h += '<div class="dCol"><u>TE FALTA POCO PARA</u>' + goals.map((g) => `<div class="dGoal"><b>${esc(g.name)}</b> <small>${g.what}</small><br><small>${esc(g.txt)}</small><span class="pb"><i style="width:${Math.round(g.r * 100)}%"></i></span><small>${g.v}/${g.n}</small></div>`).join('') + '</div>';
+      return h + '</div>';
+    },
+
+    showGameOver(stats, floor, essence = 0, res = null, time = 0, game = null) {
       const acc = stats.shots ? Math.round((stats.hits / stats.shots) * 100) : 0;
       $('restartBtn').textContent = res && res.horde ? 'OTRA VEZ' : 'NUEVA PARTIDA';
       document.querySelector('#gameover h2').textContent = res && res.escaped ? '¡HAS ESCAPADO!' : 'HAS CAÍDO';
@@ -221,7 +280,7 @@
           `Jefes derrotados: <b>${stats.bosses}</b><br>` +
           `Precisión: <b>${acc}%</b><br>` +
           `Tiempo: <b>${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}</b><br>` +
-          `<span style="color:#c99bff">Esencia obtenida: <b style="color:#c99bff">+${essence}</b> (total ${VX.Profile.data.essence})</span>`;
+          `<span style="color:#c99bff">Esencia obtenida: <b style="color:#c99bff">+${essence}</b> (total ${VX.Profile.data.essence})</span>` + (game && game.coopTable ? `<div class="coopFinal">${game.coopTable}</div>` : '') + this.deathInfo(game);
         this.show('gameover');
         return;
       }
@@ -233,7 +292,7 @@
         `Oro recogido: <b>${stats.totalGold}</b><br>` +
         `Precisión: <b>${acc}%</b><br>` +
         `Tiempo: <b>${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}</b>` + (res ? ` · Puntuación: <b>${res.score}</b>${res.record ? ' <span style="color:#7fd36b">¡NUEVO RÉCORD!</span>' : ` (récord ${res.prev.score})`}` : '') + '<br>' +
-        `<span style="color:#c99bff">Esencia obtenida: <b style="color:#c99bff">+${essence}</b> (total ${VX.Profile.data.essence})</span>`;
+        `<span style="color:#c99bff">Esencia obtenida: <b style="color:#c99bff">+${essence}</b> (total ${VX.Profile.data.essence})</span>` + this.deathInfo(game);
       this.show('gameover');
     },
   };

@@ -72,7 +72,7 @@
       }
       this.updatePerkHud();
       game.floor = 1;
-      game.hud.banner(map.name.toUpperCase(), `Prepárate: la primera oleada llega en ${Math.round(this.timer)} s  ·  [G] llamarla ya`, 4);
+      game.hud.banner(map.name.toUpperCase(), `Prepárate: la primera oleada llega en ${Math.round(this.timer)} s  ·  ${VX.Settings.tag('wave')} llamarla ya`, 4);
     },
 
     // nivel de dificultad (equivale al «piso» de la mazmorra)
@@ -91,7 +91,7 @@
     clientUpdate(game, dt) {
       this.updateFx(game, dt);
       if (this.phase === 'evac') { this.updateEvac(game, dt, false); return; }
-      if (this.phase !== 'wave' && VX.Input.wasPressed('KeyG') && this.timer > 3) { VX.Net.send({ k: 'callwave' }); game.hud.toast('Le has pedido al anfitrión que traiga la oleada'); }
+      if (this.phase !== 'wave' && VX.Input.wasPressed(VX.Settings.key('wave')) && this.timer > 3) { VX.Net.send({ k: 'callwave' }); game.hud.toast('Le has pedido al anfitrión que traiga la oleada'); }
     },
 
     updateFx(game, dt) {
@@ -128,7 +128,7 @@
       if (this.phase === 'evac') { this.updateEvac(game, dt, true); return; }
       if (this.phase === 'prep' || this.phase === 'break') {
         this.timer -= dt;
-        if (VX.Input.wasPressed('KeyG') && this.timer > 3) { this.timer = 3; game.hud.toast('¡Que vengan!'); }
+        if (VX.Input.wasPressed(VX.Settings.key('wave')) && this.timer > 3) { this.timer = 3; game.hud.toast('¡Que vengan!'); }
         if (this.timer <= 0) this.startWave(game);
         return;
       }
@@ -190,6 +190,7 @@
         const kind = this.tankWave ? 'tanque' : BOSS_ROT[(n / 10 - 1) % BOSS_ROT.length];
         const boss = new VX.Boss(sp.x, sp.z, game.floor, num, kind);
         boss.y = game.world.groundAt(sp.x, sp.z);
+        this.scaleHp(boss, 0.75);   // con más jugadores, el jefe aguanta más
         game.enemies.push(boss);
         game.boss = boss;
         boss.bossNum = num;
@@ -256,6 +257,7 @@
 
     // lo que pasa en cada equipo al acabar la oleada (oro, vida, cajas, vendedor o mejoras)
     endWaveLocal(game, n, merchant, special) {
+      VX.Coop.showWaveTable && VX.Coop.showWaveTable(game, n);   // cooperativo: tabla de la oleada
       const P = game.player;
       this.endEvent(game);
       this.updatePerkHud();
@@ -293,7 +295,7 @@
         this.spawnChoice(game);
         game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Elige UNA de las tres mejoras que han aparecido a tu alrededor`, 4.5);
       } else {
-        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Siguiente oleada en ${this.timer} s  ·  [G] llamarla ya`, 3.5);
+        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Siguiente oleada en ${this.timer} s  ·  ${VX.Settings.tag('wave')} llamarla ya`, 3.5);
       }
     },
 
@@ -342,6 +344,7 @@
         const gy = game.world.groundAt(sp.x, sp.z);
         if (game.world.boxCollides(sp.x - 0.35, gy + 0.05, sp.z - 0.35, sp.x + 0.35, gy + 1.6, sp.z + 0.35)) return;
         z = new VX.Zombie(kind, sp.x, sp.z, f, { elite, champion, y: gy });
+        this.scaleHp(z, champion ? 0.6 : 0.3);
         game.enemies.push(z);
       } else z = game.spawner.spawnZombieNear(game, sp.x, sp.z, 1.2, kind);
       if (!z) return;
@@ -349,6 +352,16 @@
       if (champion) { game.champion = z; game.hud.showBoss(z); game.hud.toast('¡Un campeón se acerca!'); }
       if (kind === 'rat') for (let k = 0; k < 2 && this.spawned < this.total; k++) if (game.spawner.spawnZombieNear(game, sp.x, sp.z, 1.5, 'rat')) this.spawned++;
       if (kind === 'crow') for (let k = 0; k < 4 && this.spawned < this.total; k++) if (game.spawner.spawnZombieNear(game, sp.x, sp.z, 1.5, 'crow')) this.spawned++;
+    },
+
+    // cooperativo: los jefes, campeones y élites tienen más vida por cada jugador más
+    // (+75 % / +60 % / +30 % por compañero). Las réplicas copian la vida máxima del anfitrión.
+    scaleHp(e, k) {
+      const n = VX.Coop && VX.Coop.active ? 1 + VX.Coop.remotes.size : 1;
+      if (n <= 1 || !e) return;
+      const m = 1 + k * (n - 1);
+      e.maxHp = Math.round(e.maxHp * m); e.hp = Math.round(e.hp * m);
+      if (e.coreHp) e.coreHp = e.hp;
     },
 
     onKill(game, z) {
@@ -403,7 +416,7 @@
         const up = VX.Upgrades.random(1, game, [], Math.random() < 0.2 ? 'rare' : 'normal')[0];
         if (up) { game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: it.x, y: it.y + 0.2, z: it.z, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape }); msg += ' · ¡y una mejora!'; }
       } else if (roll < 0.5) { game.pickups.dropHeart(it.x, it.y + 0.6, it.z, 25); msg += ' · botiquín'; }
-      else if (roll < 0.68) { VX.Throw.give(game, VX.Throw.randomType(game.weapon), 2, true); msg += ' · objetos para lanzar'; }
+      else if (roll < 0.68 && VX.Throw.randomType(game.weapon)) { VX.Throw.give(game, VX.Throw.randomType(game.weapon), 2, true); msg += ' · objetos para lanzar'; }
       else if (roll < 0.8) { const ai = VX.Throw.attachItem(game.weapon, 0); if (ai) { game.pickups.addItem({ ...ai, x: it.x, y: it.y + 0.2, z: it.z }); msg += ' · ¡un accesorio!'; } }
       game.hud.toast('Caja de suministros: ' + msg);
     },
@@ -433,7 +446,7 @@
         goods.push({ kind: 'weapon', weapon: gid, price: d.price + n * 2, title: d.name, desc: VX.weaponDesc(gid), color: [1, 0.85, 0.5], shape: 'star' });
       }
       { const ai = VX.Throw.attachItem(game.weapon, 28 + n * 2); if (ai) goods.push(ai); }
-      { const t = VX.Throw.randomType(game.weapon); goods.push(VX.Throw.item(t, 2, VX.Throw.TYPES[t].price + n)); }
+      { const t = VX.Throw.randomType(game.weapon); if (t) goods.push(VX.Throw.item(t, 2, VX.Throw.TYPES[t].price + n)); }
       goods.forEach((it, i) => {
         const a = (i - (goods.length - 1) / 2) * 0.55;
         const ca = Math.cos(a), sa = Math.sin(a);
@@ -615,7 +628,7 @@
         return `¡SUBID AL HELICÓPTERO! ${arrow}` + (E.standing > 1 ? ` · ${E.inZone || 0}/${E.standing} dentro` : '');
       }
       if (this.phase !== 'wave') {
-        let s = `Siguiente oleada en ${Math.max(0, Math.ceil(this.timer))} s · [G] ya`;
+        let s = `Siguiente oleada en ${Math.max(0, Math.ceil(this.timer))} s · ${VX.Settings.tag('wave')} ya`;
         if (this.merchant) s += ` · Vendedor ${this.arrowTo(game, this.merchant.x, this.merchant.z)}`;
         return s;
       }

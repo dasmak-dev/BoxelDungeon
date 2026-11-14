@@ -468,6 +468,37 @@
       return [r, g, b];
     }
 
+    // Lámina de agua encima de una losa con charco: la orilla sale redondeada y mordida
+    // (mezcla con las losas vecinas y ruido) en vez de cuadrada. Franjas finas en un lote fijo.
+    emitPuddleFilm(batch, gx, gz, T, isP, r, g, b) {
+      const I = [];
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) I.push(i === 0 && j === 0 ? 1 : isP(gx + i * T, gz + j * T) ? 1 : 0);
+      const at = (i, j) => I[(j + 1) * 3 + i + 1];
+      const N = T * 4, st = T * S / N, x0 = gx * S, z0 = gz * S;
+      for (let vj = 0; vj < N; vj++) {
+        const v = (vj + 0.5) / N, fv = v - 0.5, j0 = fv < 0 ? -1 : 0, bv = fv < 0 ? fv + 1 : fv;
+        let run = -1, lv = 0;
+        const flush = (e) => {
+          if (run < 0) return;
+          const k = lv === 2 ? 0.34 : lv === 1 ? 0.46 : 0.6;
+          batch.box(x0 + (run + e) / 2 * st, 0.004, z0 + (vj + 0.5) * st, (e - run) * st, 0.008, st, r * k, g * k * 1.02, b * k * 1.1, lv ? -1.32 : -1.18);
+          run = -1;
+        };
+        for (let ui = 0; ui <= N; ui++) {
+          let lvl = -1;
+          if (ui < N) {
+            const u = (ui + 0.5) / N, fu = u - 0.5, i0 = fu < 0 ? -1 : 0, au = fu < 0 ? fu + 1 : fu;
+            const f = (at(i0, j0) * (1 - au) + at(i0 + 1, j0) * au) * (1 - bv) + (at(i0, j0 + 1) * (1 - au) + at(i0 + 1, j0 + 1) * au) * bv;
+            const px = x0 + (ui + 0.5) * st, pz = z0 + (vj + 0.5) * st;
+            const e = f - VX.M.vnoise(px * 2.3, pz * 2.3, 17) * 0.3 - VX.M.vnoise(px * 6, pz * 6, 23) * 0.08;
+            lvl = e > 0.78 ? 2 : e > 0.6 ? 1 : e > 0.48 ? 0 : -1;
+          }
+          if (lvl !== lv || lvl < 0) flush(ui);
+          if (lvl >= 0 && run < 0) { run = ui; lv = lvl; }
+        }
+      }
+    }
+
     // ¿Hay charco en esta losa? (manchas grandes y redondeadas, lejos de las paredes)
     isPuddle(gx, gz, damp) {
       const H = VX.M.hash3;
@@ -584,7 +615,8 @@
           const damp = (VX.ZONES[this.zone || 0].damp || 0);
           if (damp > 0 && this.isPuddle(gx, gz, damp)) {
             const edge = !this.isPuddle(gx + K, gz, damp) || !this.isPuddle(gx - K, gz, damp) || !this.isPuddle(gx, gz + K, damp) || !this.isPuddle(gx, gz - K, damp);
-            r *= 0.55; g *= 0.6; b *= 0.72; mat = edge ? -0.55 : -0.95;
+            r *= 0.72; g *= 0.74; b *= 0.8; mat = -0.45; void edge;
+            this.emitPuddleFilm(batch, gx, gz, K, (x, z) => this.isPuddle(x, z, damp), r, g, b);
           }
           batch.aobox((gx + K / 2) * S, -0.12, (gz + K / 2) * S, K * S, 0.24, K * S, r, g, b, mat, ao8);
         }

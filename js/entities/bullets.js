@@ -68,7 +68,7 @@
         const dx = b.x - px, dy = b.y - py, dz = b.z - pz;
         const hitR = b.r + 0.32;
         if (dx * dx + dz * dz < hitR * hitR && Math.abs(dy) < 0.9 + b.r && game.state === 'playing') {
-          P.damage(b.dmg, b.x - b.vx, b.z - b.vz, game);
+          game.dmgSrc = game.boss ? 'Jefe: ' + game.boss.name : 'Un proyectil'; P.damage(b.dmg, b.x - b.vx, b.z - b.vz, game); game.dmgSrc = null;
           this.pop(b, game, false);
           continue;
         }
@@ -76,7 +76,7 @@
           if (b.fall) {
             // meteoro: impacto con onda
             const d = Math.hypot(px - b.x, pz - b.z);
-            if (d < 1.3 && P.y < b.y + 1.5 && game.state === 'playing') P.damage(b.dmg, b.x, b.z, game);
+            if (d < 1.3 && P.y < b.y + 1.5 && game.state === 'playing') { game.dmgSrc = game.boss ? 'Jefe: ' + game.boss.name : 'Un meteoro'; P.damage(b.dmg, b.x, b.z, game); game.dmgSrc = null; }
             W.damageSphere(b.x, b.y, b.z, 0.7, 60, game);
             game.shake(0.12);
             VX.Audio.crumble();

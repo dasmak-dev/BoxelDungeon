@@ -167,6 +167,7 @@
 
     destroyCell(r, lx, ly, lz, t, game, debris = 4) {
       r.set(lx, ly, lz, 0);
+      if (game && VX.Coop.active) VX.Coop.noteCell(game, r.ox + lx, ly, r.oz + lz);   // cooperativo: los demás lo rompen también
       // cristales y persianas: se viene abajo el panel entero
       if (game && VX.Blocks.info[t].shatter) { this.shatter(r, lx, ly, lz, t, game); return; }
       if (t === VX.Blocks.BARREL && game) { this.detonateBarrel(r, lx, ly, lz, game); return; }

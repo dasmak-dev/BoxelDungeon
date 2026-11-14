@@ -8,7 +8,7 @@
   const M = VX.M;
 
   const TYPES = {
-    frag: { name: 'Granada', short: 'GRANADA', max: 4, desc: 'Rebota y explota a los 2 segundos', color: [0.45, 0.55, 0.3], shape: 'grenade', price: 14 },
+    frag: { name: 'Granada', short: 'GRANADA', max: 4, desc: 'Rebota y explota a los 2 segundos', color: [0.45, 0.55, 0.3], shape: 'grenade', price: 14, unlock: { stat: 'bestFloor', n: 3, txt: 'Llega al piso 3' } },
     molotov: { name: 'Cóctel molotov', short: 'MOLOTOV', max: 4, desc: 'Se rompe y deja un charco de fuego', color: [1, 0.5, 0.15], shape: 'bottle', price: 12, unlock: { stat: 'secrets', n: 2, txt: 'Descubre 2 cámaras secretas' } },
     decoy: { name: 'Señuelo', short: 'SEÑUELO', max: 3, desc: 'Pita y atrae a los zombis cercanos; luego revienta', color: [1, 0.25, 0.2], shape: 'decoy', price: 12, unlock: { stat: 'vaults', n: 3, txt: 'Abre 3 puertas con llave' } },
   };
@@ -36,13 +36,14 @@
 
     // uno al azar, mejor de los que tengas menos
     unlocked(t) { return !VX.Profile.throwUnlocked || VX.Profile.throwUnlocked(t); },
-    // sólo de los que ya tienes desbloqueados (la granada viene de serie)
+    // sólo de los que ya tienes desbloqueados; null si todavía no hay ninguno
     randomType(W) {
       const list = ORDER.filter((t) => this.unlocked(t));
+      if (!list.length) return null;
       const w = list.map((t) => Math.max(0.15, 1 - (W.throws[t] || 0) / TYPES[t].max) * (t === 'frag' ? 1.2 : 1));
       let r = Math.random() * w.reduce((a, b) => a + b, 0);
       for (let i = 0; i < list.length; i++) { if (r < w[i]) return list[i]; r -= w[i]; }
-      return 'frag';
+      return list[0];
     },
 
     cycle(game) {
@@ -60,7 +61,7 @@
       if (game.state !== 'playing' || P.hp <= 0 || W.throwCd > 0 || W.swingT > 0) return;
       let t = W.throwSel;
       if (!(W.throws[t] > 0)) t = ORDER.find((k) => W.throws[k] > 0);
-      if (!t) { VX.Audio.empty(); game.hud.toast('No te quedan objetos para lanzar'); return; }
+      if (!t) { VX.Audio.empty(); game.hud.toast(ORDER.some((k) => this.unlocked(k)) ? 'No te quedan objetos para lanzar: búscalos por los pisos' : 'Aún no has desbloqueado nada para lanzar (Armería → Equipo)'); return; }
       W.throwSel = t;
       W.throws[t]--;
       W.throwCd = 0.7;

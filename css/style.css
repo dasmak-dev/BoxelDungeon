@@ -508,3 +508,126 @@ body.touch #bannerSub { font-size: 13px; }
 /* skin legendaria */
 .skin.ult { border-color: #c9a227 !important; box-shadow: 0 0 10px rgba(255, 200, 60, .35) inset; }
 .skin.ult .nm { color: #ffd23f; }
+
+/* Armería en pantallas pequeñas: lista de armas en dos columnas compactas (sin barra horizontal)
+   y las columnas se encogen con la ventana */
+.armCol { width: clamp(240px, 28vw, 330px); min-width: 0; }
+.armCol.right { width: clamp(250px, 33vw, 380px); }
+#armoryWeapons.menuList { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-width: 0; overflow-x: hidden; align-content: start;
+  max-height: calc(100vh - 230px); padding: 0 4px 6px 0; }
+#armoryWeapons button { padding: 6px 8px; font-size: 12px; letter-spacing: 0.5px; text-align: left; box-shadow: 0 3px 0 #120f14; min-width: 0;
+  white-space: normal; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+#armoryWeapons button small { font-size: 9px; letter-spacing: 0; display: block; margin-top: 2px; }
+#armoryWeapons button.on { box-shadow: 0 3px 0 #6b0f0f; }
+#armoryWeapons button.gear { grid-column: 1 / -1; }
+#armorySkins { overflow-x: hidden; }
+@media (max-height: 720px), (max-width: 1050px) {
+  #armory { padding: 2.5vh 2vw; }
+  .armCol { gap: 8px; }
+  .armCol h2 { font-size: 28px; }
+  .armCol h3 { font-size: 16px; letter-spacing: 3px; }
+  #armoryStats { font-size: 10px; line-height: 1.5; }
+  #armorySkins { gap: 6px; max-height: 86vh; }
+  #armorySkins button.skin { font-size: 11px; padding: 6px; grid-template-columns: 26px 1fr; gap: 1px 6px; }
+  #armorySkins .sw { width: 26px; height: 26px; }
+  #armorySkins button.form { min-height: 0; grid-template-columns: 1fr; }
+  #armorySkins button.form .nm { font-size: 12px; }
+  #armorySkins .ds { font-size: 9px; }
+  .armSec { font-size: 10px; margin: 2px 0 0; }
+  #armoryCaption { font-size: 12px; margin-bottom: 2vh; }
+  #armoryCaption b { font-size: 16px; }
+}
+@media (max-height: 560px) {
+  #armoryStats { display: none; }
+  #armoryWeapons.menuList { max-height: calc(100vh - 120px); }
+  #armoryWeapons button small { display: none; }
+}
+.settingsGrid .setSec { grid-column: 1 / -1; color: #e9a560; letter-spacing: 4px; font-size: 13px; margin-top: 8px; border-bottom: 1px solid rgba(233,165,96,.3); padding-bottom: 4px; }
+.settingsGrid .setSec small { letter-spacing: 1px; color: #8a8296; font-size: 11px; }
+#keyLabel .ksym { font-size: 11px; margin: 0 3px 0 -1px; color: #f2ead8; }
+
+/* pantalla de muerte: qué pasó */
+#deathInfo { display: flex; flex-wrap: wrap; gap: 10px 26px; justify-content: center; margin-top: 12px; max-width: 900px; text-align: left; font-size: 12px; }
+#deathInfo .dRow { width: 100%; text-align: center; font-size: 16px; }
+#deathInfo .dKill b { color: #ff6b5b; }
+#deathInfo .dCol { min-width: 210px; max-width: 280px; }
+#deathInfo u { display: block; text-decoration: none; letter-spacing: 3px; color: #e9a560; font-size: 11px; margin-bottom: 4px; }
+#deathInfo .dBar { display: grid; grid-template-columns: 1fr 60px 34px; gap: 6px; align-items: center; margin: 2px 0; }
+#deathInfo .dBar i { display: block; height: 6px; background: #e23b2e; }
+#deathInfo .dBar b { text-align: right; color: #ffd23f; }
+#deathInfo .dUps { display: flex; flex-wrap: wrap; gap: 4px; }
+#deathInfo .dUps span { padding: 1px 6px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); font-size: 11px; }
+#deathInfo .dUps .att { color: #9fd3ff; }
+#deathInfo .dGoal { margin-bottom: 6px; line-height: 1.35; }
+#deathInfo .dGoal small { opacity: .75; }
+#deathInfo .pb { display: block; height: 5px; background: #000; margin: 2px 0; } #deathInfo .pb i { display: block; height: 100%; background: #ffd23f; }
+body.cb #deathInfo .dBar i { background: #f2ead8; }
+@media (max-height: 720px) { #deathInfo { font-size: 11px; margin-top: 6px; } #deathInfo .dCol { min-width: 180px; } }
+/* comparación de armas en la tienda */
+#prompt .cmp { margin-top: 4px; font-size: 11px; line-height: 1.7; }
+#prompt .cmp small { opacity: .7; }
+#prompt .cmp span { display: inline-block; padding: 0 5px; margin: 1px 1px; background: rgba(0,0,0,.35); }
+#prompt .cmpUp { color: #7fd36b; } #prompt .cmpDn { color: #ff6b5b; } #prompt .cmpEq { color: #a9a2b3; }
+body.cb #prompt .cmpUp { color: #6fb6ff; } body.cb #prompt .cmpDn { color: #ffb347; }
+/* pausa: resumen de la partida */
+#pause { flex-wrap: wrap; }
+#pauseInfo { display: flex; flex-wrap: wrap; gap: 10px 30px; justify-content: center; max-width: 880px; text-align: left; font-size: 12px; margin-top: 10px; line-height: 1.5; }
+#pauseInfo .pRow { width: 100%; text-align: center; font-size: 13px; }
+#pauseInfo b { color: #ffd23f; }
+#pauseInfo .pCol { min-width: 240px; max-width: 420px; }
+#pauseInfo u { display: block; text-decoration: none; letter-spacing: 3px; color: #e9a560; font-size: 11px; margin-bottom: 4px; }
+#pauseInfo .att { color: #9fd3ff; font-size: 11px; }
+#pauseInfo small { opacity: .8; }
+#pauseInfo .pUps { max-height: 34vh; overflow-y: auto; padding-right: 4px; }
+#pauseInfo .pUps div { margin: 2px 0; }
+#pauseInfo .pUps i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; vertical-align: middle; }
+#pauseInfo .pUps b { color: #f2ead8; }
+@media (max-height: 640px) { #pauseInfo { font-size: 10px; margin-top: 4px; } #pauseInfo .pUps { max-height: 28vh; } }
+/* cooperativo: tabla de cada oleada y tabla final */
+#coopTable { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); background: rgba(8,6,10,.82); border: 1px solid rgba(242,234,216,.2); padding: 10px 14px; pointer-events: none; }
+#coopTable .ctTitle { text-align: center; letter-spacing: 5px; color: #e9a560; font-size: 13px; margin-bottom: 6px; }
+.coopTable { border-collapse: collapse; font-size: 12px; }
+.coopTable th { font-weight: 400; opacity: .6; font-size: 10px; letter-spacing: 1px; padding: 2px 8px; }
+.coopTable td { padding: 3px 8px; text-align: center; border-top: 1px solid rgba(255,255,255,.08); }
+.coopTable td:first-child { text-align: left; }
+.coopTable tr.me td { background: rgba(255,210,63,.07); }
+.ctMvp { text-align: center; margin-top: 6px; font-size: 12px; color: #ffd23f; }
+.coopFinal { display: flex; flex-direction: column; align-items: center; margin-top: 10px; }
+/* Armería → PERSONAJE */
+#armorySkins .lookRow { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(60px, 0.9fr) 30px minmax(70px, 1.3fr) 30px; gap: 6px; align-items: center; background: #1e1a22; padding: 6px 8px; box-shadow: 0 3px 0 #0c0a0e; }
+#armorySkins .lookRow .lkName { font-size: 12px; letter-spacing: 1px; opacity: .8; }
+#armorySkins .lookRow .lkVal { text-align: center; font-weight: 900; font-size: 13px; }
+#armorySkins .lookRow .lkVal i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: middle; box-shadow: 1px 1px 0 #000; }
+#armorySkins .lookRow button { padding: 4px 0; font-size: 12px; letter-spacing: 0; }
+/* Ajustes por pestañas */
+.setTabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.setTabs .setTab { background: #2b2630; box-shadow: 0 3px 0 #120f14; letter-spacing: 2px; padding: 8px 14px; font-size: 13px; }
+.setTabs .setTab.on { background: #e23b2e; box-shadow: 0 3px 0 #6b0f0f; }
+.setPane { max-height: calc(100vh - 260px); overflow-y: auto; min-width: min(640px, 92vw); }
+.setPane.hidden { display: none; }
+@media (max-height: 560px) { .setTabs .setTab { padding: 5px 9px; font-size: 11px; } .setPane { max-height: calc(100vh - 170px); padding: 14px 18px; gap: 8px 16px; } }
+/* Armería en pantallas grandes: todo crece con la ventana (antes se quedaba pequeña en 1440p/4K) */
+@media (min-width: 1600px) and (min-height: 820px) {
+  .armCol { width: clamp(330px, 22vw, 560px); gap: 16px; }
+  .armCol.right { width: clamp(380px, 25vw, 640px); }
+  .armCol h2 { font-size: clamp(42px, 2.8vw, 70px); }
+  .armCol h3 { font-size: clamp(22px, 1.4vw, 34px); }
+  #armoryWeapons.menuList { gap: 9px; max-height: calc(100vh - 300px); }
+  #armoryWeapons button { font-size: clamp(13px, 0.85vw, 21px); padding: 0.8vw 1vw; }
+  #armoryWeapons button small { font-size: clamp(10px, 0.62vw, 15px); }
+  #armoryStats { font-size: clamp(12px, 0.8vw, 19px); }
+  #armorySkins { gap: 10px; }
+  #armorySkins button.skin { font-size: clamp(13px, 0.85vw, 20px); padding: 0.6vw; grid-template-columns: clamp(34px, 2.2vw, 54px) 1fr; }
+  #armorySkins .sw { width: clamp(34px, 2.2vw, 54px); height: clamp(34px, 2.2vw, 54px); }
+  #armorySkins .ds { font-size: clamp(10px, 0.62vw, 15px); }
+  #armorySkins button.form { grid-template-columns: 1fr; }
+  #armorySkins button.form .nm { font-size: clamp(15px, 0.95vw, 22px); }
+  #armorySkins .lookRow { padding: 0.5vw 0.7vw; } #armorySkins .lookRow .lkName, #armorySkins .lookRow .lkVal { font-size: clamp(12px, 0.8vw, 19px); }
+  .armSec { font-size: clamp(12px, 0.7vw, 17px); }
+  #armoryCaption { font-size: clamp(16px, 1vw, 24px); }
+  #armoryCaption b { font-size: clamp(22px, 1.5vw, 36px); }
+  #armoryBack { font-size: clamp(16px, 1vw, 24px); }
+}
+
+.presetRow { display: flex; gap: 8px; }
+.presetRow button { flex: 1; }

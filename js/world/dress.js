@@ -319,7 +319,11 @@
           const c = cell(al, lay(3), y);
           const frame = al === d0 || al === d1 || y === top || (y === top - 1 && (al === d0 + 1 || al === d1 - 1));
           const band = y === g + 1 || y === top - 2;
-          const emblem = (al === mid || al === mid + 1) && (y === g + 3 || y === g + 4);
+          // la placa tiene además una forma distinta por color (pirámide roja, marco azul, cruz dorada),
+          // para que se distingan sin depender del color
+          const ea = al - (mid - 1), ey = y - (g + 2);   // rejilla 4×4 centrada en la puerta (ey 3 = arriba)
+          const PAT = { red: ['....', '.XX.', 'XXXX', 'XXXX'], blue: ['XXXX', 'X..X', 'X..X', 'XXXX'], gold: ['.XX.', 'XXXX', 'XXXX', '.XX.'] }[lock];
+          const emblem = ea >= 0 && ea <= 3 && ey >= 0 && ey <= 3 && PAT[3 - ey][ea] === 'X';
           r.set(c[0], c[1], c[2], emblem ? LB : frame || band ? BL.IRON : BL.DOORWOOD);
           cells.push(c);
         }

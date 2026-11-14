@@ -25,6 +25,7 @@
     crow: 'Llegan en bandada, vuelan en círculos y se lanzan en picado. Escopeta y lanzallamas.',
     knight: 'Una armadura negra sin nadie dentro. Lo que le arrancas vuelve a su sitio: sólo cae si le rompes el corazón de cristal.',
     revenant: 'Muere como cualquiera… pero sus restos laten en el suelo. Si no los destrozas, se levanta más fuerte.',
+    hydra: 'Le arrancas una pierna y le vuelve a crecer; la pierna arrancada echa raíces y brota otra hidra. Partirla en dos sólo duplica el problema.',
     'boss:tanque': 'Jefe de la Horda (oleada 15). Una montaña de carne que embiste y suelta corredores al perder vida.',
     'boss:coloso': 'Jefe de la Cripta. Salta sobre ti y levanta a los muertos.',
     'boss:ancestro': 'Jefe de las Cloacas. Espirales y calaveras teledirigidas.',
@@ -40,7 +41,7 @@
     walker: 'Todos los biomas', runner: 'Todos los biomas', brute: 'Todos (desde el piso 3)', spitter: 'Todos los biomas', exploder: 'Todos los biomas',
     shielder: 'Todos los biomas', climber: 'Todos los biomas', dog: 'Todos los biomas', skeleton: 'Cripta y Vacío', rat: 'Cloacas', ember: 'Forja y Vacío',
     archer: 'Cripta y Vacío', necro: 'Cripta, Jardín y Vacío', mimic: 'Cofres misteriosos', miner: 'Minas', sporeling: 'Jardín fúngico',
-    bloater: 'Todos (pisos altos) y Horda', knight: 'Mazmorra, desde el piso 6 (más en Cripta, Forja y Vacío)', revenant: 'Mazmorra, desde el piso 4 (más en Cripta y Jardín)', riot: 'Todos (pisos altos) y Horda', screamer: 'Todos (pisos altos) y Horda', crow: 'Todos (pisos altos) y Horda',
+    bloater: 'Todos (pisos altos) y Horda', knight: 'Mazmorra, desde el piso 8 (más en Cripta, Forja y Vacío)', revenant: 'Mazmorra, desde el piso 6 (más en Cripta y Jardín)', hydra: 'Mazmorra, desde el piso 7', riot: 'Todos (pisos altos) y Horda', screamer: 'Todos (pisos altos) y Horda', crow: 'Todos (pisos altos) y Horda',
   };
   const WEAK = {
     walker: 'La cabeza. Rómpele una pierna y se arrastra.', runner: 'Espera a que se lance y dispárale de frente.', brute: 'Esquiva la embestida contra un muro y remátalo aturdido.',
@@ -48,7 +49,7 @@
     climber: 'Mira arriba; cae en cuanto le das.', dog: 'Escopeta cuando salte.', skeleton: 'Rómpele el cráneo o se vuelve a montar.', rat: 'Perdigones: llegan juntas.',
     ember: 'No le prendas fuego: es inmune. Agua y balas.', archer: 'Cúbrete y corta la distancia.', necro: 'El primero de la sala: sin él no se levantan.',
     mimic: 'Explosivos y distancia; muerde fuerte.', miner: 'Apágale la lámpara en la oscuridad: dispara a la luz.', sporeling: 'Mátalo de lejos para que la nube no te alcance.',
-    bloater: 'De lejos y fuera de su nube.', knight: 'El corazón violeta del pecho, dentro de la jaula dorada. Rodearlo no sirve: hay que apuntar.', revenant: 'Cualquier parte; después, destroza la pila de carne y huesos antes de que deje de latir.', riot: 'Piernas, espalda o explosivos.', screamer: 'Cállalo antes de que grite.', crow: 'Escopeta, lanzallamas o ráfagas.',
+    bloater: 'De lejos y fuera de su nube.', knight: 'El corazón violeta del pecho, dentro de la jaula dorada. Rodearlo no sirve: hay que apuntar.', revenant: 'Cualquier parte; después, destroza la pila de carne y huesos antes de que deje de latir.', hydra: 'Sólo la cabeza. Si le arrancas algo, rompe el brote verde que deja en el suelo antes de que crezca.', riot: 'Piernas, espalda o explosivos.', screamer: 'Cállalo antes de que grite.', crow: 'Escopeta, lanzallamas o ráfagas.',
   };
   // Conocer al enemigo: cuantos más abates de un tipo, más daño le haces
   const TIERS = [25, 100, 250], BOSS_TIERS = [1, 3, 6], BONUS = [0.05, 0.1, 0.15];

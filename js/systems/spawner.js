@@ -168,7 +168,7 @@
         let kind = this.pickKind(game.floor, room.zone || 0);
         // campeón: un enemigo enorme con nombre y barra de vida, desde el piso 6 (uno por sala)
         const champion = room.type === 'normal' && !room.hadChampion && game.floor >= 6 && Math.random() < Math.min(0.3, (game.floor - 5) * 0.035);
-        if (champion) { room.hadChampion = true; if (['rat', 'exploder', 'mimic', 'archer', 'necro', 'revenant'].includes(kind)) kind = 'walker'; }
+        if (champion) { room.hadChampion = true; if (['rat', 'exploder', 'mimic', 'archer', 'necro', 'revenant', 'knight', 'hydra'].includes(kind)) kind = 'walker'; }
         const z = new VX.Zombie(kind, p.x, p.z, game.floor, { elite, champion, y: game.world.groundAt(p.x, p.z) });
         game.enemies.push(z);
         if (champion) { game.champion = z; game.hud.showBoss(z); game.hud.toast('¡Un campeón ronda esta sala!'); }
@@ -198,7 +198,7 @@
             } else if (i === 2 && Math.random() < 0.6 && VX.Throw.attachItem(game.weapon, 0)) {
               const it = VX.Throw.attachItem(game.weapon, Math.round((26 + game.floor * 2) * (game.priceMul || 1)));
               game.pickups.addItem({ ...it, x: s.x, y: s.y, z: s.z, onTake: (g) => g.stats.purchases++ });
-            } else if (i === 1 && Math.random() < 0.35) {
+            } else if (i === 1 && Math.random() < 0.35 && VX.Throw.randomType(game.weapon)) {
               const t = VX.Throw.randomType(game.weapon);
               game.pickups.addItem({ ...VX.Throw.item(t, 2, Math.round(VX.Throw.TYPES[t].price * 1.6 + game.floor)), x: s.x, y: s.y, z: s.z });
             } else if (i === 0) {
@@ -278,7 +278,7 @@
             room.waveSize = Math.max(2, Math.round(n * 0.7));
           }
           // tesoro de la cámara secreta: a veces una mejora rara
-          if (room.secret && Math.random() < 0.45) {
+          if (false && room.secret) {   // (quitado: el cofre de la cámara ya da su mejora; antes salían dos)
             const up = VX.Upgrades.random(1, game, [], 'rare')[0];
             const sc = room.secret;
             if (up) game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: sc.x, y: sc.y + 0.75, z: sc.z, title: up.name + ' ★ RARA', desc: up.desc, color: up.color, shape: up.shape });
@@ -339,8 +339,10 @@
         riot: f >= 6 ? Math.min(0.09, (f - 5) * 0.02) : 0,
         // caballero negro (sólo cae si le rompes el corazón) y renacido (vuelve si no destrozas sus restos)
         // (más frecuentes desde la 0.35: aparecen antes y con más peso)
-        knight: VX.game && VX.game.mode === 'horde' ? 0 : f >= 4 ? Math.min(0.12, 0.03 + (f - 4) * 0.018) * (zone === 0 || zone === 3 || zone === 5 ? 1.4 : 1) : 0,
-        revenant: VX.game && VX.game.mode === 'horde' ? 0 : f >= 3 ? Math.min(0.18, 0.05 + (f - 3) * 0.025) * (zone === 0 || zone === 4 ? 1.3 : 1) : 0,
+        // (desde la 0.39 salen más adelante: el caballero desde el piso 8 y el renacido desde el 6)
+        knight: VX.game && VX.game.mode === 'horde' ? 0 : f >= 8 ? Math.min(0.12, 0.03 + (f - 8) * 0.015) * (zone === 0 || zone === 3 || zone === 5 ? 1.4 : 1) : 0,
+        revenant: VX.game && VX.game.mode === 'horde' ? 0 : f >= 6 ? Math.min(0.16, 0.04 + (f - 6) * 0.02) * (zone === 0 || zone === 4 ? 1.3 : 1) : 0,
+        hydra: VX.game && VX.game.mode === 'horde' ? 0 : f >= 7 ? Math.min(0.08, 0.03 + (f - 7) * 0.012) : 0,
       };
       // si los pesos suman más de lo que cabe, se reparten en proporción (antes los últimos de la
       // lista —antidisturbios, chillón, caballero, renacido…— no llegaban a salir en los pisos altos);

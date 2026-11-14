@@ -127,7 +127,7 @@
         const d = Math.hypot(it.x - P.x, it.z - P.z);
         if (d < best) { best = d; this.focus = it; }
       }
-      if (this.focus && VX.Input.wasPressed('KeyE')) this.interact(this.focus, game);
+      if (this.focus && VX.Input.wasPressed(VX.Settings.key('use'))) this.interact(this.focus, game);
       this.items = this.items.filter((i) => !i.taken);
     }
 
@@ -177,7 +177,7 @@
           if (up) this.addItem({ kind: 'upgrade', up, price: 0, x: it.x, y: it.y + 0.2, z: it.z, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape });
           game.pickups.dropGold(it.x, it.y + 0.5, it.z, 8 + game.floor);
           // y a veces un accesorio o algo para lanzar
-          const ex = Math.random() < 0.5 ? VX.Throw.attachItem(game.weapon, 0) : VX.Throw.item(VX.Throw.randomType(game.weapon), 2, 0);
+          const tt = VX.Throw.randomType(game.weapon), ex = Math.random() < 0.5 || !tt ? VX.Throw.attachItem(game.weapon, 0) : VX.Throw.item(tt, 2, 0);
           if (ex) this.addItem({ ...ex, x: it.x + 0.7, y: it.y + 0.2, z: it.z });
           game.hud.banner('COFRE', 'Dentro había algo útil', 2);
         }

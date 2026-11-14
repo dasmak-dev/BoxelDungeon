@@ -13,7 +13,7 @@
     runner: { name: 'Corredor', hp: 45, speed: 3.4, dmg: 8, gold: [2, 3], reach: 0.95, lean: 0.3, dodge: true },
     brute: { name: 'Bruto', hp: 190, speed: 1.2, dmg: 22, gold: [5, 8], reach: 1.3, lean: 0.12, heavy: true },
     spitter: { name: 'Escupidor', hp: 85, speed: 1.3, dmg: 12, gold: [3, 5], reach: 1.0, lean: 0.05, ranged: true },
-    exploder: { name: 'Explosivo', hp: 55, speed: 1.35, dmg: 0, gold: [3, 5], reach: 1.7, lean: 0.0, explode: true },
+    exploder: { name: 'Explosivo', hp: 55, speed: 1.8, dmg: 0, gold: [3, 5], reach: 1.7, lean: 0.0, explode: true },
     shielder: { name: 'Escudero', hp: 110, speed: 1.35, dmg: 14, gold: [4, 6], reach: 1.1, lean: 0.05, shield: true },
     climber: { name: 'Trepador', hp: 50, speed: 2.6, dmg: 9, gold: [3, 4], reach: 1.0, lean: 0.35, climb: true, dodge: true },
     dog: { name: 'Perro zombi', hp: 40, speed: 5.0, dmg: 9, gold: [2, 3], reach: 1.15, lean: 0, quad: true, dodge: true },
@@ -36,6 +36,9 @@
     // muere como cualquiera, pero deja sus restos: si no los destrozas, vuelve más fuerte
     revenant: { name: 'Renacido', hp: 80, speed: 2.0, dmg: 13, gold: [0, 0], reach: 1.15, lean: 0.18, revenant: true },
     revpile: { name: 'Restos del renacido', hp: 40, speed: 0, dmg: 0, gold: [0, 0], reach: 0, lean: 0, pile: true },
+    // hidra: todo lo que le rompes le vuelve a crecer y de cada trozo arrancado brota otra; sólo muere por la cabeza
+    hydra: { name: 'Hidra', hp: 75, speed: 1.55, dmg: 12, gold: [6, 9], reach: 1.05, lean: 0.1, hydra: true },
+    hydrabud: { name: 'Brote de hidra', hp: 28, speed: 0, dmg: 0, gold: [0, 0], reach: 0, lean: 0, pile: true, grows: 'hydra' },
   };
 
   const FALL_TIME = 0.6;
@@ -67,6 +70,8 @@
     knight: { ring: true, accel: 3.5, turn: 4, mass: 3, ringAdd: -0.4, faceAlways: true, eager: 1.5 },
     revenant: { ring: true, accel: 8, turn: 7, mass: 1, ringAdd: 0.4, eager: 1.2 },
     revpile: { ring: false, accel: 0, turn: 0, mass: 50 },
+    hydra: { ring: true, accel: 5, turn: 5, mass: 1.1, eager: 1.2 },
+    hydrabud: { ring: false, accel: 0, turn: 0, mass: 50 },
   };
 
   class Zombie {
@@ -153,8 +158,10 @@
         if (W) this.y = Math.min(this.y, Zombie.ceilAt(W, this.x, this.z, this.y0 = opts.y || 0) - 0.7);
       }
       if (T.scream) { this.screamCd = M.rand(2, 4); this.screams = 0; this.screamT = 0; }
-      if (T.knight) { this.swordOut = true; this.regenQ = []; this.coreHp = this.hp; }
-      if (T.pile) { this.spawnT = 0; this.gen = opts.gen || 1; this.pileT = 7.5; this.pileMax = 7.5; this.maxHp = this.hp = this.hp * (1 + this.gen * 0.35); }
+      if (T.knight) { this.swordOut = true; this.regenQ = []; this.coreHp = this.hp; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.body.byName.torso) this.body.byName.torso.noBreak = true; }
+      if (T.hydra) { this.regenQ = []; this.gen = opts.gen || 0; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.gen) this.spawnT = 0.3; }   // orig: lo que vuelve a crecer   // orig: lo que hay que reconstruir; el torso no se parte (lleva el corazón)
+      if (T.pile) { this.spawnT = 0; this.gen = opts.gen || 1; this.pileT = 8; this.pileMax = 8; this.maxHp = this.hp = 65 + this.gen * 22; this.body.hitPad = 0.05; }
+      if (T.grows) { this.pileT = this.pileMax = 3.5; this.maxHp = this.hp = 28; this.body.hitPad = 0.06; }   // brote de hidra: poco tiempo para romperlo   // vida fija (no crece con el nivel) y algo de margen al apuntar
       // un renacido que vuelve: más grande, más rápido, más duro y con los ojos en llamas
       if (T.revenant && opts.gen) {
         this.gen = opts.gen;
@@ -174,7 +181,7 @@
         s *= 0.35 + 0.65 * Math.max(0, Math.sin(this.walkT));
       } else if (this.limp) s *= 0.5;
       else if (this.biter && !this.T.quad) s *= 1.12;
-      if (this.fuse > 0) s *= 0.4;
+      if (this.fuse > 0) s *= 0.75;
       if (this.chillT > 0) s *= 0.5;          // balas de hielo
       if (this.stunT > 0) s *= 0.15;          // descarga eléctrica
       return s;
@@ -231,7 +238,7 @@
         if (this.hp <= 0 && this.spawnT <= 0) { this.die([0, 1, 0], game); return; }
       }
 
-      if (this.T.knight) this.knightRegen(dt, game);
+      if (this.T.knight || this.T.hydra) this.knightRegen(dt, game);
       // hielo, veneno y descarga (munición especial)
       if (this.chillT > 0) { this.chillT -= dt; b.flash = Math.max(b.flash, 0.12); if (Math.random() < 0.12) game.particles.spawn(this.x + M.rand(-0.3, 0.3), this.y + M.rand(0.3, 1.6), this.z + M.rand(-0.3, 0.3), 0, M.rand(-0.3, 0.2), 0, 0.75, 0.93, 1, 0.022, 0.6, 0.7, 1); }
       if (this.stunT > 0) this.stunT -= dt;
@@ -279,7 +286,7 @@
 
       // ---- explosivo: mecha ----
       if (this.T.explode) {
-        if (this.fuse <= 0 && dist < 1.8 && Math.abs(P.y - this.y) < 1.5) { this.fuse = 0.9; VX.Audio.fuse(); }
+        if (this.fuse <= 0 && dist < 2 && Math.abs(P.y - this.y) < 1.5) { this.fuse = 0.5; VX.Audio.fuse(); }   // mecha corta: casi no da tiempo a huir
         if (this.fuse > 0) {
           this.fuse -= dt;
           b.flash = (Math.sin(this.fuse * 40) > 0) ? 1 : 0.2;
@@ -897,6 +904,25 @@
         if (this.state === 'circle' && this.attackCd <= 0 && dist < 9 && this.los) { this.state = 'dive'; this.stateT = 2; VX.Audio.crow && VX.Audio.crow(); }
       }
       if (this.ceilY) ty = Math.min(ty, this.ceilY - 0.75);   // vuela por debajo del techo
+      // el punto del círculo puede caer dentro de un muro o detrás de una pared: entonces se acerca más
+      // al jugador; y si no ve al jugador, sigue el mismo mapa de caminos que los zombis de tierra
+      if (this.state !== 'dive' && (W.isSolidAt(tx, ty, tz) || W.isSolidAt(tx, ty - 0.6, tz))) { tx = P.x + (tx - P.x) * 0.35; tz = P.z + (tz - P.z) * 0.35; }
+      if (!this.los && this.state !== 'dive' && W.flowDir(this.x, this.z, this.fdir || (this.fdir = [0, 0])) && (this.fdir[0] || this.fdir[1])) {
+        tx = this.x + this.fdir[0] * 2; tz = this.z + this.fdir[1] * 2;
+        ty = Math.min(ty, W.groundAt(this.x, this.z) + 1.6);   // por los pasillos, más bajo
+      }
+      // atascado (apenas avanza y no está donde quiere): sube o baja y busca otro lado durante un momento
+      this.stuckT = (this.stuckT || 0) + dt;
+      if (this.stuckT > 0.6) {
+        const moved = Math.hypot(this.x - (this.lastX ?? this.x), this.z - (this.lastZ ?? this.z), this.y - (this.lastY ?? this.y));
+        if (moved < 0.25 && Math.hypot(tx - this.x, tz - this.z) > 1) { this.unstickT = 0.9; this.unstickA = Math.atan2(P.x - this.x, P.z - this.z) + (Math.random() < 0.5 ? 1.6 : -1.6); }
+        this.stuckT = 0; this.lastX = this.x; this.lastY = this.y; this.lastZ = this.z;
+      }
+      if (this.unstickT > 0) {
+        this.unstickT -= dt;
+        tx = this.x + Math.sin(this.unstickA) * 2; tz = this.z + Math.cos(this.unstickA) * 2;
+        ty = W.groundAt(this.x, this.z) + 1.2;
+      }
       let gx = tx - this.x, gy = ty - this.y, gz = tz - this.z;
       const gl = Math.hypot(gx, gy, gz) || 1;
       const acc = Math.min(1, dt * this.B.accel);
@@ -904,12 +930,23 @@
       this.vy += (gy / gl * spd - this.vy) * acc;
       const nx = this.x + (this.vx + this.kx) * dt, ny = this.y + this.vy * dt, nz = this.z + (this.vz + this.kz) * dt;
       this.kx *= Math.pow(0.05, dt); this.kz *= Math.pow(0.05, dt);
-      if (W.isSolidAt(nx, ny, nz)) {
-        // algo delante: sube si hay sitio; si no, lo rodea por debajo
-        if (!this.ceilY || this.y + 0.9 < this.ceilY) { this.vy = 3; this.y += 3 * dt; }
-        else { this.vy = -2; this.y -= 2 * dt; this.vx *= -0.5; this.vz *= -0.5; }
+      // metido dentro de algo (un derrumbe, un hueco que se ha cerrado): sale hacia el jugador atravesándolo
+      if (W.isSolidAt(this.x, this.y, this.z)) { const l = Math.hypot(P.x - this.x, P.y + 1.4 - this.y, P.z - this.z) || 1; this.x += (P.x - this.x) / l * 3 * dt; this.y += (P.y + 1.4 - this.y) / l * 3 * dt; this.z += (P.z - this.z) / l * 3 * dt; }
+      // choque: se desliza por la pared (prueba cada eje por separado) en vez de quedarse pegado
+      const free = (x, y, z) => !W.isSolidAt(x, y, z) && !W.isSolidAt(x, y + 0.25, z) && !W.isSolidAt(x + 0.2, y, z) && !W.isSolidAt(x - 0.2, y, z) && !W.isSolidAt(x, y, z + 0.2) && !W.isSolidAt(x, y, z - 0.2);
+      if (free(nx, ny, nz)) { this.x = nx; this.y = ny; this.z = nz; }
+      else {
+        let moved = false;
+        if (free(nx, this.y, this.z)) { this.x = nx; moved = true; } else this.vx *= -0.3;
+        if (free(this.x, this.y, nz)) { this.z = nz; moved = true; } else this.vz *= -0.3;
+        if (free(this.x, ny, this.z)) this.y = ny;
+        else this.vy = 0;
+        if (!moved) {
+          // de frente contra algo: sube si hay sitio; si no, baja
+          if (free(this.x, this.y + 0.3, this.z) && (!this.ceilY || this.y + 0.9 < this.ceilY)) { this.vy = 3; this.y += 3 * dt; }
+          else if (free(this.x, this.y - 0.3, this.z)) { this.vy = -2; this.y -= 2 * dt; }
+        }
       }
-      else { this.x = nx; this.y = ny; this.z = nz; }
       const g = W.groundAt(this.x, this.z);
       if (this.y < g + 0.35) { this.y = g + 0.35; this.vy = Math.max(0, this.vy); }
       // si aun así acaba metido en el techo (techos bajos, derrumbes), baja al hueco libre
@@ -1002,6 +1039,7 @@
       if (VX.Codex && VX.Codex.bonus && game.dmgSource) dmg *= VX.Codex.bonus(this.kind);   // conocer al enemigo (bestiario)
       if (this.dead) return false;
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
+      if (game.localAct && !game.visualOnly) VX.Coop.noteHit && VX.Coop.noteHit(this, dmg, game);   // daño hecho y asistencias (cooperativo)
       // cooperativo: el invitado avisa al anfitrión de sus impactos; el anfitrión enseña los suyos a los demás
       const C = VX.Coop;
       if (C.active && !game.visualOnly) {
@@ -1009,6 +1047,7 @@
         else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0);
       }
       if (this.T.knight) return this.knightHit(hit, dmg, ray, game, opts);
+      if (this.T.hydra) return this.hydraHit(hit, dmg, ray, game, opts);
       if (this.T.pile) return this.pileHit(hit, dmg, ray, game, opts);
       const b = this.body;
       const pn = hit.part.name;
@@ -1045,7 +1084,7 @@
           return false;
         }
       }
-      const mult = pn === 'head' ? 2.5 : (pn.startsWith('arm') || pn.startsWith('leg') ? 0.7 : 1);
+      const mult = pn === 'head' ? 2.5 * (game.dmgSource === 'gun' && game.weapon.mods.headMul || 1) : (pn.startsWith('arm') || pn.startsWith('leg') ? 0.7 : 1);
       if (!game.visualOnly) this.hp -= dmg * mult;
       b.flash = 0.8;
       const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
@@ -1077,7 +1116,9 @@
       if (this.T.knight) {
         // la explosión le arranca placas que vuelven a su sitio; sólo le hace daño si le pilla el corazón
         // todo lo que arranca la explosión vuelve a su sitio; sólo muere si le destroza el corazón
-        this.knightCarve(() => b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, 0, 0.6, 0, 20), game, true);
+        const dxk = v.wx - x, dzk = v.wz - z, lk = Math.hypot(dxk, dzk) || 1;
+        const resB = this.knightCarve(() => b.afterCarve(b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, 0, 0.6, 0, 20), game.gibs, dxk / lk * 3, 2, dzk / lk * 3), game, true);
+        if (this.knightAfter(resB, [dxk / lk, 0.3, dzk / lk], game)) return true;
         const core = b.byName.core;
         if (core && !game.visualOnly && core.alive / core.total < 0.3) { this.allowDie = true; this.hp = 0; this.die([0, 1, 0], game); return true; }
         this.kx += (v.wx - x) * 3; this.kz += (v.wz - z) * 3;
@@ -1087,10 +1128,20 @@
         if (!game.visualOnly) this.hp -= dmg;
         const removed = b.carveSphere(v.wx, v.wy, v.wz, 0.2 + dmg / 200, game.particles, 0, 0.8, 0, 20);
         b.afterCarve(removed, game.gibs, 0, 1.5, 0);
+        if (!game.visualOnly && b.ratio('torso') < 0.5) this.hp = 0;
         if (this.hp <= 0 && !game.visualOnly) { this.die([0, 1, 0], game); return true; }
         return false;
       }
       if (VX.Coop.isClient && game.localAct && !game.visualOnly) VX.Coop.reportBlast(this, x, y, z, R, dmg);
+      if (game.localAct && !game.visualOnly) VX.Coop.noteHit && VX.Coop.noteHit(this, dmg, game);
+      if (this.T.hydra) {
+        const dxh = v.wx - x, dzh = v.wz - z, lh = Math.hypot(dxh, dzh) || 1, dh = [dxh / lh, 0.3, dzh / lh];
+        if (!game.visualOnly) this.hp -= dmg * 0.6;
+        b.flash = 1;
+        const resH = this.knightCarve(() => b.afterCarve(b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, dh[0], 0.6, dh[2], 20), game.gibs, dh[0] * 3, 2, dh[2] * 3), game);
+        this.kx += dh[0] * 5; this.kz += dh[2] * 5;
+        return this.hydraAfter(resH, dh, game);
+      }
       if (!game.visualOnly) this.hp -= dmg;
       b.flash = 1;
       const dx = v.wx - x, dz = v.wz - z, l = Math.hypot(dx, dz) || 1;
@@ -1137,7 +1188,7 @@
     die(dir, game) {
       if (this.dead) return;
       // el caballero negro sólo cae si le rompes el corazón (ni el fuego, ni la lava, ni los derrumbes)
-      if (this.T.knight && !this.allowDie) { this.hp = Math.max(1, this.hp); return; }
+      if ((this.T.knight || this.T.hydra) && !this.allowDie) { this.hp = Math.max(1, this.hp); return; }
       this.dead = true;
       // cooperativo: si lo he matado yo en mi equipo, el anfitrión lo da por muerto
       if (VX.Coop.isClient && game.localAct && !game.noReward) VX.Coop.reportKill(this);
@@ -1221,19 +1272,77 @@
       const touched = new Set();
       for (let i = 0; i < before.length; i += 2) {
         const p = before[i], v = before[i + 1];
-        if (!v.alive) { this.regenQ.push({ p, v, t: M.rand(1.1, 2.2) }); touched.add(p); }
+        if (!v.alive) { this.regenQ.push({ p, v, t: M.rand(2, 3.5) }); touched.add(p); }
       }
-      for (const p of touched) VX.updateExposure(p);
+      for (const p of touched) if (!p.detached) VX.updateExposure(p);
       return removed;
     }
+    // tras un golpe en la armadura: se le pueden arrancar piernas, brazos o la cabeza como a cualquiera
+    // (se arrastra, muerde…), pero mientras el corazón aguante todo le vuelve a crecer
+    knightAfter(res, dir, game) {
+      const b = this.body;
+      if (Object.keys(res).length) VX.Audio.snap();
+      if (b.byName.core && b.byName.core.detached) { this.allowDie = true; this.hp = 0; this.die(dir, game); return true; }
+      if (res.head === 'detached' || res.head === 'severed' || (b.byName.head && !b.byName.head.detached && b.broken('head', 0.45))) {
+        if (!b.byName.head.detached) b.detach('head', game.gibs, dir[0] * 3, 2.5, dir[2] * 3);
+        if (game.hud && !this.headHint) { this.headHint = true; game.hud.toast('¡Decapitado!… y sigue andando: la cabeza le volverá a salir'); }
+      }
+      const legGone = b.broken('legL', 0.55) || b.broken('legR', 0.55);
+      if (legGone && !this.crawling) {
+        if (b.byName.legL && !b.byName.legL.detached && b.broken('legL', 0.55)) b.detach('legL', game.gibs, dir[0] * 2, 1.5, dir[2] * 2);
+        if (b.byName.legR && !b.byName.legR.detached && b.broken('legR', 0.55)) b.detach('legR', game.gibs, dir[0] * 2, 1.5, dir[2] * 2);
+        this.crawling = true; this.rising = false;
+        this.fallT = FALL_TIME; this.windup = 0;
+        game.hud && game.hud.toast('¡Pierna arrancada! Se arrastra… hasta que le vuelva a crecer');
+      }
+      for (const a of ['armL', 'armR']) if (b.byName[a] && !b.byName[a].detached && b.broken(a, 0.4)) b.detach(a, game.gibs, dir[0] * 2, 1.5, dir[2] * 2);
+      this.armsLost = (b.broken('armL', 0.4) ? 1 : 0) + (b.broken('armR', 0.4) ? 1 : 0);
+      if (this.armsLost >= 2) { this.biter = true; this.windup = 0; }
+      return false;
+    }
     knightRegen(dt, game) {
+      const b = this.body;
+      if (this.dead || !b) return;
+      if (this.T.hydra && !game.visualOnly && !VX.Coop.isClient) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.2 * dt);   // la vida también vuelve
+      // las partes arrancadas vuelven a crecer desde la articulación (primero el padre, luego lo que cuelga)
+      for (const p of b.parts) {
+        if (!p.detached || p.weak) continue;
+        if (this.T.hydra && (p.name === 'head' || p.parent === 'head')) continue;   // la cabeza de la hidra no vuelve
+        const par = p.parent && b.byName[p.parent];
+        if (par && par.detached) continue;
+        if (!p.regrowT) { p.regrowT = this.T.hydra ? M.rand(2.5, 3.5) : M.rand(4, 5.5); continue; }
+        p.regrowT -= dt;
+        if (p.regrowT > 0) continue;
+        p.regrowT = 0; p.detached = false; p.severed = false;
+        const h = p.dims ? p.dims[1] : 1;
+        for (const v of p.vox) {
+          if (v.orig === false) continue;
+          const d = p.attach === 'top' ? (h - 1 - (v.j || 0)) : (v.j || 0);
+          if (v.alive) { v.alive = false; }
+          (this.regenQ || (this.regenQ = [])).push({ p, v, t: 0.05 + d * 0.06 + Math.random() * 0.15 });
+        }
+        p.alive = 0;
+        VX.updateExposure(p);
+        const rc = this.T.hydra ? [0.55, 1, 0.3] : [0.7, 0.25, 1];
+        if (Math.random() < 0.5 && p.wp) for (let i = 0; i < 8; i++) game.particles.spawn(p.wp[0], p.wp[1], p.wp[2], M.rand(-0.6, 0.6), M.rand(0.2, 1.2), M.rand(-0.6, 0.6), rc[0], rc[1], rc[2], 0.03, 0.6, 1, 1);
+      }
+      // una pierna o un brazo «cortado» que ya ha vuelto a crecer deja de contar como cortado
+      for (const p of b.parts) if (p.severed && !p.detached && p.alive / p.total > 0.85) p.severed = false;
+      // con las dos piernas otra vez, se levanta
+      if (this.crawling && this.fallT <= 0 && !b.broken('legL', 0.7) && !b.broken('legR', 0.7)) this.rising = true;
+      if (this.rising) {
+        this.crawlC = Math.max(0, (this.crawlC || 0) - dt * 1.1);
+        if (this.crawlC <= 0) { this.crawling = false; this.rising = false; }
+      }
+      if (this.biter && !b.broken('armL', 0.5) && !b.broken('armR', 0.5)) { this.biter = false; this.armsLost = 0; }
       const Q = this.regenQ;
       if (!Q || !Q.length) return;
       const touched = new Set();
       for (const r of Q) {
+        if (r.p.detached) continue;   // espera a que la parte vuelva a crecer
         r.t -= dt;
         if (r.t > 0) continue;
-        if (!r.v.alive) { r.v.alive = true; r.p.alive++; touched.add(r.p); if (Math.random() < 0.08 && r.v.wx) game.particles.spawn(r.v.wx, r.v.wy, r.v.wz, M.rand(-0.3, 0.3), M.rand(0.2, 0.8), M.rand(-0.3, 0.3), 0.7, 0.25, 1, 0.025, 0.5, 1, 1); }
+        if (!r.v.alive) { r.v.alive = true; r.p.alive++; touched.add(r.p); if (Math.random() < 0.08 && r.v.wx) game.particles.spawn(r.v.wx, r.v.wy, r.v.wz, M.rand(-0.3, 0.3), M.rand(0.2, 0.8), M.rand(-0.3, 0.3), this.T.hydra ? 0.55 : 0.7, this.T.hydra ? 1 : 0.25, this.T.hydra ? 0.3 : 1, 0.025, 0.5, 1, 1); }
         r.done = true;
       }
       if (touched.size) { for (const p of touched) VX.updateExposure(p); this.regenQ = Q.filter((r) => !r.done); }
@@ -1253,8 +1362,9 @@
         if (!game.visualOnly && (this.hp <= 0 || b.ratio('core') < 0.3)) { this.allowDie = true; this.hp = 0; this.die(dir, game); return true; }
         return false;
       }
-      // en la armadura: chispas, salta un trozo… y se le vuelve a unir
-      this.knightCarve(() => b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles, 0.8), game);
+      // en la armadura: chispas, salta un trozo (o el miembro entero)… y se le vuelve a unir
+      const res = this.knightCarve(() => b.afterCarve(b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles, 0.8), game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5), game);
+      if (this.knightAfter(res, dir, game)) return true;
       game.particles.sparks(ex, ey, ez, -dir[0], 0.3, -dir[2], 5);
       for (let i = 0; i < 3; i++) game.particles.spawn(ex, ey, ez, -dir[0] + M.rand(-0.5, 0.5), M.rand(0, 1), -dir[2] + M.rand(-0.5, 0.5), 0.5, 0.15, 0.8, 0.025, 0.5, 1, 1);
       VX.Audio.wall();
@@ -1264,26 +1374,94 @@
       return false;
     }
 
+    // ---------------- Hidra ----------------
+    // Se le puede arrancar todo (piernas, brazos, medio cuerpo) y le vuelve a crecer; de cada trozo
+    // arrancado brota otra hidra si no rompes el brote a tiempo. Sólo muere si le revientas la cabeza.
+    hydraHit(hit, dmg, ray, game, opts) {
+      const b = this.body, dir = [ray.dx, ray.dy, ray.dz], pn = hit.part.name;
+      const head = pn === 'head' || hit.part.parent === 'head';
+      if (!game.visualOnly) this.hp -= dmg * (head ? 2.5 : 0.6);
+      b.flash = 0.8;
+      const res = this.knightCarve(() => b.afterCarve(b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles), game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5), game);
+      const ex = hit.vox.wx, ey = hit.vox.wy, ez = hit.vox.wz;
+      game.particles.blood(ex, ey, ez, -dir[0] * 0.5, 0.3, -dir[2] * 0.5, 5);
+      for (let i = 0; i < 3; i++) game.particles.spawn(ex, ey, ez, -dir[0] + M.rand(-0.6, 0.6), M.rand(0, 1.2), -dir[2] + M.rand(-0.6, 0.6), 0.5, 0.9, 0.25, 0.022, 0.5, 0.6);   // savia verde
+      VX.Audio.flesh();
+      this.kx += dir[0] * (0.6 + dmg / 40); this.kz += dir[2] * (0.6 + dmg / 40);
+      if (game.weapon.mods.fire && !(opts && opts.slash) && !game.visualOnly) this.burn = 3;
+      return this.hydraAfter(res, dir, game);
+    }
+    hydraAfter(res, dir, game) {
+      const b = this.body, h = b.byName.head;
+      // lo que pierde la cabeza no vuelve a crecer
+      if (this.regenQ) this.regenQ = this.regenQ.filter((r) => !(r.p.name === 'head' || r.p.parent === 'head'));
+      if (h && (h.detached || res.head === 'detached' || res.head === 'severed' || b.broken('head', 0.5))) {
+        if (game.visualOnly) return false;
+        if (!h.detached) b.detach('head', game.gibs, dir[0] * 3, 2.5, dir[2] * 3);
+        game.stats.headshots++;
+        VX.Profile.add('headshots', 1, game);
+        VX.Profile.addW(this.lastW, 'heads', 1, game);
+        this.allowDie = true; this.hp = 0; this.regenQ = [];
+        this.die(dir, game);
+        return true;
+      }
+      if (game.visualOnly) return false;
+      const was = new Set(b.parts.filter((p) => p.detached).map((p) => p.name));
+      this.knightAfter(res, dir, game);
+      // de cada trozo arrancado puede brotar otra
+      const cut = b.parts.filter((p) => p.detached && !was.has(p.name) && p.name !== 'head' && p.parent !== 'head' && p.total > 6);
+      if (res.torso === 'halved') {
+        cut.push(b.byName.torso);
+        if (!this.crawling) { this.crawling = true; this.rising = false; this.fallT = FALL_TIME; this.windup = 0; }
+      }
+      for (const p of cut) this.sprout(game, p, dir);
+      if (!this.hydraHint && game.hud) { this.hydraHint = true; game.hud.toast('Le vuelve a crecer todo y los trozos brotan: ¡revienta la cabeza!'); }
+      return false;
+    }
+    sprout(game, p, dir) {
+      if (VX.Coop.isClient || (this.gen || 0) >= 2) return;
+      let n = 0;
+      for (const e of game.enemies) if (!e.dead && (e.T.hydra || e.T.grows)) n++;
+      if (n >= 9) return;
+      const px = (p && p.wp ? p.wp[0] : this.x) + dir[0] * 0.7 + M.rand(-0.3, 0.3), pz = (p && p.wp ? p.wp[2] : this.z) + dir[2] * 0.7 + M.rand(-0.3, 0.3);
+      const room = game.currentRoom;
+      let x = px, z = pz;
+      if (room && !room.contains(x, z)) { x = this.x; z = this.z; }
+      if (game.world.isSolidAt(x, game.world.groundAt(x, z) + 0.3, z)) { x = this.x; z = this.z; }
+      const bud = new Zombie('hydrabud', x, z, game.floor, { y: game.world.groundAt(x, z), gen: (this.gen || 0) + 1 });
+      bud.body.yaw = Math.random() * 6.28; bud.body.computeWorld();
+      game.enemies.push(bud);
+      for (let i = 0; i < 10; i++) game.particles.spawn(x, bud.y + 0.2, z, M.rand(-1.5, 1.5), M.rand(1, 3), M.rand(-1.5, 1.5), 0.5, 0.9, 0.25, 0.03, 0.7, 0.6);
+    }
+
     // ---------------- Restos del renacido ----------------
-    updatePile(dt, game) {
+    // lo que se ve y se oye mientras late (también en las réplicas del cooperativo)
+    pileVisual(dt, game) {
       const b = this.body;
-      this.pileT -= dt;
+      if (this.replica) this.pileT = Math.max(0, this.pileT - dt);
       const k = 1 - Math.max(0, this.pileT) / this.pileMax;
       // late cada vez más deprisa y suelta vapor
       b.flash = Math.max(b.flash, Math.max(0, Math.sin(game.time * (3 + k * 12))) * (0.2 + k * 0.6));
-      if (Math.random() < 0.15 + k * 0.4) game.particles.spawn(this.x + M.rand(-0.35, 0.35), this.y + 0.2, this.z + M.rand(-0.35, 0.35), 0, M.rand(0.4, 1.2), 0, 0.5, 0.12, 0.1, 0.035, 0.7, 0.3);
+      if (Math.random() < 0.15 + k * 0.4) game.particles.spawn(this.x + M.rand(-0.35, 0.35), this.y + 0.2, this.z + M.rand(-0.35, 0.35), 0, M.rand(0.4, 1.2), 0, this.T.grows ? 0.45 : 0.5, this.T.grows ? 0.8 : 0.12, this.T.grows ? 0.25 : 0.1, 0.035, 0.7, 0.3);
       this.heartT = (this.heartT || 0) - dt;
       if (this.heartT <= 0) { this.heartT = Math.max(0.25, 1.1 - k * 0.85); VX.Audio.at(this.x, this.y + 0.3, this.z, () => VX.Audio.heartbeat(0.6 + k * 0.6), 3, 'enemy'); }
       b.x = this.x; b.z = this.z; b.y = this.y;
       b.computeWorld();
+    }
+    updatePile(dt, game) {
+      this.pileT -= dt;
+      this.pileVisual(dt, game);
       if (this.pileT <= 0 && !game.visualOnly) {
-        // ¡se levanta otra vez!
+        // ¡se levanta otra vez! (en el cooperativo, los demás quitan sus restos sin «destrozarlos»)
+        if (VX.Coop.active && this.netId) VX.Net.send({ k: 'prise', id: this.netId });
         this.dead = true;
-        const z = new Zombie('revenant', this.x, this.z, game.floor, { y: this.y, gen: this.gen, elite: this.gen >= 3 });
+        const z = this.T.grows ? new Zombie(this.T.grows, this.x, this.z, game.floor, { y: this.y, gen: this.gen })
+          : new Zombie('revenant', this.x, this.z, game.floor, { y: this.y, gen: this.gen, elite: this.gen >= 3 });
         game.enemies.push(z);
         for (let i = 0; i < 24; i++) game.particles.spawn(this.x, this.y + 0.3, this.z, M.rand(-3, 3), M.rand(1, 5), M.rand(-3, 3), 0.55, 0.08, 0.08, M.rand(0.03, 0.06), M.rand(0.5, 1.2));
         VX.Audio.at(this.x, this.y + 1, this.z, () => { VX.Audio.roar(); }, 6);
-        game.hud.banner('¡HA VUELTO A LEVANTARSE!', this.gen >= 2 ? 'Cada vez más fuerte: destroza sus restos' : 'Más fuerte que antes', 2.4);
+        if (this.T.grows) game.hud.toast('¡Ha brotado otra hidra! Rompe los brotes antes de que crezcan');
+        else game.hud.banner('¡HA VUELTO A LEVANTARSE!', this.gen >= 2 ? 'Cada vez más fuerte: destroza sus restos' : 'Más fuerte que antes', 2.4);
       }
     }
     pileHit(hit, dmg, ray, game, opts) {
@@ -1294,13 +1472,21 @@
       b.afterCarve(removed, game.gibs, dir[0] * 2, 1.2, dir[2] * 2);
       game.particles.blood(hit.vox.wx, hit.vox.wy, hit.vox.wz, -dir[0] * 0.5, 0.4, -dir[2] * 0.5, 6);
       VX.Audio.flesh();
+      // también cuenta lo destrozado: si ya no queda ni la mitad de la carne, se acabó
+      // (antes, con los disparos atravesando el agujero, podía quedar «vivo» sin carne que darle)
+      if (!game.visualOnly && b.ratio('torso') < 0.5) this.hp = 0;
       if (this.hp <= 0 && !game.visualOnly) { this.die(dir, game); return true; }
       return false;
     }
     pileDie(dir, game) {
+      if (this.rose) {   // réplica: en el anfitrión se ha levantado otra vez; aquí sólo desaparecen los restos
+        for (let i = 0; i < 24; i++) game.particles.spawn(this.x, this.y + 0.3, this.z, M.rand(-3, 3), M.rand(1, 5), M.rand(-3, 3), 0.55, 0.08, 0.08, M.rand(0.03, 0.06), M.rand(0.5, 1.2));
+        return;
+      }
       this.body.collapse(game.gibs, dir[0], dir[2], 2.5);
       game.particles.blood(this.x, this.y + 0.3, this.z, dir[0], 1, dir[2], 20);
       VX.Audio.at(this.x, this.y + 0.5, this.z, () => { VX.Audio.splat(); VX.Audio.crumble(); }, 4);
+      if (this.T.grows) { if (!(game.noReward || (VX.Coop.isClient && !game.localAct))) game.pickups.dropGold(this.x, this.y + 0.4, this.z, 1); return; }   // brote roto: no crece
       game.hud.toast('Restos destrozados: ya no volverá');
       // la recompensa es por acabar con él de verdad
       if (!(game.noReward || (VX.Coop.isClient && !game.localAct))) {
@@ -1314,11 +1500,12 @@
     }
 
     reward(game) {
-      // cooperativo: el oro y las estadísticas son de quien lo mata
-      if (game.noReward || (VX.Coop.isClient && !game.localAct)) { if (VX.Coop.isHost && game.mode === 'horde') VX.HordeMode.killed++; return; }
+      // cooperativo: el oro y las estadísticas son de quien lo mata (a los demás que le dieron, asistencia)
+      if (game.noReward || (VX.Coop.isClient && !game.localAct)) { if (VX.Coop.isHost && game.mode === 'horde') VX.HordeMode.killed++; VX.Coop.noteAssist && VX.Coop.noteAssist(this, game); return; }
+      VX.Coop.noteSave && VX.Coop.noteSave(this, game);
       game.pickups.dropGold(this.x, this.y + 0.8, this.z, M.randInt(this.gold[0], this.gold[1]) * (game.weapon.mods.greed ? 2 : 1));
       // a veces suelta algo para lanzar (los élites y campeones, bastante más)
-      if (Math.random() < (this.champion ? 0.5 : this.elite ? 0.25 : 0.02)) {
+      if (!this.champion && Math.random() < (this.elite ? 0.25 : 0.02) && VX.Throw.randomType(game.weapon)) {   // el campeón ya suelta su mejora: sólo una cosa
         const t = VX.Throw.randomType(game.weapon), gy = game.world.groundAt(this.x, this.z);
         game.pickups.addItem({ ...VX.Throw.item(t, 1, 0), x: this.x, y: gy + 0.3, z: this.z });
       }

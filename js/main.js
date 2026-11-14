@@ -24,7 +24,7 @@
     if (!locked && game.state === 'playing') game.pause();
   };
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyP' && game.state === 'playing') { VX.Input.unlock(); game.pause(); }
+    if (e.code === VX.Settings.key('pause') && game.state === 'playing') { VX.Input.unlock(); game.pause(); }
   });
 
   // Calidad automática: si los FPS caen de forma sostenida, baja un escalón (y vuelve a subir si sobra)

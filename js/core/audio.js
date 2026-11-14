@@ -12,6 +12,9 @@
       A.sfx = A.ctx.createGain();
       A.sfx.gain.value = A.volume * 0.5;
       A.sfx.connect(A.master);
+      // buses con volumen propio (Ajustes): ambiente (fondo de cada bioma y ruidos de la sala) y enemigos
+      A.ambBus = A.ctx.createGain(); A.ambBus.gain.value = A.ambVol ?? 1; A.ambBus.connect(A.sfx);
+      A.enemyBus = A.ctx.createGain(); A.enemyBus.gain.value = A.enemyVol ?? 1; A.enemyBus.connect(A.sfx);
       // reverberación: dos respuestas (sala pequeña / gran nave) que se mezclan según el tamaño
       const ir = (secs, decay) => {
         const n = Math.floor(A.ctx.sampleRate * secs), b = A.ctx.createBuffer(2, n, A.ctx.sampleRate);
@@ -60,16 +63,24 @@
   A.at = (x, y, z, fn, ref, tag) => {
     // indicadores visuales de sonido (accesibilidad): avisa al HUD de dónde viene
     if (VX.Settings && VX.Settings.data.soundViz && VX.game && VX.game.hud && VX.game.hud.soundAt) VX.game.hud.soundAt(x, z, tag || A.vizTag || 'sound');
-    const s = src3, c = chain3;
+    const s = src3, c = chain3, en = A.enemyCtx;
     A.source(x, y, z, ref);
-    try { fn(); } finally { src3 = s; chain3 = c; }
+    if (tag === 'enemy') A.enemyCtx = true;
+    try { fn(); } finally { src3 = s; chain3 = c; A.enemyCtx = en; }
+  };
+  // a qué bus va lo que suena ahora
+  function bus() { return A.ambCtx && A.ambBus ? A.ambBus : A.enemyCtx && A.enemyBus ? A.enemyBus : A.sfx; }
+  A.setBusVolumes = (amb, enemy) => {
+    A.ambVol = amb; A.enemyVol = enemy;
+    if (A.ambBus) A.ambBus.gain.value = amb;
+    if (A.enemyBus) A.enemyBus.gain.value = enemy;
   };
   // sonido sin posición aunque haya una fuente activa (el dolor del jugador, la interfaz…)
-  A.direct = (fn) => { const s = src3, c = chain3; src3 = null; chain3 = null; try { fn(); } finally { src3 = s; chain3 = c; } };
+  A.direct = (fn) => { const s = src3, c = chain3, en = A.enemyCtx; src3 = null; chain3 = null; A.enemyCtx = false; try { fn(); } finally { src3 = s; chain3 = c; A.enemyCtx = en; } };
   function chain() {
     if (chain3 !== null) return chain3;
     const g = VX.game, P = g && g.player, S = src3;
-    if (!P) { chain3 = A.sfx; return chain3; }
+    if (!P) { chain3 = bus(); return chain3; }
     const ey = P.eyeY ? P.eyeY() : P.y + 1.6;
     const d = Math.hypot(S.x - P.x, S.y - ey, S.z - P.z);
     if (d > 75) { chain3 = false; return chain3; }   // demasiado lejos: no se oye
@@ -85,7 +96,7 @@
     const open = Math.max(1800, 19000 * Math.exp(-d / 35));
     f.frequency.value = occl > 0 ? Math.max(220, 900 * Math.pow(1 - occl, 1.6)) : open;
     const gn = A.ctx.createGain(); gn.gain.value = occl > 0 ? 0.7 - occl * 0.45 : 1;
-    f.connect(gn); gn.connect(pn); pn.connect(A.sfx);
+    f.connect(gn); gn.connect(pn); pn.connect(bus());
     chain3 = f;
     return chain3;
   }
@@ -105,10 +116,10 @@
   // salida con panorama estéreo opcional
   function out(pan) {
     if (src3) return chain();
-    if (pan === undefined || pan === null || !A.ctx.createStereoPanner) return A.sfx;
+    if (pan === undefined || pan === null || !A.ctx.createStereoPanner) return bus();
     const p = A.ctx.createStereoPanner();
     p.pan.value = Math.max(-1, Math.min(1, pan));
-    p.connect(A.sfx);
+    p.connect(bus());
     return p;
   }
 
@@ -276,6 +287,10 @@
     const s = A.spatial(x, z, VX.game.player);
     if (s.vol <= 0.03) return;
     const v = s.vol, p = s.pan, r = Math.random();
+    A.ambCtx = true;
+    try { ambientSound(kind, v, p, r); } finally { A.ambCtx = false; }
+  };
+  function ambientSound(kind, v, p, r) {
     switch (kind) {
       case 'drip': { const fr = 1300 + r * 1500; tone(fr, 0.06, 'sine', 0.06 * v, fr * 0.55, 0, p); if (r < 0.5) tone(fr * 0.8, 0.05, 'sine', 0.03 * v, fr * 0.5, 0.22, p); break; }
       case 'chain': for (let i = 0; i < 4; i++) { tone(900 + Math.random() * 500, 0.05, 'square', 0.012 * v, 700, i * 0.11, p); noise(0.03, 0.02 * v, 4000, 'highpass', i * 0.11, 1, p); } break;
@@ -289,7 +304,7 @@
       case 'whisper': noise(1.2, 0.04 * v, 2600 + r * 1500, 'bandpass', 0, 8, p); noise(1, 0.03 * v, 1800, 'bandpass', 0.3, 9, p); break;
       case 'chime': [0, 2, 4].forEach((n, i) => tone(1046 * Math.pow(2, (n + r * 2) / 12), 1.4, 'sine', 0.02 * v, null, i * 0.18, p)); break;
     }
-  };
+  }
   A.bite = () => { noise(0.08, 0.35, 1800, 'bandpass', 0, 2); tone(320, 0.06, 'square', 0.08, 120); noise(0.06, 0.25, 900, 'lowpass', 0.07); };
   A.snap = () => { noise(0.05, 0.4, 2500, 'highpass'); tone(180, 0.08, 'square', 0.1, 60); };
   A.save = () => { [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, 0.6, 'sine', 0.1, null, i * 0.1)); };
@@ -422,7 +437,7 @@
   // zumbido de esporas en el Jardín y un tono grave que late en el Vacío.
   A.bedZone = -2;
   function bedNode() {
-    if (!A.bed) { A.bed = A.ctx.createGain(); A.bed.gain.value = 1; A.bed.connect(A.sfx); }
+    if (!A.bed) { A.bed = A.ctx.createGain(); A.bed.gain.value = 1; A.bed.connect(A.ambBus || A.sfx); }
     return A.bed;
   }
   function loopNoise(freq, type, q, vol, dst) {

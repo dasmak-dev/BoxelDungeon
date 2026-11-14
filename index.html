@@ -61,6 +61,7 @@
     <div id="locator"></div>
     <div id="challenge" class="hidden"></div>
     <div id="prompt" class="hidden"></div>
+    <div id="coopTable" class="hidden"></div>
     <div id="mapOverlay" class="hidden"></div>
     <div id="doorHint" class="hidden"></div>
     <div id="banner" class="hidden"><div id="bannerTitle"></div><div id="bannerSub"></div></div>
@@ -74,7 +75,6 @@
       <p class="tag">Desciende. Dispara. Destroza.</p>
       <div class="menuList">
         <button id="newBtn">NUEVA PARTIDA</button>
-        <button id="continueBtn" class="secondary">CONTINUAR<small id="continueInfo"></small></button>
         <button id="hordeBtn" class="secondary horde">MODO HORDA<small id="hordeInfo">Oleadas infinitas · elige mapa</small></button>
         <button id="sanctuaryBtn" class="secondary">SANTUARIO<small id="essenceInfo">Mejoras permanentes</small></button>
         <button id="armoryBtn" class="secondary">ARMERÍA<small>Skins de armas</small></button>
@@ -83,19 +83,19 @@
         <button id="installBtn" class="secondary hidden">INSTALAR EL JUEGO<small id="installInfo">Como una app, a pantalla completa y sin conexión</small></button>
       </div>
       <div class="controls">
-        <div><b>WASD</b> moverse</div>
+        <div><b data-key="fwd">W</b><b data-key="left">A</b><b data-key="back">S</b><b data-key="right">D</b> moverse</div>
         <div><b>RATÓN</b> apuntar</div>
         <div><b>CLIC</b> disparar</div>
-        <div><b>R</b> recargar</div>
-        <div><b>ESPACIO</b> saltar</div>
-        <div><b>SHIFT</b> correr</div>
-        <div><b>E</b> usar / comprar</div>
+        <div><b data-key="reload">R</b> recargar</div>
+        <div><b data-key="jump">ESPACIO</b> saltar</div>
+        <div><b data-key="run">SHIFT</b> correr</div>
+        <div><b data-key="use">E</b> usar / comprar</div>
         <div><b data-key="flashlight">F</b> linterna</div>
         <div><b data-key="inspect">Ctrl</b> inspeccionar arma</div>
-        <div><b>1·2·3 / Q / RUEDA</b> cambiar arma</div>
+        <div><b>1·2·3 / RUEDA</b> · <b data-key="prev">Q</b> cambiar arma</div>
         <div><b data-key="knife">V</b> cuchillazo rápido</div>
         <div><b data-key="throw">T</b> lanzar granada / molotov / señuelo (<b data-key="throwNext">B</b> cambia)</div>
-        <div><b>C / CLIC DCHO</b> esquivar</div>
+        <div><b data-key="dash">C</b> / <b>CLIC DCHO</b> esquivar</div>
       </div>
       <div id="versionTag"></div>
       <p id="audioHint" class="hint">Haz clic en cualquier parte para activar la música</p>
@@ -144,15 +144,20 @@
   <!-- Ajustes -->
   <div id="settings" class="screen hidden">
     <h2>AJUSTES</h2>
-    <div class="settingsGrid">
+    <div class="setTabs"><button class="small setTab on" data-tab="snd">SONIDO</button><button class="small setTab" data-tab="gfx">GRÁFICOS</button><button class="small setTab" data-tab="ctl">CONTROLES</button><button class="small setTab" data-tab="keys">TECLAS</button><button class="small setTab" data-tab="ui">INTERFAZ</button><button class="small setTab" data-tab="prof">PERFIL</button></div>
+    <div class="settingsGrid setPane" data-pane="snd">
       <label>Música <span id="musicVal"></span></label>
       <input type="range" id="setMusic" min="0" max="1" step="0.05">
       <label>Efectos <span id="sfxVal"></span></label>
       <input type="range" id="setSfx" min="0" max="1" step="0.05">
-      <label>Sensibilidad del ratón <span id="sensVal"></span></label>
-      <input type="range" id="setSens" min="0.2" max="3" step="0.05">
-      <label>Campo de visión <span id="fovVal"></span></label>
-      <input type="range" id="setFov" min="60" max="100" step="1">
+      <label>· Ambiente <span id="ambVal"></span></label>
+      <input type="range" id="setAmb" min="0" max="1.5" step="0.05">
+      <label>· Enemigos <span id="enemyVal"></span></label>
+      <input type="range" id="setEnemy" min="0" max="1.5" step="0.05">
+    </div>
+    <div class="settingsGrid setPane hidden" data-pane="gfx">
+      <label>Preajuste</label>
+      <div class="presetRow"><button id="presetMobile" class="small secondary">MÓVIL</button><button id="presetPc" class="small secondary">PC</button></div>
       <label>Calidad gráfica</label>
       <select id="setQuality">
         <option value="alta">Alta</option>
@@ -161,6 +166,8 @@
       </select>
       <label>Calidad automática (baja si caen los FPS)</label>
       <input type="checkbox" id="setAutoQ">
+      <label>Campo de visión <span id="fovVal"></span></label>
+      <input type="range" id="setFov" min="60" max="100" step="1">
       <label>Sombras de la linterna</label>
       <input type="checkbox" id="setShadows">
       <label>Resplandor de las luces (bloom)</label>
@@ -173,8 +180,22 @@
       <input type="checkbox" id="setDust">
       <label>Niebla baja a ras de suelo</label>
       <input type="checkbox" id="setGroundFog">
-      <label>Indicadores visuales de sonido</label>
-      <input type="checkbox" id="setSoundViz">
+      <label>Límite de FPS</label>
+      <select id="setFpsCap">
+        <option value="0">Sin límite</option>
+        <option value="60">60 FPS</option>
+        <option value="30">30 FPS (ahorra batería)</option>
+      </select>
+      <label>Mostrar FPS</label>
+      <input type="checkbox" id="setFps">
+    </div>
+    <div class="settingsGrid setPane hidden" data-pane="ctl">
+      <label>Sensibilidad del ratón <span id="sensVal"></span></label>
+      <input type="range" id="setSens" min="0.2" max="3" step="0.05">
+      <label>Invertir eje Y</label>
+      <input type="checkbox" id="setInvert">
+      <label>Correr siempre (Shift para andar)</label>
+      <input type="checkbox" id="setAutoRun">
       <label>Controles táctiles</label>
       <select id="setTouch">
         <option value="auto">Automático</option>
@@ -187,22 +208,35 @@
       <input type="checkbox" id="setAimAssist">
       <label>Vibración (móvil)</label>
       <input type="checkbox" id="setVibrate">
-      <label>Límite de FPS</label>
-      <select id="setFpsCap">
-        <option value="0">Sin límite</option>
-        <option value="60">60 FPS</option>
-        <option value="30">30 FPS (ahorra batería)</option>
-      </select>
-      <label>Invertir eje Y</label>
-      <input type="checkbox" id="setInvert">
-      <label>Mostrar FPS</label>
-      <input type="checkbox" id="setFps">
-      <label>Correr siempre (Shift para andar)</label>
-      <input type="checkbox" id="setAutoRun">
-      <label>Flechas hacia los últimos enemigos</label>
-      <input type="checkbox" id="setLocator">
-      <label>Efectos de pantalla al recibir daño</label>
-      <input type="checkbox" id="setHurtFx">
+    </div>
+    <div class="settingsGrid setPane hidden" data-pane="keys">
+      <div class="setSec">Clic en una tecla y pulsa la nueva · Esc cancela</div>
+      <label>Tecla: avanzar</label>
+      <button class="small keyBind" data-action="fwd"></button>
+      <label>Tecla: retroceder</label>
+      <button class="small keyBind" data-action="back"></button>
+      <label>Tecla: izquierda</label>
+      <button class="small keyBind" data-action="left"></button>
+      <label>Tecla: derecha</label>
+      <button class="small keyBind" data-action="right"></button>
+      <label>Tecla: saltar</label>
+      <button class="small keyBind" data-action="jump"></button>
+      <label>Tecla: correr</label>
+      <button class="small keyBind" data-action="run"></button>
+      <label>Tecla: esquivar</label>
+      <button class="small keyBind" data-action="dash"></button>
+      <label>Tecla: recargar</label>
+      <button class="small keyBind" data-action="reload"></button>
+      <label>Tecla: usar / comprar / abrir</label>
+      <button class="small keyBind" data-action="use"></button>
+      <label>Tecla: arma anterior</label>
+      <button class="small keyBind" data-action="prev"></button>
+      <label>Tecla: mapa</label>
+      <button class="small keyBind" data-action="map"></button>
+      <label>Tecla: llamar la oleada (Horda)</label>
+      <button class="small keyBind" data-action="wave"></button>
+      <label>Tecla: pausa (además de Esc)</label>
+      <button class="small keyBind" data-action="pause"></button>
       <label>Tecla: linterna</label>
       <button class="small keyBind" data-action="flashlight"></button>
       <label>Tecla: inspeccionar arma</label>
@@ -213,6 +247,20 @@
       <button class="small keyBind" data-action="throw"></button>
       <label>Tecla: cambiar objeto a lanzar</label>
       <button class="small keyBind" data-action="throwNext"></button>
+    </div>
+    <div class="settingsGrid setPane hidden" data-pane="ui">
+      <label>Tamaño de la interfaz <span id="uiScaleVal"></span></label>
+      <input type="range" id="setUiScale" min="0.7" max="1.5" step="0.05">
+      <label>Modo para daltónicos (símbolos además de colores)</label>
+      <input type="checkbox" id="setColorblind">
+      <label>Indicadores visuales de sonido</label>
+      <input type="checkbox" id="setSoundViz">
+      <label>Flechas hacia los últimos enemigos</label>
+      <input type="checkbox" id="setLocator">
+      <label>Efectos de pantalla al recibir daño</label>
+      <input type="checkbox" id="setHurtFx">
+    </div>
+    <div class="settingsGrid setPane hidden" data-pane="prof">
       <label>Perfil (esencia, Santuario, skins…) <small id="profileMsg"></small></label>
       <div class="row tight">
         <button id="exportProfileBtn" class="small secondary">EXPORTAR</button>
@@ -232,9 +280,9 @@
     <div class="menuList">
       <button id="resumeBtn">CONTINUAR</button>
       <button id="pauseSettingsBtn" class="secondary">AJUSTES</button>
-      <button id="saveQuitBtn" class="secondary">GUARDAR Y SALIR<small>Reanuda más tarde · se borra si mueres</small></button>
       <button id="quitBtn" class="secondary">ABANDONAR PARTIDA<small>Cuenta como muerte: ganas la esencia</small></button>
     </div>
+    <div id="pauseInfo"></div>
   </div>
 
   <!-- Modo Horda: elegir mapa -->
@@ -332,6 +380,7 @@
   <script src="js/systems/profile.js"></script>
   <script src="js/systems/upgrades.js"></script>
   <script src="js/systems/throwables.js"></script>
+  <script src="js/systems/look.js"></script>
   <script src="js/systems/spawner.js"></script>
   <script src="js/systems/horde.js"></script>
   <script src="js/systems/hordeMode.js"></script>

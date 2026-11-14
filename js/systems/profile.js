@@ -140,6 +140,25 @@
     gearUnlocked(id) { const g = this.gearList().find((x) => x.id === id); return !g || !g.cond || (this.data.gear || []).includes(id); },
     attachUnlocked(a) { return this.gearUnlocked('att:' + a); },
     throwUnlocked(t) { return this.gearUnlocked('thr:' + t); },
+    // las misiones (equipo y skins) que tienes más cerca de cumplir, para la pantalla de muerte
+    nearestGoals(k = 3) {
+      const out = [];
+      for (const g of this.gearList()) {
+        if (!g.cond || this.gearUnlocked(g.id)) continue;
+        const v = this.gearValue(g.cond);
+        out.push({ name: g.name, what: g.kind === 'attach' ? 'accesorio' : 'objeto', txt: g.cond.txt, v, n: g.cond.n, r: v / g.cond.n });
+      }
+      if (VX.Weapons && VX.Weapons.SKINS) for (const w in this.data.wstats) {
+        if (!VX.Weapons.DEFS[w]) continue;
+        for (const sk of VX.Weapons.SKINS) {
+          if (!sk.cond || sk.ultimate || this.isUnlocked(w, sk.id)) continue;
+          const v = this.statValue(sk, w);
+          if (v <= 0) continue;
+          out.push({ name: sk.name + ' (' + VX.Weapons.DEFS[w].name + ')', what: 'skin', txt: this.condText(sk, w), v, n: sk.cond.n, r: v / sk.cond.n });
+        }
+      }
+      return out.filter((o) => o.r < 1 && o.v > 0).sort((a, b) => b.r - a.r).slice(0, k);   // sólo las que ya has empezado
+    },
     checkGear(game) {
       this.data.gear = this.data.gear || [];
       for (const g of this.gearList()) {

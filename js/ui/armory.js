@@ -31,7 +31,8 @@
         return `<button class="wpn ${id === this.weapon ? 'on' : ''}" data-id="${id}">${d.name.toUpperCase()}${lock}<small>Skins ${n}/${VX.Weapons.SKINS.length}</small></button>`;
       }).join('') + (() => {
         const G = VX.Profile.gearList(), n = G.filter((g) => VX.Profile.gearUnlocked(g.id)).length;
-        return `<button class="wpn gear ${this.weapon === 'gear' ? 'on' : ''}" data-id="gear">EQUIPO<small>Accesorios y lanzables ${n}/${G.length}</small></button>`;
+        return `<button class="wpn gear ${this.weapon === 'gear' ? 'on' : ''}" data-id="gear">EQUIPO<small>Accesorios y lanzables ${n}/${G.length}</small></button>` +
+          `<button class="wpn gear ${this.weapon === 'look' ? 'on' : ''}" data-id="look">PERSONAJE<small>Cómo te ven en el cooperativo</small></button>`;
       })();
       for (const b of $('armoryWeapons').querySelectorAll('button')) {
         b.onclick = () => { VX.Audio.click(); this.select(b.dataset.id); };
@@ -41,6 +42,10 @@
 
     renderStats() {
       const P = VX.Profile.data, w = P.wstats[this.weapon] || {};
+      if (this.weapon === 'look') {
+        $('armoryStats').innerHTML = `<u>PERSONAJE</u><br>Así te ven tus compañeros en el modo Horda cooperativo: con esta ropa y con las skins y modelos de arma que lleves equipados.`;
+        return;
+      }
       if (this.weapon === 'gear') {
         $('armoryStats').innerHTML = `<u>EQUIPO</u><br>Los accesorios de arma y los objetos para lanzar se desbloquean con misiones. ` +
           `Una vez desbloqueados pueden salir en tiendas, cofres, salas de recompensa y cajas de la Horda.<br>` +
@@ -64,6 +69,12 @@
     },
 
     updateShowcase() {
+      if (this.weapon === 'look') {
+        this.game.showcase = { avatar: VX.Look.mine(), yaw: this.avYaw || 0 };
+        $('armoryCaption').innerHTML = '<b>TU PERSONAJE</b><br><small>Arrastra con el ratón (o el dedo) para girarlo</small>';
+        this.initDrag();
+        return;
+      }
       if (this.weapon === 'gear') {
         // el subfusil con todo lo desbloqueado que le cabe, para ver cómo quedan los accesorios
         const bySlot = {};
@@ -96,9 +107,40 @@
         (locked ? `<br><span class="bad">Bloqueada: ${VX.Profile.condText(s, this.weapon)}</span>` : (skin === VX.Profile.skinFor(this.weapon) ? '<br><span class="ok">Equipado</span>' : ''));
     },
 
+    // girar el personaje de la vitrina arrastrando sobre él
+    initDrag() {
+      if (this.dragReady) return;
+      this.dragReady = true;
+      const root = $('armory');
+      let drag = null;
+      root.addEventListener('pointerdown', (e) => {
+        if (this.weapon !== 'look' || e.target.closest('.armCol, button, #armoryCaption')) return;
+        drag = { x: e.clientX, yaw: this.avYaw || 0 };
+        try { root.setPointerCapture(e.pointerId); } catch (er) { /* nada */ }
+        root.style.cursor = 'grabbing';
+      });
+      root.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        this.avYaw = drag.yaw + (e.clientX - drag.x) * 0.012;
+        if (this.game.showcase && this.game.showcase.avatar) this.game.showcase.yaw = this.avYaw;
+      });
+      const end = () => { drag = null; root.style.cursor = ''; };
+      root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
+    },
+
     renderSkins() {
       const h3 = document.querySelector('#armory .armCol.right h3');
-      if (h3) h3.textContent = this.weapon === 'gear' ? 'MISIONES' : 'SKINS';
+      if (h3) h3.textContent = this.weapon === 'gear' ? 'MISIONES' : this.weapon === 'look' ? 'ASPECTO' : 'SKINS';
+      if (this.weapon === 'look') {
+        const L = VX.Look, l = L.mine();
+        $('armorySkins').innerHTML = L.KEYS.map((k) => {
+          const o = L.OPT[k], cur = o.list[l[k]], col = cur[1];
+          return `<div class="lookRow"><span class="lkName">${o.name}</span><button class="small lk" data-k="${k}" data-d="-1">◀</button>` +
+            `<span class="lkVal">${col ? `<i style="background:rgb(${col.map((v) => Math.round(v * 255)).join(',')})"></i>` : ''}${cur[0]}</span><button class="small lk" data-k="${k}" data-d="1">▶</button></div>`;
+        }).join('');
+        for (const b of $('armorySkins').querySelectorAll('.lk')) b.addEventListener('click', () => { VX.Audio.click(); L.cycle(b.dataset.k, +b.dataset.d); this.renderSkins(); this.updateShowcase(); });
+        return;
+      }
       if (this.weapon === 'gear') {
         const row = (g) => {
           const un = VX.Profile.gearUnlocked(g.id), c = g.cond, v = c ? Math.min(VX.Profile.gearValue(c), c.n) : 0;

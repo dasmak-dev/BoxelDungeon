@@ -49,16 +49,17 @@
 
       // --- Moverse ---
       let fx = 0, fz = 0;
-      if (I.isDown('KeyW') || I.isDown('ArrowUp')) fz += 1;
-      if (I.isDown('KeyS') || I.isDown('ArrowDown')) fz -= 1;
-      if (I.isDown('KeyA') || I.isDown('ArrowLeft')) fx -= 1;
-      if (I.isDown('KeyD') || I.isDown('ArrowRight')) fx += 1;
+      const KS = VX.Settings;
+      if (I.isDown(KS.key('fwd')) || I.isDown('ArrowUp')) fz += 1;
+      if (I.isDown(KS.key('back')) || I.isDown('ArrowDown')) fz -= 1;
+      if (I.isDown(KS.key('left')) || I.isDown('ArrowLeft')) fx -= 1;
+      if (I.isDown(KS.key('right')) || I.isDown('ArrowRight')) fx += 1;
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
       // adelante = (sy, cy); derecha = (-cy, sy)
       let wx = sy * fz - cy * fx, wz = cy * fz + sy * fx;
       const l = Math.hypot(wx, wz);
       if (l > 0) { wx /= l; wz /= l; }
-      const shift = I.isDown('ShiftLeft') || I.isDown('ShiftRight');
+      const shift = I.isDown(KS.key('run')) || (KS.key('run') === 'ShiftLeft' && I.isDown('ShiftRight'));
       const sprint = VX.Settings && VX.Settings.data.autoRun ? !shift : shift;
       const wet = game.waterAt && game.waterAt(this.x, this.z) && this.y < 0.4;
       // cooperativo: en el suelo te arrastras muy despacio; muerto, no te mueves hasta la siguiente oleada
@@ -81,7 +82,7 @@
       }
       this.dashGap -= dt;
       const rifle = game.weapon.slot && game.weapon.slot.id === 'rifle';   // con el rifle, el clic derecho apunta
-      if ((I.wasPressed('KeyC') || (I.rightClicked && !rifle)) && !VX.Coop.down && !VX.Coop.deadWait && this.dashStock > 0 && this.dashGap <= 0 && this.dashT <= 0) {
+      if ((I.wasPressed(KS.key('dash')) || (I.rightClicked && !rifle)) && !VX.Coop.down && !VX.Coop.deadWait && this.dashStock > 0 && this.dashGap <= 0 && this.dashT <= 0) {
         if (this.dashStock === this.dashMax) this.dashCd = cdFull;
         this.dashStock--; this.dashGap = 0.22;
         let dx = wx, dz = wz;
@@ -105,7 +106,7 @@
         if (this.dashT <= 0) this.dashT = 0;
       }
 
-      if (this.onGround && I.isDown('Space') && !VX.Coop.down && !VX.Coop.deadWait) { this.vy = 6.4; this.onGround = false; }
+      if (this.onGround && I.isDown(KS.key('jump')) && !VX.Coop.down && !VX.Coop.deadWait) { this.vy = 6.4; this.onGround = false; }
       this.vy -= 19 * dt;
       if (this.vy < -30) this.vy = -30;
 
@@ -180,6 +181,14 @@
       this.damage(amount, undefined, undefined, game);
     }
     damage(amount, fromX, fromZ, game) {
+      if (VX.Coop.active && (VX.Coop.down || VX.Coop.deadWait)) return;   // caído o muerto: nada más te hace daño (antes te podía volver a «tumbar» y no volvías)
+      // de dónde viene el daño (para la pantalla de muerte): lo marca quien lo hace con game.dmgSrc
+      if (game && amount > 0 && this.invuln <= 0 && !this.godMode) {
+        const src = game.dmgSrc || (fromX === undefined ? 'El entorno' : 'Un enemigo');
+        game.dmgTaken = game.dmgTaken || {};
+        game.dmgTaken[src] = (game.dmgTaken[src] || 0) + amount;
+        game.lastHitBy = src;
+      }
       if (this.dead || this.invuln > 0 || VX.Coop.down || VX.Coop.deadWait) return;
       this.hp -= amount;
       if (game.onPlayerHurt) game.onPlayerHurt();

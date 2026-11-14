@@ -10,7 +10,7 @@
   function avatarModel(idx) {
     const c = COLORS[idx % COLORS.length];
     const cfg = {
-      v: 0.05, blocky: true, clean: true, leg: [4, 17, 4], torso: [9, 13, 5], arm: [4, 15, 4], head: [8, 8, 8],
+      v: 0.05, blocky: true, clean: true, human: true, leg: [4, 17, 4], torso: [9, 13, 5], arm: [4, 15, 4], head: [8, 8, 8],
       skin: [[0.86, 0.68, 0.54], [0.72, 0.52, 0.38], [0.55, 0.38, 0.27], [0.9, 0.74, 0.6]][idx % 4],
       shirt: c, pants: [0.17, 0.19, 0.24], shoes: [0.12, 0.1, 0.09], eye: [0.12, 0.12, 0.16],
       hair: [[0.15, 0.1, 0.06, 0.7], [0.45, 0.3, 0.12, 0.7], [0.08, 0.07, 0.07, 0.7], [0.6, 0.45, 0.2, 0.7]][idx % 4],
@@ -28,9 +28,9 @@
       this.name = name;
       this.idx = idx;
       this.color = COLORS[idx % COLORS.length];
-      this.body = new VX.VoxelBody(avatarModel(idx), 1);
-      // la pieza «gun» sólo marca dónde está la mano: el arma de verdad se dibuja aparte (la que lleve)
-      if (this.body.byName.gun) this.body.byName.gun.vox.length = 0;
+      this.look = VX.Look ? VX.Look.def(idx) : null; this.lookKey = '';
+      this.skins = {}; this.forms = {};   // skins de sus armas y modelo de cuchillo y pistola
+      this.buildBody();
       this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.pitch = 0;
       this.tx = 0; this.ty = 0; this.tz = 0; this.tyaw = 0; this.tpitch = 0;
       this.vx = 0; this.vz = 0;
@@ -43,6 +43,27 @@
       this.lastMsg = 0;
       this.isRemote = true;
       this.shotT = 0;
+    }
+
+    buildBody() {
+      const old = this.body;
+      this.body = new VX.VoxelBody(VX.Look && this.look ? VX.Look.model(this.look) : avatarModel(this.idx), 1);
+      // la pieza «gun» sólo marca dónde está la mano: el arma de verdad se dibuja aparte (la que lleve)
+      if (this.body.byName.gun) this.body.byName.gun.vox.length = 0;
+      if (old) { this.body.x = old.x; this.body.y = old.y; this.body.z = old.z; }
+      this.lookKey = this.look && VX.Look ? VX.Look.key(this.look) : '';
+    }
+    // cómo es y qué skins lleva (llega de vez en cuando por la red)
+    setLook(d) {
+      if (d.lk && VX.Look) {
+        const l = { ...VX.Look.def(this.idx) };
+        for (const k of VX.Look.KEYS) if (Number.isFinite(d.lk[k])) l[k] = Math.max(0, Math.min(VX.Look.OPT[k].list.length - 1, d.lk[k] | 0));
+        this.look = l;
+        if (VX.Look.key(l) !== this.lookKey) this.buildBody();
+        this.color = VX.Look.OPT.shirt.list[l.shirt][1];
+      }
+      if (d.sk) this.skins = d.sk;
+      if (d.fm) this.forms = d.fm;
     }
 
     // estado que llega por la red
@@ -89,10 +110,24 @@
       } else {
         b.pitch = M.lerp(b.pitch, 0.02, Math.min(1, dt * 8));
         P_.legL.ax = sw; P_.legR.ax = -sw;
-        // apunta con los dos brazos hacia donde mira
-        const aim = -1.5 - this.pitch * 0.9 + (this.shotT > 0 ? -0.15 * this.shotT / 0.12 : 0);
-        P_.armR.ax = aim; P_.armR.az = 0.08;
-        P_.armL.ax = aim + 0.12; P_.armL.az = -0.55;
+        // postura según el arma: las de fuego se sujetan con las dos manos (la izquierda bajo el
+        // cañón, cruzada hacia dentro); cuerpo a cuerpo, el brazo libre se balancea al andar.
+        // Si lleva un rato sin disparar baja un poco el arma (no va siempre con los brazos en cruz)
+        this.calmT = this.shotT > 0 ? 0 : (this.calmT || 0) + dt;
+        const def = VX.Weapons.DEFS[this.weapon] || {};
+        const low = M.smoothstep(1.5, 3, this.calmT) * (moving ? 0.55 : 0.4);
+        const aim = -1.5 - this.pitch * 0.9 + (this.shotT > 0 ? -0.15 * this.shotT / 0.12 : 0) + low;
+        if (def.melee) {
+          const sw2 = this.shotT > 0 ? -1.9 + (1 - this.shotT / 0.12) * 1.6 : -0.75 + sw * 0.25;
+          P_.armR.ax = sw2; P_.armR.az = 0.12;
+          P_.armL.ax = -sw * 0.8 - 0.1; P_.armL.az = -0.1;
+        } else if (def.pellets > 1 || /rifle|smg|lmg|shotgun|dbarrel|launcher|crossbow|flamer|raygun/.test(this.weapon)) {
+          P_.armR.ax = aim + 0.05; P_.armR.az = 0.12;
+          P_.armL.ax = aim - 0.08; P_.armL.az = 0.62;
+        } else {
+          P_.armR.ax = aim; P_.armR.az = 0.2;
+          P_.armL.ax = aim + 0.08; P_.armL.az = 0.5;
+        }
         P_.torso.ax = 0.05; P_.torso.az = sw * 0.06;
         P_.head.ax = -this.pitch * 0.6; P_.head.az = 0;
         b.yOff = Math.abs(sw) * 0.03;
@@ -111,8 +146,9 @@
       const p = this.body.byName.gun;
       if (!p || !p.q) return;
       const W = VX.Weapons, id = W.DEFS[this.weapon] ? this.weapon : 'pistol';
-      const form = id === 'knife' ? 'cuchillo' : null;
-      const model = W.coloredModel(id, 'default', form);
+      const form = id === 'knife' ? (this.forms.knife || 'cuchillo') : id === 'pistol' ? (this.forms.pistol || null) : null;
+      const sk = this.skins[id] && W.SKINS.some((x) => x.id === this.skins[id]) ? this.skins[id] : 'default';
+      const model = W.coloredModel(id, sk, form);
       const s = this.body.scale || 1, v = 0.05 * s;
       M.qRot(p.q, 0, -14.5 * v, 0.6 * v, tmp);
       const hx = p.wp[0] + tmp[0], hy = p.wp[1] + tmp[1], hz = p.wp[2] + tmp[2];

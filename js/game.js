@@ -56,8 +56,10 @@
       this.npcs = [];
       this.boss = null;
       this.upgradesTaken = [];
+      this.dmgTaken = {}; this.lastHitBy = null; this.dmgSrc = null;   // para la pantalla de muerte
+      this.coopTable = '';
       this.synergies = [];
-      this.stats = { kills: 0, headshots: 0, bosses: 0, gold: 0, totalGold: 0, shots: 0, hits: 0, purchases: 0 };
+      this.stats = { kills: 0, headshots: 0, bosses: 0, gold: 0, totalGold: 0, shots: 0, hits: 0, purchases: 0, dmgDealt: 0 };
       this.keys = { red: 0, blue: 0, gold: 0 };
       if (this.hud && this.hud.setKeys) this.hud.setKeys(this.keys);
       this.floor = 0;
@@ -227,6 +229,9 @@
       this.stats.gold += 15 * pk.fortuna;
       const sw = VX.Profile.data.startWeapon;
       if (sw && sw !== 'pistol' && VX.Weapons.DEFS[sw] && VX.Profile.weaponUnlocked(sw)) W.slots[0] = W.mk(sw);
+      // las mejoras de la partida salen del estilo del arma con la que empiezas
+      this.runPool = VX.Upgrades.POOL_OF[W.slots[0].id] || 'precision';
+      setTimeout(() => { if (this.state === 'playing' && this.mode !== 'horde') this.hud.toast('Mejoras de esta partida: estilo ' + VX.Upgrades.POOL_NAME[this.runPool].toUpperCase()); }, 2500);
       // «Legado»: empiezas con mejoras al azar
       for (let i = 0; i < pk.legado; i++) {
         const up = VX.Upgrades.random(1, this)[0];
@@ -237,7 +242,7 @@
     pause() {
       if (this.state !== 'playing') return;
       this.state = 'paused';
-      document.getElementById('saveQuitBtn').classList.toggle('hidden', this.mode === 'horde');
+      VX.Menus.fillPause(this);
       VX.Menus.show('pause');
     }
 
@@ -317,6 +322,7 @@
       if (record) D.hordeBest[this.hordeMap] = { wave: done, kills: this.stats.kills, date: new Date().toISOString().slice(0, 10) };
       VX.Profile.save();
       this.runResult = { horde: true, wave, done, record, prev };
+      this.coopTable = VX.Coop.active ? VX.Coop.table(this, true) : '';   // tabla final del cooperativo
       this.state = 'dying';
       this.deathT = 2.2;
       this.hud.banner('HAS CAÍDO', `Aguantaste ${done} oleada${done === 1 ? '' : 's'}`, 2);
@@ -337,6 +343,7 @@
       if (record) D.hordeBest[this.hordeMap] = { wave: done, kills: this.stats.kills, escaped: true, date: new Date().toISOString().slice(0, 10) };
       VX.Profile.save();
       this.runResult = { horde: true, wave: done, done, record, prev, escaped: true };
+      this.coopTable = VX.Coop.active ? VX.Coop.table(this, true) : '';
       this.escaped = true;
       VX.Coop.down = false; VX.Coop.deadWait = false;
       this.state = 'dying';
@@ -375,7 +382,7 @@
         const dist = Math.hypot(P.x - w.x, P.z - w.z);
         if (dist < best) { best = dist; this.doorFocus = { side: s, type: d.type }; }
       }
-      if (this.doorFocus && !this.pickups.focus && VX.Input.wasPressed('KeyE')) {
+      if (this.doorFocus && !this.pickups.focus && VX.Input.wasPressed(VX.Settings.key('use'))) {
         const s = this.doorFocus.side, d = cr.doors[s];
         this.spawner.prepare(this, d.neighbor);
         cr.setDoor(s, false);
@@ -975,7 +982,7 @@
               if (e.hp <= 0) { this.dmgWeapon = null; e.die([0, -1, 0], this); this.hud.toast('¡APLASTADO!'); }
             }
             const P = this.player;
-            if (Math.hypot(P.x - gx, P.z - gz) < f.rad + 0.3 && this.state === 'playing') P.damage(Math.min(45, dmg * 0.3), gx, gz, this);
+            if (Math.hypot(P.x - gx, P.z - gz) < f.rad + 0.3 && this.state === 'playing') { this.dmgSrc = 'Gas inflamable'; P.damage(Math.min(45, dmg * 0.3), gx, gz, this); this.dmgSrc = null; }
             this.shake(Math.min(0.6, mass / 1500 + 0.1));
             VX.Audio.slam();
           }
@@ -1111,7 +1118,7 @@
           if (e.hp <= 0) { this.dmgWeapon = null; e.die([0, -1, 0], this); this.hud.toast('¡APLASTADO!'); }
         }
         const P = this.player;
-        if (this.state === 'playing' && inside(P.x, P.z)) P.damage(30, cx, cz, this);
+        if (this.state === 'playing' && inside(P.x, P.z)) { this.dmgSrc = 'Un derrumbe'; P.damage(30, cx, cz, this); this.dmgSrc = null; }
       }
       r.walk = null;
       // lo que ha caído puede haber dejado otra cosa sin apoyo
@@ -1189,7 +1196,7 @@
             VX.Audio.crumble(); this.shake(0.15);
             const gy = this.world.groundAt(t.x, t.z);
             for (let i = 0; i < 18; i++) this.particles.spawn(t.x + M.rand(-t.r, t.r) * 0.7, gy + 0.1, t.z + M.rand(-t.r, t.r) * 0.7, M.rand(-1, 1), M.rand(4, 8), M.rand(-1, 1), 0.3, 0.22, 0.12, M.rand(0.06, 0.12), 1.2);
-            if (this.state === 'playing' && Math.hypot(P.x - t.x, P.z - t.z) < t.r + 0.3 && P.y < gy + 1.2) { P.damage(t.dmg, t.x, t.z, this); P.knock(0, 0, 7); }
+            if (this.state === 'playing' && Math.hypot(P.x - t.x, P.z - t.z) < t.r + 0.3 && P.y < gy + 1.2) { this.dmgSrc = 'Una trampa'; P.damage(t.dmg, t.x, t.z, this); this.dmgSrc = null; P.knock(0, 0, 7); }
             t.hold = 0.8;
           }
         }
@@ -1251,7 +1258,7 @@
         if (f.tick > 0) continue;
         f.tick = 0.3;
         if (poison) {   // nube venenosa: daña al jugador (también en el aire), no quema
-          if (this.state === 'playing' && Math.hypot(P.x - f.x, P.z - f.z) < f.r && P.y < this.world.groundAt(P.x, P.z) + 2) { P.damage(4, undefined, undefined, this); if (f.slow) P.slowT = Math.max(P.slowT || 0, 0.5); }
+          if (this.state === 'playing' && Math.hypot(P.x - f.x, P.z - f.z) < f.r && P.y < this.world.groundAt(P.x, P.z) + 2) { this.dmgSrc = 'El fuego'; P.damage(4, undefined, undefined, this); this.dmgSrc = null; if (f.slow) P.slowT = Math.max(P.slowT || 0, 0.5); }
           continue;
         }
         for (const e of this.enemies) if (!e.dead && !e.isBoss && Math.hypot(e.x - f.x, e.z - f.z) < f.r + 0.2 && !(e.T && e.T.fireImmune)) e.burn = Math.max(e.burn || 0, 2);
@@ -1326,15 +1333,15 @@
     setupVault(r) {
       const v = r.vault;
       if (!v || v.open || v.item) return;
-      const name = { red: 'roja', blue: 'azul', gold: 'dorada' }[v.color];
+      const name = VX.Settings.keyColorName(v.color);
       const col = { red: [1, 0.25, 0.2], blue: [0.35, 0.55, 1], gold: [1, 0.8, 0.25] }[v.color];
-      v.item = this.pickups.addItem({ kind: 'lockdoor', vault: v, room: r, price: 0, x: v.x, y: v.y, z: v.z, title: 'Puerta cerrada (llave ' + name + ')', desc: 'Guarda un cofre. La llave ' + name + ' está escondida en esta sala, dentro de algo que se puede romper', action: 'Abrir [E]', color: col, shape: 'key', hidden: true });
+      v.item = this.pickups.addItem({ kind: 'lockdoor', vault: v, room: r, price: 0, x: v.x, y: v.y, z: v.z, title: 'Puerta cerrada (llave ' + name + ')', desc: 'Guarda un cofre. La llave ' + name + ' está escondida en esta sala, dentro de algo que se puede romper', action: 'Abrir', color: col, shape: 'key', hidden: true });
       if (v.keyLoose) { const p = r.randomFreeCell(4, v.x, v.z); this.dropKey(v.color, p.x, this.world.groundAt(p.x, p.z) + 0.1, p.z); v.keyLoose = false; }
     }
     dropKey(color, x, y, z) {
-      const name = { red: 'roja', blue: 'azul', gold: 'dorada' }[color];
+      const name = VX.Settings.keyColorName(color);
       const col = { red: [1, 0.25, 0.2], blue: [0.35, 0.55, 1], gold: [1, 0.8, 0.25] }[color];
-      this.pickups.addItem({ kind: 'key', color3: color, price: 0, x, y: this.world.groundAt(x, z), z, title: 'Llave ' + name, desc: 'Abre una puerta con la marca ' + name, action: 'Coger [E]', color: col, shape: 'key' });
+      this.pickups.addItem({ kind: 'key', color3: color, price: 0, x, y: this.world.groundAt(x, z), z, title: 'Llave ' + name, desc: 'Abre una puerta con la marca ' + name, action: 'Coger', color: col, shape: 'key' });
       VX.Audio.reward && VX.Audio.reward();
       this.hud.toast('¡Una llave ' + name + '!');
     }
@@ -1345,7 +1352,7 @@
       this.hud.setKeys && this.hud.setKeys(this.keys);
     }
     tryVault(it) {
-      const v = it.vault, r = it.room, name = { red: 'roja', blue: 'azul', gold: 'dorada' }[v.color];
+      const v = it.vault, r = it.room, name = VX.Settings.keyColorName(v.color);
       this.keys = this.keys || { red: 0, blue: 0, gold: 0 };
       if (!this.keys[v.color]) { VX.Audio.deny(); this.hud.toast('Necesitas la llave ' + name); return; }
       this.keys[v.color]--; this.hud.setKeys && this.hud.setKeys(this.keys);
@@ -1356,7 +1363,7 @@
         if (Math.random() < 0.3) this.particles.spawn(r.worldX(lx), (ly + 0.5) * VX.S, r.worldZ(lz), M.rand(-1, 1), M.rand(1, 3), M.rand(-1, 1), 0.35, 0.22, 0.12, 0.03, M.rand(0.6, 1.2), 0);
       }
       VX.Audio.gate ? VX.Audio.gate() : VX.Audio.door();
-      this.hud.banner('PUERTA ABIERTA', 'Hay un cofre: ábrelo con [E]', 2.5);
+      this.hud.banner('PUERTA ABIERTA', 'Hay un cofre: ábrelo con ' + VX.Settings.tag('use'), 2.5);
       let chest = null, bd = 3;
       for (const p of r.props) if (p.type === 'chest' && !p.dead) { const d = Math.hypot(p.cx - v.cx, p.cz - v.cz); if (d < bd) { bd = d; chest = p; } }
       if (chest) { chest.looted = true; this.pickups.addItem({ kind: 'secretChest', prop: chest, price: 0, x: chest.cx, y: chest.oy + 0.2, z: chest.cz, title: 'Cofre de la cámara', desc: 'Oro, un botiquín y una mejora', action: 'Abrir', color: [0.95, 0.75, 0.3], shape: 'chest' }); }
@@ -1387,11 +1394,11 @@
           const pz0 = Math.min(fz, fz - dz * L) - az * Wd, pz1 = Math.max(fz, fz - dz * L) + az * Wd;
           r.floorHoles = (r.floorHoles || []).concat([{ x0: px0, x1: px1, z0: pz0, z1: pz1 }]);
           for (let x = px0 - 0.5; x <= px1 + 0.5; x += 0.25) for (let z = pz0 - 0.5; z <= pz1 + 0.5; z += 0.25) r.markDirty(Math.floor(x / VX.S) - r.ox, Math.floor(z / VX.S) - r.oz);
-          this.pickups.addItem({ kind: 'stairs', price: 0, x: fx - dx * L * 0.5, y: sc.y, z: fz - dz * L * 0.5, fx, fz, L, Wd, dx, dz, title: 'Escalera al Vacío', desc: 'Un bioma oculto: 3 salas y su guardián', action: 'Bajar [E]', color: [0.75, 0.3, 1], shape: 'crystal' });
+          this.pickups.addItem({ kind: 'stairs', price: 0, x: fx - dx * L * 0.5, y: sc.y, z: fz - dz * L * 0.5, fx, fz, L, Wd, dx, dz, title: 'Escalera al Vacío', desc: 'Un bioma oculto: 3 salas y su guardián', action: 'Bajar', color: [0.75, 0.3, 1], shape: 'crystal' });
           VX.Profile.add('secrets', 1, this);
           return;
         }
-        this.hud.banner('¡CÁMARA SECRETA!', 'Hay un cofre: ábrelo con [E]', 3);
+        this.hud.banner('¡CÁMARA SECRETA!', 'Hay un cofre: ábrelo con ' + VX.Settings.tag('use'), 3);
         VX.Audio.reward();
         // el cofre del fondo se abre con E (ya no hace falta destrozarlo)
         let chest = null, bd = 3;
@@ -1458,7 +1465,7 @@
       }
       const P = this.player;
       const dp = Math.hypot(P.x - e.x, P.y + 0.9 - e.y, P.z - e.z);
-      if (dp < R && this.state === 'playing' && e.selfK !== 0) P.damage(e.dmg * (e.selfK ?? 0.35) * (1 - dp / R), e.x, e.z, this);
+      if (dp < R && this.state === 'playing' && e.selfK !== 0) { const ds = this.dmgSrc; this.dmgSrc = ds || (e.weapon ? 'Tu propia explosión' : 'Una explosión'); P.damage(e.dmg * (e.selfK ?? 0.35) * (1 - dp / R), e.x, e.z, this); this.dmgSrc = ds; }
       this.blasts.push({ x: e.x, y: e.y, z: e.z, R: Math.max(1.2, R), t: 0, seed: Math.random() * 100, gy: this.world.groundAt(e.x, e.z) });
       this.stirFog(e.x, e.z, Math.max(1.2, R) * 2.4, 1, 0.12);
       if (this.blasts.length > 8) this.blasts.shift();
@@ -1702,7 +1709,7 @@
             this.particles.spawn(px, 0.07, pz, M.rand(-0.3, 0.3), M.rand(lava ? 1 : 0.3, lava ? 2.5 : 0.9), M.rand(-0.3, 0.3), c[0], c[1], c[2], 0.045, M.rand(0.5, 1), 1, 1);
           }
           if (this.state === 'playing' && inside(P.x, P.z, 0.15) && P.y < 0.3 && !P.dashT) {
-            P.damage(PL.pdmg, undefined, undefined, this);
+            this.dmgSrc = PL.name || 'Un charco peligroso'; P.damage(PL.pdmg, undefined, undefined, this); this.dmgSrc = null;
             P.knock(0, 0, PL.knock || 0);
           }
           for (const e of this.enemies) {
@@ -1716,7 +1723,7 @@
         }
         const st = this.spikeState(sp);
         if (!st.up) continue;
-        if (this.state === 'playing' && inside(P.x, P.z, 0.2) && P.y < 0.4) P.damage(14, P.x, P.z + 0.01, this);
+        if (this.state === 'playing' && inside(P.x, P.z, 0.2) && P.y < 0.4) { this.dmgSrc = 'Las púas'; P.damage(14, P.x, P.z + 0.01, this); this.dmgSrc = null; }
         for (const e of this.enemies) {
           if (e.dead || e.isBoss || !inside(e.x, e.z)) continue;
           e.hp -= 45 * dt; e.body.flash = 0.5;
@@ -1742,24 +1749,53 @@
       }
     }
 
+    // Forma de una poza de agua: rectángulo redondeado con la orilla mordida por ruido.
+    // Devuelve cajas planas (franjas) en un array: x, y, z, w, h, d, r, g, b, material.
+    poolShape(x0, z0, x1, z1, C, seed) {
+      const out = [], cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, hx = (x1 - x0) / 2, hz = (z1 - z0) / 2;
+      const rad = Math.min(0.7, Math.min(hx, hz) * 0.6);
+      const sdf = (x, z) => {
+        const qx = Math.abs(x - cx) - (hx - rad), qz = Math.abs(z - cz) - (hz - rad);
+        const o = Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - rad;
+        return o + (M.vnoise(x * 1.7, z * 1.7, seed) - 0.5) * 0.32 + (M.vnoise(x * 4.1, z * 4.1, seed + 9) - 0.5) * 0.1;
+      };
+      const st = 0.0625;
+      // franjas en x: une las celdas seguidas de la misma capa
+      const layer = (lim, y, h, colAt, mat, pad) => {
+        for (let z = z0 - pad + st / 2; z < z1 + pad; z += st) {
+          let run = -1, rc = null;
+          const flush = (xe) => { if (run < 0) return; out.push((run + xe) / 2, y, z, xe - run, h, st, rc[0], rc[1], rc[2], mat); run = -1; };
+          for (let x = x0 - pad; x <= x1 + pad + 1e-6; x += st) {
+            const d = sdf(x + st / 2, z);
+            if (d < lim) {
+              const c = colAt(d);
+              if (run >= 0 && (Math.abs(c[0] - rc[0]) > 0.012 || x - run > 1.2)) flush(x);
+              if (run < 0) { run = x; rc = c; }
+            } else flush(x);
+          }
+          flush(x1 + pad + st);
+        }
+      };
+      // orilla de barro húmedo (oscura y algo brillante) y luego el agua, más honda en el centro
+      layer(0.16, 0.012, 0.024, (d) => { const k = 0.75 + M.clamp(-d, 0, 0.16) * 1.5; return [0.1 * k, 0.085 * k, 0.065 * k]; }, -0.55, 0.25);
+      layer(0, 0.045, 0.03, (d) => {
+        const dep = M.clamp(-d / 0.9, 0, 1), q = Math.round(dep * 6) / 6;
+        return [C[0] * (1.35 - q * 0.6) + 0.02 * (1 - q), C[1] * (1.3 - q * 0.55) + 0.018 * (1 - q), C[2] * (1.25 - q * 0.45) + 0.012 * (1 - q)];
+      }, -1.25, 0);
+      return out;
+    }
+
     // charco de lava o ácido: superficie de vóxeles que burbujea
     renderPool(b, r, sp) {
       const PL = VX.POOLS[sp.kind] || VX.POOLS.acid, C = PL.c;
       const x0 = r.uX(sp.ux0), x1 = r.uX(sp.ux1 + 1), z0 = r.uZ(sp.uz0), z1 = r.uZ(sp.uz1 + 1);
       const t = this.time;
       if (PL.water) {
-        // agua oscura y muy brillante (refleja las luces); orilla de barro y ondas
-        b.box((x0 + x1) / 2, 0.01, (z0 + z1) / 2, x1 - x0 + 0.14, 0.02, z1 - z0 + 0.14, 0.12, 0.1, 0.08, 0);
-        for (let x = x0 + 0.25; x < x1; x += 0.5)
-          for (let z = z0 + 0.25; z < z1; z += 0.5) {
-            const n = Math.sin(x * 2.3 + t * 0.9) * 0.5 + Math.sin(z * 1.9 - t * 1.1) * 0.5;
-            b.box(x, 0.06 + n * 0.004, z, 0.5, 0.02, 0.5, C[0] + n * 0.01, C[1] + n * 0.015, C[2] + n * 0.02, -0.95);
-          }
-        for (const rp of sp.ripples || []) {
-          const R = rp.t * 0.6, k = Math.max(0, 1 - rp.t / 1.6);
-          if (k <= 0) continue;
-          for (let a = 0; a < 6.283; a += 0.5) b.box(rp.x + Math.cos(a) * R, 0.075, rp.z + Math.sin(a) * R, 0.04, 0.008, 0.04, 0.3 * k + C[0], 0.35 * k + C[1], 0.4 * k + C[2], -0.6);
-        }
+        // poza de agua: orilla irregular de barro mojado y una lámina de agua sin juntas que
+        // brilla con las luces (ondas y gotas en el sombreador). La forma se calcula una vez.
+        if (!sp.wgeo) sp.wgeo = this.poolShape(x0, z0, x1, z1, C, sp.ux0 * 7 + sp.uz0 * 13);
+        const G = sp.wgeo;
+        for (let i = 0; i < G.length; i += 10) b.box(G[i], G[i + 1], G[i + 2], G[i + 3], G[i + 4], G[i + 5], G[i + 6], G[i + 7], G[i + 8], G[i + 9]);
         return;
       }
       // borde oscuro
@@ -1855,7 +1891,7 @@
         if (this.deathT <= 0) {
           this.state = 'dead';
           VX.Input.unlock();
-          VX.Menus.showGameOver(this.stats, this.floor, this.essenceGain, this.runResult, this.runTime);
+          VX.Menus.showGameOver(this.stats, this.floor, this.essenceGain, this.runResult, this.runTime, this);
           this.hud.show(false);
         }
       }
@@ -1871,17 +1907,24 @@
       if (VX.Coop.isClient) VX.Coop.updateReplicas(dt, this);   // los zombis los mueve el anfitrión
       else {
         VX.Horde.update(this, dt);
+        VX.Audio.enemyCtx = true;   // lo que suena dentro de los zombis va al volumen de «Enemigos»
+        const srcName = (e) => e.isBoss ? 'Jefe: ' + (e.name || '?') : (e.champion ? 'Campeón: ' : e.elite ? 'Élite: ' : '') + ((e.T && e.T.name) || 'Un zombi');
+        const tagShots = (n0) => { for (let i = n0; i < this.projectiles.length; i++) if (!this.projectiles[i].src) this.projectiles[i].src = this.dmgSrc; };
         if (VX.Coop.isHost) {
           // cada zombi va a por el jugador más cercano (el anfitrión o un compañero)
           const me = this.player;
-          for (const e of this.enemies) if (!e.dead) { const dc = VX.Throw.decoyFor(e); this.player = dc ? VX.Throw.proxy(me, dc) : VX.Coop.targetFor(e, this); VX.Audio.source(e.x, e.y + 1.3, e.z); try { e.update(dt, this); } finally { this.player = me; } }
+          for (const e of this.enemies) if (!e.dead) { const dc = VX.Throw.decoyFor(e); this.player = dc ? VX.Throw.proxy(me, dc) : VX.Coop.targetFor(e, this); VX.Audio.source(e.x, e.y + 1.3, e.z); this.dmgSrc = srcName(e); const n0 = this.projectiles.length; try { e.update(dt, this); } finally { this.player = me; tagShots(n0); this.dmgSrc = null; } }
         } else for (const e of this.enemies) if (!e.dead) {
           VX.Audio.source(e.x, e.y + 1.3, e.z);
+          this.dmgSrc = srcName(e);
           const dc = VX.Throw.decoyFor(e);   // señuelo encendido cerca: va a por él
+          const n0 = this.projectiles.length;
           if (dc) { const me = this.player; this.player = VX.Throw.proxy(me, dc); try { e.update(dt, this); } finally { this.player = me; } }
           else e.update(dt, this);
+          tagShots(n0);
         }
         VX.Audio.source(null);   // lo que suena dentro de cada zombi sale desde donde está
+        VX.Audio.enemyCtx = false; this.dmgSrc = null;
         VX.Horde.separate(this);
       }
       if (this.frame % 30 === 0 && this.enemies.length) this.enemies = this.enemies.filter((e) => !e.dead || e === this.boss);
@@ -1943,7 +1986,7 @@
       if (this.blasts.length) this.blasts = this.blasts.filter((bl) => bl.t < 4);
       this.updateRises(dt);
       this.checkSecret();
-      if (this.state === 'playing' && this.mode !== 'horde' && VX.Input.wasPressed('KeyM')) this.hud.showMap(this);
+      if (this.state === 'playing' && this.mode !== 'horde' && VX.Input.wasPressed(VX.Settings.key('map'))) this.hud.showMap(this);
       if (this.state === 'playing') this.runTime += dt;
       for (const e of this.pendingExplosions) { e.delay -= dt; if (e.delay <= 0) { e.done = true; this.explode(e); } }
       this.pendingExplosions = this.pendingExplosions.filter((e) => !e.done);
@@ -2015,7 +2058,7 @@
         p.rot += dt * 6; p.life -= dt;
         if (p.arrow) {
           const dp = Math.hypot(P.x - p.x, P.y + 1 - p.y, P.z - p.z);
-          if (dp < 0.55 && this.state === 'playing') { p.dead = true; P.damage(p.dmg, p.x - p.vx, p.z - p.vz, this); VX.Audio.flesh(); continue; }
+          if (dp < 0.55 && this.state === 'playing') { p.dead = true; this.dmgSrc = p.src || 'Un proyectil'; P.damage(p.dmg, p.x - p.vx, p.z - p.vz, this); this.dmgSrc = null; VX.Audio.flesh(); continue; }
           if (p.life <= 0 || p.y < this.world.groundAt(p.x, p.z) || this.world.isSolidAt(p.x, p.y, p.z)) {
             p.dead = true; VX.Audio.wall();
             // la flecha se queda clavada un rato
@@ -2032,7 +2075,7 @@
           const br = p.blastR ?? 1.1;
           this.world.damageSphere(p.x, p.y, p.z, br, p.blockDmg ?? 120, this);
           const reach = p.acid ? 1.2 : 2.6;
-          if (dp < reach && this.state === 'playing') P.damage(p.dmg * (p.acid ? 1 : (1 - dp / 3.5)), p.x, p.z, this);
+          if (dp < reach && this.state === 'playing') { this.dmgSrc = p.src || (p.acid ? 'Un escupitajo ácido' : 'Un proyectil'); P.damage(p.dmg * (p.acid ? 1 : (1 - dp / 3.5)), p.x, p.z, this); this.dmgSrc = null; }
           for (let i = 0; i < (p.acid ? 16 : 26); i++)
             this.particles.spawn(p.x, p.y, p.z, M.rand(-4, 4), M.rand(1, 5), M.rand(-4, 4), p.col[0], p.col[1], p.col[2], M.rand(0.03, p.acid ? 0.07 : 0.14), M.rand(1, 2.5), p.glow);
           if (p.spawn && this.state === 'playing' && this.enemies.filter((e) => !e.dead).length < 12) {
@@ -2057,7 +2100,7 @@
         const d = Math.hypot(P.x - s.x, P.z - s.z);
         if (!s.hit && Math.abs(d - s.r) < 0.55 && P.onGround && this.state === 'playing') {
           s.hit = true;
-          P.damage(s.dmg, s.x, s.z, this);
+          this.dmgSrc = s.src || 'Las esporas'; P.damage(s.dmg, s.x, s.z, this); this.dmgSrc = null;
           P.knock(((P.x - s.x) / (d || 1)) * 6, ((P.z - s.z) / (d || 1)) * 6, 5);
         }
         if (Math.random() < 0.6) {
@@ -2169,7 +2212,8 @@
     render() {
       const R = VX.Renderer, P = this.player;
       const sh = this.shakeAmt * this.shakeAmt * 0.25;
-      const cam = {
+      const spec = VX.Coop.active && VX.Coop.deadWait ? VX.Coop.spectateCam(this) : null;   // muerto: ves la partida con un compañero
+      const cam = spec || {
         x: P.eyeX() + M.rand(-sh, sh), y: P.eyeY() + M.rand(-sh, sh), z: P.eyeZ() + M.rand(-sh, sh),
         yaw: P.yaw + Math.sin(this.time * 0.9) * 0.0035 * (this.weapon.scopeK || 0), pitch: P.pitch + P.recoilPitch + Math.sin(this.time * 1.3) * 0.0028 * (this.weapon.scopeK || 0), roll: (P.hurtRoll || 0) + (this.zone === 9 && this.mode === 'horde' ? Math.sin(this.time * 0.42) * 0.016 + Math.sin(this.time * 0.97) * 0.005 : 0),
       };
@@ -2340,7 +2384,7 @@
       if (this.state === 'playing' || this.state === 'paused' || this.state === 'settings') {
         R.beginViewmodel(this.weapon.flash, [0.18, 0.17, 0.2]);
         this.gun.clear();
-        if ((this.weapon.scopeK || 0) < 0.6) this.weapon.renderViewmodel(this.gun, this);
+        if ((this.weapon.scopeK || 0) < 0.6 && !spec) this.weapon.renderViewmodel(this.gun, this);
         this.gun.upload();
         this.gun.draw();
       } else if (this.showcase) {
@@ -2348,6 +2392,22 @@
         const sc = this.showcase;
         R.beginViewmodel(0, [0.35, 0.33, 0.38]);
         this.gun.clear();
+        if (sc.avatar) {
+          // personaje del jugador (Armería → PERSONAJE), girando
+          const key = VX.Look.key(sc.avatar);
+          if (!this._avBody || this._avKey !== key) {
+            this._avBody = new VX.VoxelBody(VX.Look.model(sc.avatar), 0.4);
+            if (this._avBody.byName.gun) this._avBody.byName.gun.vox.length = 0;
+            this._avKey = key;
+          }
+          const ab = this._avBody;
+          ab.x = 0.06; ab.y = -0.4; ab.z = -1.25; ab.yaw = sc.yaw !== undefined ? sc.yaw : Math.PI + Math.sin(this.time * 0.5) * 1.2; ab.pitch = 0;
+          ab.computeWorld();
+          ab.render(this.gun);
+          this.gun.upload(); this.gun.draw();
+          R.present();
+          return;
+        }
         const q = M.qMul(M.qMul(M.qY(this.time * 0.6), M.qX(0.2)), M.qZ(0.1));
         this.weapon.renderViewmodel(this.gun, this, sc.id, { x: 0.08, y: 0.0, z: -0.75, q, size: 0.42, noHand: true, form: sc.form, atts: sc.atts }, sc.skin);
         this.gun.upload();
