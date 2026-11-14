@@ -264,7 +264,7 @@
           }
         }
       }
-      if (jobs.length > 200) jobs.splice(0, jobs.length - 200);
+      if (jobs.length > 4000) jobs.splice(0, jobs.length - 4000);   // (antes 200: con una explosión grande se perdían trabajos y un árbol cortado podía quedarse flotando)
     }
 
     stampOf(r) { return r.supStamp || (r.supStamp = new Int32Array(r.W * r.H * r.D)); }
@@ -307,7 +307,10 @@
           const i = r.idx(nx, ny, nz), t = r.grid[i];
           if (!t) continue;
           if (st[i] === gen) return supported();
-          if (mOf(nx, nz) < 4 || !movable(t)) { if (t !== B.PROP) return supported(); continue; }
+          if (mOf(nx, nz) < 4 || t === B.BEDROCK || t === B.DOOR) return supported();
+          // los bloques indestructibles sueltos (lámparas de hierro, cristales…) no sujetan nada:
+          // si no, una rama que roza una lámpara dejaba el árbol entero flotando
+          if (!movable(t)) continue;
           if (j.mark.has(i)) continue;
           j.mark.add(i); j.seen.push(i);
           this.heapPush(hp, Math.min(ny, mOf(nx, nz) - 3), nx, ny, nz);

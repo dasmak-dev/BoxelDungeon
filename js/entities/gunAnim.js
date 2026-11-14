@@ -16,7 +16,7 @@
     const t0 = a, out = depth || 7;
     if (k < t0 + 0.3) {
       if (k > t0 + 0.26) return { hide: true };
-      return off(-S(k, t0 + 0.1, t0 + 0.26) * 3, -S(k, t0, t0 + 0.1) * out - S(k, t0 + 0.1, t0 + 0.26) * 40, 0);
+      return { ...off(-S(k, t0 + 0.1, t0 + 0.26) * 3, -S(k, t0, t0 + 0.1) * out - S(k, t0 + 0.1, t0 + 0.26) * 40, 0), drop: true };   // el viejo, vacío
     }
     return off(0, -(1 - S(k, t0 + 0.52, t0 + 0.6)) * out - (1 - S(k, t0 + 0.32, t0 + 0.5)) * 26, 0);
   }
@@ -132,15 +132,13 @@
         let lift = 0, back = 0;
         if (f < cd) { const t = f / cd; lift = bump(t, 0.25, 0.36, 0.62, 0.72); back = bump(t, 0.36, 0.46, 0.52, 0.62); A.roll += lift * 0.12; }
         if (rl) {
-          A.roll -= tilt * 0.35; A.pitch += tilt * 0.1; A.yaw += tilt * 0.45; A.bx -= tilt * 0.04; A.by += tilt * 0.05;
-          lift = Math.max(lift, S(k, 0.04, 0.1) * (1 - S(k, 0.9, 0.95)));
-          back = Math.max(back, S(k, 0.1, 0.18) * (1 - S(k, 0.82, 0.88)));
-          const ins = inserts(k, 0.2, 0.8, Math.min(5, Math.max(1, w.stats().mag - Math.max(0, w.slot.ammo))));
-          if (ins && ins.f < 0.85) {
-            const a = S(ins.f, 0, 0.5), b = S(ins.f, 0.5, 0.85);
-            P.rl_round = off((1 - a) * 3, (1 - a) * 10 - b * 4, (1 - a) * 4);
-            A.by -= b * 0.004;
-          }
+          // recarga por abajo: el cargador de caja cae, entra uno nuevo de un golpe y se monta el cerrojo
+          A.roll -= tilt * 0.45; A.pitch += tilt * 0.12; A.yaw += tilt * 0.3; A.bx -= tilt * 0.04; A.by += tilt * 0.07;
+          P.mag = magSwap(k, 0.1, 6);
+          A.by += bump(k, 0.66, 0.69, 0.7, 0.76) * 0.014;   // golpe de la mano al meterlo
+          lift = Math.max(lift, bump(k, 0.76, 0.8, 0.9, 0.95));
+          back = Math.max(back, bump(k, 0.8, 0.84, 0.86, 0.9));
+          A.roll += lift * 0.12;
         }
         P.bolt = rot(M.qZ(lift * 1.1), -0.5, 5.5, 0, 0, 0, back * 8);
         break;
@@ -214,6 +212,8 @@
         if (rl) { const s = Math.sin(k * Math.PI); A.pitch -= s * 0.55; A.roll += s * 0.7; A.by -= s * 0.07; }
       }
     }
+    // balas del cargador: van con él, salvo en el que se cae (está vacío)
+    if (P.mag) P.magr = P.mag.drop || P.mag.hide ? { hide: true } : P.mag;
     return A;
   }
 

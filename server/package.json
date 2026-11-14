@@ -1,7 +1,7 @@
 {
   "name": "boxel-dungeon-coop-server",
   "version": "1.0.0",
-  "description": "Servidor de salas del cooperativo de BOXEL DUNGEON (reenvío de mensajes por WebSocket, sin dependencias)",
+  "description": "Servidor de salas del cooperativo de VOXEL DUNGEON (reenvío de mensajes por WebSocket, sin dependencias)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

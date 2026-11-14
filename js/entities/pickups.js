@@ -40,6 +40,150 @@
     SHAPE_VOX[k] = out;
   }
 
+  // ---------------- Objetos en 3D (0.41) ----------------
+  // En vez de un icono plano, cada objeto es una pieza de vóxeles con volumen, en el mismo estilo
+  // robusto que las armas: botiquín con asa, caja de munición con balas, llave de verdad, granada
+  // de piña, molotov con la mecha encendida, pergamino, cofre con herrajes… Las mejoras van en un
+  // medallón de hierro (dorado si es rara) con su símbolo dentro.
+  const MODEL_CACHE = {};
+  function build(fn) {
+    const V = new Map();
+    const put = (x, y, z, c, e = 0) => V.set(x + ',' + y + ',' + z, [x, y, z, c[0], c[1], c[2], e]);
+    const box = (x0, y0, z0, x1, y1, z1, col, e = 0, shell = false) => {
+      for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+        if (shell && x > x0 && x < x1 && y > y0 && y < y1 && z > z0 && z < z1) continue;
+        const cc = typeof col === 'function' ? col(x, y, z) : col;
+        if (cc) put(x, y, z, cc, e);
+      }
+    };
+    fn(put, box);
+    const out = [...V.values()];
+    let mx = 0, mz = 0, my = 1e9;
+    for (const v of out) { mx += v[0]; mz += v[2]; my = Math.min(my, v[1]); }
+    mx /= out.length; mz /= out.length;
+    for (const v of out) { v[0] -= mx; v[2] -= mz; v[1] -= my; }
+    return out;
+  }
+  const J = (c, x, y, z, a = 0.08) => { const h = (M.hash3(x, y * 3, z * 7) - 0.5) * a; return [c[0] + h, c[1] + h, c[2] + h]; };
+  const IRON = [0.28, 0.28, 0.31], DIRON = [0.16, 0.16, 0.18], BRASS = [0.85, 0.64, 0.25], WOOD = [0.42, 0.26, 0.13];
+  const ITEM_MODELS = {
+    medkit: () => build((put, box) => {
+      const R = [0.72, 0.1, 0.1];
+      box(-6, 0, -3, 6, 7, 3, (x, y, z) => (Math.abs(x) === 6 && (y === 0 || y === 7)) || ((y === 0 || y === 7) && Math.abs(z) === 3) ? [0.5, 0.06, 0.06] : y === 5 ? [0.55, 0.07, 0.07] : J(R, x, y, z));
+      for (const z of [-4, 4]) { box(-1, 2, z, 1, 6, z, [0.95, 0.95, 0.92]); box(-3, 3, z, 3, 5, z, [0.95, 0.95, 0.92]); }   // cruz blanca
+      box(-3, 8, -1, -3, 9, 1, DIRON); box(3, 8, -1, 3, 9, 1, DIRON); box(-3, 10, -1, 3, 10, 1, [0.2, 0.2, 0.22]);   // asa
+      for (const x of [-5, 5]) box(x, 5, -4, x, 6, -4, [0.7, 0.7, 0.72]), box(x, 5, 4, x, 6, 4, [0.7, 0.7, 0.72]);   // cierres
+    }),
+    ammo: () => build((put, box) => {
+      const O = [0.3, 0.34, 0.18];
+      box(-6, 0, -3, 6, 6, 3, (x, y, z) => y === 4 ? [0.2, 0.22, 0.12] : (Math.abs(x) === 6 && Math.abs(z) === 3) ? [0.22, 0.25, 0.13] : J(O, x, y, z, 0.05));
+      box(-4, 2, -4, 4, 2, -4, [0.85, 0.7, 0.15]); box(-4, 2, 4, 4, 2, 4, [0.85, 0.7, 0.15]);   // franja amarilla
+      box(-1, 7, -1, 1, 7, 1, DIRON);   // asa
+      for (let i = 0; i < 5; i++) { const x = -4 + i * 2; box(x, 7, 0, x, 9, 0, BRASS); put(x, 10, 0, [0.72, 0.38, 0.18]); }   // balas
+    }),
+    key: (col) => build((put, box) => {
+      const C = col;
+      for (let x = -3; x <= 3; x++) for (let y = 8; y <= 14; y++) { const d = Math.hypot(x, y - 11); if (d <= 3.4 && d >= 1.6) for (const z of [0, 1]) put(x, y, z, J(C, x, y, z, 0.1)); }   // ojo
+      put(0, 11, 0, [1, 1, 1], 1); put(0, 11, 1, [1, 1, 1], 1);   // gema que brilla
+      box(-1, 1, 0, 0, 7, 1, (x, y, z) => J(C, x, y, z, 0.1));   // caña
+      box(1, 1, 0, 2, 2, 1, C); box(1, 4, 0, 3, 5, 1, C);        // dientes
+      box(-2, 7, 0, 1, 7, 1, (x, y, z) => J(C, x, y, z, 0.2));
+    }),
+    frag: () => build((put, box) => {
+      const O = [0.32, 0.38, 0.2];
+      for (let x = -3; x <= 3; x++) for (let y = 0; y <= 8; y++) for (let z = -3; z <= 3; z++) {
+        const d = Math.hypot(x / 3.4, (y - 4) / 4.4, z / 3.4);
+        if (d > 1) continue;
+        put(x, y, z, (y % 2 === 0 || (x + z) % 3 === 0) && d > 0.75 ? [0.2, 0.24, 0.12] : J(O, x, y, z, 0.06));
+      }
+      box(-1, 9, -1, 1, 10, 1, IRON); box(-1, 11, -1, 1, 11, 1, DIRON);   // espoleta
+      box(2, 5, 0, 2, 10, 0, [0.5, 0.5, 0.52]); put(2, 10, 0, [0.5, 0.5, 0.52]); put(1, 10, 0, [0.5, 0.5, 0.52]);   // palanca
+      for (const [x, y] of [[-2, 10], [-3, 10], [-3, 9], [-3, 8], [-2, 8]]) put(x, y, 0, BRASS);   // anilla
+    }),
+    molotov: () => build((put, box) => {
+      const G = [0.22, 0.45, 0.22];
+      box(-2, 0, -2, 2, 6, 2, (x, y, z) => (Math.abs(x) < 2 && Math.abs(z) < 2) ? [0.85, 0.5, 0.1] : y > 4 ? J(G, x, y, z) : J(mix3(G, [0.85, 0.5, 0.1], 0.45), x, y, z), 0.15);
+      box(-1, 7, -1, 1, 9, 1, (x, y, z) => J(G, x, y, z), 0.1);
+      box(-1, 10, -1, 1, 11, 1, [0.85, 0.8, 0.68]); put(0, 12, 0, [0.85, 0.8, 0.68]); put(1, 12, 0, [0.85, 0.8, 0.68]);   // trapo
+      put(0, 13, 0, [1, 0.6, 0.15], 1); put(1, 13, 0, [1, 0.85, 0.3], 1); put(0, 14, 0, [1, 0.45, 0.1], 1);   // llama
+    }),
+    decoy: () => build((put, box) => {
+      box(-3, 0, -2, 3, 4, 2, (x, y, z) => (y === 4 || Math.abs(x) === 3) ? [0.18, 0.18, 0.2] : J([0.3, 0.3, 0.33], x, y, z));
+      box(-2, 1, 3, 2, 3, 3, (x, y) => (y === 2 && x !== 0) ? [0.1, 0.1, 0.1] : [0.2, 0.2, 0.22]);   // altavoz
+      put(2, 5, 0, [1, 0.15, 0.1], 1);   // piloto rojo
+      box(-2, 5, 0, -2, 10, 0, [0.15, 0.15, 0.15]); put(-2, 11, 0, [1, 0.2, 0.15], 0.8);   // antena
+    }),
+    scope: () => build((put, box) => {
+      for (let x = -6; x <= 6; x++) for (let y = -2; y <= 2; y++) for (let z = -2; z <= 2; z++) {
+        const r = Math.hypot(y, z), rr = Math.abs(x) >= 5 ? 2.4 : 1.8;
+        if (r > rr) continue;
+        if (Math.abs(x) === 6 && r < 1.2) put(x, y + 4, z, [0.3, 0.85, 1], 0.9);
+        else put(x, y + 4, z, Math.abs(x) === 3 ? [0.3, 0.3, 0.32] : J([0.12, 0.12, 0.14], x, y, z, 0.04));
+      }
+      box(-1, 6, -1, 1, 7, 1, [0.2, 0.2, 0.22]);   // rueda
+      box(-3, 0, -1, -3, 1, 1, DIRON); box(3, 0, -1, 3, 1, 1, DIRON); box(-4, 0, -1, 4, 0, 1, DIRON);   // montura
+    }),
+    scroll: () => build((put, box) => {
+      const P = [0.85, 0.75, 0.52];
+      for (let x = -5; x <= 5; x++) for (let y = 0; y <= 4; y++) for (let z = -2; z <= 2; z++) {
+        if (Math.hypot(y - 2, z) > 2.4) continue;
+        put(x, y, z, Math.abs(x) === 5 ? WOOD : x === 0 || x === 1 ? [0.7, 0.12, 0.1] : J(P, x, y, z, 0.07));
+      }
+      box(-7, 1, -1, -6, 3, 1, [0.32, 0.2, 0.1]); box(6, 1, -1, 7, 3, 1, [0.32, 0.2, 0.1]);   // pomos
+      put(0, -1, 2, [0.7, 0.12, 0.1]); put(1, -2, 2, [0.7, 0.12, 0.1]);   // cinta colgando
+      box(-4, 0, 3, 3, 0, 3, (x) => J(P, x, 0, 3, 0.07));   // borde desenrollado
+    }),
+    chest: () => build((put, box) => {
+      box(-6, 0, -4, 6, 6, 4, (x, y, z) => (Math.abs(x) === 6 || x === 0 || y === 0) ? J(IRON, x, y, z, 0.05) : J(WOOD, x, y, z, 0.1));
+      for (let x = -6; x <= 6; x++) for (let y = 7; y <= 9; y++) for (let z = -4; z <= 4; z++) {   // tapa abombada
+        if (Math.hypot((y - 6) / 3.2, z / 4.6) > 1) continue;
+        put(x, y, z, (Math.abs(x) === 6 || x === 0) ? J(IRON, x, y, z, 0.05) : J(mul3(WOOD, 1.1), x, y, z, 0.1));
+      }
+      box(-1, 5, 5, 1, 7, 5, BRASS, 0.25); put(0, 5, 5, [0.15, 0.1, 0.05]);   // cerradura
+    }),
+    crystal: () => build((put, box) => {
+      box(-4, 0, -4, 4, 1, 4, (x, y, z) => (Math.abs(x) === 4 && Math.abs(z) === 4) ? null : J([0.32, 0.3, 0.34], x, y, z, 0.1));
+      const spike = (cx, cz, h, r) => { for (let y = 0; y < h; y++) { const rr = r * (y < h * 0.6 ? 1 : (h - y) / (h * 0.4)); for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) if (Math.abs(x) + Math.abs(z) <= rr) put(cx + x, y + 2, cz + z, mix3([0.3, 0.8, 1], [0.8, 1, 1], y / h), 0.75); } };
+      spike(0, 0, 11, 1.6); spike(-2, 1, 6, 1.1); spike(2, -1, 7, 1.1);
+    }),
+  };
+  function mix3(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function mul3(a, k) { return [a[0] * k, a[1] * k, a[2] * k]; }
+  // medallón para las mejoras: aro de hierro (oro si es rara) y el símbolo dentro
+  function medallion(shape, color, rare) {
+    return build((put) => {
+      const rim = rare ? [0.95, 0.72, 0.2] : [0.32, 0.31, 0.34];
+      for (let x = -5; x <= 5; x++) for (let y = -5; y <= 5; y++) {
+        const d = Math.hypot(x, y);
+        if (d > 5.4 || d < 4.2) continue;
+        for (const z of [0, 1]) put(x, y + 5, z, J(rim, x, y, z, rare ? 0.08 : 0.06), rare ? 0.25 : 0);
+      }
+      for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) put(Math.round(Math.cos(a) * 4.8), Math.round(Math.sin(a) * 4.8) + 5, 2, rare ? [1, 0.9, 0.5] : [0.5, 0.5, 0.55], rare ? 0.6 : 0);   // remaches
+      const rows = SHAPES[shape] || SHAPES.star;
+      rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === 'X') for (const z of [0, 1]) put(i - 2, 2 - j + 5, z, color, 0.6); });
+    });
+  }
+  function itemModel(it) {
+    if (VX.OLD_ITEMS) return null;
+    let key = null, make = null;
+    if (it.kind === 'heal') key = 'medkit';
+    else if (it.kind === 'refill') key = 'ammo';
+    else if (it.kind === 'key') { key = 'key:' + it.color3; make = () => ITEM_MODELS.key({ wood: [0.46, 0.29, 0.14], silver: [0.62, 0.64, 0.7], gold: [0.85, 0.6, 0.17] }[it.color3] || [0.85, 0.6, 0.17]); }
+    else if (it.kind === 'map') key = 'scroll';
+    else if (it.kind === 'chest') key = 'chest';
+    else if (it.kind === 'rest') key = 'crystal';
+    else if (it.kind === 'throw') key = it.type === 'molotov' ? 'molotov' : it.type === 'decoy' ? 'decoy' : 'frag';
+    else if (it.kind === 'attach') key = 'scope';
+    else if (it.kind === 'upgrade' || it.kind === 'offering') {
+      const rare = !!(it.up && (it.up.rare || it.up.curse === undefined && it.title && it.title.includes('★')));
+      key = 'med:' + it.shape + ':' + (it.color || []).join(',') + (rare ? ':r' : '');
+      make = () => medallion(it.shape, it.color || [1, 1, 1], rare);
+    }
+    if (!key) return null;
+    if (!MODEL_CACHE[key]) MODEL_CACHE[key] = make ? make() : ITEM_MODELS[key]();
+    return MODEL_CACHE[key];
+  }
+
   class Pickups {
     constructor() { this.gold = []; this.items = []; this.focus = null; }
 
@@ -124,6 +268,11 @@
       for (const it of this.items) {
         if (it.taken) continue;
         it.t += dt;
+        if (it.fall) {   // llave que cae (de un zombi o de una vasija rota)
+          it.vy = (it.vy || 0) - 14 * dt; it.y += it.vy * dt;
+          const gnd = game.world.groundAt(it.x, it.z);
+          if (it.y <= gnd) { it.y = gnd; if (it.vy < -3) { it.vy *= -0.3; } else { it.fall = false; it.vy = 0; } }
+        }
         const d = Math.hypot(it.x - P.x, it.z - P.z);
         if (d < best) { best = d; this.focus = it; }
       }
@@ -150,11 +299,30 @@
         // la tapa salta por los aires
         p.blast(p.cx, top - 0.05, p.cz, 0.22, 25, game);
         for (let i = 0; i < 30; i++) game.particles.spawn(p.cx, top, p.cz, M.rand(-1.5, 1.5), M.rand(2, 5), M.rand(-1.5, 1.5), 1, 0.8, 0.3, 0.04, M.rand(0.6, 1.4), 1, 1);
-        this.dropGold(p.cx, top + 0.2, p.cz, M.randInt(18, 28));
-        this.dropHeart(p.cx, top + 0.3, p.cz, 25);
-        const up = VX.Upgrades.random(1, game, [], Math.random() < 0.5 ? 'rare' : 'normal')[0];
-        if (up) this.addItem({ kind: 'upgrade', up, price: 0, x: p.cx, y: top + 0.3, z: p.cz, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape });
-        game.hud.toast('¡Tesoro!');
+        const tier = it.tier;   // cofre de cerradura: el botín depende de la llave usada
+        const thr = () => { const ty = VX.Throw && VX.Throw.randomType(game.weapon); if (ty) this.addItem({ ...VX.Throw.item(ty, 1, 0), x: p.cx + M.rand(-0.4, 0.4), y: top + 0.2, z: p.cz + M.rand(-0.4, 0.4) }); };
+        const upg = (kind) => { const up = VX.Upgrades.random(1, game, [], kind)[0]; if (up) this.addItem({ kind: 'upgrade', up, price: 0, x: p.cx, y: top + 0.3, z: p.cz, title: up.name + (up.rare ? ' ★ RARA' : ''), desc: up.desc, color: up.color, shape: up.shape }); };
+        if (tier === 'wood') {
+          this.dropGold(p.cx, top + 0.2, p.cz, M.randInt(8, 14));
+          if (Math.random() < 0.5) this.dropHeart(p.cx, top + 0.3, p.cz, 15); else thr();
+          game.hud.toast('Cofre de madera: un poco de botín');
+        } else if (tier === 'silver') {
+          this.dropGold(p.cx, top + 0.2, p.cz, M.randInt(15, 24));
+          this.dropHeart(p.cx, top + 0.3, p.cz, 25);
+          upg('normal');
+          game.hud.toast('Cofre de plata: ¡buen botín!');
+        } else if (tier === 'gold') {
+          this.dropGold(p.cx, top + 0.2, p.cz, M.randInt(28, 40));
+          this.dropHeart(p.cx, top + 0.3, p.cz, 30);
+          upg('rare');
+          if (Math.random() < 0.5) thr();
+          game.hud.toast('¡Cofre de oro: gran tesoro!');
+        } else {
+          this.dropGold(p.cx, top + 0.2, p.cz, M.randInt(18, 28));
+          this.dropHeart(p.cx, top + 0.3, p.cz, 25);
+          upg(Math.random() < 0.5 ? 'rare' : 'normal');
+          game.hud.toast('¡Tesoro!');
+        }
         return;
       }
       if (it.kind === 'key') { it.taken = true; game.takeKey(it.color3); return; }
@@ -292,6 +460,23 @@
           const gl = 0.5 + Math.sin(it.t * 3) * 0.3;
           { const [gx, gz] = Pt(0.1, 0); batch.box(gx, -2.0, gz, 0.5, 0.05, 0.5, 0.6 * gl, 0.2 * gl, 1 * gl, 1); }
           if (Math.random() < 0.3 && VX.game) { const [px, pz] = Pt(M.rand(0, L * 0.5), M.rand(-Wd, Wd)); VX.game.particles.spawn(px, -1.2, pz, 0, M.rand(0.5, 1.2), 0, 0.7, 0.3, 1, 0.03, 1.5, 1, 1); }
+          continue;
+        }
+        const mdl = itemModel(it);
+        if (mdl) {
+          // objeto en 3D: gira despacio y flota; en la tienda, quieto sobre el mostrador
+          // tamaño según el objeto (las mejoras y las llaves, algo más pequeñas)
+          const vs = (it.kind === 'chest' || it.kind === 'rest' ? 0.034 : it.kind === 'upgrade' || it.kind === 'offering' ? 0.03 : it.kind === 'key' ? 0.028 : 0.032), q = M.qY(it.t * 1.1);
+          const by = it.fall ? it.y + 0.05 : it.y + 0.36 + Math.sin(it.t * 2.2) * 0.05;
+          for (const o of mdl) {
+            M.qRot(q, o[0] * vs, o[1] * vs, o[2] * vs, tmp);
+            batch.rbox(it.x + tmp[0], by + tmp[1], it.z + tmp[2], vs, vs, vs, q, o[3], o[4], o[5], Math.max(o[6], 0.12));
+          }
+          const c = it.color || [1, 1, 1], gl = 0.5 + Math.sin(it.t * 3) * 0.3;
+          for (let k = 0; k < 3; k++) {
+            const a = it.t * 1.6 + k * Math.PI * 2 / 3;
+            batch.box(it.x + Math.cos(a) * 0.34, by + 0.12 + Math.sin(it.t * 3 + k) * 0.1, it.z + Math.sin(a) * 0.34, 0.025, 0.025, 0.025, c[0], c[1], c[2], gl);
+          }
           continue;
         }
         const vs = 0.06;

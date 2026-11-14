@@ -7,7 +7,7 @@
     try {
       A.ctx = new (window.AudioContext || window.webkitAudioContext)();
       A.master = A.ctx.createGain();
-      A.master.gain.value = 0.9;
+      A.master.gain.value = 0.9 * (A.masterVol ?? 1);
       A.master.connect(A.ctx.destination);
       A.sfx = A.ctx.createGain();
       A.sfx.gain.value = A.volume * 0.5;
@@ -154,6 +154,19 @@
   }
 
   A.setVolume = (v) => { A.volume = v; if (A.sfx) A.sfx.gain.value = v * 0.5; };
+  // volumen general (música + efectos) y silencio cuando el juego no se ve (pestaña oculta, minimizado…)
+  A.masterVol = 1; A.hidden = false;
+  A.applyMaster = () => {
+    if (!A.master) return;
+    const v = A.hidden ? 0 : 0.9 * A.masterVol;
+    try { A.master.gain.setTargetAtTime(v, A.ctx.currentTime, 0.03); } catch (e) { A.master.gain.value = v; }
+  };
+  A.setMaster = (v) => { A.masterVol = v; A.applyMaster(); };
+  A.setHidden = (h) => {
+    A.hidden = h; A.applyMaster();
+    if (!A.ctx) return;
+    try { if (h) A.ctx.suspend(); else A.ctx.resume(); } catch (e) { /* nada */ }
+  };
 
   let lastHit = 0;
   A.shoot = (power = 1, kind) => {

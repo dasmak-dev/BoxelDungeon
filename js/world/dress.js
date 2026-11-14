@@ -180,7 +180,7 @@
     if (r.type === 'normal' && (r.zone || 0) !== 5 && r.index >= 3 && Math.random() < 0.08) addSecret(r, true);
     else if (r.type === 'normal' && Math.random() < 0.28) addSecret(r);
     // cámara cerrada con reja de color: la llave está escondida en algún objeto de la sala
-    if (r.type === 'normal' && r.index >= 2 && Math.random() < 0.2) addSecret(r, false, M.choice(['red', 'blue', 'gold']));
+    if (r.type === 'normal' && r.index >= 1 && !(VX.game && VX.game.mode === 'horde') && Math.random() < (r.template && r.template.event ? 0.7 : 0.22)) addSecret(r, false, true);   // cerradura
 
     // 2) junto a las paredes (con extras del bioma)
     // cada bioma sólo admite lo que le pega (nada de cajas y sacos en una cripta) y añade lo suyo
@@ -258,12 +258,17 @@
       pl(r, kind, x, z, { margin: 5 });
     }
 
-    // 7) la llave de la cámara cerrada, escondida dentro de un objeto que se puede romper
-    if (r.vault) {
+    // 7) a veces hay una llave escondida dentro de algo que se puede romper (sobre todo vasijas);
+    //    no tiene que ver con que haya cerradura en esta sala
+    if (r.type === 'normal' && !(VX.game && VX.game.mode === 'horde') && Math.random() < (r.template && r.template.event ? 0.8 : 0.28)) {
       const KEEP = new Set(['urn', 'crate', 'bigcrate', 'barrel', 'sack', 'sarcophagus', 'shelf', 'tomb', 'cart', 'statue', 'shrooms', 'mushroom']);
-      const cand = r.props.filter((p) => !p.dead && KEEP.has(p.type) && Math.hypot(p.cx - r.vault.x, p.cz - r.vault.z) > 4);
-      if (cand.length) { const p = M.choice(cand); p.key = r.vault.color; p.def = { ...p.def, loot: 1 }; r.vault.keyIn = p.type; }
-      else r.vault.keyLoose = true;
+      const cand = r.props.filter((p) => !p.dead && KEEP.has(p.type));
+      const urns = cand.filter((p) => p.type === 'urn');
+      if (cand.length) {
+        const p = M.choice(urns.length && Math.random() < 0.7 ? urns : cand);
+        const g = VX.game, rr = Math.random();
+        p.key = g && g.rollKeyTier ? g.rollKeyTier(r.template && r.template.event ? 0.6 : 0) : rr < 0.1 ? 'gold' : rr < 0.4 ? 'silver' : 'wood';
+      }
     }
   }
 
@@ -309,26 +314,19 @@
       }
       const [cx, cz] = wallPt(w, a, -0.45);
       if (lock) {
-        // puertecita de madera vieja con herrajes, metida en el muro (no destaca), y en el centro
-        // una placa con el color de la llave que la abre
-        const LB = { red: BL.LOCKR, blue: BL.LOCKB, gold: BL.LOCKY }[lock];
+        // cerradura discreta: la pared sigue igual salvo un hueco oscuro con forma de ojo de
+        // llave (círculo arriba y ranura que se ensancha abajo). Al abrirla cae todo el recuadro.
         const cells = [];
-        const d0 = A0 + 1, d1 = A1 - 1, top = g + 6, mid = Math.floor((d0 + d1) / 2);
+        const d0 = A0 + 1, d1 = A1 - 1, top = g + 6;
+        const KEYHOLE = ['.XX.', 'XXXX', 'XXXX', '.XX.', '.XX.', 'XXXX', 'XXXX'];   // de arriba (y = top) a abajo
         for (let al = d0; al <= d1; al++) for (let y = g; y <= top; y++) {
-          if (y === top && (al === d0 || al === d1)) continue;                       // arco: las esquinas de arriba son muro
           const c = cell(al, lay(3), y);
-          const frame = al === d0 || al === d1 || y === top || (y === top - 1 && (al === d0 + 1 || al === d1 - 1));
-          const band = y === g + 1 || y === top - 2;
-          // la placa tiene además una forma distinta por color (pirámide roja, marco azul, cruz dorada),
-          // para que se distingan sin depender del color
-          const ea = al - (mid - 1), ey = y - (g + 2);   // rejilla 4×4 centrada en la puerta (ey 3 = arriba)
-          const PAT = { red: ['....', '.XX.', 'XXXX', 'XXXX'], blue: ['XXXX', 'X..X', 'X..X', 'XXXX'], gold: ['.XX.', 'XXXX', 'XXXX', '.XX.'] }[lock];
-          const emblem = ea >= 0 && ea <= 3 && ey >= 0 && ey <= 3 && PAT[3 - ey][ea] === 'X';
-          r.set(c[0], c[1], c[2], emblem ? LB : frame || band ? BL.IRON : BL.DOORWOOD);
+          const row = KEYHOLE[top - y] || '....', col = al - d0;
+          if (row[col] === 'X') r.set(c[0], c[1], c[2], BL.LOCKR);
           cells.push(c);
         }
         const [dx, dz] = wallPt(w, a, 0.55);
-        r.vault = { color: lock, cells, x: dx, z: dz, y: g * S, cx, cz, open: false };
+        r.vault = { cells, x: dx, z: dz, y: g * S, cx, cz, open: false };
         r.walk = null;
         return;
       }

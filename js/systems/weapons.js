@@ -267,7 +267,8 @@
       for (const z of [-15, -5]) add(-2, 1, 7, 8, z, z + 1, 'steel');                             // anillas
       part('bolt'); add(2, 4, 5, 5, -3, -3, 'steel'); add(4, 5, 4, 5, -3, -2, 'steel'); add(-1, 0, 7, 7, -10, -3, 'steel'); part(null);
       add(-1, 0, 6, 6, -10, -5, 'dark');                                                         // ventana de carga (se ve con el cerrojo atrás)
-      add(-2, 1, -3, 0, -12, -6, 'dark'); add(-2, 1, -4, -4, -12, -6, 'steel');                   // cargador de caja
+      part('mag'); add(-2, 1, -3, 0, -12, -6, 'dark'); add(-2, 1, -4, -4, -12, -6, 'steel');   // cargador de caja (sale por abajo al recargar)
+      add(-1, 0, 0, 0, -10, -7, 'brass'); add(-1, 0, 0, 0, -11, -11, 'lead'); part(null);         // las balas de arriba, entre los labios
       add(-1, 0, -1, -1, -4, 2, 'dark'); add(-1, 0, -3, -1, 3, 3, 'dark'); add(-1, 0, -1, 0, -1, -1, 'steel');   // guardamonte
       for (let k = 0; k <= 12; k++) add(-2, 1, -k + 2, 5 - Math.floor(k * 0.25), 5 + k * 2, 6 + k * 2, 'grip', (x, y) => !((x === -2 || x === 1) && y === -k + 2));
       for (let k = 3; k <= 8; k++) add(-2, 1, 6 - Math.floor(k * 0.25), 7, 5 + k * 2, 6 + k * 2, 'grip');   // carrillera
@@ -857,7 +858,7 @@
     'pistol:auto': { top: [-0.5, 9, -12, null, true], muzzle: [-0.5, 5.5, -31], mag: [-0.5, -23, 6, 'mag'] },
     smg: { top: [-0.5, 9, -13], muzzle: [-0.5, 3.5, -42], under: [-0.5, 0, -30], mag: [-0.5, -15, -19, 'mag'] },
     shotgun: { top: [-0.5, 10, -5], muzzle: [-0.5, 5.5, -49, 'brl'], under: [-0.5, 0, -38, 'brl'] },
-    rifle: { muzzle: [-0.5, 4.5, -63], mag: [-0.5, -5, -9] },
+    rifle: { muzzle: [-0.5, 4.5, -63], mag: [-0.5, -5, -9, 'mag'] },
     launcher: { top: [-0.5, 10, -5] },
     dbarrel: { top: [-0.5, 8, -14, 'brl'], under: [-0.5, 0, -13, 'brl'] },
     lmg: { top: [-0.5, 9, -15, 'lid'], muzzle: [-0.5, 3.5, -60] },
@@ -868,8 +869,49 @@
   function anchorKey(id, form) { return id === 'pistol' ? 'pistol:' + (form || 'pistola') : id; }
   function attFits(id, form, a) { const A = ANCH[anchorKey(id, form)]; return !!(A && ATTACH[a] && A[ATTACH[a].slot]); }
   // vóxeles de los accesorios montados (se añaden al modelo del arma)
+  // Ajusta los anclajes a la forma real del modelo (las armas se han rediseñado y algunos
+  // accesorios quedaban flotando o metidos dentro): la boca es el frente del cañón y el
+  // cargador ampliado va justo debajo del fondo del cargador de verdad.
+  const anchFix = {};
+  function liveAnchors(id, form) {
+    const k = anchorKey(id, form);
+    if (anchFix[k]) return anchFix[k];
+    const A = ANCH[k];
+    if (!A) return null;
+    const out = { ...A };
+    const base = MODELS[id](form).filter((v) => !HAND[v.tag] && !(v.part && v.part.startsWith('rl_')));
+    if (A.muzzle) {
+      // la punta del cañón: la fila más adelantada cerca del eje central
+      const near = base.filter((v) => v.x >= -2 && v.x <= 1 && Math.abs(v.y - A.muzzle[1]) <= 4);
+      if (near.length) {
+        const zmin = Math.min(...near.map((v) => v.z));
+        const tip = near.filter((v) => v.z === zmin);
+        const yc = tip.reduce((s2, v) => s2 + v.y, 0) / tip.length;
+        out.muzzle = [A.muzzle[0], yc, zmin - 1, A.muzzle[3], A.muzzle[4]];
+      }
+    }
+    if (A.mag) {
+      const mag = base.filter((v) => v.part === 'mag');
+      if (mag.length) {
+        const ymin = Math.min(...mag.map((v) => v.y));
+        const row = mag.filter((v) => v.y === ymin);
+        const zc = row.reduce((s2, v) => s2 + v.z, 0) / row.length;
+        out.mag = [A.mag[0], ymin - 1, zc, A.mag[3], A.mag[4]];
+      }
+    }
+    if (A.top) {
+      // encima de lo más alto que haya en ese tramo (para que la mira se apoye y no se hunda)
+      const col = base.filter((v) => v.x >= -1 && v.x <= 0 && Math.abs(v.z - A.top[2]) <= 3);
+      if (col.length) out.top = [A.top[0], Math.max(...col.map((v) => v.y)) + 1, A.top[2], A.top[3], A.top[4]];
+    }
+    if (A.under) {
+      const col = base.filter((v) => v.x >= -1 && v.x <= 0 && Math.abs(v.z - A.under[2]) <= 3 && v.y <= A.under[1] + 6);
+      if (col.length) out.under = [A.under[0], Math.min(...col.map((v) => v.y)) - 1, A.under[2], A.under[3], A.under[4]];
+    }
+    return (anchFix[k] = out);
+  }
   function attVoxels(id, form, list) {
-    const out = [], A = ANCH[anchorKey(id, form)];
+    const out = [], A = liveAnchors(id, form);
     if (!A) return out;
     for (const a of list) {
       const def = ATTACH[a], an = def && A[def.slot];
@@ -940,7 +982,9 @@
       if (skin.pal && skin.pal.checker && (v.tag === 'main' || v.tag === 'dark') && ((v.x + v.y + v.z) & 1)) c = [c[0] * 1.6, c[1] * 1.6, c[2] * 1.7];
       if (AMMO_PAL[v.tag]) c = AMMO_PAL[v.tag];
       if (ATT_PAL[v.tag]) c = ATT_PAL[v.tag];
-      const o = { x: v.x, y: v.y, z: v.z, tag: v.tag, part: v.part, slide: v.slide, pump: v.pump, r: c[0] + v.h, g: c[1] + v.h, b: c[2] + v.h, e: c[3] || 0, h: v.h };
+      // las balas que asoman por arriba del cargador van aparte: el cargador que se tira sale vacío
+      const prt = v.part === 'mag' && (v.tag === 'brass' || v.tag === 'lead' || v.tag === 'shell') ? 'magr' : v.part;
+      const o = { x: v.x, y: v.y, z: v.z, tag: v.tag, part: prt, slide: v.slide, pump: v.pump, r: c[0] + v.h, g: c[1] + v.h, b: c[2] + v.h, e: c[3] || 0, h: v.h };
       // skin definitiva: el cuerpo lleva el camuflaje animado (an 1) y los detalles brillan (an 2)
       if (U && !AMMO_PAL[v.tag] && !ATT_PAL[v.tag]) {
         // 1 camuflaje (cuerpo, culata, empuñadura) · 2 detalles que laten (pocos y pequeños) · 3 metal con brillo que pasa

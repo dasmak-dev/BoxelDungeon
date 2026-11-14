@@ -27,6 +27,15 @@
     if (e.code === VX.Settings.key('pause') && game.state === 'playing') { VX.Input.unlock(); game.pause(); }
   });
 
+  // Si el juego deja de verse (otra pestaña, minimizado, otra ventana encima) se calla y se pausa.
+  // En el cooperativo la partida sigue (no se puede parar a los demás), pero tampoco suena.
+  const away = () => { VX.Audio.setHidden && VX.Audio.setHidden(true); if (game.state === 'playing') { VX.Input.unlock(); game.pause(); } };
+  const back = () => { if (!document.hidden) VX.Audio.setHidden && VX.Audio.setHidden(false); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) away(); else back(); });
+  window.addEventListener('blur', away);
+  window.addEventListener('focus', back);
+  window.addEventListener('pagehide', away);
+
   // Calidad automática: si los FPS caen de forma sostenida, baja un escalón (y vuelve a subir si sobra)
   const LEVELS = ['baja', 'media', 'alta'];
   const AQ = { t: 0, frames: 0, low: 0, high: 0, level: null };

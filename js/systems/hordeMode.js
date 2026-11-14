@@ -334,10 +334,10 @@
         kind = M.choice(pool);
       }
       // caballero negro y renacido: desde la oleada 3, pocos (≈3 % y 4 % de cada zombi)
-      if (this.wave >= 3 && !champion) { const r = Math.random(); if (r < 0.03) kind = 'knight'; else if (r < 0.07) kind = 'revenant'; }
-      else if (kind === 'knight' || kind === 'revenant') kind = 'walker';
+      if (this.wave >= 3 && !champion) { const r = Math.random(); if (r < 0.03) kind = 'knight'; else if (r < 0.07) kind = 'revenant'; else if (this.wave >= 5 && r < 0.1) kind = 'hydra'; }   // hidra desde la oleada 5 (≈3 %)
+      else if (kind === 'knight' || kind === 'revenant' || kind === 'hydra') kind = 'walker';
       if (this.event && this.event.kinds && Math.random() < 0.75) kind = M.choice(this.event.kinds);
-      if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro', 'crow', 'screamer', 'revenant'].includes(kind)) kind = 'walker';
+      if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro', 'crow', 'screamer', 'revenant', 'knight', 'hydra'].includes(kind)) kind = 'walker';
       const elite = !champion && Math.random() < game.spawner.difficulty(f).elite;
       let z;
       if (champion || elite) {

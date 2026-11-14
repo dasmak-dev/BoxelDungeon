@@ -241,7 +241,7 @@ body.touch #throwSlots { font-size: 8px; }
 #keyLabel { margin-top: 4px; font: 14px monospace; color: #ddd; }
 #keyLabel .key { display: inline-block; width: 10px; height: 16px; margin-right: 3px; vertical-align: middle; border-radius: 5px 5px 1px 1px;
   box-shadow: 0 0 6px currentColor; }
-#keyLabel .k-red { background: #e3392c; color: #e3392c; } #keyLabel .k-blue { background: #4f7dff; color: #4f7dff; } #keyLabel .k-gold { background: #f0c040; color: #f0c040; }
+#keyLabel .k-wood { background: #94613a; color: #94613a; } #keyLabel .k-silver { background: #c8ccd6; color: #c8ccd6; } #keyLabel .k-gold { background: #f0c040; color: #f0c040; }
 #bottomLeft.hit { animation: hpShake .35s; }
 @keyframes hpShake { 0%,100% { transform: none; } 20% { transform: translate(-6px, 2px); } 40% { transform: translate(5px, -2px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(2px, 0); } }
 #bottomLeft.hit .bar.hp { box-shadow: 0 0 14px rgba(255,40,30,.9); }
@@ -311,7 +311,7 @@ body.touch #throwSlots { font-size: 8px; }
 #mapOverlay .mname { font-size: 12px; margin-top: 3px; color: #e8d9b0; }
 #mapOverlay .mexits { flex-direction: column; gap: 6px; }
 #mapOverlay .mkey { display: inline-block; width: 7px; height: 11px; border-radius: 3px 3px 1px 1px; vertical-align: middle; margin-right: 2px; }
-#mapOverlay .mkey.k-red { background: #e3392c; } #mapOverlay .mkey.k-blue { background: #4f7dff; } #mapOverlay .mkey.k-gold { background: #f0c040; }
+#mapOverlay .mkey.k-wood { background: #94613a; } #mapOverlay .mkey.k-silver { background: #c8ccd6; } #mapOverlay .mkey.k-gold { background: #f0c040; }
 #mapOverlay .mrow { justify-content: flex-start; }
 
 /* ---------- Modo Horda ---------- */

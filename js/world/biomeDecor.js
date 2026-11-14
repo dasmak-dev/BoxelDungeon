@@ -140,6 +140,8 @@
           const cell = (s, y) => (zAxis ? [s, y, a] : [a, y, s]);
           let blocked = false;
           for (const s of [4, 5, span - 6, span - 5]) { const [x, , z] = cell(s, 0); if (r.isReservedU(x >> 1, z >> 1) || r.get(x, 0, z)) blocked = true; }
+          // ni a través de nada (la copa del gran árbol, columnas…): si no, lo dejaba colgado de la pared
+          for (let s = 4; s < span - 4 && !blocked; s++) for (let y = fh - 4; y < fh + 3 && !blocked; y++) { const [x, yy, z] = cell(s, y); if (r.get(x, yy, z) || r.get(zAxis ? x : x + 1, yy, zAxis ? z + 1 : z)) blocked = true; }
           if (blocked) continue;
           for (const s0 of [4, span - 6]) for (let y = 0; y < fh; y++) for (let s = s0; s < s0 + 2; s++) for (let t = 0; t < 2; t++) {
             const [x, yy, z] = cell(s, y); put(zAxis ? x : x + t, yy, zAxis ? z + t : z, B.PLANK);

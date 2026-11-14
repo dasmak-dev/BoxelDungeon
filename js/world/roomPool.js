@@ -1161,10 +1161,129 @@
     },
   ];
 
+  // ================= Salas grandes de evento (0.41) =================
+  // Mucho más grandes que las normales (unos 40×45 m), con varias alturas. Salen pocas veces
+  // (≈6 % de las salas normales desde el piso 2) y traen más zombis y más oleadas.
+  // escalera en vóxeles (cada peldaño 1 vóxel = 25 cm) de ux0..ux1 × uz0..uz1 subiendo hacia dir
+  function stairsUp(r, ux0, uz0, ux1, uz1, H, dir, t) {
+    for (let ux = ux0; ux <= ux1; ux++) for (let uz = uz0; uz <= uz1; uz++) {
+      if (r.isReservedU(ux, uz)) continue;
+      for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++) {
+        const k = dir === 'xp' ? x - ux0 * 2 : dir === 'xn' ? ux1 * 2 + 1 - x : dir === 'zp' ? z - uz0 * 2 : uz1 * 2 + 1 - z;
+        const h = Math.min(H, k + 1);
+        for (let y = 0; y < h; y++) if (r.inBounds(x, y, z) && !r.get(x, y, z)) r.set(x, y, z, t);
+      }
+    }
+  }
+  // plataforma maciza (unidades) de altura H vóxeles, con borde de otro material
+  function deck(r, ux0, uz0, ux1, uz1, H, t, top) {
+    for (let ux = ux0; ux <= ux1; ux++) for (let uz = uz0; uz <= uz1; uz++) {
+      if (r.isReservedU(ux, uz)) continue;
+      for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++)
+        for (let y = 0; y < H; y++) if (r.inBounds(x, y, z) && !r.get(x, y, z)) r.set(x, y, z, y === H - 1 && top ? top : t);
+    }
+  }
+  Pool.event = [
+    {
+      name: 'Catedral en ruinas', sub: 'Sala especial · más zombis, más oleadas, más botín', event: true, w: [80, 88], d: [84, 94], h: 20,
+      build(r) {
+        const cx = Math.floor(r.w / 2);
+        // la nave: dos filas de columnas altas (algunas partidas, con sus tambores por el suelo)
+        for (const ux of [cx - 12, cx + 10])
+          for (let uz = 12; uz < r.d - 14; uz += 8) {
+            const broken = Math.random() < 0.3;
+            column(r, ux, uz, 3, broken);
+            if (broken && Math.random() < 0.6) r.queue('fallen', r.uX(ux + (ux < cx ? -3 : 6)), r.uZ(uz) + 0.5, { rot: M.choice([0, 1]) });
+          }
+        // naves laterales elevadas (1,5 m) con escaleras en los dos extremos y bancos arriba
+        for (const side of [-1, 1]) {
+          const ux0 = side < 0 ? 4 : r.w - 12, ux1 = side < 0 ? 11 : r.w - 5;
+          deck(r, ux0, 16, ux1, r.d - 18, 6, BL().STONE, BL().PLANK);
+          stairsUp(r, ux0, 10, ux1, 15, 6, 'zp', BL().STONE);
+          stairsUp(r, ux0, r.d - 17, ux1, r.d - 12, 6, 'zn', BL().STONE);
+          for (let uz = 20; uz < r.d - 22; uz += 5) r.pending.push({ type: 'bench', x: r.uX((ux0 + ux1) / 2), z: r.uZ(uz), at: { y: 6 * VX.S, rot: 1 } });
+        }
+        // bancos de la nave central, en filas, y el altar al fondo sobre una tarima con dos escalones
+        for (let uz = 16; uz < r.d - 26; uz += 4) for (const o of [-6, 3]) if (Math.random() < 0.8) r.queue('bench', r.uX(cx + o), r.uZ(uz), { rot: 0 });
+        deck(r, cx - 8, r.d - 16, cx + 7, r.d - 9, 2, BL().STONE, BL().STONE);
+        stairsUp(r, cx - 8, r.d - 18, cx + 7, r.d - 17, 2, 'zp', BL().STONE);
+        r.pending.push({ type: 'statue', x: r.centerX(), z: r.uZ(r.d - 11), at: { y: 2 * VX.S, rot: 2 } });
+        for (const o of [-6, 5]) { r.pending.push({ type: 'candles', x: r.uX(cx + o), z: r.uZ(r.d - 13), at: { y: 2 * VX.S, rot: 0 } }); }
+        for (let i = 0; i < 10; i++) r.queue('rubble', r.uX(M.randInt(14, r.w - 15)), r.uZ(M.randInt(12, r.d - 20)), {});
+        for (const [ux, uz] of [[cx - 4, 14], [cx + 3, 14]]) brazier(r, ux, uz);
+        r.wantChandeliers = 5;
+      },
+    },
+    {
+      name: 'Mina profunda', sub: 'Sala especial · más zombis, más oleadas, más botín', event: true, w: [82, 90], d: [80, 92], h: 18,
+      build(r) {
+        // caverna con lomas, pilares de roca con vigas, vetas de cristal y vías con vagonetas
+        reliefNoise(r, 4, 16, 0.5);
+        const T = BL();
+        for (let i = 0; i < 9; i++) {
+          const ux = M.randInt(10, r.w - 12), uz = M.randInt(10, r.d - 12);
+          if (r.isReservedU(ux, uz)) continue;
+          pillar(r, ux, uz, M.randInt(2, 4), r.h - 2, T.CROCK || T.STONE);
+          if (Math.random() < 0.6) r.box(ux - 2, r.h - 4, uz, ux + 4, r.h - 4, uz + 1, T.WOOD || T.PLANK);   // viga
+        }
+        // dos vías de lado a lado (raíles de hierro a ras de suelo) con vagonetas encima
+        for (const uz of [Math.floor(r.d / 3), Math.floor(r.d * 2 / 3)]) {
+          for (let x = 10; x < r.W - 10; x++) {
+            for (const z of [uz * 2, uz * 2 + 3]) { const y = r.colH ? 0 : 0; if (r.inBounds(x, y, z) && !r.get(x, y, z) && !r.isReservedU(x >> 1, z >> 1)) r.set(x, y, z, T.IRON); }
+            if (x % 3 === 0) for (let z = uz * 2 - 1; z <= uz * 2 + 4; z++) if (r.inBounds(x, 0, z) && !r.get(x, 0, z) && !r.isReservedU(x >> 1, z >> 1)) r.set(x, 0, z, T.PLANK);
+          }
+          for (let k = 0; k < 3; k++) r.queue('cart', r.uX(M.randInt(12, r.w - 14)), r.uZ(uz) + 0.5, { rot: 1 });
+          for (let ux = 12; ux < r.w - 10; ux += 14) r.features.push({ kind: 'light', x: r.uX(ux), y: 2.2, z: r.uZ(uz) + 0.5, r: 9, c: [1.2, 0.7, 0.3] });   // farolillos de la vía
+        }
+        for (let i = 0; i < 8; i++) {
+          const x = r.uX(M.randInt(8, r.w - 9)), z = r.uZ(M.randInt(8, r.d - 9));
+          r.queue('crystal', x, z, {});
+          if (i < 4) r.features.push({ kind: 'light', x, y: 1, z, r: 8, c: [0.4, 0.8, 1.3] });
+        }
+        for (let i = 0; i < 6; i++) r.queue(M.choice(['crate', 'barrel', 'sack']), r.uX(M.randInt(8, r.w - 9)), r.uZ(M.randInt(8, r.d - 9)), {});
+        for (const [ux, uz] of [[12, 12], [r.w - 14, 12], [12, r.d - 14], [r.w - 14, r.d - 14]]) brazier(r, ux, uz);
+      },
+    },
+    {
+      name: 'Puerto inundado', sub: 'Sala especial · más zombis, más oleadas, más botín', event: true, w: [84, 92], d: [82, 92], h: 16,
+      build(r) {
+        const T = BL();
+        // dos dársenas de agua (te frenan) cruzadas por muelles de madera elevados
+        const z1 = Math.floor(r.d * 0.3), z2 = Math.floor(r.d * 0.62);
+        r.addSpikes(8, z1, r.w - 9, z1 + 7, 'water');
+        r.addSpikes(8, z2, r.w - 9, z2 + 7, 'water');
+        for (const ux of [Math.floor(r.w * 0.25), Math.floor(r.w * 0.5), Math.floor(r.w * 0.75)])
+          for (const z0 of [z1, z2]) { deck(r, ux - 1, z0 - 1, ux + 2, z0 + 8, 2, T.PLANK, T.PLANK); }
+        // muelle largo a lo ancho junto a la pared del fondo, con escaleras
+        deck(r, 8, r.d - 12, r.w - 9, r.d - 8, 4, T.STONE, T.PLANK);
+        stairsUp(r, Math.floor(r.w / 2) - 3, r.d - 14, Math.floor(r.w / 2) + 2, r.d - 13, 4, 'zp', T.STONE);
+        // carga del puerto: cajas, barriles, sacos y redes
+        for (let i = 0; i < 10; i++) crate(r, M.randInt(6, r.w - 9), M.randInt(8, z1 - 3), M.choice([2, 2, 3]), M.randInt(2, 4));
+        for (let i = 0; i < 6; i++) crate(r, M.randInt(6, r.w - 9), M.randInt(z1 + 10, z2 - 3), 2, M.randInt(2, 3));
+        scatterBarrels(r, 6, 0.4);
+        for (let i = 0; i < 8; i++) r.queue('sack', r.uX(M.randInt(6, r.w - 7)), r.uZ(M.randInt(z2 + 10, r.d - 15)));
+        for (let i = 0; i < 4; i++) r.queue('web', r.uX(M.randInt(6, r.w - 7)), r.uZ(M.randInt(8, r.d - 15)), {});
+        for (const [ux, uz] of [[10, 10], [r.w - 12, 10], [10, z2 - 4], [r.w - 12, z2 - 4]]) brazier(r, ux, uz);
+        for (let ux = 14; ux < r.w - 10; ux += 16) for (const z0 of [z1, z2]) r.features.push({ kind: 'light', x: r.uX(ux), y: 2.4, z: r.uZ(z0 - 2), r: 10, c: [1.1, 0.75, 0.4] });   // farolas del muelle
+        r.features.push({ kind: 'light', x: r.centerX(), y: 3, z: r.uZ(r.d - 10), r: 12, c: [0.6, 0.8, 1.2] });
+      },
+    },
+  ];
+  Pool.EVENT_CHANCE = 0.06;
+
   // Elige al azar evitando repetir las últimas plantillas usadas
   Pool.recent = [];
   Pool.pick = (type, zone = 0) => {
     let list = Pool[type];
+    // de vez en cuando, en la mazmorra, una sala grande de evento
+    const g = VX.game;
+    if (type === 'normal' && g && g.mode !== 'horde' && (g.floor || 0) >= 2 && (VX.forceEvent || Math.random() < Pool.EVENT_CHANCE)) {
+      const fresh = Pool.event.filter((t) => !Pool.recent.includes(t.name));
+      const t = typeof VX.forceEvent === 'string' ? Pool.event.find((e) => e.name === VX.forceEvent) : M.choice(fresh.length ? fresh : Pool.event);
+      Pool.recent.push(t.name);
+      if (Pool.recent.length > 5) Pool.recent.shift();
+      return t;
+    }
     if (type === 'normal') {
       const inZone = list.filter((t) => (BIOMES[t.name] || [0, 1, 2, 3, 4]).includes(zone));
       if (inZone.length) list = inZone;

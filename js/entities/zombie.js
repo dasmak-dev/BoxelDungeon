@@ -1509,6 +1509,10 @@
         const t = VX.Throw.randomType(game.weapon), gy = game.world.groundAt(this.x, this.z);
         game.pickups.addItem({ ...VX.Throw.item(t, 1, 0), x: this.x, y: gy + 0.3, z: this.z });
       }
+      // llaves al azar (sólo en la mazmorra): pocas, más de los élites y del campeón
+      if (game.mode !== 'horde' && !this.T.pile && game.dropKey && Math.random() < (this.champion ? 0.3 : this.elite ? 0.1 : this.T.boss ? 0.5 : 0.022)) {
+        game.dropKey(game.rollKeyTier(this.champion || this.T.boss ? 0.8 : this.elite ? 0.4 : 0), this.x, this.y + 1.1, this.z);
+      }
       game.stats.kills++;
       VX.Profile.add('kills', 1, game);
       if (game.dmgSource === 'knife') { VX.Profile.add('knifeKills', 1, game); if (this.elite || this.champion) VX.Profile.add('knifeElites', 1, game); }

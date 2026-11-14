@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>BOXEL DUNGEON</title>
+  <title>VOXEL DUNGEON</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="img/icons/favicon.png">
   <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
@@ -71,7 +71,7 @@
   <!-- Pantalla de título -->
   <div id="title" class="screen">
     <div class="titleBox">
-      <h1>BOXEL<br><span>DUNGEON</span></h1>
+      <h1>VOXEL<br><span>DUNGEON</span></h1>
       <p class="tag">Desciende. Dispara. Destroza.</p>
       <div class="menuList">
         <button id="newBtn">NUEVA PARTIDA</button>
@@ -146,6 +146,8 @@
     <h2>AJUSTES</h2>
     <div class="setTabs"><button class="small setTab on" data-tab="snd">SONIDO</button><button class="small setTab" data-tab="gfx">GRÁFICOS</button><button class="small setTab" data-tab="ctl">CONTROLES</button><button class="small setTab" data-tab="keys">TECLAS</button><button class="small setTab" data-tab="ui">INTERFAZ</button><button class="small setTab" data-tab="prof">PERFIL</button></div>
     <div class="settingsGrid setPane" data-pane="snd">
+      <label>Volumen general <span id="masterVal"></span></label>
+      <input type="range" id="setMaster" min="0" max="1" step="0.05">
       <label>Música <span id="musicVal"></span></label>
       <input type="range" id="setMusic" min="0" max="1" step="0.05">
       <label>Efectos <span id="sfxVal"></span></label>

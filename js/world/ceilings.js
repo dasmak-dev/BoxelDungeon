@@ -199,6 +199,7 @@
         const x = 5 + Math.floor(Hs(i, 40) * (W - 10)), z = 5 + Math.floor(Hs(i, 41) * (D - 10)), y = under(x, z);
         const len = 2 + Math.floor(Hs(i, 42) * 6), fat = Hs(i, 43) < 0.35;
         for (let k = 0; k < len; k++) {
+          if (r.get(x, y - k - 1, z) || r.get(x + 1, y - k, z) || r.get(x - 1, y - k, z) || r.get(x, y - k, z + 1) || r.get(x, y - k, z - 1)) break;   // no se pega a lo que haya debajo (la copa de un árbol…)
           set(x, y - k, z, t);
           if (fat && k < len * 0.4) { set(x + 1, y - k, z, t); set(x, y - k, z + 1, t); set(x + 1, y - k, z + 1, t); }
         }

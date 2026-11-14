@@ -1,6 +1,6 @@
 {
-  "name": "Boxel Dungeon",
-  "short_name": "Boxel",
+  "name": "Voxel Dungeon",
+  "short_name": "Voxel",
   "description": "Shooter de zombis vóxel: mazmorras procedurales y modo Horda cooperativo.",
   "lang": "es",
   "start_url": "./",

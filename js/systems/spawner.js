@@ -266,16 +266,18 @@
           const n = this.enemyCount(room, game.floor);
           // evento de sala: emboscada (vacía… hasta que no)
           const ev = Math.random();
-          room.event = game.floor >= 3 && ev < 0.1 ? 'ambush' : null;
+          room.event = game.floor >= 3 && ev < 0.1 && !(room.template && room.template.event) ? 'ambush' : null;
           if (room.event === 'ambush') {
             room.ambushAt = game.time + 1.6;
             room.pendingWaves = 1 + (game.floor >= 10 ? 1 : 0);
             room.waveSize = Math.max(2, Math.round(n * 0.8));
             room.ambushN = n;
           } else {
-            this.spawnWave(game, room, n);
-            room.pendingWaves = Math.random() < D.waves ? (game.floor >= 12 && Math.random() < 0.4 ? 2 : 1) : 0;
-            room.waveSize = Math.max(2, Math.round(n * 0.7));
+            const big = room.template && room.template.event;   // sala grande de evento: más gente y más oleadas
+            const nn = big ? Math.min(16, n + 4) : n;
+            this.spawnWave(game, room, nn);
+            room.pendingWaves = big ? 2 + (game.floor >= 8 ? 1 : 0) : Math.random() < D.waves ? (game.floor >= 12 && Math.random() < 0.4 ? 2 : 1) : 0;
+            room.waveSize = Math.max(2, Math.round(nn * 0.7));
           }
           // tesoro de la cámara secreta: a veces una mejora rara
           if (false && room.secret) {   // (quitado: el cofre de la cámara ya da su mejora; antes salían dos)

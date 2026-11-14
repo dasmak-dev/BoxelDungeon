@@ -1,5 +1,11 @@
 // Orquestador del juego: estado, flujo de habitaciones, luces, actualización y render.
 (function () {
+  // llaves: madera, plata y oro (lo que hay detrás de la cerradura depende de la llave)
+  VX.KEY_TIERS = {
+    wood: { name: 'de madera', col: [0.58, 0.38, 0.2], desc: 'Botín modesto: algo de oro y quizá vida o un explosivo.' },
+    silver: { name: 'de plata', col: [0.78, 0.8, 0.86], desc: 'Buen botín: oro, vida y una mejora.' },
+    gold: { name: 'de oro', col: [1, 0.78, 0.25], desc: 'Gran botín: mucho oro, vida y una mejora rara.' },
+  };
   const M = VX.M;
   const S = VX.S;
   const tmp = [0, 0, 0];
@@ -60,7 +66,7 @@
       this.coopTable = '';
       this.synergies = [];
       this.stats = { kills: 0, headshots: 0, bosses: 0, gold: 0, totalGold: 0, shots: 0, hits: 0, purchases: 0, dmgDealt: 0 };
-      this.keys = { red: 0, blue: 0, gold: 0 };
+      this.keys = { wood: 0, silver: 0, gold: 0 };
       if (this.hud && this.hud.setKeys) this.hud.setKeys(this.keys);
       this.floor = 0;
       this.currentRoom = null;
@@ -165,7 +171,7 @@
       this.hud.show(true);
       VX.Input.lock();
       if (save) this.hud.banner('PARTIDA REANUDADA', `Continúas en el piso ${save.floor}`, 3);
-      else this.hud.banner('BOXEL DUNGEON', `Acércate a una puerta para abrirla  ·  [${VX.Settings.keyName(VX.Settings.key('flashlight'))}] linterna  ·  [${VX.Settings.keyName(VX.Settings.key('inspect'))}] inspeccionar arma`, 3.5);
+      else this.hud.banner('VOXEL DUNGEON', `Acércate a una puerta para abrirla  ·  [${VX.Settings.keyName(VX.Settings.key('flashlight'))}] linterna  ·  [${VX.Settings.keyName(VX.Settings.key('inspect'))}] inspeccionar arma`, 3.5);
     }
 
     // ---------------- Modo Horda ----------------
@@ -473,6 +479,7 @@
       VX.Horde.reset();
       this.hud.roomT = 0;
       this.spawner.onEnter(this, r);
+      if (r.template && r.template.event && r.type === 'normal') { this.hud.banner(r.template.name.toUpperCase(), r.template.sub, 3.2); VX.Audio.roar && VX.Audio.roar(); }
       // las salas siguientes se generan ya, detrás de puertas cerradas
       this.spawner.populateNeighbors(this, r);
       void prev;
@@ -1327,35 +1334,43 @@
       this.rises = this.rises.filter((r) => !r.done);
     }
 
-    // ---------------- Cámaras cerradas con llave ----------------
-    // Una puertecita con una marca de color guarda un cofre; su llave está dentro de algún objeto de la sala
-    // (urna, caja, sarcófago…). Las llaves que sobran se guardan y abren rejas del mismo color más adelante.
+    // ---------------- Cerraduras y llaves (0.41) ----------------
+    // En la pared de algunas salas hay una cerradura discreta: un hueco con forma de ojo de llave.
+    // Las llaves salen al azar (de algún zombi o dentro de una vasija, caja…) y cualquiera abre
+    // cualquier cerradura; lo que hay dentro depende de la llave: madera, plata u oro.
     setupVault(r) {
       const v = r.vault;
       if (!v || v.open || v.item) return;
-      const name = VX.Settings.keyColorName(v.color);
-      const col = { red: [1, 0.25, 0.2], blue: [0.35, 0.55, 1], gold: [1, 0.8, 0.25] }[v.color];
-      v.item = this.pickups.addItem({ kind: 'lockdoor', vault: v, room: r, price: 0, x: v.x, y: v.y, z: v.z, title: 'Puerta cerrada (llave ' + name + ')', desc: 'Guarda un cofre. La llave ' + name + ' está escondida en esta sala, dentro de algo que se puede romper', action: 'Abrir', color: col, shape: 'key', hidden: true });
-      if (v.keyLoose) { const p = r.randomFreeCell(4, v.x, v.z); this.dropKey(v.color, p.x, this.world.groundAt(p.x, p.z) + 0.1, p.z); v.keyLoose = false; }
+      v.item = this.pickups.addItem({ kind: 'lockdoor', vault: v, room: r, price: 0, x: v.x, y: v.y, z: v.z, title: 'Cerradura', desc: 'Ábrela con cualquier llave: cuanto mejor la llave (madera, plata, oro), mejor el botín', action: 'Abrir', color: [0.8, 0.7, 0.5], shape: 'key', hidden: true });
+      // el cofre de dentro sólo se abre con llave (rompiéndolo no suelta nada)
+      for (const p of r.props) if (p.type === 'chest' && !p.dead && Math.hypot(p.cx - v.cx, p.cz - v.cz) < 3) p.looted = true;
     }
-    dropKey(color, x, y, z) {
-      const name = VX.Settings.keyColorName(color);
-      const col = { red: [1, 0.25, 0.2], blue: [0.35, 0.55, 1], gold: [1, 0.8, 0.25] }[color];
-      this.pickups.addItem({ kind: 'key', color3: color, price: 0, x, y: this.world.groundAt(x, z), z, title: 'Llave ' + name, desc: 'Abre una puerta con la marca ' + name, action: 'Coger', color: col, shape: 'key' });
+    // madera la mayoría de las veces; boost sube la probabilidad de plata y oro
+    rollKeyTier(boost = 0) {
+      const r = Math.random();
+      return r < 0.08 + boost * 0.12 ? 'gold' : r < 0.36 + boost * 0.2 ? 'silver' : 'wood';
+    }
+    dropKey(tier, x, y, z) {
+      const K = VX.KEY_TIERS[tier] || VX.KEY_TIERS.wood;
+      const ground = this.world.groundAt(x, z);
+      // la llave sale despedida y cae al suelo
+      this.pickups.addItem({ kind: 'key', color3: tier, price: 0, x, y: Math.max(y, ground), z, fall: true, vy: 2.5, title: 'Llave ' + K.name, desc: 'Abre cualquier cerradura de la pared. ' + K.desc, action: 'Coger', color: K.col, shape: 'key' });
       VX.Audio.reward && VX.Audio.reward();
-      this.hud.toast('¡Una llave ' + name + '!');
+      this.hud.toast('¡Una llave ' + K.name + '!');
     }
-    takeKey(color) {
-      this.keys = this.keys || { red: 0, blue: 0, gold: 0 };
-      this.keys[color]++;
+    takeKey(tier) {
+      this.keys = this.keys || { wood: 0, silver: 0, gold: 0 };
+      this.keys[tier] = (this.keys[tier] || 0) + 1;
       VX.Audio.gold(); VX.Audio.click();
       this.hud.setKeys && this.hud.setKeys(this.keys);
     }
     tryVault(it) {
-      const v = it.vault, r = it.room, name = VX.Settings.keyColorName(v.color);
-      this.keys = this.keys || { red: 0, blue: 0, gold: 0 };
-      if (!this.keys[v.color]) { VX.Audio.deny(); this.hud.toast('Necesitas la llave ' + name); return; }
-      this.keys[v.color]--; this.hud.setKeys && this.hud.setKeys(this.keys);
+      const v = it.vault, r = it.room;
+      this.keys = this.keys || { wood: 0, silver: 0, gold: 0 };
+      const tier = ['gold', 'silver', 'wood'].find((t) => this.keys[t] > 0);   // usa la mejor que tengas
+      if (!tier) { VX.Audio.deny(); this.hud.toast('Necesitas una llave (de madera, de plata o de oro)'); return; }
+      this.keys[tier]--; this.hud.setKeys && this.hud.setKeys(this.keys);
+      v.tier = tier;
       it.taken = true; v.open = true;
       // la puerta se abre: se viene abajo con un golpe y astillas
       for (const [lx, ly, lz] of v.cells) {
@@ -1363,10 +1378,10 @@
         if (Math.random() < 0.3) this.particles.spawn(r.worldX(lx), (ly + 0.5) * VX.S, r.worldZ(lz), M.rand(-1, 1), M.rand(1, 3), M.rand(-1, 1), 0.35, 0.22, 0.12, 0.03, M.rand(0.6, 1.2), 0);
       }
       VX.Audio.gate ? VX.Audio.gate() : VX.Audio.door();
-      this.hud.banner('PUERTA ABIERTA', 'Hay un cofre: ábrelo con ' + VX.Settings.tag('use'), 2.5);
+      this.hud.banner('CERRADURA ABIERTA', 'Llave ' + VX.KEY_TIERS[tier].name + ': abre el cofre con ' + VX.Settings.tag('use'), 2.5);
       let chest = null, bd = 3;
       for (const p of r.props) if (p.type === 'chest' && !p.dead) { const d = Math.hypot(p.cx - v.cx, p.cz - v.cz); if (d < bd) { bd = d; chest = p; } }
-      if (chest) { chest.looted = true; this.pickups.addItem({ kind: 'secretChest', prop: chest, price: 0, x: chest.cx, y: chest.oy + 0.2, z: chest.cz, title: 'Cofre de la cámara', desc: 'Oro, un botiquín y una mejora', action: 'Abrir', color: [0.95, 0.75, 0.3], shape: 'chest' }); }
+      if (chest) { chest.looted = true; this.pickups.addItem({ kind: 'secretChest', tier, prop: chest, price: 0, x: chest.cx, y: chest.oy + 0.2, z: chest.cz, title: 'Cofre (llave ' + VX.KEY_TIERS[tier].name + ')', desc: VX.KEY_TIERS[tier].desc, action: 'Abrir', color: VX.KEY_TIERS[tier].col, shape: 'chest' }); }
       VX.Profile.add('vaults', 1, this);
     }
 
@@ -2408,7 +2423,7 @@
           R.present();
           return;
         }
-        const q = M.qMul(M.qMul(M.qY(this.time * 0.6), M.qX(0.2)), M.qZ(0.1));
+        const q = sc.q || M.qMul(M.qMul(M.qY(this.time * 0.6), M.qX(0.2)), M.qZ(0.1));
         this.weapon.renderViewmodel(this.gun, this, sc.id, { x: 0.08, y: 0.0, z: -0.75, q, size: 0.42, noHand: true, form: sc.form, atts: sc.atts }, sc.skin);
         this.gun.upload();
         this.gun.draw();

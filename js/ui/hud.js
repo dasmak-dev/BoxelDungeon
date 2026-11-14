@@ -63,7 +63,7 @@
       const el = $('keyLabel');
       if (!el) return;
       const parts = [];
-      for (const c of ['red', 'blue', 'gold']) if (k && k[c]) parts.push(`<span class="key k-${c}"></span>${VX.Settings.data.colorblind ? '<b class="ksym">' + { red: '▲', blue: '■', gold: '✚' }[c] + '</b>' : ''}${k[c] > 1 ? '×' + k[c] : ''}`);
+      for (const c of ['wood', 'silver', 'gold']) if (k && k[c]) parts.push(`<span class="key k-${c}"></span>${VX.Settings.data.colorblind ? '<b class="ksym">' + { wood: 'M', silver: 'P', gold: 'O' }[c] + '</b>' : ''}${k[c] > 1 ? '×' + k[c] : ''}`);
       el.innerHTML = parts.join(' ');
       el.classList.toggle('hidden', !parts.length);
     },
@@ -172,7 +172,7 @@
         if (n.gfog) t.push(n.gfog.thick ? 'niebla espesa' : 'niebla');
         const hz = [...new Set((n.spikes || []).map((s) => HZ[s.kind]).filter(Boolean))];
         if (hz.length) t.push(hz.join(', '));
-        if (n.vault) t.push(`<span class="mkey k-${n.vault.color}"></span> puerta con llave ${VX.Settings.keyColorName(n.vault.color)}`);
+        if (n.vault) t.push(`<span class="mkey k-gold"></span> cerradura`);
         if (n.secret) t.push(`<span class="msecret">${n.secret.stairs ? '✦ grieta con escalera' : '✦ grieta secreta'}</span>`);
         return t.join(' · ');
       };
@@ -185,7 +185,7 @@
       h += '<div class="mright">';
       h += `<div class="mroom"><b>${r.name || ''}</b> ${chip(r.type)}<br><span class="mtags">${roomTags(r) || '&nbsp;'}</span><br>${alive ? `<span style="color:#ff6a5a">${alive} enemigo${alive > 1 ? 's' : ''} en la sala</span>` : r.cleared ? '<span style="color:#7fd07f">Sala despejada</span>' : ''}</div>`;
       const k = game.keys || {};
-      const keys = ['red', 'blue', 'gold'].filter((c) => k[c]).map((c) => `<span class="mkey k-${c}"></span>${k[c] > 1 ? '×' + k[c] : ''}`).join(' ');
+      const keys = ['wood', 'silver', 'gold'].filter((c) => k[c]).map((c) => `<span class="mkey k-${c}"></span>${k[c] > 1 ? '×' + k[c] : ''}`).join(' ');
       if (keys) h += `<div class="mline">Llaves: ${keys}</div>`;
       const sp = game.spawner;
       if (sp && sp.secret) h += `<div class="mline" style="color:#c79bff">Vacío: ${sp.secret.rooms > 0 ? sp.secret.rooms + ' salas hasta el guardián' : 'el guardián espera'}</div>`;

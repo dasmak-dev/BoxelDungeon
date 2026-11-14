@@ -167,7 +167,7 @@
   B.info[B.CROCK] = { solid: true, hp: 65, color: [0.23, 0.21, 0.2], vary: 0.09, terrain: false, rock: true };
   B.info[B.CHAIN] = { solid: true, hp: 14, color: [0.15, 0.145, 0.15], vary: 0.03, shiny: 0.45 };
   B.info[B.MCRYST] = { solid: true, hp: 20, color: [0.4, 0.85, 1], vary: 0.08, e: 0.7 };
-  B.info[B.LOCKR] = { solid: true, hp: Infinity, color: [0.6, 0.1, 0.08], vary: 0.03, e: 0.35 };
+  B.info[B.LOCKR] = { solid: true, hp: Infinity, color: [0.05, 0.04, 0.035], vary: 0.02, e: 0.05, shiny: 0.3 };   // ojo de cerradura: hueco oscuro con un leve brillo cálido
   B.info[B.LOCKB] = { solid: true, hp: Infinity, color: [0.15, 0.28, 0.8], vary: 0.03, e: 0.35 };
   B.info[B.LOCKY] = { solid: true, hp: Infinity, color: [0.8, 0.6, 0.12], vary: 0.03, e: 0.35 };
   // celdas que no se dibujan (colisión de objetos, límites del mapa)

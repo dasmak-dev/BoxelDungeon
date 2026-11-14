@@ -1,4 +1,4 @@
-// BOXEL DUNGEON · servidor del cooperativo (modo Horda, hasta 4 jugadores)
+// VOXEL DUNGEON · servidor del cooperativo (modo Horda, hasta 4 jugadores)
 //
 // Hace dos cosas, sin dependencias externas (solo Node):
 //  1. Reenvía mensajes entre los jugadores de una misma sala por WebSocket (ruta /ws).
@@ -30,7 +30,7 @@ const server = http.createServer((req, res) => {
   let file = path.join(ROOT, url === '/' ? 'index.html' : url);
   if (!file.startsWith(ROOT) || file.includes(`${path.sep}server${path.sep}`)) { res.writeHead(403); res.end(); return; }
   fs.stat(file, (err, st) => {
-    if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('BOXEL DUNGEON · servidor del cooperativo activo'); return; }
+    if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('VOXEL DUNGEON · servidor del cooperativo activo'); return; }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     fs.createReadStream(file).pipe(res);
   });
@@ -159,7 +159,7 @@ function onClose(conn) {
 }
 
 server.listen(PORT, () => {
-  console.log(`BOXEL DUNGEON · cooperativo en el puerto ${PORT}`);
+  console.log(`VOXEL DUNGEON · cooperativo en el puerto ${PORT}`);
   const nets = require('os').networkInterfaces();
   for (const list of Object.values(nets)) for (const n of list || []) if (n.family === 'IPv4' && !n.internal) console.log(`  En tu red local: http://${n.address}:${PORT}`);
 });

@@ -977,7 +977,7 @@
       // botín al destrozarlo casi entero
       if (!this.looted && this.alive < this.total * 0.35) {
         this.looted = true;
-        if (game && this.key && game.dropKey) { game.dropKey(this.key, this.cx, this.oy + 0.3, this.cz); this.key = null; }
+        if (game && this.key && game.dropKey) { game.dropKey(this.key, this.cx, this.oy + Math.max(0.5, this.h * VX.PV * 0.7), this.cz); this.key = null; }
         if (game && this.type === 'barrel' && game.addOil) game.addOil(this.cx, this.cz, 1.1);   // el aceite se derrama
         if (game && this.def.loot && Math.random() < this.def.loot) {
           const n = this.def.treasure ? M.randInt(15, 25) : this.type === 'sarcophagus' || this.type === 'throne' ? M.randInt(6, 12) : M.randInt(1, 4);

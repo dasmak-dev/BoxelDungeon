@@ -50,6 +50,7 @@
         el.addEventListener('input', () => { S.set(key, parseFloat(el.value)); $(valId).textContent = fmt(S.data[key]); });
       };
       const pct = (v) => Math.round(v * 100) + '%';
+      bindRange('setMaster', 'master', pct, 'masterVal');
       bindRange('setMusic', 'music', pct, 'musicVal');
       bindRange('setSfx', 'sfx', pct, 'sfxVal');
       bindRange('setAmb', 'ambVol', pct, 'ambVal');
@@ -83,7 +84,7 @@
         const blob = new Blob([JSON.stringify({ boxelProfile: 1, version: VX.VERSION, data: VX.Profile.data }, null, 1)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `boxel-perfil-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `voxel-perfil-${new Date().toISOString().slice(0, 10)}.json`;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
         $('profileMsg').textContent = 'Perfil exportado.';
@@ -140,6 +141,7 @@
 
     syncSettings() {
       const d = VX.Settings.data;
+      $('setMaster').value = d.master ?? 1; $('masterVal').textContent = Math.round((d.master ?? 1) * 100) + '%';
       $('setMusic').value = d.music; $('musicVal').textContent = Math.round(d.music * 100) + '%';
       $('setSfx').value = d.sfx; $('sfxVal').textContent = Math.round(d.sfx * 100) + '%';
       $('setAmb').value = d.ambVol ?? 1; $('ambVal').textContent = Math.round((d.ambVol ?? 1) * 100) + '%';
@@ -235,7 +237,7 @@
       }).join('');
       const th = VX.Throw.ORDER.filter((k) => W.throws[k] > 0).map((k) => `${VX.Throw.TYPES[k].name} ×${W.throws[k]}`);
       h += `<div><small>Para lanzar (${VX.Settings.tag('throw')}): ${th.length ? th.join(' · ') : 'nada'}</small></div>`;
-      if (game.keys && (game.keys.red || game.keys.blue || game.keys.gold)) h += `<div><small>Llaves: ${['red', 'blue', 'gold'].filter((c) => game.keys[c]).map((c) => VX.Settings.keyColorName(c) + (game.keys[c] > 1 ? ' ×' + game.keys[c] : '')).join(', ')}</small></div>`;
+      if (game.keys && (game.keys.wood || game.keys.silver || game.keys.gold)) h += `<div><small>Llaves: ${['wood', 'silver', 'gold'].filter((c) => game.keys[c]).map((c) => VX.Settings.keyColorName(c) + (game.keys[c] > 1 ? ' ×' + game.keys[c] : '')).join(', ')}</small></div>`;
       h += '</div>';
       // mejoras con su efecto
       const ups = new Map();

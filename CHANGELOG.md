@@ -3,6 +3,49 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.41.2] — 2026-11-14
+
+### Cambiado
+- **Balas a la vista en los cargadores**: el cargador de caja del rifle lleva ahora las balas asomando por arriba, entre los labios (como ya tenían la pistola, la Desert Eagle, la automática y el subfusil).
+- **El cargador que tiras sale vacío**: al recargar, el que se cae ya no lleva balas; el nuevo entra con ellas. Vale para todas las armas con cargador.
+
+## [0.41.1] — 2026-11-14
+
+### Añadido
+- **Volumen general** en Ajustes → SONIDO: sube o baja todo el juego a la vez (música y efectos), además de los volúmenes de siempre.
+
+### Cambiado
+- **Si el juego deja de verse, se calla y se pausa**: al cambiar de pestaña, minimizar o pasar a otra ventana, el sonido se corta del todo y la partida se pone en pausa. Al volver, el sonido regresa y sigues desde la pausa. En el cooperativo la partida no se puede parar (los demás siguen jugando), pero tampoco suena.
+- **Recarga del rifle por abajo**: ahora el cargador de caja que se ve bajo el arma cae, entra uno nuevo de un golpe y se monta el cerrojo (antes metía las balas una a una por arriba). El cargador ampliado y el doble también se mueven con él.
+
+## [0.41.0] — 2026-11-14
+
+### Añadido
+- **Llaves de madera, plata y oro.** Salen al azar: alguna vez al matar un zombi (los élites, el campeón y los jefes más a menudo, y con mejores llaves) o dentro de vasijas, cajas, sacos… al romperlos (no en todas las salas). La llave sale despedida y cae al suelo.
+- **Cerraduras nuevas**: en lugar de la puertecita con placa de color, ahora es un **hueco oscuro con forma de ojo de llave** metido en la pared, muy discreto. Salen al azar en cualquier sala de la mazmorra y **cualquier llave abre cualquier cerradura** (se usa la mejor que lleves). En la sala de la cerradura no tiene por qué haber llave. El cofre de dentro depende de la llave:
+  - **Madera**: algo de oro y vida o un explosivo.
+  - **Plata**: más oro, vida y una mejora.
+  - **Oro**: mucho oro, vida, una mejora rara y a veces un explosivo.
+- **Salas grandes de evento** (≈6 % de las salas desde el piso 2, unos 40×45 m, el triple que una normal), con más zombis y más oleadas:
+  - **Catedral en ruinas**: nave con columnas altas, naves laterales elevadas con escaleras y bancos, y el altar sobre una tarima.
+  - **Mina profunda**: caverna con lomas, pilares de roca con vigas, dos vías con vagonetas y farolillos, y cristales que brillan.
+  - **Puerto inundado**: dos dársenas de agua que te frenan cruzadas por muelles de madera, un muelle alto al fondo y mucha carga (cajas, barriles, sacos).
+- **La hidra también sale en la Horda** (desde la oleada 5, poco).
+
+### Cambiado
+- **Objetos en 3D** con el estilo de las armas: botiquín con asa, caja de munición con balas, llaves de verdad, granada de piña, molotov encendido, señuelo con antena, mira telescópica, pergamino, cofre con herrajes y cristal de almas. Las mejoras van dentro de un medallón de hierro (de oro si son raras). Algo más pequeños que en la vista previa.
+- **Accesorios de las armas**: ahora se colocan sobre la forma real de cada arma (la mira encima de lo más alto, el silenciador y el compensador pegados a la boca del cañón, el cargador ampliado bajo el cargador de verdad). En la pistola automática el cargador ampliado y el doble quedaban flotando y en otras armas algunos se metían dentro.
+
+### Arreglado
+- **El árbol gigante (y otras estructuras) no caía al cortarlo**: se quedaba sujeto por una lámpara de hierro, un cristal o una estalactita que rozaba la copa, o por una viga de entibado que lo atravesaba (Minas). Ahora los adornos indestructibles sueltos no sostienen nada, las estalactitas y las vigas ya no se pegan a lo que haya debajo, y una explosión grande ya no hace que se pierda la comprobación de lo que queda colgando.
+- Comprobado que la **hidra** sale en la mazmorra: desde el piso 7, ≈1,5 % de los zombis, y ≈2,8 % en el piso 14.
+
+## [0.40.1] — 2026-11-14
+
+### Cambiado
+- **El juego se llama ahora VOXEL DUNGEON** (con V): título de la pestaña, pantalla de inicio, cartel al empezar, nombre al instalarlo en el móvil o el ordenador, archivo de perfil exportado y el servidor del cooperativo.
+- Por dentro no cambia nada: **las partidas, el perfil, los ajustes y el nombre de jugador se conservan**, los perfiles exportados antes se siguen pudiendo importar y el cooperativo usa el mismo servidor.
+
 ## [0.40.0] — 2026-11-14
 
 ### Añadido

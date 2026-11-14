@@ -2,6 +2,7 @@
 (function () {
   const KEY = 'boxel_settings_v1';
   const DEFAULTS = {
+    master: 1,           // volumen general
     music: 0.55,
     sfx: 0.8,
     ambVol: 1,           // volumen del ambiente (fondo de cada bioma, goteos, cadenas…), sobre «Efectos»
@@ -85,7 +86,7 @@
     },
 
     // nombre de una llave (con su símbolo en el modo para daltónicos)
-    keyColorName(c) { const n = { red: 'roja', blue: 'azul', gold: 'dorada' }[c]; return this.data.colorblind ? n + ' ' + { red: '▲', blue: '■', gold: '✚' }[c] : n; },
+    keyColorName(c) { return { wood: 'de madera', silver: 'de plata', gold: 'de oro' }[c] || ''; },
 
     // «[E]»: la tecla de una acción entre corchetes, para los textos de ayuda
     tag(action) { return '[' + this.keyName(this.key(action)) + ']'; },
@@ -104,7 +105,7 @@
     // Aplica los ajustes a los sistemas
     apply() {
       const d = this.data;
-      if (VX.Audio) { VX.Audio.setVolume(d.sfx); if (VX.Audio.setBusVolumes) VX.Audio.setBusVolumes(d.ambVol ?? 1, d.enemyVol ?? 1); }
+      if (VX.Audio) { if (VX.Audio.setMaster) VX.Audio.setMaster(d.master ?? 1); VX.Audio.setVolume(d.sfx); if (VX.Audio.setBusVolumes) VX.Audio.setBusVolumes(d.ambVol ?? 1, d.enemyVol ?? 1); }
       if (VX.Music) VX.Music.setVolume(d.music);
       if (VX.Input) { VX.Input.sensitivity = 0.0022 * d.sensitivity; VX.Input.invertY = d.invertY; }
       if (VX.Renderer && VX.Renderer.gl) {
