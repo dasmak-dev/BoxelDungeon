@@ -135,14 +135,43 @@
       }
     }
 
+    // Modelo simplificado para lejos: cada grupo de 2×2×2 vóxeles de la superficie se dibuja como
+    // uno solo, el doble de grande (se recalcula sólo cuando la pieza pierde vóxeles)
+    renderCoarse(batch) {
+      const sz = this.v * this.scale * 2.0, f = this.flash, s = this.scale;
+      for (const p of this.parts) {
+        if (p.detached || p.hidden) continue;
+        if (!p.coarse || p._coarseAlive !== p.alive) {
+          const G = new Map();
+          for (const vx of p.vox) {
+            if (!vx.alive || !vx.exposed) continue;
+            const key = ((vx.i >> 1) * 4096 + (vx.j >> 1)) * 4096 + (vx.k >> 1);
+            let g = G.get(key);
+            if (!g) { g = { x: 0, y: 0, z: 0, r: 0, g: 0, b: 0, e: 0, n: 0 }; G.set(key, g); }
+            g.x += vx.x; g.y += vx.y; g.z += vx.z; g.r += vx.r; g.g += vx.g; g.b += vx.b; g.e = Math.max(g.e, vx.e); g.n++;
+          }
+          p.coarse = [];
+          for (const g of G.values()) p.coarse.push({ x: g.x / g.n, y: g.y / g.n, z: g.z / g.n, r: g.r / g.n, g: g.g / g.n, b: g.b / g.n, e: g.e });
+          p._coarseAlive = p.alive;
+        }
+        const q = p.q;
+        for (const c of p.coarse) {
+          M.qRot(q, c.x * s, c.y * s, c.z * s, tmp);
+          const x = p.wp[0] + tmp[0], y = p.wp[1] + tmp[1], z = p.wp[2] + tmp[2];
+          if (f > 0) batch.rbox(x, y, z, sz, sz, sz, q, M.lerp(c.r, 1, f), M.lerp(c.g, 0.85, f), M.lerp(c.b, 0.85, f), c.e);
+          else batch.rbox(x, y, z, sz, sz, sz, q, c.r, c.g, c.b, c.e);
+        }
+      }
+    }
+
     rayHit(ox, oy, oz, dx, dy, dz, maxT) {
       const Lx = this.cx - ox, Ly = this.cy - oy, Lz = this.cz - oz;
       const tca = Lx * dx + Ly * dy + Lz * dz;
-      const R = this.radius;
+      const pad = this.hitPad || 0, R = this.radius + pad;   // hitPad: margen extra para dianas pequeñas (cuervo)
       if (tca < -R) return null;
       const d2 = Lx * Lx + Ly * Ly + Lz * Lz - tca * tca;
       if (d2 > R * R) return null;
-      const r = this.v * 0.6, r2 = r * r;
+      const r = this.v * 0.6 + pad, r2 = r * r;
       let best = null, bestT = maxT;
       for (const p of this.parts) {
         if (p.detached || p.hidden) continue;

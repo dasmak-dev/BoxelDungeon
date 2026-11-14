@@ -224,59 +224,116 @@
     // Al romper un bloque se comprueba si lo que había al lado sigue apoyado en el suelo
     // o en las paredes de la sala. Lo que queda colgando (un pilar sin base, un arco
     // sin columna…) se viene abajo de una pieza y, si es alto, se vuelca.
-    queueSupport(r, lx, ly, lz) { (this.supportQ || (this.supportQ = [])).push([r, lx, ly, lz]); }
-
-    processSupport(game) {
-      const Q = this.supportQ;
-      if (!Q || !Q.length) return;
-      this.supportQ = [];
-      const done = new Set();
-      let budget = 30000;
-      for (const [r, x, y, z] of Q) {
-        for (const [dx, dy, dz] of N6) {
-          if (budget <= 0) return;
-          const nx = x + dx, ny = y + dy, nz = z + dz;
-          if (!r.inBounds(nx, ny, nz) || done.has(r.idx(nx, ny, nz) * 64 + (r.index % 64))) continue;
-          const res = this.findUnsupported(r, nx, ny, nz, done);
-          if (!res) continue;
-          budget -= res.visited;
-          if (res.cells) game.addBlockFaller(r, res.cells);
-        }
-      }
+    queueSupport(r, lx, ly, lz) {
+      (this.supportQ || (this.supportQ = [])).push([r, lx, ly, lz]);
+      r.supGen = (r.supGen || 1) + 1;   // la estructura ha cambiado: lo que sabíamos de apoyos ya no vale
     }
 
-    findUnsupported(r, sx, sy, sz, done) {
-      const B = VX.Blocks, W = r.W, D = r.D, top = r.H - 4;
-      const shell = (x, z) => Math.min(x, z, W - 1 - x, D - 1 - z) < 4;
+    // Cada bloque roto abre «trabajos»: desde cada vecino se recorre lo que está unido a él hasta
+    // encontrar el suelo, una pared de la sala o algo fijo. Si no lo encuentra, todo ese trozo cae.
+    // No hay tamaño máximo: los trabajos grandes (la copa del árbol, un pedazo de techo) se reparten
+    // entre varios fotogramas. Lo que ya se sabe que está apoyado se marca y corta las búsquedas.
+    processSupport(game) {
+      const Q = this.supportQ;
+      const jobs = this.supportJobs || (this.supportJobs = []);
+      if (Q && Q.length) {
+        this.supportQ = [];
+        for (const [r, x, y, z] of Q) for (const [dx, dy, dz] of N6) {
+          const nx = x + dx, ny = y + dy, nz = z + dz;
+          if (!this.movableAt(r, nx, ny, nz)) continue;
+          const st = this.stampOf(r), i = r.idx(nx, ny, nz);
+          if (st[i] === r.supGen || st[i] === -r.supGen) continue;   // ya lo cubre otro trabajo de esta generación
+          st[i] = -r.supGen;
+          jobs.push({ r, q: [nx, ny, nz], seen: [i], gen: r.supGen });
+        }
+      }
+      if (!jobs.length) return;
+      const lvl = VX.Renderer && VX.Renderer.quality === 'alta' ? 60000 : VX.Renderer && VX.Renderer.quality === 'baja' ? 15000 : 30000;
+      let budget = (VX.Touch && VX.Touch.on) ? Math.min(lvl, 12000) : lvl;
+      while (jobs.length && budget > 0) {
+        const j = jobs[0];
+        const res = this.stepSupport(j, budget);
+        budget -= res.used;
+        if (res.done) {
+          jobs.shift();
+          if (res.fall) {
+            const r = j.r, cells = [];
+            for (const i of j.seen) if (r.grid[i]) { const x = i % r.W, rest = (i - x) / r.W, z = rest % r.D, y = (rest - z) / r.D; cells.push([x, y, z]); }
+            if (cells.length) game.addBlockFaller(r, cells);
+          }
+        }
+      }
+      if (jobs.length > 200) jobs.splice(0, jobs.length - 200);
+    }
+
+    stampOf(r) { return r.supStamp || (r.supStamp = new Int32Array(r.W * r.H * r.D)); }
+    movableAt(r, x, y, z) {
+      if (!r.inBounds(x, y, z)) return false;
+      const B = VX.Blocks, t = r.grid[r.idx(x, y, z)];
+      if (!t || t === B.PROP || t === B.DOOR || t === B.BEDROCK || B.info[t].hp === Infinity) return false;
+      const W = r.W, D = r.D;
+      if (Math.min(x, z, W - 1 - x, D - 1 - z) < 4) return false;   // las paredes de la sala aguantan
+      const top = r.ceilPlan ? r.H : r.ceilBase;
+      return y < top;
+    }
+
+    // avanza un trabajo de búsqueda; devuelve cuánto ha gastado y si ha terminado (y si cae).
+    // Búsqueda «primero el mejor»: avanza antes por las celdas más cercanas al suelo o a una pared,
+    // así casi siempre encuentra el apoyo en pocos pasos; si el trozo está suelto, lo recorre entero.
+    stepSupport(j, budget) {
+      const r = j.r, B = VX.Blocks, W = r.W, D = r.D, st = this.stampOf(r);
+      const top = r.ceilPlan ? r.H : r.ceilBase;
+      const mOf = (x, z) => Math.min(x, z, W - 1 - x, D - 1 - z);
       const movable = (t) => t && t !== B.PROP && t !== B.DOOR && t !== B.BEDROCK && B.info[t].hp !== Infinity;
-      const t0 = r.inBounds(sx, sy, sz) ? r.grid[r.idx(sx, sy, sz)] : 0;
-      if (!movable(t0) || sy >= top || shell(sx, sz)) return null;
-      const LIMIT = 9000, key = (i) => i * 64 + (r.index % 64);
-      const seen = new Set([r.idx(sx, sy, sz)]);
-      const q = [[sx, sy, sz]];
-      let supported = false;
-      for (let h = 0; h < q.length; h++) {
-        const [x, y, z] = q[h];
-        if (y === 0) { supported = true; break; }
-        if (q.length > LIMIT) { supported = true; break; }
+      const gen = r.supGen;
+      let used = 0;
+      const supported = () => { for (const i of j.seen) st[i] = gen; return { used, done: true, fall: false }; };
+      if (!j.heap) {
+        j.heap = []; j.mark = new Set(j.seen);
+        const [x, y, z] = j.q;
+        this.heapPush(j.heap, Math.min(y, mOf(x, z) - 3), x, y, z);
+      }
+      const hp = j.heap;
+      while (hp.length) {
+        if (used >= budget) return { used, done: false };
+        used++;
+        const [, x, y, z] = this.heapPop(hp);
+        if (y === 0) return supported();
         for (const [dx, dy, dz] of N6) {
           const nx = x + dx, ny = y + dy, nz = z + dz;
           if (!r.inBounds(nx, ny, nz)) continue;
-          if (ny >= top) { if (r.topSupports && r.grid[r.idx(nx, ny, nz)]) { supported = true; break; } continue; }
+          if (ny >= top) { if (r.topSupports && r.grid[r.idx(nx, ny, nz)]) return supported(); continue; }
           const i = r.idx(nx, ny, nz), t = r.grid[i];
           if (!t) continue;
-          if (shell(nx, nz) || !movable(t)) {
-            // apoyado en la pared de la sala o en algo fijo (puertas, hierro…)
-            if (t !== B.PROP) { supported = true; break; }
-            continue;
-          }
-          if (!seen.has(i)) { seen.add(i); q.push([nx, ny, nz]); }
+          if (st[i] === gen) return supported();
+          if (mOf(nx, nz) < 4 || !movable(t)) { if (t !== B.PROP) return supported(); continue; }
+          if (j.mark.has(i)) continue;
+          j.mark.add(i); j.seen.push(i);
+          this.heapPush(hp, Math.min(ny, mOf(nx, nz) - 3), nx, ny, nz);
         }
-        if (supported) break;
       }
-      for (const i of seen) done.add(key(i));
-      if (supported) return { visited: seen.size };
-      return { visited: seen.size, cells: q };
+      return { used, done: true, fall: true };
+    }
+    heapPush(h, k, x, y, z) {
+      h.push([k, x, y, z]);
+      let i = h.length - 1;
+      while (i > 0) { const p = (i - 1) >> 1; if (h[p][0] <= h[i][0]) break; [h[p], h[i]] = [h[i], h[p]]; i = p; }
+    }
+    heapPop(h) {
+      const top = h[0], last = h.pop();
+      if (h.length) {
+        h[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = i * 2 + 1, rr = l + 1;
+          let m = i;
+          if (l < h.length && h[l][0] < h[m][0]) m = l;
+          if (rr < h.length && h[rr][0] < h[m][0]) m = rr;
+          if (m === i) break;
+          [h[m], h[i]] = [h[i], h[m]]; i = m;
+        }
+      }
+      return top;
     }
 
     // Un barril explosivo dañado revienta: se quita entero y se programa la explosión
@@ -519,7 +576,7 @@
             fl *= Math.sin(t * 7.3 + f.x * 13) > 0.86 || Math.sin(t * 23 + f.z) > 0.97 ? 0.08 : 1;
           }
           if (f.siren) c = ((t * 2.2 + f.x) % 2) < 1 ? [1.4, 0.08, 0.06] : [0.1, 0.25, 1.6];
-          out.push({ x: f.x, y: f.y, z: f.z, r: f.r * 1.15, cr: c[0] * 2.6 * fl, cg: c[1] * 2.6 * fl, cb: c[2] * 2.6 * fl });
+          out.push({ x: f.x, y: f.y, z: f.z, r: f.r * 1.15, cr: c[0] * 2.6 * fl, cg: c[1] * 2.6 * fl, cb: c[2] * 2.6 * fl, feat: r.big ? null : f });
         }
       }
     }

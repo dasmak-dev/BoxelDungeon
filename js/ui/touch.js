@@ -54,6 +54,7 @@
     apply() {
       this.on = this.detect();
       document.body.classList.toggle('touch', this.on);
+      if (VX.Renderer && VX.Renderer.quality) VX.Renderer.setQuality(VX.Renderer.quality, VX.Renderer.shadowsOn);   // recalcula el perfil (móvil)
       if (!this.on) this.releaseAll();
     },
 

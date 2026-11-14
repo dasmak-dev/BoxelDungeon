@@ -15,7 +15,7 @@ Abre `index.html` con doble clic (Chrome, Edge o Firefox actualizados; necesita 
 | Shift | Correr |
 | E | Comprar / recoger / guardar / abrir puertas |
 | F | Encender / apagar linterna (configurable) |
-| M | Ver el mapa del piso (recorrido y puertas) |
+| M | Mapa: planta de la sala (enemigos, objetos, peligros, puertas) y qué hay tras cada puerta |
 | G | Modo Horda: llamar ya a la siguiente oleada |
 | E (mantener) | Cooperativo: levantar a un compañero caído |
 | Ctrl | Inspeccionar el arma (configurable) |
@@ -48,12 +48,14 @@ Va mejor en Chrome para Android. La primera vez el juego empieza en calidad medi
 - **Modo Horda** (desde el menú principal): oleadas infinitas en mapas grandes. Cuatro mapas: **Ciudad nocturna** (gran plaza central, rascacielos, tiendas y un autobús en los que se entra, cristales transparentes y pisos iluminados tras las ventanas), **Coliseo** (arena con dianas, ruinas, podio, gradas y palco imperial), **Base militar** (hangar, barracones, búnker, torres de vigilancia, helicóptero estrellado, tanque y contenedores) y **Barco** (portacontenedores en plena tormenta, con castillos de popa y proa). Cajas de suministros; **máquinas de ventajas** que se pagan con oro (Coraza, Manos rápidas, Gatillo loco, Piernas de liebre y Último aliento); **eventos de oleada** al azar (apagón, niebla, jauría, estampida, lluvia de flechas, gigantes, fiebre del oro); cada 3 oleadas, vendedor o elección de mejora; campeón cada 5 y jefe cada 10.
 - **Horda cooperativa** hasta 4 jugadores, por código de sala (por internet o en red local). Ver más abajo.
 - **Eventos de sala**: emboscadas y cofres que pueden ser mímicos.
+- **Puertas con llave**: algunas salas guardan un cofre tras una puertecita con una marca roja, azul o dorada; su llave está escondida dentro de algún objeto de la sala que se puede romper.
+- **Niebla baja** según el bioma, que se abre al pasar, disparar o con las explosiones; en las salas de niebla espesa sólo se ven los ojos de los zombis y se oyen sus pasos.
 - **6 armas** + mejoras normales, raras y maldiciones; esquiva; retos opcionales por sala.
 - **Progresión permanente**: esencia para el Santuario (bendiciones y arsenal), skins por arma que se desbloquean con retos **formas del cuchillo** (karambit, daga, machete, bayoneta, navaja mariposa) y **modelos de pistola** (Desert Eagle, revólver y pistola automática, cada uno con su daño, cadencia, cargador y sonido) que se desbloquean con misiones.
 - Escenarios llenos de objetos de vóxel fino (barriles, cajas, lápidas, estanterías…) que se pueden destrozar.
 - Música procedural por bioma, sonido posicional con reverberación, iluminación con linterna, sombras, resplandor y oclusión ambiental, sin dependencias ni servidor.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.26.0**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.35.4**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.

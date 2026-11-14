@@ -61,6 +61,20 @@
     HULL: 70,     // casco rojo / blanco del barco
     SHIPW: 71,    // chapa pintada de blanco (superestructura del barco)
     FRIDGE: 72,   // puerta de cristal de una nevera de tienda (con producto detrás y luz tenue)
+    // --- techos de la mazmorra ---
+    CSTONE: 73,   // sillería de las bóvedas
+    CRIB: 74,     // nervios y arcos (piedra clara)
+    CPAINT: 75,   // plementos pintados de azul (catedral)
+    CSTAR: 76,    // estrellas doradas pintadas (emisivas)
+    CGOLD: 77,    // claves y lámparas doradas
+    CDARK: 78,    // hollín, nichos y huecos oscuros
+    EMBER: 79,    // grieta al rojo (Forja)
+    VCRYST: 80,   // cristal violeta (Vacío)
+    FGLOW: 81,    // seta luminosa (Jardín)
+    CROCK: 82,    // roca de las cuevas
+    CHAIN: 83,    // cadenas, rejillas y jaulas (hierro que se puede romper)
+    MCRYST: 84,   // veta de cristal azul (Minas)
+    LOCKR: 85, LOCKB: 86, LOCKY: 87,   // placa de color de las puertas cerradas con llave (roja, azul, dorada)
   };
 
   // hp: vida del bloque (Infinity = indestructible)
@@ -141,6 +155,21 @@
   B.info[B.HULL] = { solid: true, hp: Infinity, color: [0.45, 0.08, 0.06], vary: 0.03 };
   B.info[B.SHIPW] = { solid: true, hp: 60, color: [0.5, 0.5, 0.47], vary: 0.03 };
   B.info[B.FRIDGE] = { solid: true, hp: 4, color: [0.32, 0.4, 0.46], vary: 0.06, e: 0.12 };
+  B.info[B.CSTONE] = { solid: true, hp: 55, color: [0.25, 0.24, 0.23], vary: 0.07, ashlar: true };
+  B.info[B.CRIB] = { solid: true, hp: 70, color: [0.44, 0.42, 0.38], vary: 0.05, ashlar: true };
+  B.info[B.CPAINT] = { solid: true, hp: 40, color: [0.1, 0.13, 0.3], vary: 0.03 };
+  B.info[B.CSTAR] = { solid: true, hp: 15, color: [1, 0.86, 0.5], vary: 0.05, e: 0.9 };
+  B.info[B.CGOLD] = { solid: true, hp: 45, color: [0.85, 0.64, 0.22], vary: 0.05, shiny: 0.8 };
+  B.info[B.CDARK] = { solid: true, hp: 45, color: [0.07, 0.065, 0.065], vary: 0.02 };
+  B.info[B.EMBER] = { solid: true, hp: 30, color: [1, 0.38, 0.08], vary: 0.12, e: 0.85 };
+  B.info[B.VCRYST] = { solid: true, hp: 18, color: [0.62, 0.28, 0.95], vary: 0.08, e: 0.75 };
+  B.info[B.FGLOW] = { solid: true, hp: 6, color: [0.3, 1, 0.8], vary: 0.1, e: 0.85 };
+  B.info[B.CROCK] = { solid: true, hp: 65, color: [0.23, 0.21, 0.2], vary: 0.09, terrain: false, rock: true };
+  B.info[B.CHAIN] = { solid: true, hp: 14, color: [0.15, 0.145, 0.15], vary: 0.03, shiny: 0.45 };
+  B.info[B.MCRYST] = { solid: true, hp: 20, color: [0.4, 0.85, 1], vary: 0.08, e: 0.7 };
+  B.info[B.LOCKR] = { solid: true, hp: Infinity, color: [0.6, 0.1, 0.08], vary: 0.03, e: 0.35 };
+  B.info[B.LOCKB] = { solid: true, hp: Infinity, color: [0.15, 0.28, 0.8], vary: 0.03, e: 0.35 };
+  B.info[B.LOCKY] = { solid: true, hp: Infinity, color: [0.8, 0.6, 0.12], vary: 0.03, e: 0.35 };
   // celdas que no se dibujan (colisión de objetos, límites del mapa)
   B.invisible = new Uint8Array(256);
   for (let i = 0; i < B.info.length; i++) if (B.info[i] && B.info[i].invisible) B.invisible[i] = 1;

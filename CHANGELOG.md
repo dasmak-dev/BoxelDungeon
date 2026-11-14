@@ -3,6 +3,280 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.35.4] — 2026-11-14
+
+### Cambiado
+- **Las tres últimas armas, con el mismo nivel de detalle** (las recargas se mantienen):
+  - **Ametralladora**: cajón remachado con chapa lateral y palanca de carga, camisa agujereada con **asa de transporte**, apagallamas ranurado, bípode plegado, tapa de alimentación con alza y pestillo, **caja de munición más grande** con nervios y cierre, cinta con balas de punta de plomo, y culata con cantonera y apoyo.
+  - **Lanzallamas**: boquilla ancha con aro, tubo con **aros de refrigeración**, tubo del encendedor y llama piloto bajo la boca, **depósito grande con flejes, tapas, válvula y manómetro**, manguera, asa delantera, empuñadura y apoyo de hombro.
+  - **Desintegrador**: cuerpo redondeado con cúpula, **tres anillos grandes y redondos** que brillan, emisor de cristal entre dos púas, aletas arriba y a los lados, diales, empuñadura con nervios y célula de energía con tapa.
+
+## [0.35.3] — 2026-11-14
+
+### Cambiado
+- **Escopeta con aspecto nuevo, táctico**: negra con corredera de polímero color arena, **protector térmico agujereado** sobre el cañón, boca dentada, tubo cargador largo con abrazadera, raíl con mira de anillo, punto de mira verde, **portacartuchos con 4 cartuchos en el costado**, empuñadura de pistola y culata telescópica. Se sigue abriendo por la bisagra para recargar.
+- **Recortada más pequeña y distinta**: cañones serrados mucho más cortos, báscula plateada con **grabados dorados**, dos martillos, dos gatillos y **empuñadura de pistola curva de madera en vez de culata**. Se ve más compacta en la mano. La recarga es la misma: se abre, saltan los dos cartuchos y entran los nuevos.
+
+## [0.35.2] — 2026-11-14
+
+### Cambiado
+- **Subfusil, escopeta y rifle con el mismo nivel de detalle** que el resto (las recargas se mantienen):
+  - **Subfusil**: cajón ancho con aristas, raíl de mira con muescas, punto de mira y alza de anilla, camisa del cañón agujereada y apagallamas, **palanca de carga en el tubo izquierdo** (es la que se monta al recargar), cargador curvo con brocal, selector, empuñadura con relieve y culata plegable de dos barras con cantonera.
+  - **Escopeta**: cañón grueso con banda ventilada y punto, tubo cargador con abrazadera, corredera ancha con ranuras, cajón con ventana de expulsión, **cartuchos de repuesto en el costado**, mira de anillo, guardamonte y culata con cantonera de goma. Se sigue abriendo por la bisagra para recargar.
+  - **Rifle**: cañón pesado con **freno de boca**, visor grande con anillas, lente y torretas, cajón de acero, cargador de caja, bípode plegado bajo el guardamanos y culata con carrillera y cantonera.
+
+## [0.35.1] — 2026-11-14
+
+### Cambiado
+- **Pistolas con más detalle**, al nivel de la Desert Eagle (las recargas son las mismas):
+  - **Pistola**: corredera con estrías delante y detrás, ranura lateral, ventana de expulsión, mira con punto de fibra, cañón que asoma, raíl bajo el armazón, retén, cola de castor, martillo, cachas con relieve y tornillos, y base del cargador ancha.
+  - **Revólver**: cañón más grueso con banda ventilada y funda del extractor a todo lo largo, mira, puente sobre el tambor, tambor estriado, pestillo, percutor con espuela grande y culata de madera más ancha con chapa y medallón.
+  - **Pistola automática**: corredera con ventanas que dejan ver el cañón, compensador largo con lumbreras, empuñadura delantera abatible, selector grande, cachas con relieve y cargador largo reforzado con tope.
+- **Mazo más robusto**: mango más grueso con collar y chapas de refuerzo de acero, empuñadura de goma con aros y pomo de hierro; cabeza más grande con flejes, remaches, caras de golpeo anchas, cuña y marcas de aviso.
+
+## [0.35.0] — 2026-11-14
+
+### Cambiado
+- **Armas más robustas**, en la línea de la nueva ballesta:
+  - **Recortada**: cañones más gruesos con bocas reforzadas, abrazaderas y banda superior con punto de mira; báscula grande con chapas atornilladas, **dos martillos exteriores**, dos gatillos, guardamanos ancho y culata serrada con cantonera de hierro.
+  - **Lanzagranadas**: tubo de 40 mm más grueso con **aros de refuerzo**, boca abocinada, camisa con aletas y franjas amarillas; cajón con bisagra y tornillos, alza de mira, empuñadura delantera y culata de dos barras con cantonera. Ahora **el tubo bascula de verdad** al recargar y la granada entra en el cañón.
+  - **Desert Eagle**: ya no parece la pistola normal. Corredera ancha de **acero pulido** con carril de mira, **compensador con ventanas**, martillo de espuela, guardamonte cuadrado, empuñadura gruesa de goma negra con medallón dorado y su propia paleta.
+- **Caballero negro y renacido salen más a menudo en las salas**: el caballero desde el piso 4 (antes 6) y el renacido desde el 3 (antes 4), los dos con bastante más probabilidad (~4-5 % y ~6-8 % de los enemigos).
+- **Cuervos más fáciles de acertar**: son un 40 % más grandes, vuelan más despacio (velocidad, picado y giros alrededor del jugador más lentos) y los disparos tienen un pequeño margen extra para darles.
+
+## [0.34.3] — 2026-11-14
+
+### Cambiado
+- **Ballesta rediseñada** como una ballesta pesada de asedio, mucho más robusta:
+  - culata maciza de madera oscura con **chapas de hierro remachadas** y cantonera;
+  - **cabeza de hierro** con emblema rojo y **estribo** para el pie en la punta;
+  - **palas gruesas y más anchas** con abrazaderas de acero y **poleas** en los extremos;
+  - virote con **punta ancha de acero** y plumas rojas, manivela lateral, guardamonte y mira trasera.
+  - Las animaciones de cuerda y virote se ajustaron a las nuevas palas; el virote sale ahora desde la nueva punta.
+
+## [0.34.2] — 2026-11-14
+
+### Cambiado
+- **Skins legendarias rediseñadas**: fuera los adornos grandes (cuernos, alas, leones, coronas). Ahora son como un arma mejorada: la silueta es la de siempre, pero todo el arma lleva un **camuflaje animado de dos tonos que fluye despacio**, los detalles **laten con luz** y un **reflejo del color del arma recorre el metal** de vez en cuando.
+  - Pistola *Oro fundido*, subfusil *Nebulosa*, escopeta *Magma*, rifle *Glaciar*, lanzagranadas *Toxina*, mazo *Bronce real*, ballesta *Nácar*, recortada *Abismo*, ametralladora *Sangre de guerra*, lanzallamas *Llamarada*, desintegrador *Plasma* y cuchillo *Hoja maldita*.
+  - Siguen desbloqueándose al conseguir los 8 camuflajes del arma.
+
+## [0.34.1] — 2026-11-14
+
+### Corregido
+- **Cuervos**: aparecían por encima del techo de la sala (dentro de la roca o en el tejado) y había que abrir un agujero para que entraran. Ahora entran siempre por debajo del techo, vuelan sin subir más allá y, si un techo bajo o un derrumbe los deja dentro de un bloque, bajan al hueco libre. Comprobado con 180 cuervos en 30 salas: ninguno dentro de bloques ni por encima del techo.
+
+### Cambiado
+- **Horda**: el caballero negro y el renacido salen desde la oleada 3, pocos: cada zombi tiene un 3 % de ser caballero y un 4 % de ser renacido.
+- Las mejoras nuevas (balas eléctricas, explosivas, de hielo y tóxicas, y los calibres) también salen en la Horda: en las elecciones de mejora, en los vendedores y en los cofres.
+
+## [0.34.0] — 2026-11-13
+
+### Añadido
+- **Munición especial (mejoras raras)**:
+  - **Balas eléctricas**: cada impacto suelta un rayo que salta a 2 enemigos cercanos, les hace daño y los aturde un momento.
+  - **Balas explosivas**: las balas estallan al impactar (en enemigos y paredes) con una explosión pequeña que no te hace daño.
+  - **Balas de hielo**: los enemigos alcanzados van a la mitad de velocidad unos segundos (escarcha azul).
+  - **Balas tóxicas**: envenenan y les quitan vida durante unos segundos.
+  - La trazadora de cada disparo cambia de color con la munición.
+- **Calibre (mejoras normales; sólo uno por partida)**:
+  - **Munición subsónica**: balas lentas y pesadas, +65 % de daño y +30 % de destrucción, -25 % de cadencia.
+  - **Alta velocidad**: +35 % de cadencia, +30 % de alcance y atraviesan un enemigo más, -20 % de daño.
+  - **Calibre magnum**: +90 % de daño, -40 % de cadencia, -30 % de cargador y más retroceso.
+- **Sinergias nuevas**: Arco voltaico (eléctricas + rebote: el rayo salta a 2 más), Escarcha explosiva (hielo + explosivas: las explosiones congelan) y Plaga (tóxicas + perdigones: el veneno se contagia).
+- **Skin legendaria para cada arma**, que se desbloquea al conseguir los 8 camuflajes de esa arma. Cada una tiene paleta y ornamentos propios en vóxel:
+  - Pistola: *Rugido del león* (negra y dorada, medallones con cabeza de león de ojos rojos y runas doradas).
+  - Subfusil: *Avispa infernal* (alas de luz ámbar). Escopeta: *Cuerno del diablo* (cuernos con puntas al rojo). Rifle: *Ojo del cazador* (hueso y oro con corona y runas azules).
+  - Lanzagranadas: *Fauces del dragón* (verde y oro, cresta de púas y cuernos). Mazo: *Martillo del rey* (oro, corona con gemas). Ballesta: *Alas del serafín* (blanca con alas de plumas).
+  - Recortada: *Gemelos del abismo* (negra con cuernos y runas violetas). Ametralladora: *Bestia de guerra* (cresta de púas y león). Lanzallamas: *Aliento del fénix* (alas de fuego). Desintegrador: *Corona estelar* (blanco y cian con corona). Cuchillo: *Colmillo real* (hoja negra con filo rojo).
+
+### Cambiado
+- **Horda más asequible**: menos zombis por oleada (oleada 4: 20 en vez de 29; oleada 10: 47 en vez de 65), algo menos de vida por oleada y menos a la vez. En el cooperativo salen un 40 % más por cada jugador extra.
+- **Horda más variada**: muchas veces sale uno de los tipos especiales que la oleada ya ha desbloqueado (perros, escupidores, brutos, explosivos, escuderos, trepadores, cuervos, renacidos, gordos, chillones, antidisturbios, arqueros y, desde la oleada 7, caballeros negros).
+- **Jefes**: siguen regenerándose, pero si consigues destrozarles el 90 % del cuerpo, mueren («¡DESTROZADO!»).
+
+## [0.33.2] — 2026-11-13
+
+### Corregido
+- **El caballero negro y el renacido no salían nunca**, y tampoco el antidisturbios, el chillón ni otros enemigos del final de la lista en los pisos altos. Al sumar las probabilidades de todos los tipos pasaban del 100 % y los últimos nunca llegaban a elegirse. Ahora se reparten en proporción y siempre queda al menos un 15 % de zombis normales. Comprobado: en 60 salas del piso 10 salieron 31 caballeros y 25 renacidos de 814 enemigos.
+
+### Añadido
+- **El caballero negro y el renacido también salen en la Horda**: el renacido desde la oleada 3 y el caballero desde la 5, más o menos. En el cooperativo los restos del renacido los crea el anfitrión y la armadura del caballero se recompone también en las pantallas de los demás.
+
+## [0.33.1] — 2026-11-13
+
+### Cambiado
+- **Caballero negro**: sin cuernos en el yelmo.
+- **Caballero negro y explosiones**: todo lo que le arranca una explosión vuelve a su sitio mientras el corazón siga entero. Ya no pierde vida por estar cerca de la explosión: sólo muere si la explosión le destroza el corazón.
+
+## [0.33.0] — 2026-11-13
+
+### Añadido
+- **Caballero negro** (desde el piso 6, más en la Cripta, la Forja y el Vacío): armadura de placas negras con ribetes dorados, yelmo cerrado con una rendija violeta que brilla, hombreras con púas, capa hecha jirones y un mandoble negro de filo violeta. No tiene carne dentro: al abrirle un agujero se ve una sustancia violeta.
+  - **Sólo muere si le rompes el corazón**: el cristal violeta del pecho, dentro de una jaula dorada.
+  - Todo lo demás que le arrancas (placas, brazos, piernas, el yelmo) **vuelve a su sitio** en un par de segundos.
+  - No le afecta el fuego ni lo matan los derrumbes; las explosiones sólo le hacen daño si le pillan el corazón.
+- **Renacido** (desde el piso 4, más en la Cripta y el Jardín): carne viva sin piel, garras, una corona de huesos clavada en el cráneo y vértebras por la espalda.
+  - Muere como cualquier otro, pero **deja una pila de carne y huesos** que late cada vez más deprisa.
+  - Si no la destrozas en unos 7 segundos, **se levanta otra vez, más grande, más rápido y más duro** (con los ojos al rojo). Así hasta que destroces sus restos.
+  - El oro y la baja cuentan cuando destrozas los restos. La sala no se da por despejada mientras queden restos.
+- Los dos en el bestiario, con su punto débil.
+
+### Cambiado
+- **Puertas con llave** (antes rejas): ahora son puertecitas de madera vieja con herrajes, del tamaño de un hombre, metidas en el muro (no destacan). En el centro llevan una placa del color de la llave que las abre.
+- **Niebla baja**:
+  - Ya está en la sala de al lado en cuanto se abre la puerta (antes aparecía de golpe al entrar), y no se sale de su sala.
+  - Sale en bastantes menos salas (entre un 25 y un 45 % según el bioma) y, de esas, una de cada cuatro es espesa.
+
+## [0.32.0] — 2026-11-13
+
+### Añadido
+- **Niebla baja a ras de suelo** en la mazmorra, distinta en cada bioma:
+  - Cripta: gris azulada. Cloacas: verdosa y espesa. Minas: polvo. Forja: humo. Jardín: esporas. Vacío: violeta.
+  - No todas las salas la tienen, y en algunas es **espesa**: llega por la cintura, sólo se ven los ojos de los zombis (lo que brilla asoma entre la niebla) y **se oyen sus pasos** acercándose.
+  - **Reacciona**: el jugador la aparta al andar (deja estela), las balas abren un surco, las explosiones la barren, y se vuelve a cerrar despacio.
+  - **Se ilumina** con el haz de la linterna y con las antorchas cercanas: la luz la «corta».
+  - Se puede quitar en **Ajustes → Niebla baja a ras de suelo**.
+- **Ambiente sonoro propio de cada bioma**, con fundido al cambiar: viento que silba por las grietas (Cripta), agua corriendo y borboteos (Cloacas), rumor de roca y gravilla (Minas), rugido del fuego, fuelles y martillos lejanos (Forja), zumbido de esporas y campanillas (Jardín) y un tono grave que late (Vacío).
+- **Silencio antes de una emboscada**: el ambiente y la música se apagan un instante justo antes de que salten.
+- **Rejas de colores y llaves**: algunas salas (desde el piso 2) tienen una cámara con cofre tras una reja roja, azul o dorada. La llave del mismo color está escondida dentro de algún objeto de la sala que se puede romper (urna, caja, sarcófago, barril…). Las llaves se ven junto al oro y las que sobran abren rejas del mismo color más adelante.
+- **Indicadores visuales de sonido** (accesibilidad, en Ajustes): un arco alrededor de la mira señala de dónde viene cada sonido, con una etiqueta (gruñido, pasos, explosión, ruido) y más intenso cuanto más cerca.
+
+### Cambiado
+- **Sonido tras los muros**: ya se apagaba si había una pared en medio; ahora depende de cuánto sólido hay entre medias (una columna fina casi no tapa; un muro grueso, la roca o una puerta cerrada lo ahogan mucho más).
+- **Mapa [M]** rehecho (sigue abriéndose sólo con la tecla):
+  - **Planta de la sala** vista desde arriba y orientada según por dónde entraste: suelo, obstáculos y muros, lava, ácido, agua, púas y vacío, las puertas con el color de lo que hay detrás, antorchas, objetos, enemigos y tú con la dirección en la que miras (se actualiza en directo).
+  - Datos de la sala: niebla, oscuridad, peligros, reja, enemigos que quedan, tus llaves y si la guarida del jefe está cerca.
+  - **Con el mapa del cartógrafo** ves el nombre de cada sala que hay tras las puertas, si está a oscuras o con niebla, sus peligros, si tiene reja o grieta secreta, y qué hay después. También marca la grieta secreta de la sala actual.
+- **Bestiario**:
+  - Pulsa un enemigo para ver sus datos: vida, velocidad, daño, oro, dónde aparece y su punto débil.
+  - **Conocer al enemigo**: a los 25, 100 y 250 abatidos de un tipo (1, 3 y 6 para los jefes) le haces un 5, 10 y 15 % más de daño. Se ve con estrellas y una barra de progreso.
+  - Recuento de enemigos descubiertos.
+
+## [0.31.0] — 2026-11-13
+
+### Añadido
+- **Seis salas nuevas, una por bioma** (todo de bloques: se rompe y lo que queda suelto se cae):
+  - Cripta: **Catacumbas**, pasillos entre muros de nichos con huesos, con huecos para cruzar, velas y jaulas.
+  - Cloacas: **Aljibe**, cisterna inundada con columnas de ladrillo que salen del agua y bordillo de piedra.
+  - Minas: **Derrumbe**, galería hundida con montañas de roca, vigas partidas atravesadas y cristales al aire.
+  - Forja: **Sala de calderas**, calderas de acero tumbadas con remaches, chimeneas hasta el techo y hogares encendidos.
+  - Jardín: **Raíces del abismo**, raíces enormes que cruzan la sala en arco con musgo y setas luminosas.
+  - Vacío: **La fractura**, una grieta de vacío parte la sala en dos y la cruzan dos puentes de obsidiana.
+
+### Corregido
+- Los zombis ya no aparecen en el tejado ni en sitios a los que no llega el jugador (encima de columnas que suben hasta el techo, muros, estanterías…). Ahora sólo cuenta como suelo transitable lo que se alcanza andando desde el suelo de la sala; también para los que invocan otros enemigos.
+
+## [0.30.2] — 2026-11-13
+
+### Cambiado
+- **Gas venenoso** (el gordo al reventar y las esporas): en vez de cubos verdes sueltos, ahora es un banco de niebla verde y baja que se abre desde el centro al reventar, ondula despacio a ras de suelo, tiene un brillo tenue y se deshace al terminar. Sólo quedan algunas burbujas pequeñas.
+- **Explosión**: vuelve a ser la de la 0.29 (con la columna de humo), pero con los cubos de la bola de fuego, del anillo de polvo y del humo algo más pequeños.
+
+## [0.30.1] — 2026-11-13
+
+### Cambiado
+- **Explosión** (también la del zombi explosivo): el humo ya no sube en columna; rueda a ras de suelo hacia fuera empujado por la onda y sólo una nube baja se levanta un poco. La bola de fuego sube menos y los cubos de humo son pocos y pequeños, así que no quedan cajas flotando en el aire.
+- **Rebote**: ahora la bala sale reflejada por la pared y sólo se desvía un poco hacia un enemigo que esté cerca de esa dirección. Antes buscaba a cualquier enemigo a 14 m, así que cualquier disparo a una pared acababa dándole a alguien.
+
+### Corregido
+- Recortada, escopeta y lanzagranadas: los cartuchos y granadas entran por arriba en la recámara abierta (antes subían desde debajo del arma) y se meten siguiendo la inclinación del cañón.
+- Revólver: con el tambor abierto ya no se ven balas dentro. Las balas nuevas se quedan en el tambor y sólo se aparta el cargador rápido.
+
+## [0.30.0] — 2026-11-13
+
+### Añadido
+- **Animaciones de recarga por arma y por forma**, con piezas que se mueven de verdad:
+  - Pistola, Desert Eagle y automática: el cargador cae, entra uno nuevo de un golpe y se monta la corredera (que se queda abierta con el cargador vacío).
+  - Revólver: el tambor se abre hacia un lado, la varilla expulsa las 6 vainas, entra el cargador rápido con 6 balas y se cierra de un golpe de muñeca.
+  - Escopeta: se abre por la bisagra, se meten los cartuchos uno a uno, se cierra y se monta la corredera.
+  - Recortada: se abre, salen despedidos los dos cartuchos, entran dos nuevos y se cierra de golpe.
+  - Rifle: se abre el cerrojo y se meten las balas una a una por la ventana.
+  - Subfusil: cambio de cargador y tirón de la palanca de carga.
+  - Ametralladora: se levanta la tapa, se cambia la caja de cinta y se cierra.
+  - Ballesta: se tensa la cuerda y se coloca el virote.
+  - Lanzagranadas: se abre y se meten las granadas.
+  - Lanzallamas: cambio de depósito.
+  - Desintegrador: sale la célula de energía y entra una nueva.
+- **Animaciones de disparo**:
+  - Vainas de latón que salen despedidas.
+  - Corredera de la escopeta después de cada tiro, cartucho rojo expulsado.
+  - Cerrojo del rifle entre disparos.
+  - Percutor y giro del tambor del revólver.
+  - Cinta de la ametralladora que avanza y anillos del desintegrador que vibran.
+- **Decoración propia de cada bioma, hecha de bloques** (se rompe y lo que queda sin apoyo se cae):
+  - Cripta: pilastras con calaveras, nichos funerarios con huesos, lápidas con cruz y osarios.
+  - Cloacas: contrafuertes de ladrillo, desagües con rejilla y regueros de musgo, tuberías por los muros.
+  - Minas: cuadros de entibado de madera de verdad (si cortas un poste, se viene abajo), faroles, afloramientos de roca y vetas de cristal.
+  - Forja: pilares de acero remachados, grietas al rojo con hollín y rejillas de escoria en el suelo.
+  - Jardín fúngico: raíces que trepan por los muros, setas yesqueras luminosas y musgo.
+  - Vacío: lajas de obsidiana, racimos de cristal violeta y runas brillantes.
+- Los muros de cada bioma tienen su propio material: sillería oscura, ladrillo húmedo, roca, piedra tiznada, roca musgosa o roca violeta.
+
+### Cambiado
+- Las armas se ven sin manos.
+- Cada bioma sólo usa objetos que le pegan: en la cripta ya no hay cajas ni sacos (se cambian por urnas, sarcófagos y huesos); en el jardín, setas; en el vacío, cristales y estatuas.
+
+### Quitado
+- Los postes y vigas de madera contra las paredes, que se rompían pero no tenían físicas.
+
+## [0.29.0] — 2026-11-13
+
+### Añadido
+- **Katana** (nueva forma del cuchillo): se desbloquea matando 300 zombis con el cuchillo. Más alcance; desenvaine en tajo ancho y corte vertical muy fuerte.
+- **Animaciones propias para cada forma del cuchillo**, como ya tenía el karambit:
+  - Daga: dos pinchazos rápidos y un revés con la hoja invertida.
+  - Machete: hachazo diagonal de arriba abajo y barrido ancho que alcanza a varios.
+  - Bayoneta: dos tajos cortos y una embestida larga (más alcance y daño).
+  - Mariposa: dos cortes rapidísimos y una floritura abriendo las cachas con tajo final.
+  - Katana: desenvaine ancho y corte vertical; al inspeccionarla inclina la hoja en vez de girarla.
+
+### Cambiado
+- **Explosión rehecha**: punto intermedio entre la antigua y la realista. Vuelven los cubos de fuego y la onda expansiva de cubos brillantes, ahora con halos suaves de fuego, anillo de polvo y humo de cubos envuelto en humo suave. Cantidad según la calidad gráfica.
+- **Sombras de antorchas y luces (calidad alta)**: hasta 4 luces proyectan sombra a la vez. Se eligen las que tienes delante o muy cerca, así que ya no se apagan al dar unos pasos atrás.
+- **Techos rediseñados en todas las salas**:
+  - Cornisa escalonada donde el techo se une a los muros.
+  - Texturas por sillares de 4×2 en vez de vóxeles sueltos (se acabó el «ruido»).
+  - Vetas de cristal, brasas y vacío como líneas continuas, y colonias luminosas de 2×2 en el bosque de hongos.
+  - Cripta con arcos fajones de hueso y nichos; cloacas con musgo solo en los arranques y rejilla en la clave; minas con cuadros de entibado; forja con retícula de vigas de acero; vacío con cúpula baja y menos cristales colgando.
+
+### Corregido
+- El menú de opciones se puede desplazar cuando no cabe en la pantalla (vale para todos los menús).
+- Las estanterías (y todo lo que arde) ya no sueltan bloques que se quedan flotando: lo que se quema se convierte en ceniza, y los trozos que se quedan sin apoyo se caen.
+
+## [0.28.0] — 2026-11-13
+
+### Añadido
+- **Seis salas nuevas, una por bioma**, hechas de bloques (todo se rompe y lo que queda suelto se cae):
+  - Cripta: **Osario** — pilares de huesos y calaveras, un gran montón de huesos y sarcófagos.
+  - Cloacas: **Colector** — canal de agua a lo largo, pasarelas con barandilla, puentes de ladrillo y tuberías.
+  - Minas: **Pozo de extracción** — castillete de madera que se puede derribar, raíles y montones de mineral.
+  - Forja: **Fundición** — crisol gigante de metal fundido sobre patas, río de lava, chimeneas hasta el techo y lingotes.
+  - Jardín: **Setas gigantes** — si les cortas el pie, el sombrero se viene abajo.
+  - Vacío: **Monolitos** — losas negras con vetas violetas, algunas inclinadas, y racimos de cristal.
+- **Suelos con detalle de bloques en todas las salas** según el bioma: huesos, calaveras, lápidas rotas y cascotes (cripta); ladrillos caídos, musgo y tuberías (cloacas); rocas con mineral y tablones (minas); escoria con brasas y chatarra (forja); setas, musgo y raíces (jardín); esquirlas de cristal (vacío). Más en calidad alta, menos en baja.
+
+### Cambiado
+- **Derrumbes sin límite de tamaño**: la comprobación de apoyos ya no se rinde con las piezas grandes. Se reparte entre fotogramas y busca primero hacia el suelo y las paredes, así que es rápida (un disparo al techo ~1 ms) y ahora sí se caen trozos grandes: un pedazo de techo recortado, la copa entera del gran árbol si le cortas el tronco, el sombrero de una seta gigante, un castillete…
+- El gran árbol ya no toca el techo ni las paredes: se sostiene sólo por el tronco.
+- El techo es una losa de 4 bloques que sigue el relieve (antes era maciza hasta arriba); por encima no se dibuja nada que no se vea.
+- **Calidad gráfica**:
+  - Partículas: todas en alta, ~60 % en media y ~35 % en baja.
+  - Restos y cadáveres que se quedan: 140 / 24 en alta, 70 / 14 en media, 35 / 8 en baja.
+  - **Zombis lejanos con menos detalle**: pasan a un modelo con vóxeles el doble de grandes (desde 60 m en alta, 24 m en media y 9 m en baja: en baja casi todos van con el modelo simple) y, más lejos, se animan a la mitad o un tercio de fotogramas.
+  - En alta, todo al máximo.
+- **Sólo en el móvil**: menos partículas, restos y cadáveres, el detalle de los zombis baja antes, menos trabajo de derrumbes por fotograma, menos detalle de suelo y, la primera vez, calidad media sin oclusión ambiental. En el ordenador no cambia nada de esto.
+
+## [0.27.0] — 2026-11-13
+
+### Cambiado
+- **El techo de la mazmorra es parte de la sala**: ya no es un decorado aparte, sino bloques de la misma rejilla que las paredes, el suelo y las columnas. Se le puede disparar, las balas dejan agujeros, las explosiones abren boquetes y las piezas que se quedan sin apoyo (cadenas, jaulas, lámparas, estalactitas, setas, cristales, tuberías…) se caen y pueden aplastar a quien esté debajo.
+- La sala crece hacia arriba lo que necesite su techo (las bóvedas de catedral, hasta 4,5 m más) y las paredes suben hasta cerrarlo.
+- Pilares, columnas y muros que llegaban al techo ahora están unidos a él con bloques de verdad.
+- El techo recibe la oclusión ambiental y las sombras de la linterna como el resto de la sala.
+- La decoración colgante de cada bioma (calaveras, jaulas, lámparas doradas, faroles, garfios, raíces, setas, cristales, tuberías y musgo) también está hecha de bloques destructibles.
+- Bloques nuevos para los techos: sillería, nervios, plementos pintados, estrellas y claves doradas, hollín, grietas al rojo, cristal violeta y azul, setas luminosas, roca de cueva y cadenas.
+
 ## [0.26.0] — 2026-11-13
 
 ### Añadido

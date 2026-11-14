@@ -35,12 +35,27 @@
     }
   }
   const area = (r) => (r.w - 4) * (r.d - 4);
+  // escritura de vóxeles sueltos con las comprobaciones de siempre (paredes, puertas, ya ocupado)
+  function vox(r) {
+    const ok = (x, y, z) => r.inBounds(x, y, z) && x >= 5 && z >= 5 && x < r.W - 5 && z < r.D - 5 && y < r.ceilBase && !r.isReservedU(x >> 1, z >> 1);
+    return {
+      set(x, y, z, t) { if (!ok(x, y, z)) return; if (t === 0) { if (r.get(x, y, z)) r.set(x, y, z, 0); return; } if (!r.get(x, y, z)) r.set(x, y, z, t); },
+      mound(x, z, rad, hMax, pickT) {
+        for (let dx = -rad; dx <= rad; dx++) for (let dz = -rad; dz <= rad; dz++) {
+          const d = Math.hypot(dx, dz) / (rad + 0.5);
+          if (d > 1 || Math.random() < d * 0.5) continue;
+          const h = Math.max(1, Math.round((1 - d) * hMax + Math.random() * 0.7));
+          for (let y = 0; y < h; y++) this.set(x + dx, y, z + dz, pickT(y));
+        }
+      },
+    };
+  }
 
   // Columna clásica de piedra: basa, fuste y capitel. broken = partida a media altura
   function column(r, ux, uz, wU = 2, broken = false) {
     if (r.isReservedU(ux, uz)) return;
     const x0 = ux * 2, z0 = uz * 2, w = wU * 2, St = BL().STONE;
-    const H = r.H - 4;
+    const H = r.ceilBase;
     const hTop = broken ? M.randInt(4, Math.max(5, Math.floor(H * 0.55))) : H;
     for (let y = 0; y < hTop; y++) {
       const wide = y < 2 || (!broken && y >= hTop - 2);
@@ -57,7 +72,7 @@
   function archWall(r, a0, a1, b0, along, t = BL().BRICK, hgt = 16, thick = 2, period = 16, ow = 8, spring = 7) {
     for (let a = a0; a <= a1; a++) {
       const rel = ((a - a0) % period) - period / 2 + 0.5;
-      for (let y = 0; y < Math.min(hgt, r.H - 4); y++) {
+      for (let y = 0; y < Math.min(hgt, r.ceilBase); y++) {
         if (Math.abs(rel) < ow / 2 && (y < spring || Math.hypot(rel, (y - spring) * 1.1) < ow / 2)) continue;
         for (let d = 0; d < thick; d++) {
           const x = along === 'x' ? a : b0 + d, z = along === 'x' ? b0 + d : a;
@@ -93,7 +108,7 @@
   // Jaula colgada del techo
   // Jaula colgante (objeto de vóxel fino): si le cortas la cadena, cae y aplasta
   function cage(r, ux, uz) {
-    const PV = VX.PV, ceil = (r.H - 4) * VX.S;
+    const PV = VX.PV, ceil = r.ceilBase * VX.S;
     r.pending.push({ type: 'cage', x: r.uX(ux) + 0.25 - 0.5, z: r.uZ(uz) + 0.25 - 0.5, at: { y: ceil - 40 * PV, rot: 0, v: M.randInt(0, 3) } });
   }
 
@@ -377,7 +392,7 @@
         for (let a = 0; a < 6; a++) {
           const ang = a / 6 * Math.PI * 2 + 0.4;
           const ux = Math.round(r.cu + Math.cos(ang) * (R0 / 2 + hv * 1.6)), uz = Math.round(r.cuz + Math.sin(ang) * (R0 / 2 + hv * 1.6));
-          if (!r.isReservedU(ux, uz)) for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++) for (let y = 0; y < r.H - 4; y++) if (!r.get(x, y, z)) r.set(x, y, z, BL().STONE);
+          if (!r.isReservedU(ux, uz)) for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++) for (let y = 0; y < r.ceilBase; y++) if (!r.get(x, y, z)) r.set(x, y, z, BL().STONE);
         }
       },
     },
@@ -644,6 +659,252 @@
       },
     },
 
+    // ================= Salas nuevas por bioma (todo de bloques: se rompe y se cae) =================
+    {
+      name: 'Osario', w: [46, 54], d: [48, 58],
+      build(r) {
+        // pilares de huesos y calaveras, un gran montón de huesos en el centro y sarcófagos
+        const B = BL(), V = vox(r);
+        for (let i = 0; i < 8; i++) {
+          const x = M.randInt(10, r.W - 12), z = M.randInt(12, r.D - 14), h = M.randInt(Math.floor(r.ceilBase * 0.5), r.ceilBase);
+          for (let y = 0; y < h; y++) for (let dx = 0; dx < 3; dx++) for (let dz = 0; dz < 3; dz++) V.set(x + dx, y, z + dz, (y % 4 === 1 && (dx === 1 || dz === 1)) ? B.CDARK : B.BONE);
+        }
+        V.mound(Math.floor(r.W / 2), Math.floor(r.D / 2), 9, 7, (y) => (Math.random() < 0.85 ? B.BONE : B.CSTONE));
+        for (let i = 0; i < 5; i++) {
+          const x = M.randInt(8, r.W - 16), z = M.randInt(10, r.D - 14), alongX = Math.random() < 0.5;
+          const lx = alongX ? 8 : 4, lz = alongX ? 4 : 8;
+          for (let dx = 0; dx < lx; dx++) for (let dz = 0; dz < lz; dz++) for (let y = 0; y < 3; y++) V.set(x + dx, y, z + dz, y === 2 && (dx + dz) % 3 === 0 ? B.CRIB : B.CSTONE);
+        }
+        for (let i = 0; i < 4; i++) { const [x, z] = [r.uX(M.randInt(5, r.w - 6)), r.uZ(M.randInt(6, r.d - 7))]; r.queue('candles', x, z, {}); }
+      },
+    },
+    {
+      name: 'Colector', w: [46, 54], d: [50, 60],
+      build(r) {
+        // un gran canal de agua a lo largo, pasarelas de ladrillo con barandilla y tuberías en las paredes
+        const B = BL(), V = vox(r), cx = Math.floor(r.w / 2);
+        r.addSpikes(cx - 4, 10, cx + 3, r.d - 11, 'water');
+        for (const side of [-1, 1]) {
+          const x0 = (cx + side * 5) * 2;
+          for (let z = 20; z < r.D - 20; z++) for (let k = 0; k < 2; k++) V.set(x0 + k * side, 0, z, B.STONE);
+          for (let z = 20; z < r.D - 20; z += 2) V.set(x0 + side * 2, 1, z, B.CHAIN);
+        }
+        for (const bz of [Math.floor(r.D * 0.35), Math.floor(r.D * 0.65)]) {
+          for (let x = (cx - 5) * 2; x < (cx + 5) * 2; x++) for (let z = bz; z < bz + 5; z++) {
+            const t = (x - (cx - 5) * 2) / 20, y = Math.round(Math.sin(t * Math.PI) * 2);
+            V.set(x, y, z, B.BRICK);
+            if (z === bz || z === bz + 4) V.set(x, y + 1, z, B.STONE);
+          }
+        }
+        for (const x of [5, r.W - 6]) for (let z = 10; z < r.D - 10; z++) { V.set(x, 6, z, B.STEEL); if (z % 10 === 0) V.set(x, 5, z, B.CHAIN); }
+        for (let i = 0; i < 6; i++) V.mound(M.randInt(8, r.W - 9), M.randInt(10, r.D - 11), 2, 2, () => (Math.random() < 0.6 ? B.BRICK : B.MOSS));
+      },
+    },
+    {
+      name: 'Pozo de extracción', w: [46, 54], d: [48, 58], h: 14,
+      build(r) {
+        // castillete de madera en el centro (se puede derribar), vagonetas, raíles y montones de mineral
+        const B = BL(), V = vox(r), cx = Math.floor(r.W / 2) - 6, cz = Math.floor(r.D / 2) - 6, top = r.ceilBase - 3;
+        for (const [dx, dz] of [[0, 0], [11, 0], [0, 11], [11, 11]]) for (let y = 0; y < top; y++) for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) V.set(cx + dx + a, y, cz + dz + b, B.PLANK);
+        for (let y = 6; y < top; y += 8) for (let i = 0; i < 13; i++) for (const [x, z] of [[cx + i, cz], [cx + i, cz + 12], [cx, cz + i], [cx + 12, cz + i]]) V.set(x, y, z, B.PLANK);
+        for (let i = 0; i < 13; i++) { V.set(cx + i, top, cz + 6, B.STEEL); V.set(cx + 6, top - 1 - Math.floor(i / 2), cz + 6, i < 8 ? B.CHAIN : 0); }
+        for (let z = 6; z < r.D - 6; z++) { V.set(Math.floor(r.W * 0.2), 0, z, B.STEEL); V.set(Math.floor(r.W * 0.2) + 3, 0, z, B.STEEL); }
+        for (let i = 0; i < 7; i++) V.mound(M.randInt(8, r.W - 9), M.randInt(8, r.D - 9), M.randInt(2, 4), M.randInt(2, 4), () => (Math.random() < 0.2 ? B.MCRYST : B.CROCK));
+        for (let i = 0; i < 3; i++) r.queue(Math.random() < 0.5 ? 'bigcrate' : 'crate', r.uX(M.randInt(4, r.w - 5)), r.uZ(M.randInt(5, r.d - 6)), { rot: 0 }, 1);
+        r.features.push({ kind: 'light', x: r.worldX(cx + 6), y: (top - 4) * VX.S, z: r.worldZ(cz + 6), r: 10, c: [1.2, 0.8, 0.4] });
+      },
+    },
+    {
+      name: 'Fundición', w: [46, 54], d: [48, 58],
+      build(r) {
+        // crisol gigante de metal fundido sobre patas, canales de lava, chimeneas hasta el techo y lingotes
+        const B = BL(), V = vox(r), cx = Math.floor(r.W / 2), cz = Math.floor(r.D / 2);
+        for (const [dx, dz] of [[-6, -6], [5, -6], [-6, 5], [5, 5]]) for (let y = 0; y < 8; y++) for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) V.set(cx + dx + a, y, cz + dz + b, B.STEEL);
+        for (let y = 8; y < 15; y++) for (let dx = -7; dx <= 7; dx++) for (let dz = -7; dz <= 7; dz++) {
+          const d = Math.hypot(dx, dz), R = 7 - Math.max(0, (8 - (y - 8)) * 0.3);
+          if (d > R) continue;
+          V.set(cx + dx, y, cz + dz, d > R - 1.3 || y === 8 ? B.STEEL : (y >= 13 ? B.EMBER : 0));
+        }
+        r.features.push({ kind: 'light', x: r.worldX(cx), y: 4, z: r.worldZ(cz), r: 14, c: [1.6, 0.6, 0.15] });
+        r.addSpikes(4, Math.floor(r.d / 2) + 7, r.w - 5, Math.floor(r.d / 2) + 8, 'lava');
+        for (const [x, z] of [[8, 10], [r.W - 11, 10], [8, r.D - 13], [r.W - 11, r.D - 13]]) for (let y = 0; y < r.ceilBase; y++) for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) V.set(x + a, y, z + b, a === 1 && b === 1 && y > 2 ? 0 : B.BRICK);
+        for (let i = 0; i < 6; i++) { const x = M.randInt(8, r.W - 12), z = M.randInt(8, r.D - 10); for (let k = 0; k < 3; k++) for (let a = 0; a < 3; a++) V.set(x + a, k, z + (k & 1), B.CGOLD); }
+        for (let i = 0; i < 4; i++) { const [x, z] = [r.uX(M.randInt(5, r.w - 6)), r.uZ(M.randInt(6, r.d - 7))]; r.queue('anvil', x, z, { rot: M.randInt(0, 3) }); }
+      },
+    },
+    {
+      name: 'Setas gigantes', w: [48, 56], d: [50, 60], h: 15,
+      build(r) {
+        // setas enormes de bloques: si les cortas el pie, el sombrero se viene abajo
+        const B = BL(), V = vox(r);
+        const n = M.randInt(4, 6);
+        for (let i = 0; i < n; i++) {
+          const x = M.randInt(14, r.W - 15), z = M.randInt(16, r.D - 17), h = M.randInt(Math.floor(r.ceilBase * 0.45), r.ceilBase - 6), sr = M.randInt(1, 2), cr = M.randInt(6, 9);
+          for (let y = 0; y < h; y++) for (let dx = -sr; dx <= sr; dx++) for (let dz = -sr; dz <= sr; dz++) if (dx * dx + dz * dz <= sr * sr + 0.5) V.set(x + dx + Math.round(Math.sin(y * 0.2 + i) * 0.8), y, z + dz, B.DEADWOOD);
+          const ox = Math.round(Math.sin(h * 0.2 + i) * 0.8);
+          for (let dy = 0; dy < 4; dy++) for (let dx = -cr; dx <= cr; dx++) for (let dz = -cr; dz <= cr; dz++) {
+            const d = Math.hypot(dx, dz) / cr;
+            if (d > 1 - dy * 0.18) continue;
+            V.set(x + ox + dx, h + dy, z + dz, dy === 0 ? (Math.random() < 0.3 ? B.FGLOW : B.GLOWLEAF) : (Math.random() < 0.12 ? B.FGLOW : B.LEAF));
+          }
+          r.features.push({ kind: 'light', x: r.worldX(x), y: (h - 1) * VX.S, z: r.worldZ(z), r: 9, c: [0.3, 1, 0.8] });
+        }
+        for (let i = 0; i < 8; i++) V.mound(M.randInt(8, r.W - 9), M.randInt(8, r.D - 9), M.randInt(2, 3), 1, () => B.MOSS);
+        r.addRandomHazards('spores', M.randInt(1, 2));
+      },
+    },
+    {
+      name: 'Monolitos', w: [48, 56], d: [50, 60], h: 16,
+      build(r) {
+        // monolitos negros con vetas violetas, algunos partidos y apoyados en otros, y racimos de cristal
+        const B = BL(), V = vox(r);
+        for (let i = 0; i < 7; i++) {
+          const x = M.randInt(10, r.W - 13), z = M.randInt(12, r.D - 15), w = M.randInt(3, 4), h = M.randInt(Math.floor(r.ceilBase * 0.5), r.ceilBase - 2);
+          const lean = Math.random() < 0.35 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+          for (let y = 0; y < h; y++) {
+            const off = lean ? Math.round(lean * y * 0.18) : 0;
+            for (let dx = 0; dx < w; dx++) for (let dz = 0; dz < 2; dz++) V.set(x + dx + off, y, z + dz, (y + dx * 3) % 7 === 0 ? B.VCRYST : B.CDARK);
+          }
+        }
+        for (let i = 0; i < 10; i++) { const x = M.randInt(8, r.W - 9), z = M.randInt(8, r.D - 9); for (let k = 0; k < 3; k++) { const h = M.randInt(2, 6); for (let y = 0; y < h; y++) V.set(x + (k % 2), y, z + (k >> 1), B.VCRYST); } }
+        r.addRandomHazards('void', M.randInt(1, 3));
+        r.features.push({ kind: 'light', x: r.centerX(), y: 3, z: r.centerZ(), r: 16, c: [0.7, 0.3, 1.2] });
+      },
+    },
+
+    // ================= Salas nuevas (0.31) =================
+    {
+      name: 'Catacumbas', w: [48, 56], d: [52, 62],
+      build(r) {
+        // pasillos entre muros de nichos llenos de huesos (con huecos para cruzar) y un altar al fondo
+        const B = BL(), V = vox(r), alongX = r.W > r.D, len = alongX ? r.W : r.D, span = alongX ? r.D : r.W;
+        const at = (a, l, y, t) => (alongX ? V.set(l, y, a, t) : V.set(a, y, l, t));
+        for (let a = 14; a < span - 12; a += 12) {
+          for (let l = 12; l < len - 12; l++) {
+            const seg = Math.floor((l - 12) / 10);
+            if ((l - 12) % 10 >= 7 && (seg + a) % 2 === 0) continue;   // hueco para pasar
+            for (let y = 0; y < Math.min(r.ceilBase, 14); y++) for (let k = 0; k < 3; k++) {
+              const niche = k !== 1 && y % 5 >= 1 && y % 5 <= 2 && l % 4 !== 0;
+              at(a + k, l, y, niche ? (Math.random() < 0.45 ? B.BONE : 0) : y % 5 === 3 ? B.CRIB : B.CSTONE);
+            }
+          }
+        }
+        for (let i = 0; i < 6; i++) { const [x, z] = [r.uX(M.randInt(5, r.w - 6)), r.uZ(M.randInt(6, r.d - 7))]; r.queue('candles', x, z, {}); }
+        for (let i = 0; i < 2; i++) cage(r, M.randInt(6, r.w - 7), M.randInt(7, r.d - 8));
+      },
+    },
+    {
+      name: 'Aljibe', w: [48, 56], d: [50, 60],
+      build(r) {
+        // cisterna: gran estanque con columnas de ladrillo que salen del agua y una pasarela alrededor
+        const B = BL(), V = vox(r);
+        const u0 = 9, u1 = r.w - 10, v0 = 10, v1 = r.d - 11;
+        r.addSpikes(u0, v0, u1, v1, 'water');
+        for (let ux = u0 + 3; ux < u1 - 1; ux += 6) for (let uz = v0 + 3; uz < v1 - 1; uz += 6) {
+          const x = ux * 2, z = uz * 2;
+          for (let y = 0; y < r.ceilBase; y++) for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) V.set(x + a, y, z + b, y < 3 && Math.random() < 0.5 ? B.MOSS : B.BRICK);
+        }
+        // bordillo del estanque
+        for (let x = u0 * 2 - 1; x <= (u1 + 1) * 2; x++) for (const z of [v0 * 2 - 1, (v1 + 1) * 2]) V.set(x, 0, z, B.STONE);
+        for (let z = v0 * 2 - 1; z <= (v1 + 1) * 2; z++) for (const x of [u0 * 2 - 1, (u1 + 1) * 2]) V.set(x, 0, z, B.STONE);
+        r.features.push({ kind: 'light', x: r.centerX(), y: 1, z: r.centerZ(), r: 12, c: [0.3, 0.6, 0.5] });
+      },
+    },
+    {
+      name: 'Derrumbe', w: [46, 54], d: [52, 62], relief: maybeRelief(0.6, 3),
+      build(r) {
+        // galería hundida: montañas de roca caída, vigas partidas atravesadas y vetas de cristal al aire
+        const B = BL(), V = vox(r);
+        for (let i = 0; i < 9; i++) V.mound(M.randInt(10, r.W - 11), M.randInt(12, r.D - 13), M.randInt(3, 6), M.randInt(3, 7), (y) => (Math.random() < 0.12 ? B.MCRYST : y < 2 && Math.random() < 0.3 ? B.TERRAIN : B.CROCK));
+        for (let i = 0; i < 5; i++) {
+          // viga partida: un extremo en el suelo y el otro apoyado en lo alto de un montón
+          const x = M.randInt(10, r.W - 20), z = M.randInt(12, r.D - 14), len = M.randInt(10, 16), up = M.randInt(3, 6), along = Math.random() < 0.5;
+          for (let k = 0; k < len; k++) { const y = Math.round(k / len * up); for (let t = 0; t < 2; t++) V.set(along ? x + k : x + t, y, along ? z + t : z + k, B.PLANK); }
+        }
+        for (let i = 0; i < 4; i++) { const x = M.randInt(10, r.W - 11), z = M.randInt(10, r.D - 11); for (let k = 0; k < 4; k++) { const h = M.randInt(2, 5); for (let y = 0; y < h; y++) V.set(x + (k & 1), y, z + (k >> 1), B.MCRYST); } r.features.push({ kind: 'light', x: r.worldX(x), y: 1, z: r.worldZ(z), r: 6, c: [0.4, 0.9, 1.2] }); }
+        r.queue('cart', r.uX(M.randInt(6, r.w - 7)), r.uZ(M.randInt(7, r.d - 8)), { rot: M.randInt(0, 1) });
+      },
+    },
+    {
+      name: 'Sala de calderas', w: [48, 56], d: [50, 60],
+      build(r) {
+        // calderas de acero tumbadas con remaches, tuberías que suben al techo y rejillas sobre brasas
+        const B = BL(), V = vox(r), alongX = r.W > r.D;
+        const n = 2, span = alongX ? r.D : r.W, len = alongX ? r.W : r.D;
+        for (let i = 0; i < n; i++) {
+          const c = Math.round(span * (i + 1) / (n + 1)), R = 4, l0 = 14, l1 = len - 14;
+          for (let l = l0; l < l1; l++) for (let a = -R; a <= R; a++) for (let y = 0; y <= R * 2; y++) {
+            const d = Math.hypot(a, y - R);
+            if (d > R + 0.4) continue;
+            const t = d > R - 0.8 ? (l % 6 === 0 ? B.IRON : B.STEEL) : (l === l0 || l === l1 - 1 ? B.STEEL : 0);
+            if (!t) continue;
+            alongX ? V.set(l, y + 1, c + a, t) : V.set(c + a, y + 1, l, t);
+          }
+          for (let l = l0 + 2; l < l1; l += 8) for (const a of [-R + 1, R - 1]) alongX ? V.set(l, 0, c + a, B.IRON) : V.set(c + a, 0, l, B.IRON);   // patas
+          // chimenea hasta el techo
+          const lc = Math.round((l0 + l1) / 2);
+          for (let y = R * 2 + 2; y < r.ceilBase; y++) for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) alongX ? V.set(lc + a, y, c + b, B.STEEL) : V.set(c + a, y, lc + b, B.STEEL);
+          // hogar encendido
+          for (let a = -1; a <= 1; a++) alongX ? V.set(l0 - 1, 2, c + a, B.EMBER) : V.set(c + a, 2, l0 - 1, B.EMBER);
+          r.features.push({ kind: 'light', x: alongX ? r.worldX(l0 - 2) : r.worldX(c), y: 0.8, z: alongX ? r.worldZ(c) : r.worldZ(l0 - 2), r: 7, c: [1.4, 0.5, 0.12] });
+        }
+      },
+    },
+    {
+      name: 'Raíces del abismo', w: [48, 56], d: [50, 60], h: 15,
+      build(r) {
+        // raíces enormes que cruzan la sala en arco de pared a pared, con musgo y setas que brillan
+        const B = BL(), V = vox(r), alongX = r.W > r.D;
+        const len = alongX ? r.W : r.D, span = alongX ? r.D : r.W;
+        for (let i = 0; i < 4; i++) {
+          const l = Math.round(len * (i + 0.6) / 4.4), th = M.randInt(2, 3), top = M.randInt(Math.floor(r.ceilBase * 0.55), r.ceilBase - 3);
+          let wob = 0;
+          for (let a = 5; a < span - 5; a++) {
+            const t = (a - 5) / (span - 10), y = Math.round(Math.sin(t * Math.PI) * top);
+            wob += M.rand(-0.3, 0.3); wob = M.clamp(wob, -3, 3);
+            for (let dy = -th; dy <= th; dy++) for (let dl = -th; dl <= th; dl++) {
+              if (dy * dy + dl * dl > th * th + 0.5) continue;
+              const ll = l + dl + Math.round(wob), yy = y + dy;
+              if (yy < 0) continue;
+              const tp = dy === th && Math.random() < 0.35 ? B.MOSS : B.BARK;
+              alongX ? V.set(ll, yy, a, tp) : V.set(a, yy, ll, tp);
+            }
+            if (a % 6 === 0 && y > 4) { alongX ? V.set(l, y - th - 1, a, B.FGLOW) : V.set(a, y - th - 1, l, B.FGLOW); }
+          }
+          r.features.push({ kind: 'light', x: alongX ? r.worldX(l) : r.centerX(), y: top * VX.S * 0.7, z: alongX ? r.centerZ() : r.worldZ(l), r: 9, c: [0.3, 1, 0.7] });
+        }
+        for (let i = 0; i < 6; i++) V.mound(M.randInt(8, r.W - 9), M.randInt(8, r.D - 9), M.randInt(2, 3), 1, () => B.MOSS);
+        r.addRandomHazards('spores', M.randInt(1, 2));
+      },
+    },
+    {
+      name: 'La fractura', w: [48, 56], d: [52, 62], h: 16,
+      build(r) {
+        // una grieta de vacío parte la sala en dos; la cruzan dos puentes de obsidiana y cristales flotan sobre ella
+        const B = BL(), V = vox(r), alongX = r.W > r.D, cuA = Math.floor((alongX ? r.d : r.w) / 2);
+        const len = alongX ? r.w : r.d;
+        const bridges = [0.3, 0.7].map((f) => Math.round(len * f));
+        for (let u = 4; u < len - 4; u++) {
+          if (bridges.some((b) => u >= b - 1 && u <= b + 2)) continue;   // bajo los puentes se puede pasar
+          const wig = Math.round(Math.sin(u * 0.35) * 1.5);
+          alongX ? r.addSpikes(u, cuA - 1 + wig, u, cuA + 1 + wig, 'void') : r.addSpikes(cuA - 1 + wig, u, cuA + 1 + wig, u, 'void');
+        }
+        for (const bu of bridges) {
+          const u = bu * 2;
+          for (let k = 0; k < 4; k++) for (let a = (cuA - 4) * 2; a < (cuA + 5) * 2; a++) {
+            const t = (a - (cuA - 4) * 2) / 18, y = Math.round(Math.sin(t * Math.PI) * 1.4);
+            alongX ? V.set(u + k, y, a, k === 0 || k === 3 ? B.VCRYST : B.CDARK) : V.set(a, y, u + k, k === 0 || k === 3 ? B.VCRYST : B.CDARK);
+          }
+        }
+        // lajas negras clavadas a los lados de la grieta
+        for (let i = 0; i < 8; i++) {
+          const u = M.randInt(6, len - 7) * 2, side = Math.random() < 0.5 ? -1 : 1, a = (cuA + side * 4) * 2, h = M.randInt(6, 14);
+          for (let y = 0; y < h; y++) for (let k = 0; k < 2; k++) { const off = Math.round(side * y * 0.15); alongX ? V.set(u + k, y, a + off, y % 5 === 2 ? B.VCRYST : B.CDARK) : V.set(a + off, y, u + k, y % 5 === 2 ? B.VCRYST : B.CDARK); }
+        }
+        r.features.push({ kind: 'light', x: r.centerX(), y: 0.5, z: r.centerZ(), r: 18, c: [0.6, 0.2, 1.3] });
+      },
+    },
+
     // ================= El gran árbol (varios biomas) =================
     {
       name: 'El gran árbol', w: [50, 58], d: [52, 62], h: 18, lit: true,
@@ -677,8 +938,8 @@
     const kind = z === 4 ? 'glow' : z === 0 ? 'dead' : z === 5 ? 'crystal' : z === 2 ? 'stone' : 'live';
     const wood = { glow: B.BARK, dead: B.DEADWOOD, crystal: B.CRYSTWOOD, stone: B.TERRAIN, live: B.BARK }[kind];
     const leaf = { glow: B.GLOWLEAF, live: B.LEAF }[kind] || 0;
-    const top = r.H - 4;
-    const free = (x, y, zz) => r.inBounds(x, y, zz) && x >= 4 && zz >= 4 && x < r.W - 4 && zz < r.D - 4 && !r.isReservedU(x >> 1, zz >> 1);
+    const top = r.ceilBase - 2;   // sin tocar el techo: si le cortas el tronco, el árbol se viene abajo
+    const free = (x, y, zz) => r.inBounds(x, y, zz) && x >= 7 && zz >= 7 && x < r.W - 7 && zz < r.D - 7 && !r.isReservedU(x >> 1, zz >> 1);   // separado de las paredes: se sostiene sólo por el tronco
     const put = (x, y, zz, t) => { if (free(x, y, zz) && !r.get(x, y, zz)) r.set(x, y, zz, t); };
     // tronco: sección irregular que se ensancha abajo y se retuerce al subir
     const R0 = M.randInt(5, 6);
@@ -772,6 +1033,8 @@
     'Pasillo largo': [0, 1, 2, 3, 4, 5], 'Galería con balcón': [0, 1, 3, 5],
     'Galería minera': [2], 'Veta de cristal': [2, 5], 'Bosque de hongos': [4], 'Cueva de esporas': [4], 'Santuario del vacío': [5],
     'El gran árbol': [0, 1, 2, 4, 5],
+    'Osario': [0], 'Colector': [1], 'Pozo de extracción': [2], 'Fundición': [3], 'Setas gigantes': [4], 'Monolitos': [5],
+    'Catacumbas': [0], 'Aljibe': [1], 'Derrumbe': [2], 'Sala de calderas': [3], 'Raíces del abismo': [4], 'La fractura': [5],
   };
 
   // La tienda se construye en un marco local: 'a' = a lo ancho (izq→der visto desde la entrada),

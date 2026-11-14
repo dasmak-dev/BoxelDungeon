@@ -14,6 +14,8 @@
     hurtFx: true,        // efectos de pantalla al recibir daño
     torchShadows: true,  // la antorcha más cercana proyecta sombras (calidad alta)
     dust: true,          // motas de polvo en el haz de la linterna
+    groundFog: true,     // niebla baja a ras de suelo en la mazmorra
+    soundViz: false,     // indicadores en pantalla de dónde vienen los sonidos
     autoQuality: true,   // baja la calidad si caen los FPS
     enemyLocator: false, // flechas con la distancia a los últimos enemigos
     bloom: true,         // resplandor de luces y brillos
@@ -37,7 +39,8 @@
         if (s.keys && !s.keysV13) { s.keys.knife = 'KeyV'; s.keys.inspect = 'ControlLeft'; s.keysV13 = true; }
         this.data = { ...DEFAULTS, ...s, keys: { ...KEY_DEFAULTS, ...(s.keys || {}) } };
         // primera vez en un móvil: calidad media (la automática la ajusta después)
-        if (!localStorage.getItem(KEY) && window.matchMedia && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches) this.data.quality = 'media';
+        // primera vez en un móvil: calidad media, sin oclusión ambiental (la automática ajusta el resto)
+        if (!localStorage.getItem(KEY) && window.matchMedia && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches) { this.data.quality = 'media'; this.data.ssao = false; }
       } catch (e) { this.data = { ...DEFAULTS }; }
       return this.data;
     },

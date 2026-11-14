@@ -1,6 +1,6 @@
 // Sistema de partículas vóxel (escombros, sangre, chispas).
 (function () {
-  const CAP = 3500;
+  const CAP = 9000;
 
   class Particles {
     constructor() {
@@ -20,6 +20,9 @@
     clear() { this.alive.fill(0); }
 
     spawn(x, y, z, vx, vy, vz, r, g, b, size, life, emissive = 0, noGravity = 0) {
+      // menos partículas cuanto más baja la calidad gráfica
+      const qk = VX.Q ? VX.Q.particles : 1;
+      if (qk < 1 && Math.random() > qk) return;
       const i = this.next;
       this.next = (this.next + 1) % CAP;
       this.p[i * 3] = x; this.p[i * 3 + 1] = y; this.p[i * 3 + 2] = z;

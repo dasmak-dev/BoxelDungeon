@@ -26,11 +26,13 @@
     <div id="vignette"></div>
     <div id="bloodScreen"></div>
     <div id="dmgDirs"></div>
+    <div id="sndDirs"></div>
 
     <div id="topLeft">
       <div id="floorLabel">PISO 1</div>
       <div id="roomLabel">Entrada</div>
       <div id="goldLabel"><span class="coin"></span><span id="goldValue">0</span></div>
+      <div id="keyLabel" class="hidden"></div>
     </div>
 
     <div id="bossBar" class="hidden">
@@ -167,6 +169,10 @@
       <input type="checkbox" id="setTorchShadows">
       <label>Polvo en el haz de la linterna</label>
       <input type="checkbox" id="setDust">
+      <label>Niebla baja a ras de suelo</label>
+      <input type="checkbox" id="setGroundFog">
+      <label>Indicadores visuales de sonido</label>
+      <input type="checkbox" id="setSoundViz">
       <label>Controles táctiles</label>
       <select id="setTouch">
         <option value="auto">Automático</option>
@@ -291,6 +297,8 @@
   <script src="js/world/blocks.js"></script>
   <script src="js/world/room.js"></script>
   <script src="js/world/ceilings.js"></script>
+  <script src="js/world/biomeDecor.js"></script>
+  <script src="js/world/floorDetail.js"></script>
   <script src="js/world/roomPool.js"></script>
   <script src="js/world/world.js"></script>
   <script src="js/world/props.js"></script>
@@ -310,6 +318,7 @@
   <script src="js/entities/pickups.js"></script>
   <script src="js/entities/player.js"></script>
   <script src="js/entities/bullets.js"></script>
+  <script src="js/entities/gunAnim.js"></script>
   <script src="js/entities/weapon.js"></script>
 
   <!-- Sistemas -->

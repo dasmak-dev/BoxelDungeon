@@ -30,7 +30,12 @@
     bloater: { name: 'Gordo hinchado', hp: 230, speed: 1.0, dmg: 15, gold: [5, 8], reach: 1.25, lean: 0.04, heavy: true, bloat: true },
     riot: { name: 'Antidisturbios', hp: 150, speed: 1.45, dmg: 16, gold: [5, 8], reach: 1.1, lean: 0.04, riot: true },
     screamer: { name: 'Chillón', hp: 60, speed: 1.9, dmg: 6, gold: [4, 7], reach: 1.0, lean: 0.15, scream: true },
-    crow: { name: 'Cuervo', hp: 12, speed: 5.5, dmg: 5, gold: [1, 1], reach: 0.8, lean: 0, quad: true, fly: true },
+    crow: { name: 'Cuervo', hp: 12, speed: 4.1, dmg: 5, gold: [1, 1], reach: 0.8, lean: 0, quad: true, fly: true },
+    // sólo muere si le rompes el corazón del pecho; lo demás se le vuelve a unir
+    knight: { name: 'Caballero negro', hp: 70, speed: 1.45, dmg: 22, gold: [10, 15], reach: 1.5, lean: 0.03, knight: true, fireImmune: true },
+    // muere como cualquiera, pero deja sus restos: si no los destrozas, vuelve más fuerte
+    revenant: { name: 'Renacido', hp: 80, speed: 2.0, dmg: 13, gold: [0, 0], reach: 1.15, lean: 0.18, revenant: true },
+    revpile: { name: 'Restos del renacido', hp: 40, speed: 0, dmg: 0, gold: [0, 0], reach: 0, lean: 0, pile: true },
   };
 
   const FALL_TIME = 0.6;
@@ -58,7 +63,10 @@
     bloater: { ring: true, accel: 3, turn: 3, mass: 3.2, ringAdd: -0.4 },
     riot: { ring: true, accel: 4, turn: 6, mass: 2, ringAdd: -0.3, faceAlways: true },
     screamer: { ring: false, accel: 6, turn: 7, mass: 0.8, keep: [9, 15] },
-    crow: { ring: false, accel: 8, turn: 10, mass: 0.2 },
+    crow: { ring: false, accel: 5, turn: 7, mass: 0.25 },
+    knight: { ring: true, accel: 3.5, turn: 4, mass: 3, ringAdd: -0.4, faceAlways: true, eager: 1.5 },
+    revenant: { ring: true, accel: 8, turn: 7, mass: 1, ringAdd: 0.4, eager: 1.2 },
+    revpile: { ring: false, accel: 0, turn: 0, mass: 50 },
   };
 
   class Zombie {
@@ -70,7 +78,7 @@
       this.elite = !!opts.elite || !!opts.champion;
       this.champion = !!opts.champion;
       const cfg = VX.Models.zombieConfigs[kind];
-      let model = T.fly ? VX.Models.crow(cfg) : T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
+      let model = T.knight ? VX.Models.knight(cfg) : T.pile ? VX.Models.pile(cfg) : T.fly ? VX.Models.crow(cfg) : T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
       if (T.shield) model = VX.Models.addShield(model, cfg);
       if (cfg.tool) model = VX.Models.addTool(model, cfg);
       // el arquero lleva además una espada corta envainada para cuando lo acorralan
@@ -136,8 +144,26 @@
       this.sideDir = M.chance(0.5) ? 1 : -1;
       this.body.yaw = opts.yaw ?? Math.PI;
       // el cuervo llega volando desde arriba
-      if (T.fly) { this.spawnT = 0; this.y += M.rand(5, 8); this.flyH = M.rand(2.0, 3.0); this.state = 'circle'; this.attackCd = M.rand(1, 3); }
+      if (T.fly) {
+        this.spawnT = 0; this.flyH = M.rand(2.0, 3.0); this.state = 'circle'; this.attackCd = M.rand(1, 3);
+        this.body.hitPad = 0.05;   // un poco de margen al apuntar: es pequeño y no para quieto
+        // entra volando desde arriba, pero siempre por debajo del techo de la sala (nunca dentro de la roca)
+        const W = VX.game && VX.game.world;
+        this.y += M.rand(5, 8);
+        if (W) this.y = Math.min(this.y, Zombie.ceilAt(W, this.x, this.z, this.y0 = opts.y || 0) - 0.7);
+      }
       if (T.scream) { this.screamCd = M.rand(2, 4); this.screams = 0; this.screamT = 0; }
+      if (T.knight) { this.swordOut = true; this.regenQ = []; this.coreHp = this.hp; }
+      if (T.pile) { this.spawnT = 0; this.gen = opts.gen || 1; this.pileT = 7.5; this.pileMax = 7.5; this.maxHp = this.hp = this.hp * (1 + this.gen * 0.35); }
+      // un renacido que vuelve: más grande, más rápido, más duro y con los ojos en llamas
+      if (T.revenant && opts.gen) {
+        this.gen = opts.gen;
+        const k = this.gen;
+        this.maxHp = this.hp = this.hp * (1 + 0.5 * k); this.baseSpeed *= 1 + 0.12 * k; this.dmg = Math.round(this.dmg * (1 + 0.25 * k));
+        this.body.scale *= 1 + 0.08 * k; this.body.height *= 1 + 0.08 * k; this.body.v *= 1 + 0.08 * k;
+        for (const p of this.body.parts) for (const v of p.vox) if (v.e > 0) { v.r = 1; v.g = 0.35 - Math.min(0.3, k * 0.1); v.b = 0.1; v.e = 1; }
+        this.spawnT = 0.9;
+      }
     }
 
     get speed() {
@@ -149,6 +175,8 @@
       } else if (this.limp) s *= 0.5;
       else if (this.biter && !this.T.quad) s *= 1.12;
       if (this.fuse > 0) s *= 0.4;
+      if (this.chillT > 0) s *= 0.5;          // balas de hielo
+      if (this.stunT > 0) s *= 0.15;          // descarga eléctrica
       return s;
     }
 
@@ -203,6 +231,19 @@
         if (this.hp <= 0 && this.spawnT <= 0) { this.die([0, 1, 0], game); return; }
       }
 
+      if (this.T.knight) this.knightRegen(dt, game);
+      // hielo, veneno y descarga (munición especial)
+      if (this.chillT > 0) { this.chillT -= dt; b.flash = Math.max(b.flash, 0.12); if (Math.random() < 0.12) game.particles.spawn(this.x + M.rand(-0.3, 0.3), this.y + M.rand(0.3, 1.6), this.z + M.rand(-0.3, 0.3), 0, M.rand(-0.3, 0.2), 0, 0.75, 0.93, 1, 0.022, 0.6, 0.7, 1); }
+      if (this.stunT > 0) this.stunT -= dt;
+      if (this.poisonT > 0) {
+        this.poisonT -= dt;
+        if (!game.visualOnly && !(VX.Coop.isClient)) this.hp -= (this.poisonDps || 8) * dt;
+        if (Math.random() < 0.2) game.particles.spawn(this.x + M.rand(-0.3, 0.3), this.y + M.rand(0.4, 1.7), this.z + M.rand(-0.3, 0.3), 0, M.rand(0.3, 0.8), 0, 0.45, 1, 0.3, 0.025, 0.7, 0.8, 1);
+        // con «Plaga» se contagia a los de al lado
+        if (game.weapon.mods.plague && Math.random() < dt * 1.5) for (const o of game.enemies) if (o !== this && !o.dead && !(o.poisonT > 0) && Math.hypot(o.x - this.x, o.z - this.z) < 2) { o.poisonT = 3; o.poisonDps = this.poisonDps; break; }
+        if (this.hp <= 0 && this.spawnT <= 0) { this.die([0, 1, 0], game); return; }
+      }
+      if (this.T.pile) { this.updatePile(dt, game); return; }
       if (this.spawnT > 0) {
         this.spawnT -= dt;
         b.yOff = -b.height * Math.max(0, this.spawnT) / 1.1;
@@ -529,7 +570,11 @@
       this.groanT -= dt;
       if (this.groanT <= 0) { VX.Audio.groanAt(this.x, this.z, P, this.T.quad); this.groanT = M.rand(4, 10); }
 
-      this.animate(dt, Math.min(spd, this.aspd * 1.1));
+      // lejos y con poca calidad: se anima a saltos (acumula el tiempo de los fotogramas que se salta)
+      this.animAcc = (this.animAcc || 0) + dt;
+      if (this.lodSkip) return;
+      this.animate(this.animAcc, Math.min(spd, this.aspd * 1.1));
+      this.animAcc = 0;
       b.x = this.x; b.z = this.z;
       b.computeWorld();
     }
@@ -820,8 +865,17 @@
     }
 
     // ---- Cuervo: vuela en círculos sobre ti y se lanza en picado a picotearte ----
+    // altura del primer sólido por encima del suelo (el techo de la sala, una viga…)
+    static ceilAt(W, x, z, y0) {
+      const g = Math.max(y0 || 0, W.groundAt(x, z));
+      for (let y = g + 0.6; y < g + 14; y += 0.25) if (W.isSolidAt(x, y, z)) return y;
+      return g + 14;
+    }
+
     updateFly(dt, game) {
       const P = game.player, b = this.body, W = game.world;
+      this.ceilT = (this.ceilT || 0) - dt;
+      if (this.ceilT <= 0) { this.ceilT = 0.25; this.ceilY = Zombie.ceilAt(W, this.x, this.z, Math.min(this.y, W.groundAt(this.x, this.z) + 0.5)); }
       const dx = P.x - this.x, dz = P.z - this.z, dist = Math.hypot(dx, dz);
       this.attackCd -= dt; this.stateT -= dt;
       this.losT = (this.losT || 0) - dt;
@@ -829,7 +883,7 @@
       let tx, ty, tz, spd = this.baseSpeed;
       const floorY = Math.max(W.groundAt(this.x, this.z), P.y);
       if (this.state === 'dive') {
-        tx = P.x; tz = P.z; ty = P.y + 1.35; spd *= 1.45;
+        tx = P.x; tz = P.z; ty = P.y + 1.35; spd *= 1.3;
         if (Math.hypot(tx - this.x, ty - this.y, tz - this.z) < 0.75) {
           P.damage(this.dmg, this.x, this.z, game);
           VX.Audio.bite();
@@ -837,11 +891,12 @@
         }
         if (this.stateT <= 0) { this.state = 'climb'; this.stateT = 0.8; }
       } else {
-        const a = game.time * (1.1 + (this.uid % 5) * 0.08) + this.uid * 1.7, R = this.state === 'climb' ? 5 : 3.6;
+        const a = game.time * (0.7 + (this.uid % 5) * 0.06) + this.uid * 1.7, R = this.state === 'climb' ? 5 : 3.8;
         tx = P.x + Math.cos(a) * R; tz = P.z + Math.sin(a) * R; ty = floorY + this.flyH + (this.state === 'climb' ? 1.5 : 0) + Math.sin(game.time * 2 + this.uid) * 0.3;
         if (this.state === 'climb' && this.stateT <= 0) this.state = 'circle';
         if (this.state === 'circle' && this.attackCd <= 0 && dist < 9 && this.los) { this.state = 'dive'; this.stateT = 2; VX.Audio.crow && VX.Audio.crow(); }
       }
+      if (this.ceilY) ty = Math.min(ty, this.ceilY - 0.75);   // vuela por debajo del techo
       let gx = tx - this.x, gy = ty - this.y, gz = tz - this.z;
       const gl = Math.hypot(gx, gy, gz) || 1;
       const acc = Math.min(1, dt * this.B.accel);
@@ -849,10 +904,16 @@
       this.vy += (gy / gl * spd - this.vy) * acc;
       const nx = this.x + (this.vx + this.kx) * dt, ny = this.y + this.vy * dt, nz = this.z + (this.vz + this.kz) * dt;
       this.kx *= Math.pow(0.05, dt); this.kz *= Math.pow(0.05, dt);
-      if (W.isSolidAt(nx, ny, nz)) { this.vy = 3; this.y += 3 * dt; }   // algo delante: sube
+      if (W.isSolidAt(nx, ny, nz)) {
+        // algo delante: sube si hay sitio; si no, lo rodea por debajo
+        if (!this.ceilY || this.y + 0.9 < this.ceilY) { this.vy = 3; this.y += 3 * dt; }
+        else { this.vy = -2; this.y -= 2 * dt; this.vx *= -0.5; this.vz *= -0.5; }
+      }
       else { this.x = nx; this.y = ny; this.z = nz; }
       const g = W.groundAt(this.x, this.z);
       if (this.y < g + 0.35) { this.y = g + 0.35; this.vy = Math.max(0, this.vy); }
+      // si aun así acaba metido en el techo (techos bajos, derrumbes), baja al hueco libre
+      if (W.isSolidAt(this.x, this.y + 0.15, this.z)) { for (let k = 0; k < 40 && W.isSolidAt(this.x, this.y + 0.15, this.z) && this.y > g + 0.4; k++) this.y -= 0.25; this.vy = Math.min(0, this.vy); }
       if (Math.random() < dt * 0.15) VX.Audio.crow && VX.Audio.crow();
       b.yaw = Math.atan2(this.vx, this.vz);
       this.animateCrow(dt);
@@ -938,6 +999,7 @@
 
     // ---------------- Daño ----------------
     hit(hit, dmg, ray, game, opts) {
+      if (VX.Codex && VX.Codex.bonus && game.dmgSource) dmg *= VX.Codex.bonus(this.kind);   // conocer al enemigo (bestiario)
       if (this.dead) return false;
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
       // cooperativo: el invitado avisa al anfitrión de sus impactos; el anfitrión enseña los suyos a los demás
@@ -946,6 +1008,8 @@
         if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts); }
         else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0);
       }
+      if (this.T.knight) return this.knightHit(hit, dmg, ray, game, opts);
+      if (this.T.pile) return this.pileHit(hit, dmg, ray, game, opts);
       const b = this.body;
       const pn = hit.part.name;
       const dir = [ray.dx, ray.dy, ray.dz];
@@ -1010,6 +1074,22 @@
       const b = this.body;
       const v = b.nearestVoxel(x, y, z);
       if (!v) return false;
+      if (this.T.knight) {
+        // la explosión le arranca placas que vuelven a su sitio; sólo le hace daño si le pilla el corazón
+        // todo lo que arranca la explosión vuelve a su sitio; sólo muere si le destroza el corazón
+        this.knightCarve(() => b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, 0, 0.6, 0, 20), game, true);
+        const core = b.byName.core;
+        if (core && !game.visualOnly && core.alive / core.total < 0.3) { this.allowDie = true; this.hp = 0; this.die([0, 1, 0], game); return true; }
+        this.kx += (v.wx - x) * 3; this.kz += (v.wz - z) * 3;
+        return false;
+      }
+      if (this.T.pile) {
+        if (!game.visualOnly) this.hp -= dmg;
+        const removed = b.carveSphere(v.wx, v.wy, v.wz, 0.2 + dmg / 200, game.particles, 0, 0.8, 0, 20);
+        b.afterCarve(removed, game.gibs, 0, 1.5, 0);
+        if (this.hp <= 0 && !game.visualOnly) { this.die([0, 1, 0], game); return true; }
+        return false;
+      }
       if (VX.Coop.isClient && game.localAct && !game.visualOnly) VX.Coop.reportBlast(this, x, y, z, R, dmg);
       if (!game.visualOnly) this.hp -= dmg;
       b.flash = 1;
@@ -1056,9 +1136,37 @@
 
     die(dir, game) {
       if (this.dead) return;
+      // el caballero negro sólo cae si le rompes el corazón (ni el fuego, ni la lava, ni los derrumbes)
+      if (this.T.knight && !this.allowDie) { this.hp = Math.max(1, this.hp); return; }
       this.dead = true;
       // cooperativo: si lo he matado yo en mi equipo, el anfitrión lo da por muerto
       if (VX.Coop.isClient && game.localAct && !game.noReward) VX.Coop.reportKill(this);
+      if (this.T.pile) { this.pileDie(dir, game); return; }
+      if (this.T.knight) {
+        // el corazón estalla y la armadura vacía se desmorona
+        const core = this.body.byName.core, cx = core && core.wp ? core.wp[0] : this.x, cy = core && core.wp ? core.wp[1] : this.y + 1.2, cz = core && core.wp ? core.wp[2] : this.z;
+        for (let i = 0; i < 40; i++) game.particles.spawn(cx, cy, cz, M.rand(-5, 5), M.rand(0, 6), M.rand(-5, 5), 0.8, 0.3, 1, M.rand(0.03, 0.07), M.rand(0.6, 1.4), 1, 1);
+        for (const p of this.body.parts) for (const v of p.vox) if (v.e > 0) v.e = 0;
+        VX.Audio.at(cx, cy, cz, () => { VX.Audio.glass && VX.Audio.glass(30); VX.Audio.slam(); }, 5);
+        game.shake(0.35);
+        game.hud.toast('¡Corazón roto!');
+        this.regenQ = [];
+      }
+      if (this.T.revenant) {
+        // deja sus restos: si no los destrozas, vuelve a levantarse más fuerte
+        this.body.collapse(game.gibs, dir[0], dir[2], 1.6);
+        game.particles.blood(this.x, this.y + 0.9, this.z, dir[0], 0.5, dir[2], 14);
+        VX.Audio.at(this.x, this.y + 1.2, this.z, () => { VX.Audio.zombieDie(); }, 4);
+        // (en el cooperativo los restos los crea el anfitrión y llegan como réplica)
+        if (!VX.Coop.isClient) {
+          const pl = new Zombie('revpile', this.x, this.z, game.floor, { y: game.world.groundAt(this.x, this.z), gen: (this.gen || 0) + 1 });
+          pl.body.yaw = Math.random() * 6.28; pl.body.computeWorld();
+          game.enemies.push(pl);
+        }
+        if (!game.revHint) { game.revHint = true; game.hud.banner('SUS RESTOS SE MUEVEN', 'Destrózalos o volverá más fuerte', 3); }
+        else game.hud.toast('¡Destroza sus restos!');
+        return;
+      }
       const b = this.body;
       // el esqueleto se recompone una vez si no le rompes el cráneo
       if (this.T.reassemble && !this.champion && !this.risen && !(b.byName.head.detached || b.broken('head', 0.55))) {
@@ -1079,7 +1187,7 @@
       if (this.T.bloat) {   // gordo: revienta en una nube de ácido que quema y frena
         game.addFire(this.x, this.z, 2.6, 6, 'poison');
         const f = game.fires[game.fires.length - 1]; if (f && f.kind === 'poison') f.slow = true;
-        for (let i = 0; i < 40; i++) game.particles.spawn(this.x, this.y + 1, this.z, M.rand(-4, 4), M.rand(1, 5), M.rand(-4, 4), 0.55, 0.85, 0.15, M.rand(0.04, 0.09), M.rand(0.8, 1.8), 0.5);
+        for (let i = 0; i < 14; i++) game.particles.spawn(this.x, this.y + 1, this.z, M.rand(-4, 4), M.rand(1, 4), M.rand(-4, 4), 0.5, 0.8, 0.15, M.rand(0.03, 0.05), M.rand(0.5, 1), 0.4);   // salpicones (el gas lo pinta renderGas)
         VX.Audio.at(this.x, this.y + 1, this.z, () => { VX.Audio.splat(); VX.Audio.splat(); }, 5);
         game.shake(0.2);
       }
@@ -1101,6 +1209,110 @@
       this.reward(game, dir);
     }
 
+    // ---------------- Caballero negro ----------------
+    // Lo que se le arranca (placas, brazos, el yelmo…) se queda flotando un instante y vuelve a su sitio.
+    knightCarve(fn, game, coreHurts = false) {
+      const b = this.body;
+      b.ensureAll();
+      const before = [];
+      // coreHurts: lo que pierde el corazón no vuelve (explosiones que lo pillan de lleno)
+      for (const p of b.parts) if (!p.detached && !(coreHurts && p.weak)) for (const v of p.vox) if (v.alive) before.push(p, v);
+      const removed = fn();
+      const touched = new Set();
+      for (let i = 0; i < before.length; i += 2) {
+        const p = before[i], v = before[i + 1];
+        if (!v.alive) { this.regenQ.push({ p, v, t: M.rand(1.1, 2.2) }); touched.add(p); }
+      }
+      for (const p of touched) VX.updateExposure(p);
+      return removed;
+    }
+    knightRegen(dt, game) {
+      const Q = this.regenQ;
+      if (!Q || !Q.length) return;
+      const touched = new Set();
+      for (const r of Q) {
+        r.t -= dt;
+        if (r.t > 0) continue;
+        if (!r.v.alive) { r.v.alive = true; r.p.alive++; touched.add(r.p); if (Math.random() < 0.08 && r.v.wx) game.particles.spawn(r.v.wx, r.v.wy, r.v.wz, M.rand(-0.3, 0.3), M.rand(0.2, 0.8), M.rand(-0.3, 0.3), 0.7, 0.25, 1, 0.025, 0.5, 1, 1); }
+        r.done = true;
+      }
+      if (touched.size) { for (const p of touched) VX.updateExposure(p); this.regenQ = Q.filter((r) => !r.done); }
+    }
+    knightHit(hit, dmg, ray, game, opts) {
+      const b = this.body, dir = [ray.dx, ray.dy, ray.dz], pn = hit.part.name;
+      const ex = hit.vox.wx, ey = hit.vox.wy, ez = hit.vox.wz;
+      if (pn === 'core') {
+        // ¡en el corazón!
+        if (!game.visualOnly) this.hp -= dmg * (opts && opts.slash ? 1.5 : 1);
+        b.flash = 1;
+        const removed = b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles, 0.6);
+        void removed; VX.updateExposure(b.byName.core);
+        for (let i = 0; i < 10; i++) game.particles.spawn(ex, ey, ez, -dir[0] * 2 + M.rand(-1, 1), M.rand(0, 2), -dir[2] * 2 + M.rand(-1, 1), 0.85, 0.35, 1, 0.03, 0.6, 1, 1);
+        VX.Audio.glass && VX.Audio.glass(8);
+        this.kx += dir[0] * 1.2; this.kz += dir[2] * 1.2;
+        if (!game.visualOnly && (this.hp <= 0 || b.ratio('core') < 0.3)) { this.allowDie = true; this.hp = 0; this.die(dir, game); return true; }
+        return false;
+      }
+      // en la armadura: chispas, salta un trozo… y se le vuelve a unir
+      this.knightCarve(() => b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles, 0.8), game);
+      game.particles.sparks(ex, ey, ez, -dir[0], 0.3, -dir[2], 5);
+      for (let i = 0; i < 3; i++) game.particles.spawn(ex, ey, ez, -dir[0] + M.rand(-0.5, 0.5), M.rand(0, 1), -dir[2] + M.rand(-0.5, 0.5), 0.5, 0.15, 0.8, 0.025, 0.5, 1, 1);
+      VX.Audio.wall();
+      b.flash = 0.25;
+      this.kx += dir[0] * 0.3; this.kz += dir[2] * 0.3;
+      if (!this.knightHint && game.hud) { this.knightHint = true; game.hud.toast('La armadura se le vuelve a unir: ¡dale en el corazón que brilla en el pecho!'); }
+      return false;
+    }
+
+    // ---------------- Restos del renacido ----------------
+    updatePile(dt, game) {
+      const b = this.body;
+      this.pileT -= dt;
+      const k = 1 - Math.max(0, this.pileT) / this.pileMax;
+      // late cada vez más deprisa y suelta vapor
+      b.flash = Math.max(b.flash, Math.max(0, Math.sin(game.time * (3 + k * 12))) * (0.2 + k * 0.6));
+      if (Math.random() < 0.15 + k * 0.4) game.particles.spawn(this.x + M.rand(-0.35, 0.35), this.y + 0.2, this.z + M.rand(-0.35, 0.35), 0, M.rand(0.4, 1.2), 0, 0.5, 0.12, 0.1, 0.035, 0.7, 0.3);
+      this.heartT = (this.heartT || 0) - dt;
+      if (this.heartT <= 0) { this.heartT = Math.max(0.25, 1.1 - k * 0.85); VX.Audio.at(this.x, this.y + 0.3, this.z, () => VX.Audio.heartbeat(0.6 + k * 0.6), 3, 'enemy'); }
+      b.x = this.x; b.z = this.z; b.y = this.y;
+      b.computeWorld();
+      if (this.pileT <= 0 && !game.visualOnly) {
+        // ¡se levanta otra vez!
+        this.dead = true;
+        const z = new Zombie('revenant', this.x, this.z, game.floor, { y: this.y, gen: this.gen, elite: this.gen >= 3 });
+        game.enemies.push(z);
+        for (let i = 0; i < 24; i++) game.particles.spawn(this.x, this.y + 0.3, this.z, M.rand(-3, 3), M.rand(1, 5), M.rand(-3, 3), 0.55, 0.08, 0.08, M.rand(0.03, 0.06), M.rand(0.5, 1.2));
+        VX.Audio.at(this.x, this.y + 1, this.z, () => { VX.Audio.roar(); }, 6);
+        game.hud.banner('¡HA VUELTO A LEVANTARSE!', this.gen >= 2 ? 'Cada vez más fuerte: destroza sus restos' : 'Más fuerte que antes', 2.4);
+      }
+    }
+    pileHit(hit, dmg, ray, game, opts) {
+      const b = this.body, dir = [ray.dx, ray.dy, ray.dz];
+      if (!game.visualOnly) this.hp -= dmg;
+      b.flash = 0.8;
+      const removed = b.cutFor(hit, dmg * 1.5, ray, opts, game.weapon.destruction, game.particles);
+      b.afterCarve(removed, game.gibs, dir[0] * 2, 1.2, dir[2] * 2);
+      game.particles.blood(hit.vox.wx, hit.vox.wy, hit.vox.wz, -dir[0] * 0.5, 0.4, -dir[2] * 0.5, 6);
+      VX.Audio.flesh();
+      if (this.hp <= 0 && !game.visualOnly) { this.die(dir, game); return true; }
+      return false;
+    }
+    pileDie(dir, game) {
+      this.body.collapse(game.gibs, dir[0], dir[2], 2.5);
+      game.particles.blood(this.x, this.y + 0.3, this.z, dir[0], 1, dir[2], 20);
+      VX.Audio.at(this.x, this.y + 0.5, this.z, () => { VX.Audio.splat(); VX.Audio.crumble(); }, 4);
+      game.hud.toast('Restos destrozados: ya no volverá');
+      // la recompensa es por acabar con él de verdad
+      if (!(game.noReward || (VX.Coop.isClient && !game.localAct))) {
+        game.pickups.dropGold(this.x, this.y + 0.5, this.z, M.randInt(4, 7) + this.gen * 3);
+        game.stats.kills++;
+        VX.Profile.add('kills', 1, game);
+        VX.Profile.addW(this.lastW, 'kills', 1, game);
+        VX.Profile.codexKill('revenant');
+        game.onKill(this);
+      }
+    }
+
     reward(game) {
       // cooperativo: el oro y las estadísticas son de quien lo mata
       if (game.noReward || (VX.Coop.isClient && !game.localAct)) { if (VX.Coop.isHost && game.mode === 'horde') VX.HordeMode.killed++; return; }
@@ -1115,7 +1327,7 @@
       game.onKill(this);
     }
 
-    render(batch) { this.body.render(batch); }
+    render(batch) { if (this.lod) this.body.renderCoarse(batch); else this.body.render(batch); }
   }
 
   Zombie.TYPES = TYPES;

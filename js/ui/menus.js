@@ -61,6 +61,8 @@
       $('setHurtFx').addEventListener('change', (e) => S.set('hurtFx', e.target.checked));
       $('setTorchShadows').addEventListener('change', (e) => S.set('torchShadows', e.target.checked));
       $('setDust').addEventListener('change', (e) => S.set('dust', e.target.checked));
+      $('setGroundFog').addEventListener('change', (e) => S.set('groundFog', e.target.checked));
+      $('setSoundViz').addEventListener('change', (e) => S.set('soundViz', e.target.checked));
       $('setAutoQ').addEventListener('change', (e) => S.set('autoQuality', e.target.checked));
       $('setLocator').addEventListener('change', (e) => S.set('enemyLocator', e.target.checked));
       $('setBloom').addEventListener('change', (e) => S.set('bloom', e.target.checked));
@@ -142,7 +144,7 @@
       $('setAutoRun').checked = d.autoRun;
       $('setHurtFx').checked = d.hurtFx;
       $('setTorchShadows').checked = d.torchShadows;
-      $('setDust').checked = d.dust;
+      $('setDust').checked = d.dust; $('setGroundFog').checked = d.groundFog !== false; $('setSoundViz').checked = !!d.soundViz;
       $('setAutoQ').checked = d.autoQuality;
       $('setLocator').checked = d.enemyLocator;
       $('setBloom').checked = d.bloom;

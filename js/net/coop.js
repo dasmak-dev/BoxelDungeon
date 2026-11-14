@@ -309,6 +309,7 @@
     killReplica(game, e) {
       const dx = e.x - game.player.x, dz = e.z - game.player.z, l = Math.hypot(dx, dz) || 1;
       game.noReward = true;
+      e.allowDie = true;
       try { e.die([dx / l, 0.3, dz / l], game); } finally { game.noReward = false; }
       if (e === game.boss) { game.hud.hideBoss(); }
       if (e === game.champion) { game.champion = null; game.hud.hideBoss(); }
@@ -320,6 +321,7 @@
         if (e.dead || !e.net) continue;
         const s = e.net, b = e.body;
         e.game = game;
+        if (e.T && e.T.knight && e.knightRegen) e.knightRegen(dt, game);   // la armadura del caballero se recompone también en las réplicas
         const ox = e.x, oz = e.z;
         const k = Math.min(1, dt * 10);
         if (Math.hypot(s[2] - e.x, s[4] - e.z) > 5) { e.x = s[2]; e.z = s[4]; e.y = s[3]; }
@@ -421,7 +423,7 @@
       const r = this.remotes.get(from);
       const dx = e.x - (r ? r.x : 0), dz = e.z - (r ? r.z : 0), l = Math.hypot(dx, dz) || 1;
       game.noReward = true;
-      try { e.hp = 0; e.die([dx / l, 0.3, dz / l], game); } finally { game.noReward = false; }
+      try { e.hp = 0; e.allowDie = true; e.die([dx / l, 0.3, dz / l], game); } finally { game.noReward = false; }
       // la oleada lo cuenta igual que una muerte del anfitrión
       if (!e.counted) { e.counted = true; VX.HordeMode.onKillCount && VX.HordeMode.onKillCount(game, e); }
     },

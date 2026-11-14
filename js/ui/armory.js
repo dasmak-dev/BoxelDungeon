@@ -73,7 +73,7 @@
       const locked = !VX.Profile.isUnlocked(this.weapon, skin);
       const fname = form ? (this.weapon === 'pistol' ? VX.Weapons.PISTOLS : VX.Weapons.KNIVES).find((x) => x.id === form).name : VX.Weapons.DEFS[this.weapon].name;
       const desc = form && this.weapon === 'pistol' ? (VX.Weapons.PISTOLS.find((x) => x.id === form).desc || '') : (VX.Weapons.DEFS[this.weapon].desc || '');
-      $('armoryCaption').innerHTML = `<b>${fname.toUpperCase()}</b> · ${s.name}` + (desc ? `<br><small>${desc}</small>` : '') +
+      $('armoryCaption').innerHTML = `<b>${fname.toUpperCase()}</b> · ${VX.Weapons.skinLabel(s, this.weapon)}` + (desc ? `<br><small>${desc}</small>` : '') +
         (locked ? `<br><span class="bad">Bloqueada: ${VX.Profile.condText(s, this.weapon)}</span>` : (skin === VX.Profile.skinFor(this.weapon) ? '<br><span class="ok">Equipado</span>' : ''));
     },
 
@@ -105,14 +105,14 @@
       }
       $('armorySkins').innerHTML = forms + VX.Weapons.SKINS.map((s) => {
         const un = VX.Profile.isUnlocked(this.weapon, s.id);
-        const pal = s.pal || {};
+        const pal = VX.Weapons.skinPal(s, this.weapon);
         const main = pal.main || pal.blade || [0.4, 0.4, 0.44];
         const acc = pal.accent || pal.steel || [0.9, 0.4, 0.1];
         const prog = VX.Profile.progress(s, this.weapon);
         const p = s.cond ? `${Math.min(VX.Profile.statValue(s, this.weapon), s.cond.n)}/${s.cond.n}` : '';
-        return `<button class="skin ${un ? '' : 'locked'} ${s.id === cur ? 'on' : ''}" data-id="${s.id}">
+        return `<button class="skin ${un ? '' : 'locked'} ${s.id === cur ? 'on' : ''} ${s.ultimate ? 'ult' : ''}" data-id="${s.id}">
           <span class="sw" style="background:linear-gradient(135deg, ${rgb(main)} 0 55%, ${rgb(acc)} 55% 100%)"></span>
-          <span class="nm">${s.name}${un ? '' : ' 🔒'}</span>
+          <span class="nm">${s.ultimate ? '★ ' : ''}${VX.Weapons.skinLabel(s, this.weapon)}${un ? '' : ' 🔒'}</span>
           <span class="ds">${un ? (s.id === cur ? 'Equipada' : 'Clic para equipar') : VX.Profile.condText(s, this.weapon)}</span>
           ${s.cond && !un ? `<span class="pb"><i style="width:${Math.round(prog * 100)}%"></i></span><span class="pt">${p}</span>` : ''}
         </button>`;

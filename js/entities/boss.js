@@ -190,7 +190,7 @@
             const a = Math.random() * 6.28, d = p.n < 3 ? 0 : M.rand(0.5, 6);
             const x = P.x + Math.sin(a) * d + P.vx * 0.4, z = P.z + Math.cos(a) * d + P.vz * 0.4;
             const room = game.currentRoom;
-            const top = room ? room.H * VX.S - 0.6 : 4;
+            const top = room ? (room.ceilBase + 4) * VX.S - 0.6 : 4;
             const gy = game.world.groundAt(x, z);
             B.add({ x, y: top, z, vx: 0, vy: -4, vz: 0, dmg: dmg * 1.6, col: ORANGE, r: 0.25, fall: true, delay: 0.9, delay0: 0.9, gy, life: 4 });
             p.n++;
@@ -216,7 +216,7 @@
           if (every(0.1) && p.n < 18 + ph * 6) {
             const a = Math.random() * 6.28, d = p.n < 2 ? 0 : M.rand(0.5, 7);
             const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
-            const room = game.currentRoom, top = room ? (room.H - 4) * VX.S - 0.4 : 4;
+            const room = game.currentRoom, top = room ? room.ceilBase * VX.S - 0.4 : 4;
             B.add({ x, y: top, z, vx: 0, vy: -4, vz: 0, dmg: dmg * 1.7, col: [0.4, 0.36, 0.32], r: 0.32, fall: true, delay: 0.8, delay0: 0.8, gy: game.world.groundAt(x, z), life: 4 });
             p.n++;
             if (p.n % 4 === 0) game.shake(0.12);
@@ -643,6 +643,7 @@
     }
 
     hit(hit, dmg, ray, game, opts) {
+      if (VX.Codex && VX.Codex.bonus && game.dmgSource) dmg *= VX.Codex.bonus('boss:' + this.T.id);   // conocer al enemigo (bestiario)
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
       if (this.dead) return false;
       const C = VX.Coop;
@@ -690,7 +691,10 @@
           }
         }
       }
-      // la cabeza y el torso se regeneran: solo muere al quedarse sin vida
+      // la cabeza y el torso se regeneran, pero si le destrozas el 90 % del cuerpo de golpe, se acabó
+      let al = 0, tot = 0;
+      for (const p of b.parts) { if (p.armor || p.name === 'tool') continue; tot += p.total; if (!p.detached) al += p.alive; }
+      if (tot && al / tot < 0.1 && this.hp > 0) { this.hp = 0; game.hud.banner('¡DESTROZADO!', 'No ha podido regenerarse', 2.2); }
       if (this.hp <= 0) { this.die(dir, game); return true; }
       return false;
     }

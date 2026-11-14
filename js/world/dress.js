@@ -151,11 +151,16 @@
     const Z = VX.ZONES[r.zone || 0];
     const T = { ...BASE, ...(r.type === 'normal' ? (THEMES[r.name] || {}) : (TYPE_THEMES[r.type] || {})) };
     const pl = P().place;
-    const ceil = (r.H - 4) * S;
+    const ceil = r.ceilBase * S;
     const area = (r.W * S) * (r.D * S);
 
     // 1) lo que han pedido las plantillas
     const lastAt = {};
+    // objetos de la plantilla que no pegan con el bioma se cambian por otros que sí
+    const SWAP = { cripta: { crate: 'urn', bigcrate: 'sarcophagus', sack: 'bones', barrel: 'urn', straw: 'bones' },
+      jardin: { crate: 'shrooms', bigcrate: 'mushroom', sack: 'shrooms', barrel: 'shrooms' },
+      vacio: { crate: 'crystal', bigcrate: 'statue', sack: 'rubble', barrel: 'urn', straw: 'rubble' } }[Z.id];
+    if (SWAP && r.type === 'normal') for (const q of r.pending) if (SWAP[q.type] && P().DEFS[SWAP[q.type]]) { q.type = SWAP[q.type]; q.stack = 1; if (q.opts) { delete q.opts.onTop; } }
     for (const q of r.pending) {
       if (q.at) { P().placeAt(r, q.type, q.x, q.at.y, q.z, q.at.rot || 0, q.at.v || 0); continue; }
       const key = q.x.toFixed(2) + ',' + q.z.toFixed(2);
@@ -174,14 +179,22 @@
     // grietas: cámara con cofre, o (más raro) la escalera que baja al bioma secreto
     if (r.type === 'normal' && (r.zone || 0) !== 5 && r.index >= 3 && Math.random() < 0.08) addSecret(r, true);
     else if (r.type === 'normal' && Math.random() < 0.28) addSecret(r);
+    // cámara cerrada con reja de color: la llave está escondida en algún objeto de la sala
+    if (r.type === 'normal' && r.index >= 2 && Math.random() < 0.2) addSecret(r, false, M.choice(['red', 'blue', 'gold']));
 
     // 2) junto a las paredes (con extras del bioma)
+    // cada bioma sólo admite lo que le pega (nada de cajas y sacos en una cripta) y añade lo suyo
+    const BIO = {
+      cripta: { ok: ['urns', 'bones', 'candlesWall', 'statueWall', 'shelf', 'table', 'rack', 'straw'], add: ['bones', 'urns', 'candlesWall'] },
+      cloacas: { ok: ['barrels', 'crates', 'bones', 'sacks', 'rack', 'straw', 'table', 'shelf'], add: ['barrels', 'bones'] },
+      minas: { ok: ['crates', 'barrels', 'sacks', 'cart', 'rack', 'bones', 'xbarrels', 'table', 'shelf', 'straw'], add: ['crates', 'cart', 'sacks'] },
+      forja: { ok: ['anvil', 'rack', 'barrels', 'crates', 'xbarrels', 'table', 'bones', 'shelf'], add: ['anvil', 'rack', 'anvil'] },
+      jardin: { ok: ['shroomsW', 'bones', 'urns', 'straw', 'shelf', 'table'], add: ['shroomsW', 'shroomsW', 'bones'] },
+      vacio: { ok: ['crystalW', 'urns', 'bones', 'statueWall', 'candlesWall', 'shelf', 'table'], add: ['crystalW', 'crystalW', 'urns'] },
+    }[Z.id];
     let set = T.wall.slice();
-    if (Z.id === 'forja') set = set.concat(['anvil', 'rack']);
-    if (Z.id === 'cloacas') set = set.concat(['barrels']);
-    if (Z.id === 'minas') set = set.concat(['crates', 'cart']);
-    if (Z.id === 'jardin') set = set.concat(['shroomsW', 'shroomsW']);
-    if (Z.id === 'vacio') set = set.concat(['crystalW']);
+    if (BIO && r.type === 'normal') set = set.filter((k) => BIO.ok.includes(k)).concat(BIO.add);
+    else if (BIO) set = set.concat(BIO.add.slice(0, 1));
     for (const w of walls(r)) {
       if (T.onlyEntranceWall && w.side !== r.entrance) continue;
       for (let a = w.a0 + 1.2; a < w.a1 - 1.2; a += M.rand(1.3, 2.4))
@@ -216,35 +229,7 @@
       }
     }
 
-    // 2c) marcos de entibado de mina: dos postes y un travesaño cada pocos metros
-    if (r.wantMineFrames || (Z.id === 'minas' && T.beams)) {
-      const zAxis = r.D >= r.W;
-      const len = zAxis ? r.D : r.W;
-      for (let a = 10; a < len - 10; a += 14) {
-        const s0 = 4, s1 = (zAxis ? r.W : r.D) - 5;
-        const H = Math.min(ceil - 0.3, 3);
-        for (const sd of [s0, s1]) {
-          const lx = zAxis ? sd : a, lz = zAxis ? a : sd;
-          if (r.isReservedU(lx >> 1, lz >> 1) || r.grid[(0 * r.D + lz) * r.W + lx]) continue;
-          P().placeBeam(r, (r.ox + lx) * S, 0, (r.oz + lz) * S, 0.25, H, 0.25, 'bottom');
-        }
-        const bx0 = zAxis ? (r.ox + s0) * S : (r.ox + a) * S, bz0 = zAxis ? (r.oz + a) * S : (r.oz + s0) * S;
-        P().placeBeam(r, bx0, H, bz0, zAxis ? (s1 - s0 + 1) * S : 0.25, 0.3, zAxis ? 0.25 : (s1 - s0 + 1) * S, 'none');
-        if (Math.random() < 0.5) r.features.push({ kind: 'light', x: zAxis ? r.centerX() : (r.ox + a) * S, y: H - 0.3, z: zAxis ? (r.oz + a) * S : r.centerZ(), r: 6, c: [1.1, 0.7, 0.3] });
-      }
-    }
-
-    // 3) entibado de madera: postes contra las paredes y vigas en el techo
-    if (T.beams) for (const w of walls(r)) {
-      if (w.along !== 'x') continue;
-      for (let a = w.a0 + 3; a < w.a1 - 2; a += 6) {
-        if (!solidWall(r, w, a, 0.6) || !solidWall(r, w, a, 2.6) || nearTorch(r, ...wallPt(w, a, 0.3), 1.2)) continue;
-        const [px, pz] = wallPt(w, a, 0);
-        const oz = w.inward > 0 ? pz : pz - 0.19;
-        P().placeBeam(r, px - 0.125, 0, oz, 0.25, ceil, 0.19, 'bottom');
-        if (w.side === 'zn') P().placeBeam(r, px - 0.125, ceil - 0.31, (r.oz + 4) * S + 0.19, 0.25, 0.31, (r.D - 8) * S - 0.38, 'none');
-      }
-    }
+    // (los entibados de mina y los postes de madera ahora son de bloques: ver biomeDecor.js)
 
     // 4) telarañas en las esquinas altas
     for (const w of walls(r)) {
@@ -272,12 +257,20 @@
       if (Z.id === 'cloacas' && Math.random() < 0.35) kind = 'acidpuddle';
       pl(r, kind, x, z, { margin: 5 });
     }
+
+    // 7) la llave de la cámara cerrada, escondida dentro de un objeto que se puede romper
+    if (r.vault) {
+      const KEEP = new Set(['urn', 'crate', 'bigcrate', 'barrel', 'sack', 'sarcophagus', 'shelf', 'tomb', 'cart', 'statue', 'shrooms', 'mushroom']);
+      const cand = r.props.filter((p) => !p.dead && KEEP.has(p.type) && Math.hypot(p.cx - r.vault.x, p.cz - r.vault.z) > 4);
+      if (cand.length) { const p = M.choice(cand); p.key = r.vault.color; p.def = { ...p.def, loot: 1 }; r.vault.keyIn = p.type; }
+      else r.vault.keyLoose = true;
+    }
   }
 
   // Hueco tapiado contra una pared: muro de ladrillo con una parte agrietada; dentro, un cofre
   // Cámara secreta excavada DENTRO de la pared: desde la sala sólo se ve un trozo
   // de la pared lisa con ladrillos agrietados, a ras del resto.
-  function addSecret(r, stairs) {
+  function addSecret(r, stairs, lock) {
     const BL = VX.Blocks;
     const ws = walls(r).filter((w) => w.side !== r.entrance);
     for (let tries = 0; tries < 24; tries++) {
@@ -314,10 +307,30 @@
         const ox = w.along === 'x' ? a - md.w * PVv / 2 : back, oz = w.along === 'x' ? back : a - md.d * PVv / 2;
         P().placeAt(r, 'chest', ox, g * S, oz, w.rot, 0);
       }
+      const [cx, cz] = wallPt(w, a, -0.45);
+      if (lock) {
+        // puertecita de madera vieja con herrajes, metida en el muro (no destaca), y en el centro
+        // una placa con el color de la llave que la abre
+        const LB = { red: BL.LOCKR, blue: BL.LOCKB, gold: BL.LOCKY }[lock];
+        const cells = [];
+        const d0 = A0 + 1, d1 = A1 - 1, top = g + 6, mid = Math.floor((d0 + d1) / 2);
+        for (let al = d0; al <= d1; al++) for (let y = g; y <= top; y++) {
+          if (y === top && (al === d0 || al === d1)) continue;                       // arco: las esquinas de arriba son muro
+          const c = cell(al, lay(3), y);
+          const frame = al === d0 || al === d1 || y === top || (y === top - 1 && (al === d0 + 1 || al === d1 - 1));
+          const band = y === g + 1 || y === top - 2;
+          const emblem = (al === mid || al === mid + 1) && (y === g + 3 || y === g + 4);
+          r.set(c[0], c[1], c[2], emblem ? LB : frame || band ? BL.IRON : BL.DOORWOOD);
+          cells.push(c);
+        }
+        const [dx, dz] = wallPt(w, a, 0.55);
+        r.vault = { color: lock, cells, x: dx, z: dz, y: g * S, cx, cz, open: false };
+        r.walk = null;
+        return;
+      }
       // la cara: ladrillos agrietados, a ras de la pared
       const cells = [];
       for (let al = A0; al <= A1; al++) for (let y = g; y <= Y1; y++) { const c = cell(al, lay(3), y); r.set(c[0], c[1], c[2], BL.CRACK); cells.push(c); }
-      const [cx, cz] = wallPt(w, a, -0.45);
       r.secret = { x: cx, z: cz, hw: 1, hd: 1, found: false, y: g * S, stairs: !!stairs, rot: w.rot, inward: w.inward, along: w.along, cells };
       r.walk = null;
       return;
@@ -326,7 +339,7 @@
 
   // Lámpara de araña colgada del techo (con su luz)
   function hangChandelier(r, x, z) {
-    const ceil = r.ceilY ? r.ceilY(x, z) : (r.H - 4) * S;
+    const ceil = r.ceilY ? r.ceilY(x, z) : r.ceilBase * S;
     const m = P().getModel('chandelier', 0, 0);
     const y = Math.max(2.6, ceil - 1.2 - m.h * PV());
     const pv = PV();

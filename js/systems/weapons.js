@@ -21,54 +21,54 @@
     smg: {
       shake: 0.07, art: 'el subfusil', name: 'Subfusil', damage: 14, fireRate: 12, range: 24, mag: 30, reload: 1.6, spread: 0.0364,
       pellets: 1, pierce: 0, destruction: 0.8, auto: true, recoil: 0.012, recoilPat: { up: 0.0128, side: 0.0075 }, kick: 0.02, sound: 0.7,
-      price: 70, vm: { x: 0.15, y: -0.14, z: -0.28, g: 0.0085 }, muzzle: [-0.5, 4, -36],
+      price: 70, vm: { x: 0.15, y: -0.14, z: -0.29, g: 0.0083 }, muzzle: [-0.5, 3.5, -42],
     },
     shotgun: {
       shake: 0.38, art: 'la escopeta', name: 'Escopeta', damage: 12, fireRate: 1.5, range: 16, mag: 6, reload: 2.1, spread: 0.1105,
       pellets: 8, pierce: 0, destruction: 1.25, auto: false, recoil: 0.07, recoilPat: { up: 0.096, side: 0.0225 }, kick: 0.09, sound: 2.2,
-      price: 80, vm: { x: 0.15, y: -0.15, z: -0.3, g: 0.0085 }, muzzle: [-0.5, 5.5, -46],
+      price: 80, vm: { x: 0.15, y: -0.15, z: -0.3, g: 0.0082 }, muzzle: [-0.5, 5.5, -48],
     },
     rifle: {
       shake: 0.32, art: 'el rifle', name: 'Rifle de cerrojo', damage: 90, fireRate: 1.1, range: 70, mag: 5, reload: 2.3, spread: 0.002,
       pellets: 1, pierce: 2, destruction: 1.6, auto: false, recoil: 0.08, recoilPat: { up: 0.088, side: 0.018 }, kick: 0.08, sound: 2.6,
-      price: 90, vm: { x: 0.15, y: -0.15, z: -0.32, g: 0.008 }, muzzle: [-0.5, 5.5, -58],
+      price: 90, vm: { x: 0.15, y: -0.15, z: -0.32, g: 0.008 }, muzzle: [-0.5, 4.5, -63],
     },
     launcher: {
       shake: 0.28, art: 'el lanzagranadas', name: 'Lanzagranadas', damage: 110, fireRate: 1.0, range: 40, mag: 4, reload: 2.5, spread: 0.013,
       pellets: 1, pierce: 0, destruction: 1, auto: false, recoil: 0.06, recoilPat: { up: 0.064, side: 0.015 }, kick: 0.07, sound: 2,
       grenade: true, blast: 2.3,
-      price: 110, vm: { x: 0.16, y: -0.16, z: -0.32, g: 0.0085 }, muzzle: [-0.5, 4.5, -34],
+      price: 110, vm: { x: 0.16, y: -0.16, z: -0.34, g: 0.0082 }, muzzle: [-0.5, 4.5, -37],
     },
     // ---- armas desbloqueables nuevas (se compran en el Santuario con esencia) ----
     crossbow: {
       shake: 0.08, art: 'la ballesta', name: 'Ballesta', damage: 140, fireRate: 1.2, range: 60, mag: 1, reload: 1.05, spread: 0.0015,
       pellets: 1, pierce: 4, destruction: 0.4, auto: false, recoil: 0.03, recoilPat: { up: 0.03, side: 0.006 }, kick: 0.05, sound: 0.4,
       bolt: true, desc: 'Silenciosa; el virote atraviesa a 5 zombis',
-      price: 95, vm: { x: 0.15, y: -0.15, z: -0.3, g: 0.0085 }, muzzle: [-0.5, 7, -34],
+      price: 95, vm: { x: 0.15, y: -0.15, z: -0.33, g: 0.0082 }, muzzle: [-0.5, 7, -42],
     },
     dbarrel: {
       shake: 0.5, art: 'la recortada', name: 'Recortada', damage: 13, fireRate: 5, range: 13, mag: 2, reload: 1.8, spread: 0.16,
       pellets: 12, pierce: 0, destruction: 1.7, auto: false, recoil: 0.11, recoilPat: { up: 0.14, side: 0.03 }, kick: 0.12, sound: 2.6,
       desc: 'Dos disparos brutales seguidos y a recargar',
-      price: 90, vm: { x: 0.15, y: -0.15, z: -0.29, g: 0.0085 }, muzzle: [-0.5, 5, -30],
+      price: 90, vm: { x: 0.15, y: -0.14, z: -0.27, g: 0.0078 }, muzzle: [-0.5, 5, -23],
     },
     lmg: {
       shake: 0.09, art: 'la ametralladora', name: 'Ametralladora', damage: 19, fireRate: 13, range: 36, mag: 80, reload: 3.6, spread: 0.042,
       pellets: 1, pierce: 1, destruction: 1.05, auto: true, recoil: 0.014, recoilPat: { up: 0.017, side: 0.011 }, kick: 0.025, sound: 1.1,
       desc: 'Cinta de 80 balas; tarda en recargar',
-      price: 150, vm: { x: 0.16, y: -0.16, z: -0.3, g: 0.0082 }, muzzle: [-0.5, 4, -50],
+      price: 150, vm: { x: 0.16, y: -0.16, z: -0.31, g: 0.0079 }, muzzle: [-0.5, 3.5, -60],
     },
     flamer: {
       shake: 0.03, art: 'el lanzallamas', name: 'Lanzallamas', damage: 7, fireRate: 16, range: 9, mag: 90, reload: 2.8, spread: 0.07,
       pellets: 1, pierce: 3, destruction: 0.15, auto: true, recoil: 0.002, recoilPat: { up: 0.002, side: 0.002 }, kick: 0.01, sound: 0.5,
       flame: true, desc: 'Corto alcance; prende fuego a todo lo que toca',
-      price: 140, vm: { x: 0.16, y: -0.16, z: -0.3, g: 0.0085 }, muzzle: [-0.5, 4, -38],
+      price: 140, vm: { x: 0.16, y: -0.16, z: -0.31, g: 0.0081 }, muzzle: [-0.5, 4, -47],
     },
     raygun: {
       shake: 0.15, art: 'el desintegrador', name: 'Desintegrador', damage: 75, fireRate: 3.2, range: 50, mag: 14, reload: 1.9, spread: 0.003,
       pellets: 1, pierce: 8, destruction: 2.4, auto: false, recoil: 0.03, recoilPat: { up: 0.035, side: 0.006 }, kick: 0.05, sound: 1.4,
       ray: true, desc: 'Rayo que atraviesa filas enteras y abre boquetes',
-      price: 200, vm: { x: 0.14, y: -0.13, z: -0.28, g: 0.0092 }, muzzle: [-0.5, 5, -27],
+      price: 200, vm: { x: 0.14, y: -0.13, z: -0.29, g: 0.0086 }, muzzle: [-0.5, 5.5, -34],
     },
   };
   const GUNS = ['pistol', 'smg', 'shotgun', 'rifle', 'launcher', 'hammer', 'crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun'];
@@ -93,21 +93,36 @@
       pal: { main: [0.1, 0.1, 0.11], dark: [0.05, 0.05, 0.06], grip: [0.15, 0.15, 0.17], steel: [0.4, 0.42, 0.46], accent: [0.2, 0.6, 1, 0.9], blade: [0.25, 0.25, 0.28], checker: true } },
     { id: 'cristal', name: 'Cristal', cond: { stat: 'floor', n: 20 },
       pal: { main: [0.45, 0.82, 1, 0.35], dark: [0.2, 0.45, 0.75, 0.2], grip: [0.15, 0.25, 0.4], steel: [0.8, 0.95, 1, 0.5], accent: [1, 1, 1, 1], blade: [0.6, 0.9, 1, 0.5] } },
+    { id: 'leyenda', name: 'Leyenda', ultimate: true, cond: { stat: 'allSkins', n: 8 } },
   ];
 
   const HAND = { hand: [0.78, 0.6, 0.47], wrist: [0.7, 0.53, 0.42], sleeve: [0.18, 0.2, 0.17] };
 
   // ---------------- Modelos ----------------
+  // part(): las piezas que se mueven por separado al disparar o recargar (cargador, tambor, cerrojo…).
+  // Las piezas «rl_…» sólo se ven durante la recarga (cartuchos, balas, granadas que se meten).
   function builder() {
     const vox = [];
+    let cur = null;
     const add = (x0, x1, y0, y1, z0, z1, tag, cond) => {
       for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
         if (cond && !cond(x, y, z)) continue;
-        vox.push({ x, y, z, tag, h: (M.hash3(x + 10, y + 20, z + 30) - 0.5) * 0.035 });
+        vox.push({ x, y, z, tag, part: cur, h: (M.hash3(x + 10, y + 20, z + 30) - 0.5) * 0.035 });
       }
     };
-    return { vox, add };
+    return { vox, add, part: (n) => { cur = n || null; } };
   }
+  // quita vóxeles repetidos en la misma celda (se queda el último: los refuerzos van encima del cuerpo);
+  // las piezas de recarga «rl_» no cuentan, porque sólo se ven cuando el resto se aparta
+  function dedupe(vox) {
+    const m = new Map();
+    for (const v of vox) m.set(v.x + ',' + v.y + ',' + v.z + (v.part && v.part.startsWith('rl_') ? 'r' : ''), v);
+    return [...m.values()];
+  }
+  // cartucho de escopeta (rojo con culote de latón), de pie a lo largo de z, con el culote atrás
+  function shell(add, x, y, z) { add(x, x + 1, y, y + 1, z - 5, z - 1, 'shell'); add(x, x + 1, y, y + 1, z, z, 'brass'); }
+  // bala de latón con punta de plomo
+  function round(add, x, y, z, len = 4) { add(x, x, y, y, z - len, z - 1, 'brass'); add(x, x, y, y, z - len - 1, z - len - 1, 'lead'); }
   // mano que agarra una empuñadura en (z de la empuñadura)
   function addHand(add, zc = 2, yTop = -2) {
     add(-3, 2, yTop - 8, yTop, zc - 5, zc + 4, 'hand', (x, y, z) => x === -3 || x === 2 || z === zc + 4 || y === yTop - 8);
@@ -117,191 +132,371 @@
     add(-4, 3, yTop - 15, yTop - 9, zc + 6, zc + 22, 'sleeve', (x, y) => x === -4 || x === 3 || y === yTop - 15 || y === yTop - 9);
   }
 
+  // Cargador dentro de la empuñadura (pistolas): la chapa de abajo y el cuerpo, que sale al recargar
+  function magIn(vox, add, part, n, slope, z0, z1, x0, x1) {
+    for (const v of vox) if (v.tag !== 'accent' && v.y <= -n + 0.5 && v.y >= -n - 0.5 && v.z > -6) v.part = 'mag';
+    part('mag');
+    for (let k = 1; k < n; k++) { const zo = Math.round(k * slope); add(x0, x1, -k, -k, z0 + zo, z1 + zo, 'dark'); }
+    add(x0, x1, 0, 0, z0, z1, 'brass');
+    part(null);
+  }
+
   const MODELS = {
     pistol(form) {
       if (form && form !== 'pistola' && PISTOL_MODELS[form]) return PISTOL_MODELS[form]();
-      const { vox, add } = builder();
-      add(-2, 1, 4, 7, -23, 0, 'main', (x, y, z) => !(z > -4 && (z & 1) && (x === -2 || x === 1)));
-      add(1, 1, 6, 7, -13, -9, 'dark');
-      add(-1, 0, 5, 6, -24, -24, 'dark');
-      add(-1, 0, 8, 8, -21, -21, 'steel');
-      add(-2, 1, 8, 8, -2, -1, 'main', (x) => x === -2 || x === 1);
-      add(-2, 1, 1, 3, -21, -2, 'dark');
-      add(-2, 1, 0, 0, -21, -15, 'dark');
-      add(-1, 0, -3, -3, -11, -4, 'dark');
-      add(-1, 0, -2, 0, -11, -11, 'dark');
-      add(-1, 0, -2, -1, -7, -7, 'steel');
+      // pistola de servicio: corredera con estrías delante y detrás, ventana de expulsión, mira con
+      // punto de fibra, cañón que asoma, raíl bajo el armazón, cola de castor y cachas con relieve
+      const { vox, add, part } = builder();
+      add(-2, 1, 4, 8, -24, 0, 'main', (x, y, z) => !((x === -2 || x === 1) && y === 8) && !(((z > -5) || (z < -20 && z > -24)) && (z & 1) && (x === -2 || x === 1) && y > 4 && y < 8));
+      add(-2, -2, 6, 6, -19, -6, 'dark'); add(1, 1, 6, 6, -19, -6, 'dark');                   // ranura lateral
+      add(1, 1, 6, 7, -13, -9, 'dark');                                                        // ventana de expulsión
+      add(-1, 0, 6, 6, -25, -25, 'steel'); add(-1, 0, 5, 5, -25, -25, 'dark');                 // cañón que asoma
+      add(-1, 0, 9, 9, -22, -22, 'steel'); add(-1, -1, 9, 9, -21, -21, 'accent');              // mira delantera con punto
+      add(-2, 1, 9, 9, -2, -1, 'dark', (x) => x === -2 || x === 1);                            // alza
+      for (const v of vox) if (v.y >= 4) v.slide = true;
+      add(-3, -3, 3, 3, -3, -1, 'accent');                                                     // seguro
+      // armazón
+      add(-2, 1, 1, 3, -22, 1, 'dark');
+      add(-2, 1, 0, 0, -22, -14, 'dark'); add(-1, 0, -1, -1, -21, -15, 'dark', (x, y, z) => (z & 1) === 0);   // raíl
+      add(-3, -3, 2, 2, -12, -9, 'steel');                                                     // retén de la corredera
+      add(-1, 0, -3, -3, -12, -4, 'dark'); add(-1, 0, -2, 0, -12, -12, 'dark'); add(-1, 0, -2, -1, -7, -7, 'steel');   // guardamonte y gatillo
+      add(-1, 0, 2, 3, 2, 3, 'dark');                                                          // cola de castor
+      add(-1, 0, 8, 9, 1, 2, 'steel');                                                         // martillo
       for (let k = 0; k <= 12; k++) {
         const zo = Math.round(k * 0.35);
-        add(-2, 1, -k, -k, -4 + zo, 1 + zo, k > 11 ? 'dark' : 'grip', (x, y, z) => !((x === -2 || x === 1) && (z === 1 + zo) && k % 3 === 0));
+        add(-2, 1, -k, -k, -4 + zo, 1 + zo, k > 11 ? 'dark' : 'grip');
+        if (k >= 2 && k <= 10) { add(-3, -3, -k, -k, -3 + zo, 0 + zo, (k + zo) % 2 ? 'grip' : 'dark'); add(2, 2, -k, -k, -3 + zo, 0 + zo, (k + zo) % 2 ? 'grip' : 'dark'); }   // cachas con relieve
       }
-      add(-1, 0, 5, 6, 1, 1, 'dark');
-      add(-2, -2, 2, 2, -18, -10, 'accent'); add(1, 1, 2, 2, -18, -10, 'accent');
-      for (const v of vox) if (v.y >= 4 && v.tag !== 'accent') v.slide = true;
-      addHand(add, 2, -2);
-      return vox;
+      add(-3, -3, -6, -6, 0, 0, 'accent'); add(2, 2, -6, -6, 0, 0, 'accent');                  // tornillos de las cachas
+      magIn(vox, add, part, 13, 0.35, -3, 0, -1, 0);
+      part('mag'); add(-2, 1, -13, -13, 1, 5, 'dark'); part(null);                             // base del cargador ancha
+      return dedupe(vox);
     },
     smg() {
-      const { vox, add } = builder();
-      add(-2, 1, 1, 6, -26, 0, 'main');
-      add(-1, 0, 3, 4, -36, -27, 'steel');
-      add(-2, 1, 2, 5, -32, -27, 'dark', (x, y, z) => (z & 1) === 0 || y === 2 || y === 5);
-      add(-1, 0, -13, 0, -17, -13, 'dark');
-      add(-1, 0, 7, 8, -24, -22, 'steel'); add(-1, 0, 7, 8, -4, -3, 'steel');
-      add(-2, 1, 3, 4, 1, 10, 'dark', (x) => x === -2 || x === 1);
-      add(-2, 1, 1, 5, 10, 11, 'dark');
-      for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, -k, -k, -4 + zo, 0 + zo, 'grip'); }
-      add(-2, -2, 4, 4, -24, -6, 'accent'); add(1, 1, 4, 4, -24, -6, 'accent');
-      addHand(add, 1, -2);
-      return vox;
+      // subfusil táctico: cajón ancho con aristas, raíl de mira con muescas, alza de anilla y punto,
+      // camisa del cañón agujereada y apagallamas, palanca de carga en el tubo izquierdo, cargador
+      // curvo con brocal, empuñadura con relieve y culata plegable de dos barras con cantonera
+      const { vox, add, part } = builder();
+      add(-3, 2, 1, 7, -26, 0, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 1 || y === 7)) && !((x === -3 || x === 2) && y === 4 && z > -22 && z < -4 && (z & 1)));
+      add(-2, 1, 8, 8, -25, -2, 'dark', (x, y, z) => (z & 1) === 0 || x === -2 || x === 1);   // raíl con muescas
+      add(-1, 0, 9, 11, -24, -24, 'steel'); add(-1, 0, 12, 12, -24, -24, 'accent');          // punto de mira
+      add(-2, 1, 9, 12, -3, -2, 'steel', (x, y) => x === -2 || x === 1 || y === 12);          // alza de anilla
+      add(-4, -4, 5, 6, -24, -6, 'dark');                                                     // tubo de la palanca
+      part('bolt'); add(-5, -5, 5, 6, -23, -22, 'steel'); add(-6, -6, 5, 5, -23, -22, 'steel'); part(null);
+      // camisa con agujeros, cañón y apagallamas
+      add(-2, 1, 1, 6, -34, -27, 'dark', (x, y, z) => !((x === -2 || x === 1) && (y === 1 || y === 6)) && !((x === -2 || x === 1 || y === 6) && (z & 1) && y > 1 && y < 6 || (y === 6 && (z & 1) && x > -2 && x < 1)));
+      add(-1, 0, 3, 4, -38, -35, 'steel');
+      add(-2, 1, 2, 5, -41, -39, 'dark', (x, y, z) => !((x === -2 || x === 1) && (y === 2 || y === 5)) && !(x >= -1 && x <= 0 && y >= 3 && y <= 4) && !(z === -40 && (x === -2 || x === 1)));
+      add(-3, -3, 2, 3, -26, -10, 'accent', (x, y, z) => (z % 4) !== 0); add(2, 2, 2, 3, -26, -10, 'accent', (x, y, z) => (z % 4) !== 0);
+      // brocal del cargador y cargador curvo
+      add(-2, 1, -1, 0, -19, -11, 'dark', (x, y, z) => !((x === -2 || x === 1) && y === -1 && (z === -19 || z === -11)));
+      part('mag');
+      for (let k = 1; k <= 13; k++) { const zo = Math.round(k * k * 0.025); add(-1, 0, -k, -k, -17 - zo, -13 - zo, k === 13 ? 'dark' : 'dark'); if (k % 4 === 2) { add(-2, -2, -k, -k, -16 - zo, -14 - zo, 'dark'); add(1, 1, -k, -k, -16 - zo, -14 - zo, 'dark'); } }
+      add(-2, 1, -14, -14, -22, -16, 'steel'); add(-1, 0, 1, 1, -16, -14, 'brass');
+      part(null);
+      // guardamonte, gatillo y empuñadura
+      add(-1, 0, -3, -3, -10, -4, 'dark'); add(-1, 0, -2, 0, -10, -10, 'dark'); add(-1, 0, -2, -1, -7, -7, 'steel');
+      add(2, 3, 3, 4, -5, -3, 'accent');                                                      // selector
+      for (let k = 0; k <= 11; k++) {
+        const zo = Math.round(k * 0.3);
+        add(-2, 1, -k, -k, -4 + zo, 1 + zo, k === 11 ? 'dark' : 'grip', (x, y, z) => !(z === -4 + zo && k % 3 === 2));
+        if (k >= 2 && k <= 9) { add(-3, -3, -k, -k, -3 + zo, 0 + zo, k % 2 ? 'grip' : 'dark'); add(2, 2, -k, -k, -3 + zo, 0 + zo, k % 2 ? 'grip' : 'dark'); }
+      }
+      // culata plegable: dos barras, bisagra y cantonera de goma
+      add(-1, 0, 5, 5, 0, 1, 'steel');
+      add(-2, -2, 2, 3, 1, 12, 'dark'); add(1, 1, 2, 3, 1, 12, 'dark');
+      add(-2, -2, 5, 6, 1, 12, 'dark'); add(1, 1, 5, 6, 1, 12, 'dark');
+      add(-2, 1, 0, 7, 13, 14, 'dark', (x, y) => !((x === -2 || x === 1) && (y === 0 || y === 7)));
+      add(-2, 1, 1, 6, 15, 15, 'grip');
+      return dedupe(vox);
     },
+    // escopeta de báscula con corredera: el cañón y el tubo se abren hacia abajo para meter los cartuchos
     shotgun() {
-      const { vox, add } = builder();
-      add(-1, 0, 5, 6, -46, -6, 'steel');
-      add(-1, 0, 2, 3, -40, -10, 'dark');
-      add(-2, 1, 1, 4, -32, -20, 'grip', (x, y, z) => !((z % 3 === 0) && (x === -2 || x === 1)));
+      // escopeta táctica: cañón con protector térmico agujereado y boca dentada, tubo cargador largo,
+      // corredera de polímero con estrías, cajón negro con raíl, mira de anillo fantasma, portacartuchos
+      // en el costado, empuñadura de pistola y culata telescópica. Se abre por la bisagra para recargar
+      const { vox, add, part } = builder();
+      part('brl');
+      add(-1, 0, 5, 6, -46, -10, 'steel', (x, y, z) => !(z === -46 && y === 5));
+      add(-2, 1, 4, 7, -48, -47, 'dark', (x, y, z) => !(x >= -1 && x <= 0 && y >= 5 && y <= 6) && !(z === -48 && ((x + y) & 1)));   // boca dentada
+      add(-2, 1, 5, 8, -40, -12, 'dark', (x, y, z) => !(x >= -1 && x <= 0 && y >= 5 && y <= 6) && !(y > 4 && (z % 3 === 0) && z > -39 && z < -13 && (y === 8 || x === -2 || x === 1) && y > 5));   // protector térmico
+      add(-1, 0, 9, 10, -39, -39, 'steel'); add(-1, 0, 11, 11, -39, -39, 'accent');             // punto de mira
+      add(-2, 1, 1, 3, -44, -10, 'dark', (x, y) => !((x === -2 || x === 1) && (y === 1 || y === 3)));   // tubo cargador
+      add(-1, 0, 2, 2, -45, -45, 'steel');
+      add(-3, 2, 0, 9, -43, -42, 'steel', (x, y) => !((x === -3 || x === 2) && (y === 0 || y === 9)) && !(x >= -2 && x <= 1 && y >= 1 && y <= 8));   // abrazadera
+      add(-3, 2, -1, 4, -33, -19, 'grip', (x, y, z) => !((x === -3 || x === 2) && (y === -1 || y === 4)) && !((z & 1) && (x === -3 || x === 2) && y > -1 && y < 4));   // corredera
       for (const v of vox) if (v.tag === 'grip') v.pump = true;
-      add(-2, 1, 1, 7, -9, 3, 'main');
-      add(-1, 0, 8, 8, -44, -44, 'accent');
-      add(-1, 0, -3, 0, -3, 2, 'grip');
-      for (let k = 0; k <= 9; k++) add(-2, 1, -k + 2, 5 - Math.floor(k * 0.3), 3 + k * 2, 4 + k * 2, 'grip');
-      add(-2, -2, 4, 4, -8, 1, 'accent'); add(1, 1, 4, 4, -8, 1, 'accent');
-      addHand(add, 1, -1);
-      return vox;
+      add(-1, 0, 5, 6, -10, -10, 'dark');                                                         // recámara (se ve al abrir)
+      part(null);
+      add(-1, 0, 4, 4, -10, -9, 'dark');                                                          // bisagra
+      // cajón
+      add(-3, 2, 0, 8, -9, 4, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 0 || y === 8)));
+      add(-2, 1, 9, 9, -8, 3, 'dark', (x, y, z) => (z & 1) === 0 || x === -2 || x === 1);         // raíl
+      add(-2, 1, 10, 12, 1, 2, 'steel', (x, y) => x === -2 || x === 1 || y === 12);               // anillo fantasma
+      add(2, 2, 5, 7, -7, -3, 'dark');                                                            // ventana de expulsión
+      add(-1, 0, 0, 0, -8, -2, 'dark');                                                           // boca de carga
+      add(-4, -4, 1, 7, -9, 1, 'dark', (x, y, z) => y === 1 || y === 7 || z === -9 || z === 1);   // portacartuchos
+      for (let i = 0; i < 4; i++) { add(-5, -5, 3, 6, -7 + i * 2, -7 + i * 2, 'shell'); add(-5, -5, 2, 2, -7 + i * 2, -7 + i * 2, 'brass'); }
+      add(3, 3, 3, 3, -1, 1, 'accent');                                                           // seguro
+      part('rl_shell'); shell(add, -1, 5, -4); part(null);
+      add(-1, 0, -1, -1, -6, 1, 'dark'); add(-1, 0, -4, -1, -7, -7, 'dark'); add(-1, 0, -4, -4, -6, 1, 'dark'); add(-1, 0, -2, -1, -3, -3, 'steel');   // guardamonte
+      for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, -k, -k, 2 + zo, 6 + zo, k === 10 ? 'dark' : 'grip', (x, y, z) => !(z === 2 + zo && k % 3 === 2)); }   // empuñadura
+      // culata telescópica: tubo, cuerpo hueco y cantonera
+      add(-1, 0, 4, 6, 5, 20, 'dark');
+      add(-2, 1, -1, 7, 13, 23, 'main', (x, y, z) => !(x > -2 && x < 1 && y > 0 && y < 6 && z > 14 && z < 22) && !((x === -2 || x === 1) && (y === -1 || y === 7)));
+      add(-2, 1, -2, 8, 24, 25, 'grip', (x, y) => !((x === -2 || x === 1) && (y === -2 || y === 8)));
+      return dedupe(vox);
     },
     rifle() {
-      const { vox, add } = builder();
-      add(-1, 0, 4, 5, -58, -12, 'steel');
-      add(-2, 1, 1, 6, -14, 4, 'main');
-      add(-2, 1, 0, 3, -36, -14, 'grip');
-      add(-2, 1, 9, 11, -18, -2, 'dark');
-      add(-1, 0, 10, 10, -19, -19, 'accent');
-      add(-1, 0, 8, 8, -14, -12, 'dark'); add(-1, 0, 8, 8, -6, -4, 'dark');
-      add(2, 4, 5, 5, -3, -3, 'steel'); add(4, 4, 4, 5, -3, -2, 'steel');
-      for (let k = 0; k <= 12; k++) add(-2, 1, -k + 3, 5 - Math.floor(k * 0.25), 4 + k * 2, 5 + k * 2, 'grip');
-      add(-1, 0, -3, 0, -2, 3, 'grip');
-      addHand(add, 2, -1);
-      return vox;
+      // rifle de cerrojo de tirador: cañón pesado con freno de boca, visor grande con anillas y torreta,
+      // cajón de acero, cargador de caja, bípode plegado bajo el guardamanos y culata con carrillera
+      const { vox, add, part } = builder();
+      add(-2, 1, 3, 6, -40, -12, 'steel', (x, y) => !((x === -2 || x === 1) && (y === 3 || y === 6)));   // cañón pesado
+      add(-1, 0, 4, 5, -58, -41, 'steel');
+      add(-2, 1, 3, 6, -62, -59, 'dark', (x, y, z) => !((x === -2 || x === 1) && (y === 3 || y === 6)) && !((x === -2 || x === 1) && (z === -61)) && !(z === -62 && x >= -1 && x <= 0 && y >= 4 && y <= 5));   // freno de boca
+      add(-3, 2, 1, 7, -14, 4, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 1 || y === 7)));   // cajón
+      add(-3, 2, -1, 2, -38, -15, 'grip', (x, y, z) => !((x === -3 || x === 2) && y === -1) && !(y === 2 && x > -3 && x < 2));   // guardamanos
+      for (const x of [-2, 1]) add(x, x, -2, -2, -36, -24, 'steel');                              // bípode plegado
+      add(-2, 1, -2, -2, -37, -37, 'dark');
+      // visor
+      add(-2, 1, 9, 12, -20, -2, 'dark', (x, y) => !((x === -2 || x === 1) && (y === 9 || y === 12)));
+      add(-3, 2, 8, 13, -25, -21, 'dark', (x, y) => !((x === -3 || x === 2) && (y === 8 || y === 13)));
+      add(-2, 1, 9, 12, -26, -26, 'accent', (x, y) => !((x === -2 || x === 1) && (y === 9 || y === 12)));   // lente
+      add(-3, 2, 8, 13, -1, 1, 'dark', (x, y) => !((x === -3 || x === 2) && (y === 8 || y === 13)));
+      add(-1, 0, 13, 14, -12, -10, 'steel'); add(2, 3, 10, 11, -12, -10, 'steel');                // torretas
+      for (const z of [-15, -5]) add(-2, 1, 7, 8, z, z + 1, 'steel');                             // anillas
+      part('bolt'); add(2, 4, 5, 5, -3, -3, 'steel'); add(4, 5, 4, 5, -3, -2, 'steel'); add(-1, 0, 7, 7, -10, -3, 'steel'); part(null);
+      add(-1, 0, 6, 6, -10, -5, 'dark');                                                         // ventana de carga (se ve con el cerrojo atrás)
+      add(-2, 1, -3, 0, -12, -6, 'dark'); add(-2, 1, -4, -4, -12, -6, 'steel');                   // cargador de caja
+      add(-1, 0, -1, -1, -4, 2, 'dark'); add(-1, 0, -3, -1, 3, 3, 'dark'); add(-1, 0, -1, 0, -1, -1, 'steel');   // guardamonte
+      for (let k = 0; k <= 12; k++) add(-2, 1, -k + 2, 5 - Math.floor(k * 0.25), 5 + k * 2, 6 + k * 2, 'grip', (x, y) => !((x === -2 || x === 1) && y === -k + 2));
+      for (let k = 3; k <= 8; k++) add(-2, 1, 6 - Math.floor(k * 0.25), 7, 5 + k * 2, 6 + k * 2, 'grip');   // carrillera
+      add(-2, 1, 8, 8, 12, 20, 'dark');                                                          // goma de la carrillera
+      add(-2, 1, -10, 5, 30, 31, 'dark', (x, y) => !((x === -2 || x === 1) && (y === -10 || y === 5)));   // cantonera
+      add(-1, 0, -3, 1, -3, 3, 'grip');
+      part('rl_round'); round(add, 0, 9, -4, 5); part(null);
+      return dedupe(vox);
     },
     launcher() {
-      const { vox, add } = builder();
-      add(-3, 2, 2, 7, -32, 2, 'main', (x, y) => !((x === -3 || x === 2) && (y === 2 || y === 7)));
-      add(-2, 1, 3, 6, -33, -33, 'dark', (x, y) => x === -2 || x === 1 || y === 3 || y === 6);
-      add(-3, 2, 2, 7, -24, -22, 'dark'); add(-3, 2, 2, 7, -6, -4, 'dark');
-      add(-1, 0, 8, 9, -20, -8, 'steel');
-      add(-3, -3, 4, 5, -20, -8, 'accent'); add(2, 2, 4, 5, -20, -8, 'accent');
-      add(-1, 0, -2, 1, -14, -10, 'grip');
-      for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, 1 - k, 1 - k, -2 + zo, 2 + zo, 'grip'); }
-      addHand(add, 2, -1);
-      return vox;
+      // lanzagranadas pesado de 40 mm: tubo grueso con aros de refuerzo y boca abocinada, que bascula
+      // para cargar; cajón con bisagra y tornillos, mira de alza, empuñadura delantera y culata con cantonera
+      const { vox, add, part } = builder();
+      part('brl');
+      add(-4, 3, 1, 8, -34, -7, 'main', (x, y, z) => !((x === -4 || x === 3) && (y === 1 || y === 8)) && !(x >= -2 && x <= 1 && y >= 3 && y <= 6));
+      add(-5, 4, 0, 9, -37, -35, 'dark', (x, y) => !((x === -5 || x === 4) && (y === 0 || y === 9)) && !(x >= -2 && x <= 1 && y >= 3 && y <= 6));   // boca abocinada
+      for (const z of [-31, -22, -13]) add(-5, 4, 0, 9, z, z + 1, 'steel', (x, y) => !((x === -5 || x === 4) && (y === 0 || y === 9)) && !(x >= -2 && x <= 1 && y >= 3 && y <= 6));   // aros
+      for (let z = -29; z <= -15; z += 2) if (z !== -22 && z !== -21) add(-4, 3, 9, 9, z, z, 'dark');                                  // aletas de la camisa
+      add(-1, 0, 9, 11, -36, -35, 'steel'); add(-1, 0, 12, 12, -36, -36, 'accent');                                                   // punto de mira
+      add(-3, 2, -1, 0, -26, -16, 'grip', (x, y, z) => !((x === -3 || x === 2) && y === -1));                                          // guardamanos
+      for (let k = 1; k <= 7; k++) add(-2, 1, -1 - k, -1 - k, -21 - Math.round(k * 0.2), -18 - Math.round(k * 0.2), k === 7 ? 'dark' : 'grip');   // empuñadura delantera
+      add(-5, -5, 3, 6, -28, -16, 'accent', (x, y, z) => (z & 3) !== 0); add(4, 4, 3, 6, -28, -16, 'accent', (x, y, z) => (z & 3) !== 0);   // franjas
+      part(null);
+      part('rl_gren');
+      // la granada se mete 6 vóxeles cañón adentro al cargar (ver gunAnim)
+      add(-2, 1, 3, 6, -5, -1, 'gren', (x, y) => !((x === -2 || x === 1) && (y === 3 || y === 6))); add(-1, 0, 4, 5, -6, -6, 'accent');
+      add(-2, 1, 3, 6, 0, 1, 'brass', (x, y) => !((x === -2 || x === 1) && (y === 3 || y === 6)));
+      part(null);
+      // cajón
+      add(-4, 3, 0, 9, -6, 4, 'dark', (x, y, z) => !((x === -4 || x === 3) && (y === 0 || y === 9)));
+      add(-5, -5, 1, 2, -7, -5, 'steel'); add(4, 4, 1, 2, -7, -5, 'steel');                                                          // bisagra
+      for (const z of [-3, 1]) for (const y of [2, 7]) { add(-5, -5, y, y, z, z, 'steel'); add(4, 4, y, y, z, z, 'steel'); }        // tornillos
+      add(-1, 0, 10, 10, -5, -1, 'dark'); add(-2, 1, 11, 13, -2, -1, 'steel', (x, y) => x === -2 || x === 1 || y === 13);           // alza
+      add(-1, 0, 10, 11, 1, 3, 'dark');                                                                                              // palanca de apertura
+      add(-1, 0, -2, -1, -4, 2, 'dark'); add(-1, 0, -4, -2, -5, -5, 'dark'); add(-1, 0, -5, -5, -4, 2, 'dark'); add(-1, 0, -2, -1, -1, -1, 'steel');   // guardamonte y gatillo
+      for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, -k, -k, 3 + zo, 6 + zo, k === 10 ? 'dark' : 'grip'); }
+      // culata: dos barras y una cantonera ancha de goma
+      add(-1, 0, 6, 7, 5, 13, 'main'); add(-1, 0, 0, 1, 5, 12, 'main');
+      add(-1, 0, 2, 5, 12, 13, 'main');
+      add(-2, 1, -1, 8, 14, 15, 'dark', (x, y, z) => !((x === -2 || x === 1) && (y === -1 || y === 8)));
+      return dedupe(vox);
     },
     // Ballesta: culata, raíl, palas curvas, cuerda tensada y el virote listo
     crossbow() {
-      const { vox, add } = builder();
-      add(-2, 1, 1, 4, -10, 8, 'main');                                  // cuerpo y culata
-      add(-1, 0, 4, 5, -30, -6, 'dark');                                 // raíl
-      add(-1, 0, 2, 3, -30, -26, 'main');                                // cabeza del raíl
-      for (let x = -14; x <= 13; x++) {                                   // palas, curvadas hacia atrás
-        const ax = Math.abs(x + 0.5), bend = Math.round(ax * ax * 0.035);
-        add(x, x, 4, 5, -27 + bend, -26 + bend, ax > 3 ? 'accent' : 'dark');
+      // ballesta pesada de asedio: culata maciza con chapas remachadas, cabeza de hierro con
+      // estribo, palas gruesas reforzadas con poleas en las puntas, manivela y un virote de punta ancha
+      const { vox, add, part } = builder();
+      add(-3, 2, 0, 5, -12, 8, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 0 || y === 5)));   // culata
+      add(-3, 2, 1, 4, 9, 11, 'dark', (x, y) => !((x === -3 || x === 2) && (y === 1 || y === 4)));       // cantonera de hierro
+      add(-2, 1, 6, 6, 1, 8, 'main');                                                                    // apoyo de la mejilla
+      for (let z = -10; z <= 7; z += 4) { add(-4, -4, 1, 4, z, z + 1, 'dark'); add(3, 3, 1, 4, z, z + 1, 'dark'); }   // chapas laterales
+      for (let z = -9; z <= 7; z += 4) { add(-4, -4, 4, 4, z, z, 'steel'); add(3, 3, 4, 4, z, z, 'steel'); add(-4, -4, 1, 1, z, z, 'steel'); add(3, 3, 1, 1, z, z, 'steel'); }   // remaches
+      add(-1, 0, 4, 6, -36, -12, 'dark');                                                                // canal del virote
+      add(-2, 1, 3, 3, -36, -12, 'dark');
+      add(-3, 2, 0, 8, -34, -29, 'dark', (x, y, z) => !((x === -3 || x === 2) && (y === 0 || y === 8)) && !(y >= 6 && x >= -1 && x <= 0));   // cabeza de hierro (con el paso del virote)
+      add(-3, 2, 8, 8, -33, -30, 'steel', (x) => x === -3 || x === 2);
+      add(-1, 0, 2, 3, -33, -30, 'accent');                                                              // emblema
+      add(-2, 1, -3, 0, -38, -36, 'steel', (x, y) => x === -2 || x === 1 || y === -3);                   // estribo para tensarla con el pie
+      add(-2, -2, -1, 0, -36, -35, 'steel'); add(1, 1, -1, 0, -36, -35, 'steel');
+      for (let x = -18; x <= 17; x++) {                                                                   // palas gruesas, curvadas hacia atrás
+        const ax = Math.abs(x + 0.5);
+        if (ax < 3) continue;
+        const bend = Math.round(ax * ax * 0.028), th = ax > 14 ? 1 : 2;
+        add(x, x, 4, 4 + th, -31 + bend, -30 + bend, ax > 8 && ax < 15 ? 'accent' : 'dark');
+        if (ax % 4 < 1) add(x, x, 3, 3 + th + 2, -31 + bend, -30 + bend, 'steel');                         // abrazaderas
       }
-      for (let x = -13; x <= 12; x++) {                                   // cuerda hasta el gatillo
-        const ax = Math.abs(x + 0.5), z = -24 + Math.round((1 - ax / 13) * 14) + Math.round(ax * ax * 0.035);
+      for (const sx of [-18, 17]) {                                                                       // poleas en las puntas
+        const bend = Math.round(17.5 * 17.5 * 0.028);
+        add(sx, sx, 3, 7, -32 + bend, -29 + bend, 'steel', (x, y, z) => !((y === 3 || y === 7) && (z === -32 + bend || z === -29 + bend)));
+      }
+      part('str');
+      for (let x = -17; x <= 16; x++) {                                                                   // cuerda tensa hasta la nuez
+        const ax = Math.abs(x + 0.5), z = -29 + Math.round((1 - ax / 17) * 17) + Math.round(ax * ax * 0.028);
         add(x, x, 6, 6, z, z, 'steel');
       }
-      add(-1, 0, 7, 7, -36, -10, 'blade');                                // virote
-      add(-1, 0, 7, 8, -37, -36, 'steel');
-      add(-2, 1, 7, 8, -12, -10, 'accent', (x) => x === -2 || x === 1);  // plumas
-      add(-1, 0, -2, 0, -6, -3, 'dark');                                  // gatillo
-      for (let k = 0; k <= 9; k++) add(-2, 1, 1 - k, 1 - k, -3 + Math.round(k * 0.3), 1 + Math.round(k * 0.3), 'grip');
-      addHand(add, 1, -2);
+      part('bolt');
+      add(-1, 0, 7, 7, -38, -12, 'blade');                                                                // virote
+      add(-2, 1, 6, 8, -41, -39, 'steel', (x, y, z) => !((x === -2 || x === 1) && (y !== 7 || z === -41)));   // punta ancha
+      add(-1, 0, 7, 7, -42, -42, 'steel');
+      add(-2, 1, 7, 9, -15, -12, 'accent', (x, y) => x === -2 || x === 1 || y === 9);                      // plumas
+      part(null);
+      add(-1, 0, -2, 0, -6, -3, 'dark');                                                                  // nuez y gatillo
+      add(-2, 1, -3, -3, -8, -1, 'dark', (x) => x === -2 || x === 1);                                     // guardamonte
+      for (let k = 0; k <= 10; k++) add(-2, 1, 1 - k, 1 - k, -3 + Math.round(k * 0.3), 1 + Math.round(k * 0.3), 'grip');
+      add(3, 4, 3, 3, 4, 4, 'steel'); add(4, 4, 1, 3, 4, 4, 'steel'); add(4, 5, 1, 1, 4, 4, 'grip');        // manivela
+      add(-1, 0, 7, 9, 2, 2, 'steel', (x, y) => y < 9 || x === -1);                                       // alza
       return vox;
     },
     // Recortada: dos cañones cortos uno junto al otro, báscula y culata de madera serrada
     dbarrel() {
-      const { vox, add } = builder();
-      add(-3, -1, 4, 6, -30, -6, 'steel', (x, y, z) => !(x === -2 && y === 5 && z < -28));
-      add(0, 2, 4, 6, -30, -6, 'steel', (x, y, z) => !(x === 1 && y === 5 && z < -28));
-      add(-3, 2, 3, 3, -24, -8, 'grip');                                 // guardamanos de madera
-      add(-2, 1, 1, 3, -22, -10, 'grip');
-      add(-3, 2, 2, 7, -6, 2, 'main');                                   // báscula
-      add(-1, 0, 8, 8, -4, 0, 'dark');                                   // palanca de apertura
-      add(-1, 0, -2, 1, -3, 1, 'dark');
-      for (let k = 0; k <= 8; k++) add(-2, 1, 1 - k, 5 - Math.floor(k * 0.4), 2 + k * 2, 3 + k * 2, 'grip');   // culata serrada
-      add(-3, -3, 5, 5, -8, -2, 'accent'); add(2, 2, 5, 5, -8, -2, 'accent');
-      addHand(add, 2, -1);
-      return vox;
+      // recortada compacta: dos cañones cortos serrados, báscula con grabados dorados, dos martillos
+      // exteriores y empuñadura de pistola curva de madera (sin culata)
+      const { vox, add, part } = builder();
+      part('brl');
+      add(-3, -1, 4, 6, -21, -6, 'steel', (x, y, z) => !(x === -2 && y === 5 && (z < -19 || z === -6)));
+      add(0, 2, 4, 6, -21, -6, 'steel', (x, y, z) => !(x === 1 && y === 5 && (z < -19 || z === -6)));
+      add(-3, 2, 4, 6, -22, -22, 'dark', (x, y) => !((x === -2 || x === 1) && y === 5) && !((x === -3 || x === 2) && (y === 4 || y === 6)));   // bocas serradas
+      add(-4, 3, 3, 7, -15, -14, 'dark', (x, y) => !((x === -4 || x === 3) && (y === 3 || y === 7)) && !(y >= 4 && y <= 6 && x >= -3 && x <= 2));   // abrazadera
+      add(-1, 0, 7, 7, -21, -7, 'dark'); add(-1, 0, 8, 8, -21, -21, 'accent');                // banda y punto
+      add(-3, 2, 1, 3, -17, -8, 'grip', (x, y, z) => !((x === -3 || x === 2) && y === 1));     // guardamanos corto
+      part(null);
+      part('rl_shell'); shell(add, -1, 5, -1); part(null);
+      // báscula con grabados
+      add(-3, 2, 1, 7, -6, 2, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 1 || y === 7)));
+      for (const x of [-4, 3]) add(x, x, 2, 6, -5, 1, 'accent', (xx, y, z) => ((y * 3 + z) % 4 === 0) || (y === 4 && (z & 1)));
+      add(-1, 0, 8, 8, -4, 0, 'dark'); add(-1, 0, 9, 9, -1, 0, 'steel');                       // palanca de apertura
+      add(-3, -2, 7, 9, 1, 2, 'steel', (x, y) => !(y === 9 && x === -2)); add(1, 2, 7, 9, 1, 2, 'steel', (x, y) => !(y === 9 && x === 1));   // martillos
+      add(-1, 0, -1, 0, -3, 2, 'dark'); add(-1, 0, -3, -1, -4, -4, 'dark'); add(-1, 0, -3, -3, -3, 2, 'dark');   // guardamonte
+      add(-1, -1, -2, -1, -1, -1, 'steel'); add(0, 0, -2, -1, 1, 1, 'steel');                  // dos gatillos
+      // empuñadura de pistola curva
+      for (let k = 0; k <= 9; k++) { const zo = Math.round(k * 0.45 + (k > 5 ? (k - 5) * 0.5 : 0)); add(-2, 1, 1 - k, 1 - k, 1 + zo, 5 + zo, 'grip', (x, y, z) => !((x === -2 || x === 1) && z === 5 + zo && k % 3 === 1)); }
+      add(-2, 1, -9, -9, 9, 13, 'dark');                                                        // remate
+      add(-2, 1, 2, 6, 3, 5, 'grip');
+      return dedupe(vox);
     },
     // Ametralladora ligera: cajón grande, cañón con camisa agujereada, caja de cinta y asa
     lmg() {
-      const { vox, add } = builder();
-      add(-2, 1, 1, 7, -24, 6, 'main');
-      add(-1, 0, 3, 5, -50, -24, 'steel');
-      add(-2, 1, 2, 6, -44, -25, 'dark', (x, y, z) => !(z % 3 === 0 && (y === 4) && (x === -2 || x === 1)));   // camisa
-      add(-1, 0, 6, 7, -50, -49, 'dark');                                // punto de mira
-      add(-5, -3, -6, 2, -18, -8, 'dark');                               // caja de la cinta
-      add(-5, -3, -6, -6, -18, -8, 'accent');
-      for (let z = -18; z <= -9; z += 2) add(-3, -2, 3, 3, z, z, 'accent');   // cartuchos de la cinta
-      add(-1, 0, 8, 10, -16, -6, 'dark', (x, y, z) => y === 10 || z === -16 || z === -6);   // asa
-      add(-1, 0, -1, 0, -40, -38, 'dark');                               // bípode plegado
-      add(-1, 0, -1, -1, -38, -28, 'steel');
-      for (let k = 0; k <= 10; k++) add(-2, 1, 1 - k, 1 - k, -2 + Math.round(k * 0.3), 2 + Math.round(k * 0.3), 'grip');
-      for (let k = 0; k <= 8; k++) add(-2, 1, -k + 3, 6 - Math.floor(k * 0.3), 6 + k * 2, 7 + k * 2, 'main');   // culata
-      addHand(add, 1, -2);
-      return vox;
+      // ametralladora pesada: cajón remachado con chapa lateral, camisa agujereada con asa de transporte,
+      // apagallamas ranurado, bípode plegado, tapa de alimentación con alza, caja de munición grande
+      // con cinta de balas a la vista, empuñadura y culata con cantonera y apoyo para el hombro
+      const { vox, add, part } = builder();
+      add(-2, 1, 1, 7, -24, 4, 'main', (x, y, z) => !((x === -2 || x === 1) && (y === 1 || y === 7)) && !(x === -2 && y === 3 && z >= -18 && z <= -9));
+      add(2, 2, 2, 6, -22, 2, 'dark');                                                            // chapa lateral
+      for (const z of [-20, -12, -4]) for (const y of [3, 5]) add(3, 3, y, y, z, z, 'steel');     // remaches
+      add(-3, -3, 5, 6, -22, -20, 'steel');                                                       // palanca de carga
+      add(-1, 0, 3, 4, -55, -24, 'steel');
+      add(-2, 1, 2, 5, -46, -25, 'dark', (x, y, z) => !((x === -2 || x === 1) && (y === 2 || y === 5)) && !((z % 3 === 0) && (y === 5 || x === -2 || x === 1) && y > 2 && z > -45));   // camisa
+      add(-2, 1, 2, 5, -59, -56, 'dark', (x, y, z) => !(x >= -1 && x <= 0 && y >= 3 && y <= 4) && !(z !== -56 && ((x === -2 || x === 1) && (y === 3 || y === 4))));   // apagallamas
+      add(-1, 0, 6, 8, -52, -52, 'steel'); add(-1, 0, 9, 9, -52, -52, 'accent');                  // punto de mira
+      add(-1, 0, 6, 6, -37, -29, 'dark'); add(-1, 0, 7, 9, -37, -36, 'steel'); add(-1, 0, 7, 9, -30, -29, 'steel'); add(-1, 0, 10, 10, -37, -29, 'grip');   // asa de transporte
+      for (const x of [-2, 1]) { add(x, x, 1, 1, -44, -30, 'steel'); add(x, x, 0, 1, -45, -45, 'dark'); }   // bípode plegado
+      add(-2, 1, 1, 1, -29, -28, 'dark');
+      part('box');
+      add(-8, -4, -8, 2, -19, -7, 'dark', (x, y, z) => !((x === -8 || x === -4) && (y === -8 || y === 2) && (z === -19 || z === -7)));   // caja de la cinta
+      add(-9, -9, -6, 0, -17, -9, 'dark', (x, y, z) => y === -6 || y === 0 || z === -17 || z === -9);   // nervios
+      add(-9, -9, -4, -2, -14, -12, 'accent');                                                     // marca
+      add(-8, -4, 3, 3, -18, -8, 'steel');                                                         // cierre
+      part('belt');
+      for (let z = -18; z <= -9; z += 2) { add(-3, -2, 3, 3, z, z, 'brass'); add(-4, -4, 3, 3, z, z, 'lead'); }   // cartuchos de la cinta
+      part('lid');
+      add(-2, 1, 8, 8, -24, -2, 'main', (x, y, z) => !((z % 4 === 0) && (x === -2 || x === 1)));   // tapa del cajón
+      add(-1, 0, 9, 11, -6, -5, 'steel', (x, y) => !(y === 10 && x === 0));                       // alza
+      add(-2, 1, 9, 9, -2, -1, 'accent');                                                          // pestillo
+      part(null);
+      add(-1, 0, -1, 0, -6, 2, 'dark'); add(-1, 0, -3, -1, -7, -7, 'dark'); add(-1, 0, -3, -3, -6, 2, 'dark'); add(-1, 0, -2, -1, -3, -3, 'steel');   // guardamonte
+      for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, 1 - k, 1 - k, 0 + zo, 4 + zo, k === 10 ? 'dark' : 'grip', (x, y, z) => !(z === zo && k % 3 === 2)); }
+      // culata
+      for (let k = 0; k <= 9; k++) add(-2, 1, -k + 3, 7 - Math.floor(k * 0.25), 5 + k * 2, 6 + k * 2, 'main', (x, y) => !((x === -2 || x === 1) && y === -k + 3));
+      add(-2, 1, -7, 7, 25, 26, 'dark', (x, y) => !((x === -2 || x === 1) && (y === -7 || y === 7)));   // cantonera
+      add(-1, 0, 8, 8, 12, 22, 'dark');                                                            // apoyo
+      return dedupe(vox);
     },
-    // Lanzallamas: depósito rojo bajo el arma, tubo, boquilla larga y llama piloto
     flamer() {
-      const { vox, add } = builder();
-      add(-2, 1, 2, 6, -18, 4, 'main');
-      add(-1, 0, 3, 5, -38, -18, 'steel');
-      add(-2, 1, 2, 6, -38, -36, 'dark');                                // boquilla
-      add(-1, 0, 1, 1, -36, -36, 'accent');                              // llama piloto
-      add(-4, 3, -7, 0, -16, -3, 'accent', (x, y) => !((x === -4 || x === 3) && (y === -7 || y === 0)));   // depósito
-      add(-4, 3, -4, -4, -16, -3, 'dark');
-      add(-1, 0, 1, 1, -10, -6, 'steel');                                // manguera
-      add(-1, 0, -2, 1, -26, -22, 'grip');                               // asa delantera
-      for (let k = 0; k <= 9; k++) add(-2, 1, 1 - k, 1 - k, 0 + Math.round(k * 0.3), 4 + Math.round(k * 0.3), 'grip');
-      addHand(add, 2, -1);
-      return vox;
+      // lanzallamas pesado: boquilla ancha con encendedor y llama piloto, tubo con aros de refrigeración,
+      // depósito grande con flejes, tapas y manómetro, manguera, asa delantera y empuñadura
+      const { vox, add, part } = builder();
+      add(-3, 2, 1, 7, -20, 4, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 1 || y === 7)));
+      add(-2, 1, 8, 8, -18, 2, 'dark', (x, y, z) => (z & 1) === 0 || x === -2 || x === 1);
+      add(-1, 0, 3, 5, -40, -20, 'steel');
+      for (let z = -38; z <= -24; z += 3) add(-2, 1, 2, 6, z, z, 'dark', (x, y) => !((x === -2 || x === 1) && (y === 2 || y === 6)));   // aros de refrigeración
+      add(-3, 2, 1, 7, -45, -41, 'dark', (x, y, z) => !((x === -3 || x === 2) && (y === 1 || y === 7)) && !(z === -45 && x >= -2 && x <= 1 && y >= 2 && y <= 6));   // boquilla
+      add(-2, 1, 2, 6, -46, -46, 'steel', (x, y) => x === -2 || x === 1 || y === 2 || y === 6);
+      add(2, 2, 0, 1, -40, -22, 'steel');                                                          // tubo del encendedor
+      part('pilot'); add(-1, 0, 0, 0, -44, -43, 'accent'); part(null);                             // llama piloto
+      part('tank');
+      add(-5, 4, -10, 0, -18, -2, 'accent', (x, y, z) => !((x === -5 || x === 4) && (y === -10 || y === 0)) && !((z === -18 || z === -2) && (x === -5 || x === 4 || y === -10 || y === 0)));   // depósito
+      for (const z of [-14, -6]) add(-6, 5, -11, 1, z, z, 'dark', (x, y) => !((x === -6 || x === 5) && (y === -11 || y === 1)) && (x === -6 || x === 5 || y === -11 || y === 1));   // flejes
+      add(-3, 2, -8, -2, -19, -19, 'dark'); add(-3, 2, -8, -2, -1, -1, 'dark');                   // tapas
+      add(5, 5, -7, -4, -11, -8, 'steel', (x, y, z) => !((y === -7 || y === -4) && (z === -11 || z === -8))); add(6, 6, -6, -5, -10, -9, 'dark');   // manómetro
+      add(-1, 0, -12, -11, -11, -8, 'steel'); add(-2, 1, -13, -13, -11, -8, 'dark');               // válvula
+      part(null);
+      add(3, 3, -1, 2, -3, 3, 'dark'); add(-1, 0, 0, 0, -12, -4, 'dark');                          // manguera
+      for (let k = 1; k <= 7; k++) add(-1, 0, 1 - k, 1 - k, -29 + Math.round(k * 0.2), -26 + Math.round(k * 0.2), k === 7 ? 'dark' : 'grip');   // asa delantera
+      add(-1, 0, 0, 0, -30, -25, 'steel');
+      add(-1, 0, -1, 0, 0, 5, 'dark'); add(-1, 0, -3, -2, -1, -1, 'dark'); add(-1, 0, -1, 0, 2, 2, 'steel');
+      for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, 1 - k, 1 - k, 3 + zo, 7 + zo, k === 10 ? 'dark' : 'grip'); }
+      add(-1, 0, 2, 6, 5, 12, 'dark'); add(-2, 1, 0, 8, 13, 14, 'dark', (x, y) => !((x === -2 || x === 1) && (y === 0 || y === 8)));   // apoyo de hombro
+      return dedupe(vox);
     },
-    // Desintegrador: pistola retro de aletas, anillos que brillan y emisor de cristal
     raygun() {
-      const { vox, add } = builder();
-      add(-2, 1, 2, 8, -14, 2, 'main', (x, y, z) => !((x === -2 || x === 1) && (y === 2 || y === 8) && (z === -14 || z === 2)));
-      add(-1, 0, 4, 6, -26, -14, 'steel');
-      for (const z of [-24, -20, -16]) add(-3, 2, 2, 8, z, z, 'accent', (x, y) => x === -3 || x === 2 || y === 2 || y === 8);   // anillos
-      add(-1, 0, 4, 6, -28, -27, 'blade');                               // emisor
-      add(-1, 0, 9, 12, -8, -2, 'dark');                                 // aleta
-      add(-4, -3, 4, 6, -10, -2, 'dark'); add(2, 3, 4, 6, -10, -2, 'dark');
-      add(-1, 0, 9, 9, -12, -10, 'accent');
-      for (let k = 0; k <= 10; k++) add(-2, 1, 1 - k, 1 - k, -3 + Math.round(k * 0.35), 1 + Math.round(k * 0.35), 'grip');
-      add(-1, 0, -3, 0, -9, -6, 'dark');
-      addHand(add, 1, -2);
-      return vox;
+      // desintegrador retro pesado: cuerpo redondeado con cúpula, cañón con tres anillos grandes que
+      // brillan, emisor de cristal entre dos púas, aletas arriba y a los lados, diales, empuñadura con
+      // nervios y la célula de energía de cristal detrás
+      const { vox, add, part } = builder();
+      add(-3, 2, 2, 9, -16, 4, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 2 || y === 9)) && !((z === -16 || z === 4) && (x === -3 || x === 2 || y === 2 || y === 9)));
+      add(-2, 1, 10, 10, -13, 1, 'main'); add(-1, 0, 11, 11, -10, -2, 'main');                      // cúpula
+      add(-1, 0, 4, 7, -30, -16, 'steel');
+      for (const [i, z] of [[0, -27], [1, -23], [2, -19]]) {                                          // anillos
+        part('ring' + i);
+        add(-5, 4, 1, 10, z, z, 'accent', (x, y) => { const dx = x + 0.5, dy = y - 5.5, r = Math.hypot(dx, dy); return r > 3.3 && r < 5.3; });
+        part(null);
+      }
+      add(-2, 1, 4, 7, -33, -31, 'blade', (x, y, z) => !((x === -2 || x === 1) && (y === 4 || y === 7)));   // emisor
+      add(-3, -3, 5, 6, -35, -30, 'dark'); add(2, 2, 5, 6, -35, -30, 'dark');                        // púas
+      add(-1, 0, 12, 15, -9, -1, 'dark', (x, y, z) => z >= -9 + (y - 12) * 2);                       // aleta superior
+      add(-6, -4, 5, 6, -12, -2, 'dark', (x, y, z) => z >= -12 + (-4 - x) * 2); add(3, 5, 5, 6, -12, -2, 'dark', (x, y, z) => z >= -12 + (x - 3) * 2);   // aletas laterales
+      add(-4, -4, 7, 8, -6, -5, 'accent'); add(3, 3, 7, 8, -6, -5, 'accent');                        // diales
+      add(-4, -4, 3, 3, -12, -8, 'steel'); add(3, 3, 3, 3, -12, -8, 'steel');
+      part('cell'); add(-1, 0, 4, 7, 5, 9, 'blade'); add(-2, 1, 3, 8, 10, 10, 'dark', (x, y) => !((x === -2 || x === 1) && (y === 3 || y === 8))); part(null);   // célula de energía
+      add(-1, 0, 0, 1, -9, -2, 'main'); add(-1, 0, -3, -3, -9, -4, 'dark'); add(-1, 0, -2, 0, -9, -9, 'dark'); add(-1, 0, -2, -1, -6, -6, 'steel');   // guardamonte
+      for (let k = 0; k <= 11; k++) { const zo = Math.round(k * 0.35); add(-2, 1, 1 - k, 1 - k, -3 + zo, 2 + zo, k === 11 ? 'dark' : 'grip', (x, y, z) => !((x === -2 || x === 1) && k % 3 === 0)); }
+      return dedupe(vox);
     },
     // Mazo de demolición: mango largo de fibra amarilla con franjas, empuñadura de goma
     // y una cabeza de acero rectangular ATRAVESADA en el mango (caras de golpeo a los lados)
     hammer() {
+      // mazo de demolición pesado: mango grueso de fibra con franjas, chapas de refuerzo de acero
+      // bajo la cabeza, cabeza grande con flejes y remaches, caras de golpeo anchas y pomo de hierro
       const { vox, add } = builder();
-      add(-1, 0, -1, 0, -31, 4, 'accent', (x, y, z) => !(Math.floor((z + 40) / 4) % 3 === 0));   // fibra amarilla
-      add(-1, 0, -1, 0, -31, 4, 'dark', (x, y, z) => Math.floor((z + 40) / 4) % 3 === 0);        // franjas negras
-      add(-2, 1, -2, 1, 2, 11, 'grip', (x, y, z) => !((x === -2 || x === 1) && (y === -2 || y === 1)) || z % 3 === 0);   // goma
-      add(-2, 1, -2, 1, 12, 12, 'dark');
-      // cabeza: bloque largo de lado a lado, con chaflanes
-      add(-10, 9, -4, 3, -40, -32, 'main', (x, y, z) => {
-        const ex = x === -10 || x === 9, ey = y === -4 || y === 3, ez = z === -40 || z === -32;
+      add(-2, 1, -2, 1, -31, 4, 'accent', (x, y, z) => !((x === -2 || x === 1) && (y === -2 || y === 1)) && Math.floor((z + 40) / 4) % 3 !== 0);   // fibra amarilla
+      add(-2, 1, -2, 1, -31, 4, 'dark', (x, y, z) => !((x === -2 || x === 1) && (y === -2 || y === 1)) && Math.floor((z + 40) / 4) % 3 === 0);     // franjas negras
+      add(-3, 2, -3, 2, 3, 13, 'grip', (x, y, z) => !((x === -3 || x === 2) && (y === -3 || y === 2)) && (z % 3 !== 0 || !(x === -3 || x === 2 || y === -3 || y === 2)));   // goma con aros
+      add(-3, 2, -3, 2, 14, 16, 'steel', (x, y, z) => !((x === -3 || x === 2) && (y === -3 || y === 2)) && !(z === 16 && (x === -3 || x === 2 || y === -3 || y === 2)));   // pomo
+      add(-3, 2, -3, 2, -31, -27, 'steel', (x, y, z) => !((x === -3 || x === 2) && (y === -3 || y === 2)));                                     // collar
+      for (const x of [-3, 2]) add(x, x, -1, 0, -26, -16, 'steel');                                                                             // chapas de refuerzo
+      add(-3, -3, -1, 0, -24, -24, 'dark'); add(2, 2, -1, 0, -24, -24, 'dark'); add(-3, -3, -1, 0, -19, -19, 'dark'); add(2, 2, -1, 0, -19, -19, 'dark');
+      // cabeza
+      add(-11, 10, -5, 4, -42, -32, 'main', (x, y, z) => {
+        const ex = x === -11 || x === 10, ey = y === -5 || y === 4, ez = z === -42 || z === -32;
         return !((ex && ey) || (ex && ez) || (ey && ez));
       });
-      add(-11, -11, -3, 2, -39, -33, 'steel'); add(10, 10, -3, 2, -39, -33, 'steel');   // caras de golpeo
-      add(-3, 2, 4, 4, -38, -34, 'dark');                                                // cuña de la cabeza
-      add(-2, 1, -5, -5, -38, -34, 'dark');
-      add(-6, -5, 4, 4, -37, -35, 'steel'); add(4, 5, 4, 4, -37, -35, 'steel');            // marcas gastadas
-      // mano con guante de trabajo
-      add(-3, 2, -3, 2, 3, 9, 'hand', (x, y, z) => (x === -3 || x === 2 || y === -3 || y === 2) && z % 2 === 1);
-      add(-3, 2, -4, 3, 10, 13, 'wrist', (x, y) => x === -3 || x === 2 || y === -4 || y === 3);
-      add(-4, 3, -5, 4, 13, 29, 'sleeve', (x, y) => x === -4 || x === 3 || y === -5 || y === 4);
-      return vox;
+      for (const x of [-8, 7]) add(x, x + 1, -6, 5, -43, -31, 'dark', (xx, y, z) => (y === -6 || y === 5 || z === -43 || z === -31) && !((y === -6 || y === 5) && (z === -43 || z === -31)));   // flejes
+      for (const x of [-8, 8]) for (const z of [-40, -34]) { add(x, x, 5, 5, z, z, 'steel'); add(x, x, -6, -6, z, z, 'steel'); }                   // remaches
+      add(-13, -12, -4, 3, -41, -33, 'steel', (x, y, z) => !(x === -13 && (y === -4 || y === 3 || z === -41 || z === -33)));                     // caras de golpeo
+      add(11, 12, -4, 3, -41, -33, 'steel', (x, y, z) => !(x === 12 && (y === -4 || y === 3 || z === -41 || z === -33)));
+      add(-3, 2, 5, 5, -40, -34, 'dark'); add(-1, 0, 6, 6, -39, -35, 'steel');                                                                   // cuña
+      add(-3, 2, -6, -6, -40, -34, 'dark');
+      add(-5, -4, 5, 5, -38, -36, 'accent'); add(3, 4, 5, 5, -38, -36, 'accent');                                                               // marcas de aviso
+      return dedupe(vox);
     },
     // Cuchillo (sin mano: sólo se ve el arma). form: la forma desbloqueada
     knife(form = 'cuchillo') { return KNIFE_MODELS[form] ? KNIFE_MODELS[form]() : KNIFE_MODELS.cuchillo(); },
@@ -312,80 +507,115 @@
     { id: 'pistola', name: 'Pistola', desc: 'Equilibrada: precisa y rápida' },
     { id: 'deagle', name: 'Desert Eagle', cond: { stat: 'headshots', n: 75 }, txt: 'Revienta 75 cabezas',
       desc: 'Calibre .50: mucho daño y atraviesa, pero dispara despacio y retrocede mucho',
-      stats: { name: 'Desert Eagle', damage: 58, fireRate: 2.6, mag: 7, reload: 1.7, spread: 0.007, pierce: 1, destruction: 1.5, recoil: 0.06, recoilPat: { up: 0.09, side: 0.02 }, kick: 0.075, shake: 0.26, sound: 1.9, sfx: 'deagle', muzzle: [-0.5, 6, -31] } },
+      stats: { name: 'Desert Eagle', damage: 58, fireRate: 2.6, mag: 7, reload: 1.7, spread: 0.007, pierce: 1, destruction: 1.5, recoil: 0.06, recoilPat: { up: 0.09, side: 0.02 }, kick: 0.075, shake: 0.26, sound: 1.9, sfx: 'deagle', muzzle: [-0.5, 6.5, -36] } },
     { id: 'revolver', name: 'Revólver', cond: { stat: 'bosses', n: 2 }, txt: 'Remata a 2 jefes',
       desc: 'Seis balas que derriban: daño alto, muy preciso, recarga lenta',
-      stats: { name: 'Revólver', damage: 46, fireRate: 3.1, mag: 6, reload: 2.1, spread: 0.004, pierce: 1, destruction: 1.25, recoil: 0.045, recoilPat: { up: 0.07, side: 0.012 }, kick: 0.06, shake: 0.2, sound: 1.6, sfx: 'revolver', muzzle: [-0.5, 5.5, -33] } },
+      stats: { name: 'Revólver', damage: 46, fireRate: 3.1, mag: 6, reload: 2.1, spread: 0.004, pierce: 1, destruction: 1.25, recoil: 0.045, recoilPat: { up: 0.07, side: 0.012 }, kick: 0.06, shake: 0.2, sound: 1.6, sfx: 'revolver', muzzle: [-0.5, 6, -35] } },
     { id: 'auto', name: 'Pistola automática', cond: { stat: 'kills', n: 400 }, txt: 'Mata 400 zombis',
       desc: 'Ráfaga continua con cargador largo: poco daño por bala, mucha cadencia',
-      stats: { name: 'Pistola automática', damage: 13, fireRate: 15, mag: 22, reload: 1.5, spread: 0.03, auto: true, recoil: 0.014, recoilPat: { up: 0.016, side: 0.012 }, kick: 0.025, shake: 0.06, sound: 0.75, sfx: 'auto', muzzle: [-0.5, 5.5, -28] } },
+      stats: { name: 'Pistola automática', damage: 13, fireRate: 15, mag: 22, reload: 1.5, spread: 0.03, auto: true, recoil: 0.014, recoilPat: { up: 0.016, side: 0.012 }, kick: 0.025, shake: 0.06, sound: 0.75, sfx: 'auto', muzzle: [-0.5, 5.5, -31] } },
   ];
   const PISTOL_MODELS = {
     // pistola grande de corredera triangular, cañón con estrías y empuñadura gruesa
     deagle() {
-      const { vox, add } = builder();
-      add(-2, 1, 4, 8, -27, 0, 'main', (x, y, z) => !(y === 8 && (x === -2 || x === 1)) && !(z > -6 && (z & 1) && (x === -2 || x === 1) && y > 4));
-      add(-1, 0, 9, 9, -26, -2, 'main');
-      add(-1, 0, 10, 10, -25, -25, 'steel'); add(-1, 0, 10, 10, -3, -2, 'steel');
-      for (let z = -25; z < -8; z += 3) add(-2, -2, 5, 7, z, z, 'dark');
-      add(1, 1, 6, 7, -14, -9, 'dark');
-      add(-1, 0, 5, 6, -28, -28, 'dark');
-      add(-2, 1, 1, 3, -24, -2, 'dark');
-      add(-2, 1, 0, 0, -24, -16, 'dark');
-      add(-1, 0, -3, -3, -12, -4, 'dark'); add(-1, 0, -2, 0, -12, -12, 'dark'); add(-1, 0, -2, -1, -7, -7, 'steel');
-      for (let k = 0; k <= 13; k++) {
+      // Desert Eagle .50: mucho más grande y cuadrada que la pistola normal. Corredera ancha de acero
+      // pulido con carril de mira encima, cañón poligonal largo con compensador de ventanas, martillo
+      // de espuela, guardamonte cuadrado y empuñadura gruesa de goma negra
+      const { vox, add, part } = builder();
+      add(-3, 2, 4, 9, -29, 1, 'main', (x, y, z) => !((x === -3 || x === 2) && y === 9) && !(z > -7 && (z & 1) && (x === -3 || x === 2) && y > 4 && y < 9));
+      add(-2, 1, 10, 10, -28, 0, 'main');
+      add(-1, 0, 11, 11, -27, -2, 'dark', (x, y, z) => (z & 1) === 0);                         // carril con muescas
+      add(-1, 0, 12, 12, -27, -26, 'steel'); add(-2, 1, 12, 12, -1, 0, 'steel', (x) => x !== -1 && x !== 0);   // miras
+      add(-3, -3, 6, 7, -26, -12, 'dark'); add(2, 2, 6, 7, -26, -12, 'dark');                  // ranura de la corredera
+      add(2, 2, 5, 8, -10, -8, 'dark');                                                        // ventana de expulsión
+      add(-3, -3, 5, 5, -6, -3, 'accent');                                                     // seguro
+      // compensador con ventanas por arriba
+      add(-3, 2, 4, 9, -36, -30, 'dark', (x, y, z) => !((x === -3 || x === 2) && (y === 4 || y === 9)) && !(y === 9 && (z & 1) && x > -3 && x < 2) && !(x >= -1 && x <= 0 && y >= 6 && y <= 7 && z === -36));
+      add(-2, 1, 10, 10, -35, -31, 'steel', (x, y, z) => (z & 1) === 0);
+      for (const v of vox) if (v.y >= 4 && v.z >= -29 && v.tag !== 'accent') v.slide = true;
+      // armazón
+      add(-3, 2, 1, 3, -28, 0, 'dark');
+      add(-3, 2, 0, 0, -28, -17, 'dark'); add(-2, 1, -1, -1, -27, -20, 'dark', (x, y, z) => (z & 1) === 0);   // raíl inferior
+      add(-1, 0, -5, -5, -15, -3, 'dark'); add(-1, 0, -4, 0, -15, -15, 'dark'); add(-1, 0, -2, -1, -8, -8, 'steel');   // guardamonte cuadrado
+      add(-1, 0, 7, 11, 2, 3, 'steel', (x, y, z) => !(y === 11 && z === 2));                  // martillo de espuela
+      for (let k = 0; k <= 14; k++) {
         const zo = Math.round(k * 0.4);
-        add(-3, 2, -k, -k, -4 + zo, 2 + zo, k > 12 ? 'dark' : 'grip', (x, y, z) => !((x === -3 || x === 2) && (z === 2 + zo) && k % 3 === 0));
+        add(-3, 2, -k, -k, -4 + zo, 3 + zo, k > 13 ? 'dark' : 'grip', (x, y, z) => !(z === -4 + zo && k % 3 === 1) && !((x === -3 || x === 2) && (z === 3 + zo) && k % 3 === 0));
       }
-      add(-2, -2, 2, 2, -20, -10, 'accent'); add(1, 1, 2, 2, -20, -10, 'accent');
-      for (const v of vox) if (v.y >= 4 && v.tag !== 'accent') v.slide = true;
-      addHand(add, 3, -2);
-      return vox;
+      add(-4, -4, -7, -5, -1, 1, 'accent', (x, y, z) => (y + z) % 2 === 0); add(3, 3, -7, -5, -1, 1, 'accent', (x, y, z) => (y + z) % 2 === 0);   // medallón de las cachas
+      magIn(vox, add, part, 14, 0.4, -3, 1, -1, 0);
+      return dedupe(vox);
     },
     // revólver: tambor de seis recámaras, cañón largo con mira y percutor; la culata curva
     revolver() {
-      const { vox, add } = builder();
-      add(-1, 0, 5, 7, -32, -11, 'steel', (x, y) => !(y === 7 && x === -1));
-      add(-1, 0, 8, 8, -31, -31, 'dark');
-      add(-1, 0, 4, 4, -31, -12, 'dark');
-      add(-2, 1, 5, 6, -13, -11, 'main');
-      // tambor
+      // revólver magnum: cañón grueso con banda ventilada y funda del extractor de largo completo,
+      // tambor estriado, puente superior, percutor de espuela grande y culata de madera con chapa
+      const { vox, add, part } = builder();
+      add(-2, 1, 5, 7, -33, -11, 'steel', (x, y, z) => !((x === -2 || x === 1) && y === 7) && !(z === -33 && x >= -1 && x <= 0 && y === 6));
+      add(-1, 0, 8, 8, -32, -11, 'dark', (x, y, z) => (z % 3) !== 0);                          // banda ventilada
+      add(-1, 0, 9, 10, -32, -31, 'accent');                                                   // mira
+      add(-2, 1, 3, 4, -32, -12, 'dark', (x, y) => !((x === -2 || x === 1) && y === 3));       // funda del extractor
+      add(-2, 1, 5, 7, -13, -11, 'main');
+      add(-1, 0, 7, 8, -11, -2, 'main');                                                       // puente sobre el tambor
+      // tambor de seis recámaras con estrías (se abre hacia la izquierda sobre la grúa)
+      part('cyl');
       for (let z = -10; z <= -3; z++) for (let a = 0; a < 16; a++) {
         const th = (a / 16) * Math.PI * 2, x = Math.round(Math.cos(th) * 2.6) - 1, y = 4 + Math.round(Math.sin(th) * 2.6);
-        add(x, x, y, y, z, z, z === -10 || z === -3 ? 'dark' : 'main');
+        add(x, x, y, y, z, z, z === -10 || z === -3 ? 'dark' : (a % 4 === 2 && z > -9 && z < -4 ? 'dark' : 'main'));
       }
       add(-2, 1, 3, 5, -9, -4, 'dark');
+      part('cylb');
+      for (let i = 0; i < 6; i++) { const th = i / 6 * Math.PI * 2 + 0.5; add(Math.round(Math.cos(th) * 1.6 - 0.5), Math.round(Math.cos(th) * 1.6 - 0.5), 4 + Math.round(Math.sin(th) * 1.6), 4 + Math.round(Math.sin(th) * 1.6), -3, -3, 'brass'); }   // culotes
+      part('crane'); add(-1, 0, 1, 2, -11, -10, 'steel'); part(null);
+      // las seis balas del cargador rápido (sólo al recargar)
+      part('rl_speed');
+      for (let i = 0; i < 6; i++) { const th = i / 6 * Math.PI * 2 + 0.5, x = Math.round(Math.cos(th) * 1.6 - 0.5), y = 4 + Math.round(Math.sin(th) * 1.6); round(add, x, y, -2, 6); }
+      part('rl_loader'); add(-1, 0, 3, 4, -2, 0, 'dark');
+      part('rl_cases');
+      for (let i = 0; i < 6; i++) { const th = i / 6 * Math.PI * 2 + 0.5, x = Math.round(Math.cos(th) * 1.6 - 0.5), y = 4 + Math.round(Math.sin(th) * 1.6); add(x, x, y, y, -9, -3, 'brass'); }
+      part(null);
       add(-2, 1, 1, 8, -2, 1, 'main', (x, y) => y < 3 || y > 6 || x === -2 || x === 1);
-      add(-1, 0, 8, 9, 1, 3, 'dark');                       // percutor
+      add(-3, -3, 3, 4, -1, 0, 'steel');                                                       // pestillo del tambor
+      part('ham'); add(-1, 0, 8, 9, 1, 3, 'dark'); add(-1, 0, 10, 10, 2, 4, 'steel'); part(null);   // percutor con espuela
       add(-1, 0, 0, 1, -10, -3, 'main');
-      add(-1, 0, -2, -2, -8, -3, 'dark'); add(-1, 0, -1, 0, -8, -8, 'dark'); add(-1, 0, -1, 0, -5, -5, 'steel');
-      for (let k = 0; k <= 11; k++) {
+      add(-1, 0, -2, -2, -9, -3, 'dark'); add(-1, 0, -1, 0, -9, -9, 'dark'); add(-1, 0, -1, 0, -5, -5, 'steel');
+      for (let k = 0; k <= 12; k++) {
         const zo = Math.round(k * 0.55 + (k > 7 ? (k - 7) * 0.4 : 0));
-        add(-2, 1, -k, -k, -2 + zo, 3 + zo, 'grip', (x, y, z) => !((x === -2 || x === 1) && z === 3 + zo && k % 4 === 1));
+        add(-3, 2, -k, -k, -2 + zo, 3 + zo, k === 12 ? 'steel' : 'grip', (x, y, z) => !((x === -3 || x === 2) && (z === -2 + zo || z === 3 + zo)) && !((x === -3 || x === 2) && k % 4 === 1));
       }
+      add(-3, -3, -5, -4, 2, 3, 'accent'); add(2, 2, -5, -4, 2, 3, 'accent');                  // medallón de la culata
       add(-2, -2, 1, 1, -12, -11, 'accent'); add(1, 1, 1, 1, -12, -11, 'accent');
-      addHand(add, 3, -2);
-      return vox;
+      return dedupe(vox);
     },
     // automática: compensador ranurado, selector de tiro y cargador largo que asoma
     auto() {
-      const { vox, add } = builder();
-      add(-2, 1, 4, 7, -22, 0, 'main', (x, y, z) => !(z > -4 && (z & 1) && (x === -2 || x === 1)));
-      add(-2, 1, 4, 7, -27, -23, 'dark', (x, y, z) => !((z & 1) && y === 7));
-      add(-1, 0, 5, 6, -28, -28, 'steel');
-      add(-1, 0, 8, 8, -21, -21, 'steel'); add(-2, 1, 8, 8, -2, -1, 'main', (x) => x === -2 || x === 1);
-      add(-2, 1, 1, 3, -21, -2, 'dark'); add(-2, 1, 0, 0, -21, -15, 'dark');
-      add(-1, 0, -3, -3, -11, -4, 'dark'); add(-1, 0, -2, 0, -11, -11, 'dark'); add(-1, 0, -2, -1, -7, -7, 'steel');
-      add(1, 1, 4, 5, -6, -4, 'accent');                      // selector
+      // automática de ráfaga: corredera con ventanas que dejan ver el cañón, compensador largo con
+      // tres lumbreras, empuñadura delantera abatible, selector grande y cargador largo con tope
+      const { vox, add, part } = builder();
+      add(-2, 1, 4, 8, -22, 0, 'main', (x, y, z) => !((x === -2 || x === 1) && y === 8) && !(z > -5 && (z & 1) && (x === -2 || x === 1) && y > 4 && y < 8) && !(y === 8 && z > -19 && z < -8 && (z % 3) !== 0));
+      add(-1, 0, 7, 7, -19, -8, 'steel');                                                      // cañón por las ventanas
+      add(1, 1, 6, 7, -12, -8, 'dark');
+      add(-2, 1, 3, 8, -30, -23, 'dark', (x, y, z) => !((x === -2 || x === 1) && (y === 3 || y === 8)) && !(y === 8 && (z === -29 || z === -27 || z === -25)) && !(x >= -1 && x <= 0 && y >= 5 && y <= 6 && z === -30));   // compensador
+      add(-2, -2, 5, 6, -28, -24, 'accent', (x, y, z) => (z & 1) === 0); add(1, 1, 5, 6, -28, -24, 'accent', (x, y, z) => (z & 1) === 0);
+      add(-1, 0, 9, 9, -21, -21, 'steel'); add(-2, 1, 9, 9, -2, -1, 'dark', (x) => x === -2 || x === 1);
+      for (const v of vox) if (v.y >= 4 && v.tag !== 'accent' && v.z > -23) v.slide = true;
+      add(-2, 1, 1, 3, -22, 1, 'dark'); add(-2, 1, 0, 0, -22, -14, 'dark');
+      add(-1, 0, -1, -1, -21, -15, 'dark', (x, y, z) => (z & 1) === 0);
+      // empuñadura delantera abatible
+      add(-1, 0, -2, -2, -21, -17, 'steel'); for (let k = 3; k <= 8; k++) add(-1, 0, -k, -k, -20, -18, k === 8 ? 'dark' : 'grip');
+      add(-1, 0, -3, -3, -12, -4, 'dark'); add(-1, 0, -2, 0, -12, -12, 'dark'); add(-1, 0, -2, -1, -7, -7, 'steel');
+      add(1, 2, 4, 5, -7, -3, 'accent'); add(2, 2, 6, 6, -5, -5, 'accent');                  // selector grande
+      add(-1, 0, 8, 9, 1, 2, 'steel');
       for (let k = 0; k <= 12; k++) {
         const zo = Math.round(k * 0.35);
         add(-2, 1, -k, -k, -4 + zo, 1 + zo, 'grip');
+        if (k >= 2 && k <= 10) { add(-3, -3, -k, -k, -3 + zo, 0 + zo, k % 2 ? 'grip' : 'dark'); add(2, 2, -k, -k, -3 + zo, 0 + zo, k % 2 ? 'grip' : 'dark'); }
       }
-      for (let k = 13; k <= 20; k++) { const zo = Math.round(k * 0.35); add(-1, 0, -k, -k, -3 + zo, 0 + zo, 'dark'); }   // cargador largo
-      add(-2, 1, -21, -21, 3, 7, 'accent');
-      for (const v of vox) if (v.y >= 4 && v.tag !== 'accent' && v.z > -23) v.slide = true;
-      addHand(add, 2, -2);
-      return vox;
+      part('mag');
+      for (let k = 1; k <= 20; k++) { const zo = Math.round(k * 0.35); add(-1, 0, -k, -k, -3 + zo, 0 + zo, 'dark'); if (k > 12) { add(-2, -2, -k, -k, -3 + zo, 0 + zo, 'dark'); add(1, 1, -k, -k, -3 + zo, 0 + zo, 'dark'); } }   // cargador largo
+      add(-2, 1, -21, -22, 3, 8, 'accent', (x, y) => y === -21 || (x > -2 && x < 1)); add(-1, 0, 0, 0, -3, 0, 'brass');
+      part(null);
+      return dedupe(vox);
     },
   };
 
@@ -397,6 +627,7 @@
     { id: 'machete', name: 'Machete', cond: { stat: 'knifeElites', n: 8 }, txt: 'Mata 8 élites o campeones con el cuchillo' },
     { id: 'bayoneta', name: 'Bayoneta', cond: { stat: 'knifeBosses', n: 1 }, txt: 'Remata a un jefe con el cuchillo' },
     { id: 'mariposa', name: 'Navaja mariposa', cond: { stat: 'knifeKills', n: 150 }, txt: 'Mata 150 zombis con el cuchillo' },
+    { id: 'katana', name: 'Katana', cond: { stat: 'knifeKills', n: 300 }, txt: 'Mata 300 zombis con el cuchillo', desc: 'Más alcance: desenvaina en un tajo ancho y corta de arriba abajo' },
   ];
   const KNIFE_MODELS = {
     cuchillo() {
@@ -441,6 +672,23 @@
         const y = RY + Math.round(Math.sin(th) * 3.4), z = RZ + Math.round(Math.cos(th) * 3.4);
         add(-1, 1, y, y, z, z, 'accent', (x) => x === 0 || a % 2 === 0);
       }
+      return vox;
+    },
+    // hoja larga y ligeramente curva, tsuba redonda y empuñadura con el trenzado en rombos
+    katana() {
+      const { vox, add } = builder();
+      for (let z = -62; z <= -5; z++) {
+        const t = (-5 - z) / 57, curve = Math.round(t * t * 3);
+        const tip = z < -57 ? Math.round((z + 62) * 0.5) : 2;
+        add(0, 0, curve, curve + Math.max(0, tip), z, z, 'blade');
+        add(0, 0, curve + Math.max(0, tip), curve + Math.max(0, tip), z, z, 'steel');   // lomo
+        if (z > -14) add(0, 0, curve, curve, z, z, 'steel');                            // habaki
+      }
+      for (let a = 0; a < 20; a++) { const th = a / 20 * Math.PI * 2; add(Math.round(Math.cos(th) * 3), Math.round(Math.cos(th) * 3), 1 + Math.round(Math.sin(th) * 3), 1 + Math.round(Math.sin(th) * 3), -4, -4, 'accent'); }
+      add(-1, 1, -1, 3, -4, -4, 'accent');
+      add(-1, 1, -1, 3, -3, 14, 'grip', (x, y, z) => !(((y + z) % 3 === 0) && x !== 0));
+      add(-1, 1, -1, 3, -3, 14, 'dark', (x, y, z) => ((y + z) % 3 === 0) && x !== 0);
+      add(-1, 1, -1, 3, 15, 16, 'accent');
       return vox;
     },
     // doble filo simétrico con nervio central y guarda ancha
@@ -508,29 +756,90 @@
     hammer: { main: [0.24, 0.25, 0.27], steel: [0.66, 0.67, 0.7], dark: [0.07, 0.07, 0.08], grip: [0.09, 0.09, 0.1], accent: [0.92, 0.66, 0.08], hand: [0.62, 0.48, 0.24], wrist: [0.5, 0.38, 0.2] },
     pistol: { main: [0.36, 0.36, 0.39], dark: [0.2, 0.2, 0.22], grip: [0.24, 0.17, 0.12], steel: [0.7, 0.71, 0.75], accent: [0.9, 0.4, 0.1] },
     smg: { main: [0.25, 0.27, 0.24], dark: [0.15, 0.15, 0.16], grip: [0.2, 0.2, 0.2], steel: [0.6, 0.6, 0.64], accent: [0.9, 0.4, 0.1] },
-    shotgun: { main: [0.3, 0.3, 0.33], dark: [0.15, 0.15, 0.16], grip: [0.45, 0.27, 0.13], steel: [0.5, 0.5, 0.54], accent: [0.9, 0.4, 0.1] },
+    shotgun: { main: [0.11, 0.11, 0.12], dark: [0.06, 0.06, 0.07], grip: [0.42, 0.36, 0.24], steel: [0.48, 0.48, 0.52], accent: [0.35, 1, 0.3, 0.8] },
     rifle: { main: [0.28, 0.28, 0.3], dark: [0.12, 0.12, 0.13], grip: [0.4, 0.24, 0.12], steel: [0.48, 0.48, 0.52], accent: [0.4, 0.8, 1, 0.8] },
-    crossbow: { main: [0.42, 0.28, 0.16], dark: [0.16, 0.16, 0.17], grip: [0.32, 0.2, 0.11], steel: [0.85, 0.83, 0.75], accent: [0.25, 0.26, 0.28], blade: [0.6, 0.62, 0.66] },
-    dbarrel: { main: [0.34, 0.33, 0.36], dark: [0.12, 0.12, 0.13], grip: [0.5, 0.3, 0.14], steel: [0.22, 0.22, 0.24], accent: [0.85, 0.65, 0.25] },
+    crossbow: { main: [0.3, 0.18, 0.09], dark: [0.12, 0.12, 0.13], grip: [0.2, 0.12, 0.07], steel: [0.58, 0.58, 0.62], accent: [0.5, 0.1, 0.07], blade: [0.42, 0.3, 0.18] },
+    dbarrel: { main: [0.42, 0.4, 0.42], dark: [0.1, 0.1, 0.11], grip: [0.38, 0.2, 0.09], steel: [0.16, 0.16, 0.18], accent: [0.85, 0.65, 0.25] },
     lmg: { main: [0.2, 0.22, 0.19], dark: [0.11, 0.11, 0.12], grip: [0.17, 0.17, 0.17], steel: [0.42, 0.42, 0.45], accent: [0.85, 0.65, 0.2] },
     flamer: { main: [0.3, 0.31, 0.3], dark: [0.12, 0.12, 0.13], grip: [0.18, 0.18, 0.18], steel: [0.6, 0.6, 0.62], accent: [0.85, 0.15, 0.1] },
     raygun: { main: [0.75, 0.72, 0.65], dark: [0.55, 0.12, 0.1], grip: [0.2, 0.2, 0.24], steel: [0.6, 0.62, 0.68], accent: [0.35, 1, 0.45, 0.9], blade: [0.6, 1, 0.7, 1] },
+    'pistol:deagle': { main: [0.6, 0.61, 0.65], dark: [0.1, 0.1, 0.11], grip: [0.07, 0.07, 0.08], steel: [0.82, 0.83, 0.87], accent: [0.85, 0.65, 0.25] },
     launcher: { main: [0.3, 0.36, 0.24], dark: [0.15, 0.17, 0.13], grip: [0.18, 0.18, 0.18], steel: [0.55, 0.56, 0.6], accent: [1, 0.75, 0.1] },
   };
 
   // Construye la lista de vóxeles coloreados para un arma y una skin
+  // ---------------- Skin definitiva («Leyenda») ----------------
+  // Una por arma, al estilo de un arma mejorada: sin adornos que cambien la silueta, sino un
+  // camuflaje propio de dos tonos que fluye despacio por el arma y detalles que laten con luz.
+  // Se desbloquea al conseguir todos los demás camuflajes de esa arma.
+  //   c1/c2: los dos tonos del camuflaje animado · glow: color de los detalles que brillan
+  const ULT = {
+    pistol: { name: 'Oro fundido', c1: [0.05, 0.045, 0.04], c2: [0.62, 0.45, 0.12], glow: [1, 0.75, 0.25], speed: 1 },
+    smg: { name: 'Nebulosa', c1: [0.06, 0.04, 0.14], c2: [0.18, 0.12, 0.45], glow: [0.35, 0.9, 1], speed: 1.3 },
+    shotgun: { name: 'Magma', c1: [0.07, 0.02, 0.02], c2: [0.55, 0.12, 0.03], glow: [1, 0.45, 0.1], speed: 0.8 },
+    rifle: { name: 'Glaciar', c1: [0.7, 0.8, 0.9], c2: [0.2, 0.38, 0.6], glow: [0.4, 0.9, 1], speed: 0.6 },
+    launcher: { name: 'Toxina', c1: [0.04, 0.08, 0.03], c2: [0.25, 0.5, 0.08], glow: [0.6, 1, 0.2], speed: 1.1 },
+    hammer: { name: 'Bronce real', c1: [0.42, 0.26, 0.1], c2: [0.85, 0.66, 0.25], glow: [1, 0.95, 0.7], speed: 0.7 },
+    crossbow: { name: 'Nácar', c1: [0.82, 0.8, 0.84], c2: [0.62, 0.55, 0.72], glow: [1, 0.55, 0.85], speed: 0.9 },
+    dbarrel: { name: 'Abismo', c1: [0.03, 0.02, 0.05], c2: [0.3, 0.08, 0.45], glow: [0.8, 0.35, 1], speed: 1 },
+    lmg: { name: 'Sangre de guerra', c1: [0.12, 0.12, 0.13], c2: [0.45, 0.04, 0.04], glow: [1, 0.15, 0.1], speed: 1.2 },
+    flamer: { name: 'Llamarada', c1: [0.45, 0.12, 0.02], c2: [0.95, 0.6, 0.1], glow: [1, 0.9, 0.4], speed: 1.6 },
+    raygun: { name: 'Plasma', c1: [0.85, 0.92, 0.95], c2: [0.1, 0.55, 0.6], glow: [1, 0.3, 0.9], speed: 1.4 },
+    knife: { name: 'Hoja maldita', c1: [0.04, 0.03, 0.03], c2: [0.4, 0.03, 0.04], glow: [1, 0.12, 0.08], speed: 1 },
+  };
+  // color animado de un vóxel con skin definitiva en el instante t
+  function ultColor(v, U, t, out) {
+    const sp = U.speed || 1;
+    if (v.an === 1) {
+      // camuflaje: manchas que se deforman y avanzan despacio a lo largo del arma
+      const k = 0.5 + 0.5 * Math.sin(v.x * 0.8 + v.y * 0.55 + Math.sin(v.z * 0.23 + t * 0.9 * sp) * 2.2 - t * 1.4 * sp);
+      const kk = k * k * (3 - 2 * k), f = v.dk || 1;
+      out[0] = (U.c1[0] + (U.c2[0] - U.c1[0]) * kk) * f + v.h; out[1] = (U.c1[1] + (U.c2[1] - U.c1[1]) * kk) * f + v.h; out[2] = (U.c1[2] + (U.c2[2] - U.c1[2]) * kk) * f + v.h;
+      out[3] = kk > 0.88 && f === 1 ? (kk - 0.88) * 0.8 : 0;   // el tono claro reluce apenas
+    } else if (v.an === 3) {
+      // metal: oscuro, con un reflejo del color del arma que lo recorre de vez en cuando
+      const w = Math.max(0, Math.sin(v.z * 0.18 - t * 2 * sp)), sh = Math.pow(w, 12);
+      out[0] = 0.12 + U.glow[0] * sh * 0.8 + v.h; out[1] = 0.12 + U.glow[1] * sh * 0.8 + v.h; out[2] = 0.13 + U.glow[2] * sh * 0.8 + v.h;
+      out[3] = sh * 0.6;
+    } else {
+      // detalles: laten y una onda de luz recorre el arma de atrás adelante
+      const w = Math.max(0, Math.sin(v.z * 0.35 + t * 3.2 * sp));
+      const p = 0.55 + 0.25 * Math.sin(t * 2.4 * sp) + 0.35 * w * w;
+      out[0] = U.glow[0] * (0.6 + 0.4 * p); out[1] = U.glow[1] * (0.6 + 0.4 * p); out[2] = U.glow[2] * (0.6 + 0.4 * p);
+      out[3] = Math.min(1, p);
+    }
+    return out;
+  }
+  function skinLabel(s, weapon) { return s && s.ultimate ? (ULT[weapon] ? ULT[weapon].name : s.name) : (s ? s.name : ''); }
+  function skinPal(s, weapon) { return s && s.ultimate && ULT[weapon] ? { main: ULT[weapon].c2, accent: ULT[weapon].glow } : (s && s.pal) || {}; }
+
   const cache = {};
-  function coloredModel(id, skinId, form) {
-    const key = id + ':' + skinId + ':' + (form || '');
+  const AMMO_PAL = { brass: [0.86, 0.66, 0.26], lead: [0.42, 0.42, 0.46], shell: [0.62, 0.1, 0.07], gren: [0.24, 0.32, 0.18] };
+  // Las manos ya no se dibujan (sólo el arma). Con extras = true incluye las piezas de recarga
+  function coloredModel(id, skinId, form, extras) {
+    const key = id + ':' + skinId + ':' + (form || '') + (extras ? ':x' : '');
     if (cache[key]) return cache[key];
-    const base = MODELS[id](form);
+    let base = MODELS[id](form).filter((v) => !HAND[v.tag] && (extras || !(v.part && v.part.startsWith('rl_'))));
     const skin = SKINS.find((s) => s.id === skinId) || SKINS[0];
-    const pal = { ...HAND, ...DEFAULT_PAL[id], ...(skin.pal || {}) };
+    const U = skin.ultimate ? ULT[id] : null;
+    const pal = { ...AMMO_PAL, ...DEFAULT_PAL[id], ...((form && DEFAULT_PAL[id + ':' + form]) || {}), ...(skin.pal || {}) };
     const out = base.map((v) => {
       let c = pal[v.tag] || [1, 0, 1];
       if (skin.pal && skin.pal.checker && (v.tag === 'main' || v.tag === 'dark') && ((v.x + v.y + v.z) & 1)) c = [c[0] * 1.6, c[1] * 1.6, c[2] * 1.7];
-      return { x: v.x, y: v.y, z: v.z, tag: v.tag, slide: v.slide, pump: v.pump, r: c[0] + v.h, g: c[1] + v.h, b: c[2] + v.h, e: c[3] || 0 };
+      if (AMMO_PAL[v.tag]) c = AMMO_PAL[v.tag];
+      const o = { x: v.x, y: v.y, z: v.z, tag: v.tag, part: v.part, slide: v.slide, pump: v.pump, r: c[0] + v.h, g: c[1] + v.h, b: c[2] + v.h, e: c[3] || 0, h: v.h };
+      // skin definitiva: el cuerpo lleva el camuflaje animado (an 1) y los detalles brillan (an 2)
+      if (U && !AMMO_PAL[v.tag]) {
+        // 1 camuflaje (cuerpo, culata, empuñadura) · 2 detalles que laten (pocos y pequeños) · 3 metal con brillo que pasa
+        const bigAccent = id === 'flamer' || id === 'hammer';   // en estas el «acento» es una pieza grande
+        o.an = v.tag === 'main' || v.tag === 'dark' || v.tag === 'grip' || (id === 'knife' && v.tag === 'blade') || (bigAccent && v.tag === 'accent') ? 1
+          : v.tag === 'accent' || (id === 'raygun' && v.tag === 'blade') ? 2 : v.tag === 'steel' || v.tag === 'blade' ? 3 : 0;
+        if (o.an === 1 && (v.tag === 'grip' || v.tag === 'dark')) o.dk = 0.6;
+        if (o.an) { const cc = ultColor(o, U, 0, [0, 0, 0, 0]); o.r = cc[0]; o.g = cc[1]; o.b = cc[2]; o.e = cc[3]; }
+      }
+      return o;
     });
+    if (U) out.ult = U;
     cache[key] = out;
     return out;
   }
@@ -550,5 +859,5 @@
   DEFS.smg.sfx = 'smg'; DEFS.shotgun.sfx = 'shotgun'; DEFS.rifle.sfx = 'rifle'; DEFS.launcher.sfx = 'launcher';
   for (const id of ['crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun']) DEFS[id].sfx = id;
 
-  VX.Weapons = { DEFS, GUNS, SKINS, MODELS, KNIVES, PISTOLS, coloredModel, applyPistolForm };
+  VX.Weapons = { DEFS, GUNS, SKINS, MODELS, KNIVES, PISTOLS, ULT, ultColor, coloredModel, applyPistolForm, skinLabel, skinPal };
 })();

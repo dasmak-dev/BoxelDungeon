@@ -22,6 +22,7 @@
     skull: ['.XXX.', 'XXXXX', 'X.X.X', 'XXXXX', '.X.X.'],
     coin: ['.XXX.', 'XX.XX', 'X.X.X', 'XX.XX', '.XXX.'],
     chest: ['.XXX.', 'XXXXX', 'XX.XX', 'XXXXX', 'XXXXX'],
+    key: ['.XXX.', '.X.X.', '.XXX.', '..X..', '..XX.'],
   };
   // Precalcular offsets
   const SHAPE_VOX = {};
@@ -152,6 +153,8 @@
         game.hud.toast('¡Tesoro!');
         return;
       }
+      if (it.kind === 'key') { it.taken = true; game.takeKey(it.color3); return; }
+      if (it.kind === 'lockdoor') { game.tryVault(it); return; }
       if (it.kind === 'map') { it.taken = true; game.studyMap(); return; }
       if (it.kind === 'supply') { it.taken = true; VX.HordeMode.openSupply(game, it); return; }
       if (it.kind === 'evac') { it.taken = true; VX.HordeMode.callEvac(game); return; }
@@ -252,7 +255,7 @@
       for (const it of this.items) {
         if (it.kind === 'weapon') { this.renderWeapon(batch, it); continue; }
         if (it.kind === 'supply') { this.renderSupply(batch, it); continue; }
-        if (it.kind === 'secretChest' || it.kind === 'perk') continue;   // se ve el propio cofre / la máquina
+        if (it.kind === 'secretChest' || it.kind === 'perk' || it.kind === 'lockdoor') continue;   // se ve el propio cofre / la máquina / la reja
         if (it.kind === 'stairs') {
           // foso con escalones de piedra que bajan hacia la pared y se pierden en la oscuridad
           const dx = it.dx, dz = it.dz, L = it.L || 1.6, Wd = it.Wd || 0.8, n = 7;

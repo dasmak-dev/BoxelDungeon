@@ -531,6 +531,17 @@
           (i, j, k, dims) => ((i <= 2 || i >= dims[0] - 3) ? flame(i % 3, j, k, [3, 4, dims[2]]) : null), null, { flicker: true });
         break;
       }
+      case 'boneCrown': {   // corona de huesos afilados clavada en el cráneo (renacido)
+        add('crown', 'head', [0, headBase + hh - 1, headZ], [hw + 2, 5, hd + 2], [-(hw + 2) / 2, 0, -(hd + 2) / 2],
+          (i, j, k, [w, h, d]) => {
+            const ring = i === 0 || k === 0 || i === w - 1 || k === d - 1;
+            if (!ring) return null;
+            if (j === 0) return [0.7, 0.66, 0.55];
+            const spike = (i + k) % 3 === 0 && j <= 2 + Math.floor(rnd(i, 0, k, 25) * 3);
+            return spike ? [0.88, 0.84, 0.72] : null;
+          });
+        break;
+      }
       case 'loincloth': {   // taparrabos raído (esqueleto)
         const col = pick([[0.35, 0.08, 0.08], [0.2, 0.22, 0.28], [0.3, 0.25, 0.15]]);
         add('cloth', 'torso', [0, hipY + 2, 0], [tw - 2, 7, td], [-(tw - 2) / 2, -7, -td / 2],
@@ -552,6 +563,113 @@
   }
 
   // Escudo de chapa (para el zombi escudero): parte "blindada" que cuelga del torso
+  // ================= CABALLERO NEGRO =================
+  // Armadura de placas negras con remaches y ribetes dorados, yelmo cerrado con una
+  // rendija que brilla, hombreras con púas, capa hecha jirones y un mandoble. Dentro no hay carne:
+  // al abrirle un agujero se ve una sustancia violeta que brilla. Su único punto débil es el
+  // corazón de cristal engastado en el pecho, dentro de una jaula dorada.
+  function knight(cfg) {
+    const model = humanoid({ ...cfg, style: 'armor', clean: true, tear: 0, jaw: false, blocky: true, barefoot: false });
+    const v = cfg.v, [tw, th, td] = cfg.torso, [hw, hh, hd] = cfg.head, [aw, ah, ad] = cfg.arm, hipY = cfg.leg[1];
+    const ST = [0.07, 0.07, 0.085], ST2 = [0.13, 0.13, 0.155], TRIM = [0.46, 0.34, 0.12], ICH = [0.32, 0.06, 0.52, 0.65];
+    const hh2 = (a, b, c, s) => M.hash3(a + s * 13, b + s * 7, c + s * 3);
+    for (const p of model.parts) for (const x of p.vox) {
+      if (x.ghost) continue;
+      let c;
+      if (!x.exposed) c = ICH;
+      else {
+        const [w, h] = p.dims;
+        const band = x.j % 5 === 0, edge = x.i === 0 || x.i === w - 1;
+        c = band ? ST2 : ST;
+        if (band && edge) c = TRIM;
+        if (p.name === 'torso' && x.j === h - 1) c = TRIM;
+        if (p.name.startsWith('arm') && x.j <= 1) c = [0.1, 0.1, 0.12];                  // guanteletes
+        if (p.name.startsWith('leg') && x.j <= 1) c = [0.05, 0.05, 0.06];
+        const n = (hh2(x.i, x.j, x.k, 1) - 0.5) * 0.025;
+        c = [c[0] + n, c[1] + n, c[2] + n, c[3] || 0];
+      }
+      x.r = c[0]; x.g = c[1]; x.b = c[2]; x.e = c[3] || 0;
+    }
+    const add = (name, parent, pivot, dims, min, fn, shape, extra = {}) => {
+      const pt = makePart(name, pivot, dims, min, v, fn, null, shape);
+      pt.parent = parent; Object.assign(pt, extra);
+      if (pt.alive > 0) model.parts.push(pt);
+      return pt;
+    };
+    const headBase = hipY + th;
+    // yelmo cerrado
+    const HW = hw + 2, HH = hh + 2, HD = hd + 2;
+    add('helm', 'head', [0, headBase, 0], [HW, HH, HD], [-HW / 2, -1, -HD / 2], (i, j, k, [w, h, d], surf) => {
+      if (!surf) return ICH;
+      const front = k === d - 1, ci = (w - 1) / 2;
+      if (front && j === Math.round(h * 0.55) && Math.abs(i - ci) > 0.6 && i > 0 && i < w - 1) return [0.85, 0.35, 1, 1];   // rendija
+      if (front && j < Math.round(h * 0.45) && j > 0 && Math.abs(i - ci) < 1.6 && j % 2 === 0) return [0.02, 0.02, 0.02]; // respiraderos
+      if (j === h - 1 && Math.abs(i - ci) < 0.6) return TRIM;                                                              // cresta
+      if (front && Math.abs(i - ci) < 0.6) return TRIM;
+      if (j === 0) return TRIM;
+      return (j % 4 === 0) ? ST2 : ST;
+    }, (i, j, k, [w, h, d]) => !(corner(i, k, w, d) <= (j >= h - 2 ? 2 : 0)));
+    // hombreras con púas
+    for (const sd of [-1, 1]) {
+      const nm = sd < 0 ? 'armL' : 'armR', W2 = aw + 4, D2 = ad + 4;
+      add(sd < 0 ? 'pauldronL' : 'pauldronR', nm, [sd * (tw / 2 + aw / 2), hipY + th - aw / 2, 0], [W2, 6, D2], [-W2 / 2, -2, -D2 / 2], (i, j, k, [w, h, d]) => {
+        if (j >= 4) return (i === (sd < 0 ? 1 : w - 2) && (k === 1 || k === d - 2 || k === Math.floor(d / 2))) ? (j === 5 ? [0.4, 0.37, 0.32] : [0.16, 0.14, 0.12]) : null;   // púas
+        if (j === 0) return TRIM;
+        return j % 2 ? ST2 : ST;
+      }, (i, j, k, [w, h, d]) => j >= 4 || !(corner(i, k, w, d) <= 1));
+    }
+    // capa raída por la espalda
+    const CH = th + Math.round(cfg.leg[1] * 0.75);
+    add('cape', 'torso', [0, hipY + th - 1, -td / 2], [tw + 2, CH, 1], [-(tw + 2) / 2, -CH, -1], (i, j, k, [w, h]) => {
+      const tear = Math.floor(hh2(i, 0, 0, 5) * 7);
+      if (j < tear) return null;
+      if (j === h - 1) return TRIM;
+      return hh2(i >> 1, j >> 1, 0, 6) < 0.15 ? [0.1, 0.02, 0.03] : [0.2, 0.035, 0.045];
+    }, null, { sway: 0.12 });
+    // corazón de cristal (punto débil) dentro de una jaula dorada
+    const cy = hipY + Math.round(th * 0.6);
+    add('core', 'torso', [0, cy, td / 2], [4, 4, 2], [-2, -2, 0], (i, j, k) => {
+      const ctr = (i === 1 || i === 2) && (j === 1 || j === 2);
+      return ctr ? [1, 0.55, 1, 1] : [0.75, 0.2, 1, 1];
+    }, (i, j) => !((i === 0 || i === 3) && (j === 0 || j === 3)), { weak: true });
+    add('cage', 'torso', [0, cy, td / 2 + 2], [6, 6, 1], [-3, -3, 0], (i, j, k, [w, h]) => {
+      const fr = i === 0 || j === 0 || i === w - 1 || j === h - 1;
+      return fr || ((i === 2 || i === 3) && (j === 0 || j === h - 1)) ? TRIM : null;
+    });
+    return addTool(model, cfg, { tool: 'greatsword', name: 'tool', arm: 'armR' });
+  }
+
+  // ================= RESTOS DEL RENACIDO =================
+  // Un montón de carne viva, tendones y huesos que late en el suelo. Usa los mismos nombres de
+  // pieza que un humanoide (para que todo funcione igual) pero tirados por el suelo.
+  function pile(cfg) {
+    const v = cfg.v, sd = (Math.random() * 999) | 0;
+    const H = (i, j, k, s = 0) => M.hash3(i + sd + s * 31, j + s * 7, k + s * 17);
+    const FL = (i, j, k) => {
+      const h = H(i, j, k, 1);
+      if (h < 0.08) return [0.86, 0.8, 0.66];                     // hueso
+      if (h < 0.16) return [0.9, 0.35, 0.2, 0.55];                // brasa de vida que late
+      if (h < 0.5) return [0.48, 0.07, 0.08];
+      return h < 0.8 ? [0.6, 0.12, 0.12] : [0.62, 0.3, 0.32];
+    };
+    const parts = [];
+    parts.push(makePart('torso', [0, 0, 0], [14, 6, 12], [-7, 0, -6], v, (i, j, k) => FL(i, j, k), null,
+      (i, j, k, [w, h, d]) => Math.hypot((i - (w - 1) / 2) / (w / 2), j / h, (k - (d - 1) / 2) / (d / 2)) <= 1 - H(i, 0, k, 2) * 0.15));
+    const bone = (i, j, k) => (H(i, j, k, 3) < 0.15 ? [0.7, 0.66, 0.55] : [0.86, 0.82, 0.7]);
+    parts.push(makePart('legL', [-6, 0, 3], [10, 2, 2], [-5, 0, -1], v, bone, null));
+    parts.push(makePart('legR', [5, 0, -4], [2, 2, 9], [-1, 0, -4.5], v, bone, null));
+    parts.push(makePart('armL', [-4, 1, -6], [8, 2, 2], [-4, 0, -1], v, bone, null));
+    parts.push(makePart('armR', [6, 1, 5], [2, 2, 7], [-1, 0, -3.5], v, bone, null));
+    parts.push(makePart('head', [2, 4, 1], [6, 6, 6], [-3, 0, -3], v, (i, j, k, [w, h, d], surf) => {
+      if (!surf) return null;
+      if (k === d - 1 && j === 3 && (i === 1 || i === 4)) return [cfg.eye[0], cfg.eye[1], cfg.eye[2], 1];   // las cuencas aún brillan
+      if (k === d - 1 && j === 1) return i % 2 ? [0.86, 0.82, 0.7] : [0.05, 0.03, 0.02];
+      return [0.86, 0.82, 0.7];
+    }, null, (i, j, k, [w, h, d]) => !((i === 0 || i === w - 1) && (k === 0 || k === d - 1)) && !(j === h - 1 && (i === 0 || i === w - 1 || k === 0 || k === d - 1))));
+    for (const p of parts) if (p.name !== 'torso') p.parent = 'torso';
+    return { parts, height: 0.6, width: 0.8, v, depth: 0.6 };
+  }
+
   function addShield(model, cfg) {
     const v = cfg.v;
     const [tw, th, td] = cfg.torso;
@@ -685,6 +803,17 @@
         if (j >= 12) return k <= 1 ? [0.12, 0.1, 0.09] : null;      // empuñadura en la mano
         if (j < 2) return k >= 2 ? [0.08, 0.08, 0.09] : null;        // boca del cañón
         return k >= 1 ? (j % 5 === 0 ? [0.3, 0.32, 0.36] : [0.16, 0.16, 0.18]) : null;
+      };
+    } else if (tool === 'greatsword') {
+      // mandoble negro con filo violeta que brilla, guarda dorada en cruz y pomo
+      dims = [1, 40, 6]; min = [-0.5, -ah - 28, -1.5];
+      fn = (i, j, k) => {
+        if (j >= 35) return k >= 2 && k <= 3 ? (j === 39 ? [0.45, 0.33, 0.12] : [0.1, 0.07, 0.06]) : null;   // empuñadura y pomo
+        if (j === 34) return [0.45, 0.33, 0.12];                                                             // guarda
+        if (j >= 32) return k >= 1 && k <= 4 ? [0.06, 0.06, 0.07] : null;
+        if (j < 2 && (k === 0 || k === 5)) return null;                                                     // punta
+        if (k === 0 || k === 5) return [0.6, 0.25, 0.9, 0.85];                                              // filos
+        return M.hash3(j, k, 9) < 0.08 ? [0.5, 0.2, 0.8, 0.6] : [0.07, 0.07, 0.085];                        // runas
       };
     } else if (tool === 'sword') {
       // espada corta oxidada y mellada
@@ -847,7 +976,19 @@
       eye: [1, 0.1, 0.1], tear: 0.4, style: 'gaunt', jaw: true, claws: true, barefoot: true, ribs: true,
       hair: [0.85, 0.85, 0.82, 0.8], extras: ['hairLong'], headFwd: 1,
     }),
-    crow: () => ({ v: 0.035 }),
+    crow: () => ({ v: 0.05 }),   // más grande desde la 0.35 para que se le pueda dar
+    knight: () => ({
+      v: 0.055, leg: [6, 18, 6], torso: [13, 15, 8], arm: [5, 17, 5], head: [8, 8, 8],
+      skin: [0.07, 0.07, 0.085], shirt: [0.07, 0.07, 0.085], sleeve: [0.07, 0.07, 0.085], pants: [0.07, 0.07, 0.085], shoes: [0.05, 0.05, 0.06],
+      eye: [0.85, 0.35, 1], tear: 0,
+    }),
+    revenant: () => ({
+      v: 0.05, blocky: true, leg: [4, 19, 4], torso: [10, 15, 5], arm: [4, 21, 4], head: [8, 8, 8],
+      skin: [0.5, 0.13, 0.12], shirt: [0.5, 0.13, 0.12], pants: [0.16, 0.08, 0.07], shoes: [0.1, 0.05, 0.05],
+      eye: [0.45, 0.9, 1], tear: 0, style: 'gaunt', jaw: true, claws: true, barefoot: true, forearm: 'thin',
+      extras: ['boneCrown', 'ridge'], headFwd: 1,
+    }),
+    revpile: () => ({ v: 0.05, eye: [0.45, 0.9, 1] }),
     rat: () => ({
       v: 0.04, quad: true, leg: [2, 5, 2], torso: [7, 6, 15], head: [5, 5, 8],
       fur: pick([[0.3, 0.27, 0.25], [0.22, 0.2, 0.2], [0.4, 0.36, 0.3]]), eye: [1, 0.15, 0.1], snout: 4, ears: 2, roundEars: true, tail: 14, ratTail: true, ribs: Math.random() < 0.4,
@@ -906,5 +1047,6 @@
     shoes: [0.2, 0.12, 0.08], eye: [0.3, 0.9, 1.0], tear: 0, clean: true, hood: [0.28, 0.14, 0.38],
   });
 
+  Models.knight = knight; Models.pile = pile;
   VX.Models = Models;
 })();

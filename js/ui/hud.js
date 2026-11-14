@@ -34,6 +34,48 @@
 
     toast(msg) { this.banner('', msg, 1.4); },
 
+    // Llaves de colores que llevas (para las rejas de las cámaras)
+    setKeys(k) {
+      const el = $('keyLabel');
+      if (!el) return;
+      const parts = [];
+      for (const c of ['red', 'blue', 'gold']) if (k && k[c]) parts.push(`<span class="key k-${c}"></span>${k[c] > 1 ? '×' + k[c] : ''}`);
+      el.innerHTML = parts.join(' ');
+      el.classList.toggle('hidden', !parts.length);
+    },
+
+    // Indicadores visuales de sonido: un arco alrededor de la mira hacia donde suena algo,
+    // con una etiqueta corta (voz, pasos, explosión…). Se activan en Ajustes.
+    soundAt(x, z, tag) {
+      const g = VX.game, P = g && g.player;
+      if (!P || g.state !== 'playing') return;
+      const dx = x - P.x, dz = z - P.z, d = Math.hypot(dx, dz);
+      if (d < 0.8 || d > 40) return;
+      const sx = dx / d, sz = dz / d;
+      const fwd = sx * Math.sin(P.yaw) + sz * Math.cos(P.yaw), rgt = sx * -Math.cos(P.yaw) + sz * Math.sin(P.yaw);
+      const ang = Math.atan2(rgt, fwd);
+      const bucket = Math.round(ang / (Math.PI / 8)) + ':' + tag, now = performance.now();
+      this._snd = this._snd || {};
+      if (this._snd[bucket] && now - this._snd[bucket] < 350) return;
+      this._snd[bucket] = now;
+      const near = Math.max(0.25, 1 - d / 30);
+      const C = { enemy: '255,110,60', dog: '255,110,60', steps: '255,210,90', boom: '255,80,40', sound: '170,210,255' }[tag] || '170,210,255';
+      const L = { enemy: 'gruñido', dog: 'gruñido', steps: 'pasos', boom: 'explosión', sound: 'ruido' }[tag] || 'ruido';
+      const box = $('sndDirs');
+      if (!box) return;
+      if (box.childElementCount > 14) box.firstChild.remove();
+      const a = document.createElement('div');
+      a.className = 'sndArc';
+      a.style.transform = `rotate(${ang}rad)`;
+      a.style.setProperty('--c', C); a.style.setProperty('--w', (18 + near * 22) + 'deg'); a.style.setProperty('--a', (0.35 + near * 0.6).toFixed(2));
+      const t = document.createElement('div');
+      t.className = 'sndTag';
+      t.textContent = L;
+      t.style.left = Math.sin(ang) * 175 + 'px'; t.style.top = -Math.cos(ang) * 175 + 'px'; t.style.color = `rgb(${C})`;
+      box.appendChild(a); box.appendChild(t);
+      setTimeout(() => { a.remove(); t.remove(); }, 1300);
+    },
+
     hitmarker(kill) {
       this.hitT = kill ? 0.3 : 0.15;
       this.el.hit.classList.toggle('kill', !!kill);
@@ -85,44 +127,139 @@
     hideBoss() { this.el.boss.classList.add('hidden'); },
 
     // ---------- Mapa (tecla M) ----------
+    // Mapa [M]: a la izquierda, la sala actual vista desde arriba (suelo, obstáculos, peligros,
+    // puertas con lo que hay detrás, objetos, enemigos y tú); a la derecha, el piso: qué hay tras
+    // cada puerta y, con el mapa del cartógrafo estudiado, lo que viene después (nombre de la sala,
+    // si está a oscuras, con niebla, peligros, rejas y grietas secretas).
     showMap(game, force) {
       const el = document.getElementById('mapOverlay');
       if (!el) return;
-      if (!force && !el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
+      if (!force && !el.classList.contains('hidden')) { el.classList.add('hidden'); this.mapOpen = false; return; }
       const T = VX.ROOM_TYPES, Z = VX.ZONES;
       const ICON = { normal: '☠', reward: '★', shop: '$', save: '✦', boss: '◆', start: '▶', map: '✎' };
-      const chip = (type, extra = '') => {
-        const c = (T[type] || T.normal).color;
-        return `<span class="mchip ${extra}" style="color:rgb(${c.map((v) => Math.round(Math.min(1, v) * 255)).join(',')})" title="${(T[type] || {}).label || type}">${ICON[type] || '?'}</span>`;
-      };
+      const rgb = (c) => c.map((v) => Math.round(Math.min(1, v) * 255)).join(',');
+      const chip = (type, extra = '') => `<span class="mchip ${extra}" style="color:rgb(${rgb((T[type] || T.normal).color)})" title="${(T[type] || {}).label || type}">${ICON[type] || '?'}</span>`;
       const r = game.currentRoom, zn = Z[game.zone || 0];
-      let h = `<h2>MAPA · Piso ${game.floor} · ${zn.name}</h2>`;
-      h += `<div class="msub">${game.mapReveal > 0 ? `Mapa estudiado: ves dos salas por delante (${game.mapReveal} salas más)` : 'Busca la Sala del cartógrafo (✎) para ver más allá'}</div>`;
-      // camino recorrido
-      const path = (game.mapPath || []).slice(-18);
-      h += '<div class="mrow">' + path.map((p, i) => {
-        const zc = Z[p.zone].fog.map((v) => Math.round(Math.min(1, v * 12) * 255)).join(',');
-        return `<span class="mstep" style="border-color:rgb(${zc})">${chip(p.type, i === path.length - 1 ? 'mcur' : '')}</span>`;
-      }).join('<span class="mlink">›</span>') + '</div>';
+      const reveal = game.mapReveal > 0;
+      const HZ = { lava: 'lava', acid: 'ácido', spikes: 'púas', spores: 'esporas', void: 'vacío', water: 'agua' };
+      const roomTags = (n) => {
+        const t = [];
+        if (n.dark) t.push('a oscuras');
+        if (n.gfog) t.push(n.gfog.thick ? 'niebla espesa' : 'niebla');
+        const hz = [...new Set((n.spikes || []).map((s) => HZ[s.kind]).filter(Boolean))];
+        if (hz.length) t.push(hz.join(', '));
+        if (n.vault) t.push(`<span class="mkey k-${n.vault.color}"></span> puerta con llave`);
+        if (n.secret) t.push(`<span class="msecret">${n.secret.stairs ? '✦ grieta con escalera' : '✦ grieta secreta'}</span>`);
+        return t.join(' · ');
+      };
+      let h = `<h2>MAPA · ${game.floor === 0 ? 'Entrada' : 'Piso ' + game.floor} · ${zn.name}</h2>`;
+      h += `<div class="msub">${reveal ? `Mapa del cartógrafo estudiado: ves dos salas por delante y lo que esconden (${game.mapReveal} salas más)` : 'Busca la Sala del cartógrafo (✎) para ver qué hay más allá'}</div>`;
+      h += '<div class="mcols"><div class="mleft"><canvas id="mapCanvas" width="340" height="340"></canvas>';
+      h += '<div class="mlegend"><span><i style="background:#e8e2d0"></i>tú</span><span><i style="background:#ff4a3a"></i>enemigos</span><span><i style="background:#ffd23f"></i>objetos</span><span><i style="background:#c75a1e"></i>lava</span><span><i style="background:#5fc84a"></i>ácido</span><span><i style="background:#2c5a78"></i>agua</span><span><i style="background:#8a3fe0"></i>vacío/esporas</span><span><i style="background:#888"></i>púas</span></div></div>';
+      // ---- columna derecha: la sala y el piso ----
+      const alive = game.enemies.filter((e) => !e.dead).length;
+      h += '<div class="mright">';
+      h += `<div class="mroom"><b>${r.name || ''}</b> ${chip(r.type)}<br><span class="mtags">${roomTags(r) || '&nbsp;'}</span><br>${alive ? `<span style="color:#ff6a5a">${alive} enemigo${alive > 1 ? 's' : ''} en la sala</span>` : r.cleared ? '<span style="color:#7fd07f">Sala despejada</span>' : ''}</div>`;
+      const k = game.keys || {};
+      const keys = ['red', 'blue', 'gold'].filter((c) => k[c]).map((c) => `<span class="mkey k-${c}"></span>${k[c] > 1 ? '×' + k[c] : ''}`).join(' ');
+      if (keys) h += `<div class="mline">Llaves: ${keys}</div>`;
+      const sp = game.spawner;
+      if (sp && sp.secret) h += `<div class="mline" style="color:#c79bff">Vacío: ${sp.secret.rooms > 0 ? sp.secret.rooms + ' salas hasta el guardián' : 'el guardián espera'}</div>`;
+      else if (sp && sp.bossSoon) h += '<div class="mline" style="color:#ff8a5a">◆ La guarida del jefe está cerca</div>';
+      else if (game.floor < 10) h += `<div class="mline">Primer jefe a partir del piso 10</div>`;
       // puertas de la sala actual
       const dirs = { zp: [0, 1], zn: [0, -1], xp: [1, 0], xn: [-1, 0] };
       const f = dirs[VX.Room.OPP[r.entrance || 'zn']], right = [-f[1], f[0]];
       const label = (s) => { const v = dirs[s]; return v[0] === f[0] && v[1] === f[1] ? 'Al frente' : v[0] === right[0] && v[1] === right[1] ? 'Derecha' : 'Izquierda'; };
-      h += '<h3>Puertas de esta sala</h3><div class="mexits">';
+      h += '<h3>Puertas</h3><div class="mexits">';
       for (const s of r.exits || []) {
         const d = r.doors[s];
         if (!d || !d.type) continue;
         const n = d.neighbor;
-        h += `<div class="mexit"><b>${label(s)}</b><div>${chip(d.type)} ${(T[d.type] || {}).label || ''}</div>`;
-        if (game.mapReveal > 0 && n) {
-          if (n.secret) h += `<div class="msecret">${n.secret.stairs ? '✦ Grieta con escalera' : '✦ Grieta secreta'}</div>`;
-          if (n.plannedTypes) h += `<div class="mnext">después: ${n.plannedTypes.map((t) => chip(t)).join(' ')}</div>`;
+        h += `<div class="mexit"><b>${label(s)}</b> ${chip(d.type)} ${(T[d.type] || {}).label || ''}`;
+        if (reveal && n) {
+          h += `<div class="mname">${n.name || ''}</div>`;
+          const tg = roomTags(n);
+          if (tg) h += `<div class="mtags">${tg}</div>`;
+          if (n.plannedTypes) h += `<div class="mnext">y después: ${n.plannedTypes.map((t) => chip(t)).join(' ')}</div>`;
         }
         h += '</div>';
       }
-      h += '</div><div class="mhint">[M] cerrar</div>';
+      h += '</div>';
+      // camino recorrido
+      const path = (game.mapPath || []).slice(-14);
+      h += '<h3>Recorrido</h3><div class="mrow">' + path.map((p, i) => {
+        const zc = Z[p.zone].fog.map((v) => Math.round(Math.min(1, v * 12) * 255)).join(',');
+        return `<span class="mstep" style="border-color:rgb(${zc})">${chip(p.type, i === path.length - 1 ? 'mcur' : '')}</span>`;
+      }).join('<span class="mlink">›</span>') + '</div>';
+      h += '</div></div><div class="mhint">[M] cerrar</div>';
       el.innerHTML = h;
       el.classList.remove('hidden');
+      this.mapOpen = true; this.mapT = 0;
+      this.drawRoomMap(game);
+    },
+
+    // Planta de la sala actual (se redibuja mientras el mapa está abierto)
+    drawRoomMap(game) {
+      const cv = document.getElementById('mapCanvas'), r = game.currentRoom;
+      if (!cv || !r || !r.hmap) return;
+      const ctx = cv.getContext('2d'), W = r.W, D = r.D, S = VX.S;
+      if (!this._mapImg || this._mapRoom !== r || this._mapVer !== r.mapVersion) {
+        // fondo: suelo, obstáculos y muros (sólo cambia si se rompe algo)
+        const img = ctx.createImageData(W, D), walk = r.getWalk(), hm = r.hmap;
+        for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+          const i = z * W + x, o = i * 4, m = Math.min(x, z, W - 1 - x, D - 1 - z);
+          let c;
+          if (m < 4 && hm[i] > 0) c = [26, 22, 20];
+          else if (walk[i]) { const k = Math.min(1, hm[i] / 10); c = [70 + k * 50, 62 + k * 44, 54 + k * 36]; }
+          else if (hm[i] > 0) c = [140, 128, 112];
+          else c = [52, 46, 42];
+          img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
+        }
+        const HC = { lava: [199, 90, 30], acid: [95, 200, 74], water: [44, 90, 120], void: [138, 63, 224], spores: [138, 63, 224], spikes: [136, 136, 136] };
+        for (const sp of r.spikes || []) {
+          const c = HC[sp.kind] || [136, 136, 136];
+          for (let z = sp.uz0 * 2; z < (sp.uz1 + 1) * 2; z++) for (let x = sp.ux0 * 2; x < (sp.ux1 + 1) * 2; x++) {
+            if (x < 0 || z < 0 || x >= W || z >= D) continue;
+            const o = (z * W + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2];
+          }
+        }
+        const off = document.createElement('canvas'); off.width = W; off.height = D;
+        off.getContext('2d').putImageData(img, 0, 0);
+        this._mapImg = off; this._mapRoom = r; this._mapVer = r.mapVersion;
+      }
+      const sc = Math.min(cv.width / W, cv.height / D), ox = (cv.width - W * sc) / 2, oz = (cv.height - D * sc) / 2;
+      // orientado según la entrada: la puerta por la que entraste queda abajo
+      const rot = { zn: 0, zp: Math.PI, xn: -Math.PI / 2, xp: Math.PI / 2 }[r.entrance || 'zn'] || 0;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = '#0c0a0d'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.translate(cv.width / 2, cv.height / 2); ctx.rotate(rot); ctx.scale(1, -1); ctx.translate(-cv.width / 2, -cv.height / 2);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this._mapImg, ox, oz, W * sc, D * sc);
+      const P2 = (wx, wz) => [ox + (wx / S - r.ox) * sc, oz + (wz / S - r.oz) * sc];
+      const dot = (wx, wz, rad, col) => { const [x, y] = P2(wx, wz); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); };
+      // antorchas
+      for (const t of r.torches || []) if (t.alive) dot(t.x, t.z, 2.2, '#ff9a3a');
+      // reja y grieta
+      if (r.vault && !r.vault.open) { const c = { red: '#e3392c', blue: '#4f7dff', gold: '#f0c040' }[r.vault.color]; const [x, y] = P2(r.vault.x, r.vault.z); ctx.fillStyle = c; ctx.fillRect(x - 5, y - 5, 10, 10); }
+      if (r.secret && (r.secret.found || game.mapReveal > 0)) { const [x, y] = P2(r.secret.x, r.secret.z); ctx.strokeStyle = '#c79bff'; ctx.lineWidth = 2; ctx.strokeRect(x - 6, y - 6, 12, 12); }
+      // puertas: color del tipo de sala que hay detrás
+      for (const s in r.doors) {
+        const d = r.doors[s], w = r.doorWorld(s), [x, y] = P2(w.x, w.z);
+        const c = d.type && VX.ROOM_TYPES[d.type] ? VX.ROOM_TYPES[d.type].color : [0.6, 0.6, 0.6];
+        ctx.fillStyle = s === r.entrance ? '#555' : `rgb(${c.map((v) => Math.round(Math.min(1, v) * 255)).join(',')})`;
+        ctx.fillRect(x - 7, y - 7, 14, 14);
+      }
+      // objetos que se pueden coger/usar
+      for (const it of game.pickups.items) if (!it.taken && r.contains(it.x, it.z) && it.kind !== 'lockdoor') dot(it.x, it.z, 3.2, '#ffd23f');
+      // enemigos
+      for (const e of game.enemies) if (!e.dead) dot(e.x, e.z, e.isBoss ? 6 : 3, '#ff4a3a');
+      // tú: flecha hacia donde miras
+      const P = game.player, [px, py] = P2(P.x, P.z);
+      ctx.save(); ctx.translate(px, py); ctx.rotate(-Math.atan2(Math.sin(P.yaw), Math.cos(P.yaw)));
+      ctx.fillStyle = '#e8e2d0'; ctx.beginPath(); ctx.moveTo(0, 7); ctx.lineTo(-5, -5); ctx.lineTo(0, -2); ctx.lineTo(5, -5); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
 
     refreshUpgrades(game) {
@@ -137,6 +274,7 @@
 
     update(dt, game) {
       const P = game.player, W = game.weapon, el = this.el;
+      if (this.mapOpen) { this.mapT = (this.mapT || 0) - dt; if (this.mapT <= 0) { this.mapT = 0.12; this.drawRoomMap(game); } }
       const r = game.currentRoom;
       if (game.mode === 'horde') {
         el.floor.textContent = VX.HordeMode.hudTop(game);

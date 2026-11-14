@@ -57,6 +57,8 @@
       this.upgradesTaken = [];
       this.synergies = [];
       this.stats = { kills: 0, headshots: 0, bosses: 0, gold: 0, totalGold: 0, shots: 0, hits: 0, purchases: 0 };
+      this.keys = { red: 0, blue: 0, gold: 0 };
+      if (this.hud && this.hud.setKeys) this.hud.setKeys(this.keys);
       this.floor = 0;
       this.currentRoom = null;
       this.decals = [];
@@ -144,6 +146,7 @@
       first.cleared = true;
       this.currentRoom = first;
       first.setDoor('zn', true);
+      if (VX.Audio.setBiome) VX.Audio.setBiome(this.zone);
       this.spawner.populateNeighbors(this, first);
       // las puertas se abren al acercarse (ver openNearDoors)
       // construir mallas de golpe para no ver huecos
@@ -170,6 +173,7 @@
       const map = VX.HordeMode.MAPS.find((m) => m.id === mapId) || VX.HordeMode.MAPS[0];
       this.mode = 'horde';
       this.hordeMap = map.id;
+      if (VX.Audio.setBiome) VX.Audio.setBiome(-1);
       this.ambientMul = 1;
       this.resetCollections();
       this.world.reset();
@@ -340,6 +344,18 @@
       VX.Audio.reward();
     }
 
+    // Nivel de detalle de cada zombi según la distancia y la calidad: lejos, modelo más simple
+    // (vóxeles el doble de grandes) y animación a menos fotogramas por segundo
+    enemyLod() {
+      const Q = VX.Q || {}, P = this.player, f = this.frame || 0;
+      for (const e of this.enemies) {
+        if (e.dead || e.isBoss) { e.lod = false; e.lodSkip = false; continue; }
+        const d = Math.hypot(e.x - P.x, e.z - P.z);
+        e.lod = d > (Q.lodNear || 999);
+        e.lodSkip = d > (Q.animFar || 999) && ((f + (e.uid || 0)) % (Q.animDiv || 2)) !== 0;
+      }
+    }
+
     shake(a) { this.shakeAmt = Math.max(this.shakeAmt, a); }
 
     // ---------------- Flujo de habitaciones ----------------
@@ -379,6 +395,8 @@
         if (n && !cr.doors[s].closed && n.insideDeep(P.x, P.z)) { this.enterRoom(n); return; }
       }
       if (cr.ambushAt) {
+        // silencio tenso: el ambiente y la música se apagan justo antes de que salten
+        if (!cr.ducked) { cr.ducked = true; VX.Audio.duck && VX.Audio.duck(Math.max(0.6, cr.ambushAt - this.time + 0.15)); }
         if (this.time < cr.ambushAt) return;
         cr.ambushAt = 0;
         // ¡emboscada! salen del suelo a tu alrededor
@@ -406,6 +424,7 @@
     }
 
     enterRoom(r) {
+      if (VX.Audio.setBiome) VX.Audio.setBiome(this.mode === 'horde' ? -1 : (r.zone || 0));
       const prev = this.currentRoom;
       this.currentRoom = r;
       r.entered = true;
@@ -416,13 +435,14 @@
       this.bullets.clear();
       // la sala anterior y las otras opciones desaparecen: la puerta se cierra detrás
       this.world.keepOnly([r]);
-      { const mo = document.getElementById('mapOverlay'); if (mo) mo.classList.add('hidden'); }
+      { const mo = document.getElementById('mapOverlay'); if (mo) mo.classList.add('hidden'); this.hud.mapOpen = false; }
       // el rastrillo de la entrada cae a tu espalda (se cierra al terminar la animación)
       this.doorAnims = this.doorAnims.filter((a) => a.room === r);
       this.doorAnims.push({ room: r, side: r.entrance, t: 0, dur: 0.38, drop: true });
       this.pickups.items = this.pickups.items.filter((it) => r.contains(it.x, it.z));
       this.pickups.gold = this.pickups.gold.filter((g) => r.contains(g.x, g.z));
       this.npcs = this.npcs.filter((n) => r.contains(n.body.x, n.body.z));
+      this.setupVault(r);
       this.enemies = [];
       this.gibs = this.gibs.filter((g) => r.contains(g.x, g.z));
       this.corpses = this.corpses.filter((c) => r.contains(c.body.x, c.body.z));
@@ -588,7 +608,7 @@
       const r = this.currentRoom, P = this.player;
       if (!r || !VX.Audio.ambientAt) return;
       // reverberación según el volumen de la sala
-      if (this._revRoom !== r) { this._revRoom = r; VX.Audio.setRoom(r.city ? 260 : r.walkArea() * (r.H - 4) * VX.S); }
+      if (this._revRoom !== r) { this._revRoom = r; VX.Audio.setRoom(r.city ? 260 : r.walkArea() * r.ceilBase * VX.S); }
       this.ambT = (this.ambT || 2) - dt;
       if (this.ambT > 0) return;
       this.ambT = M.rand(2.5, 6);
@@ -747,7 +767,7 @@
       const r = this.currentRoom;
       if (!r) return;
       const P = this.player, z = r.zone || 0;
-      const ceil = (r.H - 4) * VX.S;
+      const ceil = r.ceilBase * VX.S;
       this.ambAcc = (this.ambAcc || 0) + dt;
       const rate = [7, 4, 6, 16, 12, 10, 40, 10, 8, 30][z] || 6;          // partículas por segundo
       while (this.ambAcc > 1 / rate) {
@@ -1066,7 +1086,7 @@
         const x = Math.floor(p[0]), y = Math.max(0, Math.floor(p[1])), z = Math.floor(p[2]);
         const wx = (r.ox + p[0]) * S, wz = (r.oz + p[2]) * S;
         cx += wx; cz += wz; x0 = Math.min(x0, wx); x1 = Math.max(x1, wx); z0 = Math.min(z0, wz); z1 = Math.max(z1, wz);
-        if (r.inBounds(x, y, z) && y < r.H - 4 && !r.get(x, y, z) && Math.min(x, z, r.W - 1 - x, r.D - 1 - z) >= 4) {
+        if (r.inBounds(x, y, z) && y < r.ceilBase && !r.get(x, y, z) && Math.min(x, z, r.W - 1 - x, r.D - 1 - z) >= 4) {
           r.set(x, y, z, c.t);
           r.hp[r.idx(x, y, z)] *= 0.6;   // se ha agrietado al caer
           placed++;
@@ -1154,7 +1174,7 @@
       // no apilar fuegos encima de otros
       for (const f of this.fires) if (f.kind === kind && Math.hypot(f.x - x, f.z - z) < Math.max(f.r, r) * 0.7) { f.t = Math.max(f.t, t); return; }
       if (this.fires.length > 40) this.fires.shift();
-      this.fires.push({ x, z, r, t, tick: 0, kind });
+      this.fires.push({ x, z, r, t, t0: t, tick: 0, kind, born: this.time || 0, seed: Math.random() * 100, gy: this.world ? this.world.groundAt(x, z) : 0 });
     }
 
     // Avisos en el suelo (raíces, impactos): círculo que se llena y luego golpea
@@ -1220,7 +1240,8 @@
         for (let i = 0; i < 2; i++) {
           const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * f.r;
           const px = f.x + Math.cos(a) * d, pz = f.z + Math.sin(a) * d;
-          if (poison) this.particles.spawn(px, this.world.groundAt(px, pz) + M.rand(0.1, 1.2), pz, M.rand(-0.3, 0.3), M.rand(0.1, 0.5), M.rand(-0.3, 0.3), 0.45, 0.9, 0.3, M.rand(0.08, 0.16), M.rand(0.8, 1.4), 0.4, 1);
+          // gas: el volumen lo dibuja renderGas con humo suave; aquí sólo alguna burbuja pequeña que sube
+          if (poison) { if (i === 0 && Math.random() < 0.25) this.particles.spawn(px, this.world.groundAt(px, pz) + 0.05, pz, M.rand(-0.1, 0.1), M.rand(0.3, 0.7), M.rand(-0.1, 0.1), 0.5, 0.95, 0.3, M.rand(0.025, 0.045), M.rand(0.5, 0.9), 0.6, 1); }
           else if (i === 0) {
             if (Math.random() < 0.35) this.particles.spawn(px, this.world.groundAt(px, pz) + 0.3, pz, M.rand(-0.4, 0.4), M.rand(1.5, 3), M.rand(-0.4, 0.4), 1, M.rand(0.5, 0.8), 0.15, 0.018, M.rand(0.5, 1.1), 1, 1);   // pavesas
             if (Math.random() < 0.2) this.particles.spawn(px, this.world.groundAt(px, pz) + 0.7, pz, M.rand(-0.15, 0.15), M.rand(0.5, 0.9), M.rand(-0.15, 0.15), 0.1, 0.09, 0.09, M.rand(0.07, 0.12), M.rand(1.5, 2.5), 0, 1);   // humo
@@ -1298,6 +1319,49 @@
       this.rises = this.rises.filter((r) => !r.done);
     }
 
+    // ---------------- Cámaras cerradas con llave ----------------
+    // Una puertecita con una marca de color guarda un cofre; su llave está dentro de algún objeto de la sala
+    // (urna, caja, sarcófago…). Las llaves que sobran se guardan y abren rejas del mismo color más adelante.
+    setupVault(r) {
+      const v = r.vault;
+      if (!v || v.open || v.item) return;
+      const name = { red: 'roja', blue: 'azul', gold: 'dorada' }[v.color];
+      const col = { red: [1, 0.25, 0.2], blue: [0.35, 0.55, 1], gold: [1, 0.8, 0.25] }[v.color];
+      v.item = this.pickups.addItem({ kind: 'lockdoor', vault: v, room: r, price: 0, x: v.x, y: v.y, z: v.z, title: 'Puerta cerrada (llave ' + name + ')', desc: 'Guarda un cofre. La llave ' + name + ' está escondida en esta sala, dentro de algo que se puede romper', action: 'Abrir [E]', color: col, shape: 'key', hidden: true });
+      if (v.keyLoose) { const p = r.randomFreeCell(4, v.x, v.z); this.dropKey(v.color, p.x, this.world.groundAt(p.x, p.z) + 0.1, p.z); v.keyLoose = false; }
+    }
+    dropKey(color, x, y, z) {
+      const name = { red: 'roja', blue: 'azul', gold: 'dorada' }[color];
+      const col = { red: [1, 0.25, 0.2], blue: [0.35, 0.55, 1], gold: [1, 0.8, 0.25] }[color];
+      this.pickups.addItem({ kind: 'key', color3: color, price: 0, x, y: this.world.groundAt(x, z), z, title: 'Llave ' + name, desc: 'Abre una puerta con la marca ' + name, action: 'Coger [E]', color: col, shape: 'key' });
+      VX.Audio.reward && VX.Audio.reward();
+      this.hud.toast('¡Una llave ' + name + '!');
+    }
+    takeKey(color) {
+      this.keys = this.keys || { red: 0, blue: 0, gold: 0 };
+      this.keys[color]++;
+      VX.Audio.gold(); VX.Audio.click();
+      this.hud.setKeys && this.hud.setKeys(this.keys);
+    }
+    tryVault(it) {
+      const v = it.vault, r = it.room, name = { red: 'roja', blue: 'azul', gold: 'dorada' }[v.color];
+      this.keys = this.keys || { red: 0, blue: 0, gold: 0 };
+      if (!this.keys[v.color]) { VX.Audio.deny(); this.hud.toast('Necesitas la llave ' + name); return; }
+      this.keys[v.color]--; this.hud.setKeys && this.hud.setKeys(this.keys);
+      it.taken = true; v.open = true;
+      // la puerta se abre: se viene abajo con un golpe y astillas
+      for (const [lx, ly, lz] of v.cells) {
+        r.set(lx, ly, lz, 0);
+        if (Math.random() < 0.3) this.particles.spawn(r.worldX(lx), (ly + 0.5) * VX.S, r.worldZ(lz), M.rand(-1, 1), M.rand(1, 3), M.rand(-1, 1), 0.35, 0.22, 0.12, 0.03, M.rand(0.6, 1.2), 0);
+      }
+      VX.Audio.gate ? VX.Audio.gate() : VX.Audio.door();
+      this.hud.banner('PUERTA ABIERTA', 'Hay un cofre: ábrelo con [E]', 2.5);
+      let chest = null, bd = 3;
+      for (const p of r.props) if (p.type === 'chest' && !p.dead) { const d = Math.hypot(p.cx - v.cx, p.cz - v.cz); if (d < bd) { bd = d; chest = p; } }
+      if (chest) { chest.looted = true; this.pickups.addItem({ kind: 'secretChest', prop: chest, price: 0, x: chest.cx, y: chest.oy + 0.2, z: chest.cz, title: 'Cofre de la cámara', desc: 'Oro, un botiquín y una mejora', action: 'Abrir', color: [0.95, 0.75, 0.3], shape: 'chest' }); }
+      VX.Profile.add('vaults', 1, this);
+    }
+
     // ---------------- Cámara secreta ----------------
     checkSecret() {
       const r = this.currentRoom, sc = r && r.secret, P = this.player;
@@ -1360,6 +1424,7 @@
       first.entered = true; first.cleared = true;
       this.currentRoom = first;
       first.setDoor('zn', true);
+      if (VX.Audio.setBiome) VX.Audio.setBiome(this.zone);
       this.spawner.populateNeighbors(this, first);
       for (const r of this.world.rooms) r.updateMeshes(VX.Renderer, 9999);
       const P = this.player;
@@ -1371,7 +1436,7 @@
 
     // Explosión: cráter en el escenario, daño a enemigos/cadáveres/jugador, fuego y humo
     explode(e) {
-      const R = e.R, destr = e.destr || 1;
+      const R = e.R, destr = e.destr || 1, sm = !!e.small;   // small: la de las balas explosivas
       this.world.damageSphere(e.x, e.y, e.z, R * 0.8, 220 * destr, this);
       this.weapon.explosions.push({ x: e.x, y: e.y, z: e.z, t: 0.35 });
       this.addScorch(e.x, e.z, R * 0.9);   // hollín permanente
@@ -1380,34 +1445,132 @@
       for (const list of [this.enemies, this.corpses]) for (const en of list.slice()) {
         if (en.dead) continue;
         const d = Math.hypot(en.body.cx - e.x, en.body.cy - e.y, en.body.cz - e.z);
-        if (d < reach) en.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / reach) + 10, this);
+        if (d < reach) { en.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / reach) + (sm ? 0 : 10), this); if (e.frost && !en.isBoss) en.chillT = 3; }
       }
       this.dmgWeapon = null;
-      this.igniteAt(e.x, e.z, R);
+      if (!sm) this.igniteAt(e.x, e.z, R);
       // los objetos (barriles, cajas…) también revientan; los barriles rojos encadenan explosiones
       for (const r of this.world.rooms) for (const p of r.props) {
         if (p.dead) continue;
         const d = Math.hypot(p.cx - e.x, p.cy - e.y, p.cz - e.z);
-        if (d < reach + p.rad * 0.5) { p.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / (reach + 1)) + 15, this); if (Math.random() < 0.35 && !this.fireBusy(r)) p.ignite(); }
+        if (d < reach + p.rad * 0.5) { p.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / (reach + 1)) + 15, this); if (!sm && Math.random() < 0.35 && !this.fireBusy(r)) p.ignite(); }
       }
       const P = this.player;
       const dp = Math.hypot(P.x - e.x, P.y + 0.9 - e.y, P.z - e.z);
       if (dp < R && this.state === 'playing' && e.selfK !== 0) P.damage(e.dmg * (e.selfK ?? 0.35) * (1 - dp / R), e.x, e.z, this);
       this.blasts.push({ x: e.x, y: e.y, z: e.z, R: Math.max(1.2, R), t: 0, seed: Math.random() * 100, gy: this.world.groundAt(e.x, e.z) });
+      this.stirFog(e.x, e.z, Math.max(1.2, R) * 2.4, 1, 0.12);
       if (this.blasts.length > 8) this.blasts.shift();
       // chispas rápidas, escombros que caen y brasas que suben despacio
-      for (let i = 0; i < 34; i++) {
+      const PK = sm ? 0.3 : 1;
+      if (e.frost) for (let i = 0; i < 14; i++) this.particles.spawn(e.x, e.y + 0.2, e.z, M.rand(-4, 4), M.rand(0, 4), M.rand(-4, 4), 0.7, 0.92, 1, M.rand(0.03, 0.05), M.rand(0.5, 1), 0.8, 1);
+      for (let i = 0; i < 34 * PK; i++) {
         const a = Math.random() * Math.PI * 2, el = M.rand(-0.2, 1), sp = M.rand(6, 14);
         this.particles.spawn(e.x, e.y + 0.2, e.z, Math.cos(a) * sp * Math.cos(el), Math.sin(el) * sp + 2, Math.sin(a) * sp * Math.cos(el), 1, M.rand(0.6, 0.9), 0.25, M.rand(0.015, 0.03), M.rand(0.25, 0.7), 1);
       }
-      for (let i = 0; i < 10; i++) {   // cascotes
+      for (let i = 0; i < 10 * PK; i++) {   // cascotes
         const c = M.rand(0.08, 0.18);
         this.particles.spawn(e.x, e.y + 0.3, e.z, M.rand(-5, 5), M.rand(3, 9), M.rand(-5, 5), c, c * 0.9, c * 0.8, M.rand(0.04, 0.09), M.rand(1.2, 2.4));
       }
-      for (let i = 0; i < 16; i++) this.particles.spawn(e.x + M.rand(-R, R) * 0.5, e.y + M.rand(0, R * 0.6), e.z + M.rand(-R, R) * 0.5, M.rand(-0.6, 0.6), M.rand(0.6, 2), M.rand(-0.6, 0.6), 1, M.rand(0.35, 0.6), 0.08, M.rand(0.03, 0.06), M.rand(1.2, 2.6), 1, 1);
-      VX.Audio.at(e.x, e.y, e.z, () => VX.Audio.explosion(Math.min(1, dp / 30) * 0.4), 9);
+      for (let i = 0; i < 16 * PK; i++) this.particles.spawn(e.x + M.rand(-R, R) * 0.5, e.y + M.rand(0, R * 0.6), e.z + M.rand(-R, R) * 0.5, M.rand(-0.6, 0.6), M.rand(0.6, 2), M.rand(-0.6, 0.6), 1, M.rand(0.35, 0.6), 0.08, M.rand(0.03, 0.06), M.rand(1.2, 2.6), 1, 1);
+      if (sm) { VX.Audio.at(e.x, e.y, e.z, () => VX.Audio.explosion(0.75), 4); this.shake(0.04); return; }
+      VX.Audio.at(e.x, e.y, e.z, () => VX.Audio.explosion(Math.min(1, dp / 30) * 0.4), 9, 'boom');
       if (dp < 18) VX.Haptics.buzz(Math.round(50 + 110 * (1 - dp / 18)), VX.Touch.on && VX.Settings.data.vibrate !== false);
       this.shake(Math.max(0.25, 0.9 - dp * 0.08));
+    }
+
+    // ---------------- Niebla baja ----------------
+    // Cada sala de la mazmorra tiene (o no) un manto de niebla a ras de suelo según su bioma.
+    // El jugador, los disparos y las explosiones abren huecos que se cierran despacio.
+    stirFog(x, z, r, s, decay = 0.35) {
+      if (!this.currentRoom || this.mode === 'horde') return;
+      const H = this.fogHoles || (this.fogHoles = []);
+      H.push({ x, z, r, s, decay });
+      if (H.length > 28) H.splice(0, H.length - 28);
+    }
+    updateFogHoles(dt) {
+      const H = this.fogHoles;
+      if (!H) return;
+      for (const h of H) { h.s -= h.decay * dt; h.r += dt * 0.25; }
+      this.fogHoles = H.filter((h) => h.s > 0.02);
+      // estela del jugador al andar
+      const P = this.player, cr = this.currentRoom;
+      if (cr && P) {
+        this.fogTrailT = (this.fogTrailT || 0) - dt;
+        if (this.fogTrailT <= 0 && Math.hypot(P.vx, P.vz) > 1.2) { this.fogTrailT = 0.25; this.stirFog(P.x, P.z, 1.1, 0.55, 0.22); }
+      }
+    }
+    setGroundFog(R, cam) {
+      const cr = this.currentRoom;
+      if (!cr || this.state === 'title' || this.mode === 'horde' || VX.Settings.data.groundFog === false) { R.gf = null; return; }
+      // la sala actual y las de al lado con la puerta abierta: así la niebla ya está ahí antes de entrar
+      const rooms = [];
+      for (const r of [cr, ...Object.values(cr.doors).filter((d) => d.neighbor && !d.closed).map((d) => d.neighbor)]) {
+        if (!r || !r.gfog || rooms.length >= 2) continue;
+        const S = VX.S, g = r.gfog;
+        rooms.push({ top: g.top, dens: g.dens, col: g.col, floor: 0, rect: [(r.ox + 1) * S, (r.oz + 1) * S, (r.ox + r.W - 1) * S, (r.oz + r.D - 1) * S] });
+      }
+      if (!rooms.length) { R.gf = null; return; }
+      const out = this._gfArr || (this._gfArr = new Float32Array(32));
+      out.fill(0);
+      const P = this.player;
+      // el jugador siempre aparta un poco la niebla a su alrededor
+      const list = [{ x: P.x, z: P.z, r: 1.0, s: 0.6 }].concat((this.fogHoles || []).slice().sort((a, b) =>
+        (b.s / (1 + Math.hypot(b.x - cam.x, b.z - cam.z) * 0.1)) - (a.s / (1 + Math.hypot(a.x - cam.x, a.z - cam.z) * 0.1))));
+      for (let i = 0; i < Math.min(8, list.length); i++) { const h = list[i]; out[i * 4] = h.x; out[i * 4 + 1] = h.z; out[i * 4 + 2] = h.r; out[i * 4 + 3] = Math.min(1, h.s); }
+      R.gf = { rooms, holes: out };
+    }
+    // En la niebla espesa no se ven los pies: se oyen los pasos de los que se acercan
+    fogFootsteps(dt) {
+      const cr = this.currentRoom;
+      if (!cr || !cr.gfog || !cr.gfog.thick) return;
+      const P = this.player;
+      let n = 0;
+      for (const e of this.enemies) {
+        if (e.dead || e.isBoss || n >= 5) continue;
+        const d = Math.hypot(e.x - P.x, e.z - P.z), sp = Math.hypot(e.vx || 0, e.vz || 0);
+        if (d > 18 || sp < 0.4) continue;
+        n++;
+        e.fogStepT = (e.fogStepT || Math.random() * 0.4) - dt;
+        if (e.fogStepT > 0) continue;
+        e.fogStepT = M.clamp(0.9 / sp, 0.25, 0.8);
+        VX.Audio.at(e.x, e.y + 0.1, e.z, () => VX.Audio.zstep && VX.Audio.zstep(), 3, 'steps');
+      }
+    }
+
+    // Nubes de gas venenoso (gordo, esporas): bancos de niebla verde y baja que se abren desde el
+    // centro, ondulan despacio y se deshacen al final, en vez de cubos sueltos
+    renderGas() {
+      const SM = VX.Renderer.smoke, FI = VX.Renderer.fire;
+      if (!SM) return;
+      const Q = VX.Renderer.quality === 'alta' ? 1 : VX.Renderer.quality === 'media' ? 0.7 : 0.45;
+      for (const f of this.fires) {
+        if (f.kind !== 'poison' || f.t <= 0) continue;
+        const age = this.time - (f.born || 0), sd = f.seed || 0;
+        const h = (i, k) => { const v = Math.sin(sd * 12.9898 + i * 78.233 + k * 37.719) * 43758.5453; return v - Math.floor(v); };
+        const open = 1 - Math.pow(1 - Math.min(1, age / 0.7), 3);                 // se abre al reventar
+        const fade = Math.min(1, f.t / 1.5) * Math.min(1, age / 0.25);              // y se deshace al final
+        const n = Math.round((8 + f.r * 5) * Q);
+        for (let i = 0; i < n; i++) {
+          const a = h(i, 1) * Math.PI * 2 + Math.sin(age * 0.3 + i) * 0.4, d = f.r * Math.sqrt(h(i, 2)) * 0.85 * open;
+          const x = f.x + Math.cos(a) * d, z = f.z + Math.sin(a) * d;
+          const bob = Math.sin(age * (0.6 + h(i, 3) * 0.6) + i * 1.7);
+          const y = (f.gy || 0) + 0.25 + h(i, 4) * 0.45 + bob * 0.08;
+          const sz = (0.9 + h(i, 5) * 0.9) * (0.6 + open * 0.5) * Math.min(1.4, 0.6 + f.r * 0.25);
+          const g = 0.55 + h(i, 6) * 0.25;
+          SM.add(x, y, z, sz, 0.28 * g, 0.62 * g, 0.18 * g, 0.32 * fade, h(i, 7) * 6 + age * 0.15 * (h(i, 8) - 0.5), sd + i);
+        }
+        // un brillo tenue en el centro, como si el gas estuviera cargado
+        if (FI) FI.add(f.x, (f.gy || 0) + 0.3, f.z, f.r * 1.8 * open, 0.06 * fade, 0.18 * fade, 0.03 * fade, 0.5, 0, sd + 99);
+        // al reventar, una bocanada que sale hacia fuera y se aplana contra el suelo
+        if (age < 0.9) {
+          const k = age / 0.9;
+          for (let i = 0; i < Math.round(10 * Q); i++) {
+            const a = (i / 10) * Math.PI * 2 + h(i, 20), d = f.r * (0.2 + k * 0.9);
+            SM.add(f.x + Math.cos(a) * d, (f.gy || 0) + 0.4 + (1 - k) * 0.6, f.z + Math.sin(a) * d, 0.8 + k * 1.2, 0.3, 0.6, 0.2, 0.45 * (1 - k), h(i, 21) * 6, sd + 50 + i);
+          }
+        }
+      }
     }
 
     // Explosión: destello, bola de fuego en varios lóbulos que sube y se oscurece, onda en el suelo y columna de humo
@@ -1418,29 +1581,30 @@
         const t = bl.t, R = bl.R, sd = bl.seed;
         const h = (i, k) => { const v = Math.sin(sd * 12.9898 + i * 78.233 + k * 37.719) * 43758.5453; return v - Math.floor(v); };
         const FI = VX.Renderer.fire, SM = VX.Renderer.smoke;
-        // destello inicial: un resplandor blanco que se abre de golpe
-        if (t < 0.14) {
-          const k = 1 - t / 0.14, s = R * (1.4 + t * 18);
-          FI.add(bl.x, bl.y + 0.4, bl.z, s * 1.5, 1.1 * k, 0.8 * k, 0.45 * k, 1, 0, sd);
-          FI.add(bl.x, bl.y + 0.4, bl.z, s * 0.7, 1.8 * k, 1.6 * k, 1.3 * k, 1, 1, sd + 1);
+        // destello inicial: núcleo blanco de cubos y un resplandor suave alrededor
+        if (t < 0.12) {
+          const k = 1 - t / 0.12, s = R * (0.5 + t * 8);
+          b.box(bl.x, bl.y + 0.3, bl.z, s, s, s, 1, 0.97, 0.88, 1);
+          FI.add(bl.x, bl.y + 0.4, bl.z, s * 3, 1.1 * k, 0.75 * k, 0.35 * k, 0.8, 0, sd);
         }
-        // bola de fuego: bocanadas redondas que se hinchan, suben y pasan de blanco-amarillo a naranja y rojo
-        if (t < 1.25) {
-          const k = t / 1.25, grow = 1 - Math.pow(1 - Math.min(1, t / 0.22), 3);
-          const n = Math.round(26 * Q) + 6;
+        // bola de fuego: lóbulos de cubos que se hinchan, giran y suben pasando a naranja, rojo y hollín,
+        // con un halo suave detrás para que no se vea como un montón de cajas
+        if (t < 1.15) {
+          const k = t / 1.15, grow = 1 - Math.pow(1 - Math.min(1, t / 0.25), 3);
+          const n = Math.round(22 * Q) + 4;
           for (let i = 0; i < n; i++) {
-            const inner = i < n * 0.35;
-            const life = inner ? 0.75 + h(i, 15) * 0.25 : 1;
-            const kk = Math.min(1, k / life);
-            if (kk >= 1) continue;
-            const a = h(i, 1) * Math.PI * 2, el = h(i, 2) * 1.4 - 0.25, d = R * (inner ? 0.05 + h(i, 3) * 0.3 : 0.3 + h(i, 3) * 0.6) * grow;
+            const inner = i < n * 0.3;
+            const a = h(i, 1) * Math.PI * 2, el = h(i, 2) * 1.3 - 0.2, d = R * (inner ? 0.1 + h(i, 3) * 0.25 : 0.3 + h(i, 3) * 0.55) * grow;
             const x = bl.x + Math.cos(a) * Math.cos(el) * d, z = bl.z + Math.sin(a) * Math.cos(el) * d;
-            const y = bl.y + 0.35 + Math.sin(el) * d * 0.75 + kk * kk * R * (inner ? 1.3 : 1.0);
-            const sz = R * (inner ? 0.9 + h(i, 4) * 0.5 : 0.8 + h(i, 4) * 0.7) * (0.45 + grow * 0.75) * (1 + kk * 0.35);
-            const heat = Math.max(0, (inner ? 1.3 : 1.05) - kk * 1.25 - h(i, 5) * 0.2);
-            const fade = 1 - Math.pow(kk, 1.6);
-            const r = (0.42 + heat * 1.15) * fade, g = (0.09 + heat * heat * 0.8) * fade, bb = (0.02 + heat * heat * heat * 0.4) * fade;
-            FI.add(x, y, z, sz, r, g, bb, 0.7, h(i, 6) * 6 + t * (1 + h(i, 7)), sd + i);
+            const y = bl.y + 0.3 + Math.sin(el) * d * 0.8 + k * k * R * (inner ? 1.2 : 0.9);
+            const sz = 0.72 * R * (inner ? 0.2 + h(i, 4) * 0.18 : 0.22 + h(i, 4) * 0.26) * (0.5 + grow * 0.7) * (1 - k * (inner ? 0.8 : 0.45));
+            const heat = Math.max(0, (inner ? 1.25 : 1) - k * 1.15 - h(i, 5) * 0.25);
+            const fl = 0.9 + Math.sin(t * 40 + i * 3.1) * 0.1;
+            const r = (0.25 + heat * 0.75 + (1 - heat) * 0.45) * fl, g = (0.08 + heat * 0.78) * fl, bb = 0.04 + heat * heat * 0.55;
+            const e = Math.max(0, 1 - k * 1.05);
+            const q = M.qAxis(0.577, 0.577, 0.577, h(i, 6) * 6 + t * (1.5 + h(i, 7) * 2));
+            b.rbox(x, y, z, sz, sz, sz, q, e > 0.05 ? r : 0.15, e > 0.05 ? g : 0.13, e > 0.05 ? bb : 0.12, e);
+            if (i % 3 === 0 && e > 0.1) FI.add(x, y, z, sz * 3.2, r * 0.6 * e, g * 0.55 * e, bb * 0.4 * e, 0.45, h(i, 8) * 6, sd + i);
           }
         }
         // chispas: trazos que salen disparados en arco y se apagan
@@ -1459,27 +1623,37 @@
             b.rbox(x, y, z, 0.035, L, 0.035, M.qAxis(ax / al, 0, az / al, ang), 1, 0.55 + k * 0.4, 0.15 + k * 0.3, 1);
           }
         }
-        // onda expansiva: anillo de polvo que se abre a ras de suelo
-        if (t < 0.9) {
-          const k = t / 0.9, rad = R * (0.5 + Math.sqrt(k) * 2.6), n = Math.round(16 * Math.max(0.6, Q));
+        // onda expansiva: anillo de cubos encendidos a ras de suelo que se abre y se apaga,
+        // y detrás un segundo anillo de polvo
+        if (t < 0.5) {
+          const k = t / 0.5, rad = R * (0.6 + k * 2.1), w = 0.4 * (1 - k) + 0.1, n = Math.round(32 * Math.max(0.6, Q));
           for (let i = 0; i < n; i++) {
-            const a = (i / n) * Math.PI * 2 + h(i, 30), x = bl.x + Math.cos(a) * rad, z = bl.z + Math.sin(a) * rad;
-            const c = 0.32 - k * 0.1;
-            SM.add(x, bl.gy + 0.25 + k * 0.3, z, R * (0.7 + k * 0.9), c, c * 0.92, c * 0.82, 0.55 * (1 - k), h(i, 31) * 6, sd + 40 + i);
-            if (k < 0.3) FI.add(x, bl.gy + 0.2, z, R * 0.6, 0.9 * (1 - k / 0.3), 0.4 * (1 - k / 0.3), 0.1, 0.7, 0, sd + 60 + i);
+            const a = (i / n) * Math.PI * 2, x = bl.x + Math.cos(a) * rad, z = bl.z + Math.sin(a) * rad;
+            b.rbox(x, bl.gy + 0.08 + (1 - k) * 0.12, z, rad * 6.3 / n, w * 0.6, w, M.qY(-a + Math.PI / 2), 0.9 - k * 0.6, 0.55 - k * 0.4, 0.25 - k * 0.15, Math.max(0, 0.85 - k * 1.2));
+          }
+          if (k < 0.5) SM.add(bl.x, bl.gy + 0.3, bl.z, rad * 2.2, 0.5, 0.42, 0.32, 0.25 * (1 - k * 2), 0, sd + 30);
+        }
+        if (t > 0.08 && t < 1.4) {
+          const k = (t - 0.08) / 1.32, rad = R * (1.1 + Math.sqrt(k) * 2.4), n = Math.round(14 * Math.max(0.6, Q));
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2 + h(i, 30), x = bl.x + Math.cos(a) * rad, z = bl.z + Math.sin(a) * rad, sz = 0.72 * R * (0.22 + h(i, 31) * 0.18) * (1 - k * 0.5);
+            const c = 0.26 - k * 0.08;
+            if (Q > 0.6) b.rbox(x, bl.gy + sz * 0.5 + k * 0.4, z, sz, sz * 0.8, sz, M.qY(h(i, 32) * 6), c, c * 0.92, c * 0.85, 0);
+            SM.add(x, bl.gy + 0.3 + k * 0.4, z, R * (0.6 + k * 0.8), c * 1.3, c * 1.2, c * 1.05, 0.4 * (1 - k), h(i, 33) * 6, sd + 40 + i);
           }
         }
-        // humo: bocanadas oscuras que suben formando una columna, crecen y se deshacen
-        if (t > 0.2) {
-          const k = (t - 0.2) / 2.6, n = Math.round(18 * Q) + 6;
+        // humo: bocanadas de cubos oscuros que suben en columna, envueltas en humo suave
+        if (t > 0.3) {
+          const k = (t - 0.3) / 2.2, n = Math.round(14 * Q) + 4;
           for (let i = 0; i < n; i++) {
-            const kk = k - h(i, 8) * 0.3;
+            const kk = k - h(i, 8) * 0.25;
             if (kk <= 0 || kk >= 1) continue;
-            const a = h(i, 9) * Math.PI * 2 + kk * 1.2, d = R * (0.1 + h(i, 10) * 0.55) * (0.6 + kk * 0.9);
-            const x = bl.x + Math.cos(a) * d, z = bl.z + Math.sin(a) * d, y = bl.y + R * 0.6 + kk * (3 + R * 1.4) + h(i, 11) * R * 0.5;
-            const sz = R * (1.1 + h(i, 12) * 0.8) * (0.6 + kk * 1.4);
-            const c = 0.16 + h(i, 13) * 0.08 + (1 - kk) * 0.04, glow = Math.max(0, 0.25 - kk) * 3;   // la base del humo aún brilla
-            SM.add(x, y, z, sz, c + glow * 0.35, c * 0.95 + glow * 0.12, c * 0.9, 0.85 * Math.min(1, kk * 6) * (1 - Math.pow(kk, 2)), h(i, 14) * 6 + t * 0.3, sd + 80 + i);
+            const a = h(i, 9) * Math.PI * 2 + kk * 1.5, d = R * (0.15 + h(i, 10) * 0.5) * (0.6 + kk * 0.8);
+            const x = bl.x + Math.cos(a) * d, z = bl.z + Math.sin(a) * d, y = bl.y + R * 0.8 + kk * (2.8 + R * 1.2) + h(i, 11) * R * 0.4;
+            const sz = R * (0.35 + h(i, 12) * 0.3) * (0.7 + kk * 0.9) * (1 - Math.pow(kk, 3));
+            const c = 0.11 + h(i, 13) * 0.06 + (1 - kk) * 0.04, glow = Math.max(0, 0.3 - kk) * 1.6;
+            if (i % 2 === 0) { const cs = sz * 0.72; b.rbox(x, y, z, cs, cs, cs, M.qAxis(0.577, 0.577, 0.577, h(i, 14) * 6 + t * 0.4), c + glow * 0.5, c * 0.95 + glow * 0.18, c * 0.92, glow * 0.4); }
+            SM.add(x, y, z, sz * 2.4, c * 1.4 + glow * 0.3, c * 1.35 + glow * 0.1, c * 1.3, 0.6 * Math.min(1, kk * 5) * (1 - kk * kk), h(i, 15) * 6 + t * 0.3, sd + 80 + i);
           }
         }
         // quemadura en el suelo que se va apagando (brasas al principio)
@@ -1600,7 +1774,7 @@
 
     addCorpse(c) {
       this.corpses.push(c);
-      if (this.corpses.length > 14) this.corpses[0].life = Math.min(this.corpses[0].life, 1.5);
+      if (this.corpses.length > ((VX.Q && VX.Q.corpses) || 14)) this.corpses[0].life = Math.min(this.corpses[0].life, 1.5);
     }
 
     musicMode() {
@@ -1687,6 +1861,7 @@
 
       if (this.currentRoom) this.world.updateFlow(this.currentRoom, P.x, P.z, dt, VX.Coop.flowExtra());
 
+      this.enemyLod();   // detalle de cada zombi según la distancia y la calidad
       if (VX.Coop.isClient) VX.Coop.updateReplicas(dt, this);   // los zombis los mueve el anfitrión
       else {
         VX.Horde.update(this, dt);
@@ -1704,12 +1879,23 @@
       this.corpses = this.corpses.filter((c) => c.life > 0);
       for (const g of this.gibs) g.update(dt, this.world);
       this.gibs = this.gibs.filter((g) => g.life > 0);
-      if (this.gibs.length > 70) this.gibs.splice(0, this.gibs.length - 70);
+      const gMax = (VX.Q && VX.Q.gibs) || 70;
+      if (this.gibs.length > gMax) this.gibs.splice(0, this.gibs.length - gMax);
 
       this.updateProjectiles(dt);
       this.bullets.update(dt, this);
       this.updateSpikes(dt);
       if (this.currentRoom) for (const p of this.currentRoom.props) if (p.lit > 0 || p.burning > 0) p.update(dt, this);
+      // trozos caídos que se han quedado encima de algo que ya no está (una estantería quemada): vuelven a caer
+      this.pieceT = (this.pieceT || 0) - dt;
+      if (this.pieceT <= 0 && this.currentRoom) {
+        this.pieceT = 0.4;
+        for (const p of this.currentRoom.props) {
+          if (p.dead || p.type !== 'piece' || p.alive <= 0) continue;
+          const g = Math.max(this.world.groundAt(p.ox + p.w * VX.PV * 0.5, p.oz + p.d * VX.PV * 0.5), this.world.groundAt(p.ox + 0.05, p.oz + 0.05), this.world.groundAt(p.ox + p.w * VX.PV - 0.05, p.oz + p.d * VX.PV - 0.05));
+          if (p.oy - g > 0.15) p.collapse(this, 0, 0);
+        }
+      }
       this.updateFallers(dt);
       this.world.processSupport(this);
       this.updateBlockFallers(dt);
@@ -1741,6 +1927,7 @@
       }
       this.doorAnims = this.doorAnims.filter((a) => (a.drop ? !a.done : a.t < a.dur + 0.1));
       this.updateFire(dt);
+      this.updateFogHoles(dt); this.fogFootsteps(dt);
       for (const bl of this.blasts) bl.t += dt;
       if (this.blasts.length) this.blasts = this.blasts.filter((bl) => bl.t < 4);
       this.updateRises(dt);
@@ -1978,6 +2165,7 @@
 
       this.world.updateMeshes(R, this.currentRoom);
       const vis = this.world.visibleRooms(this.state === 'title' ? null : this.currentRoom);
+      this.setGroundFog(R, cam);
 
       // ---- lote dinámico ----
       const b = this.dyn;
@@ -1992,6 +2180,7 @@
       this.pickups.render(b);
       this.weapon.renderTracers(b);
       this.renderBlasts(b);
+      this.renderGas();
       this.bullets.render(b, this.time);
       this.world.renderTorches(b, this.time, vis);
       this.renderSpikes(b, vis);
@@ -2066,20 +2255,33 @@
 
       // ---- escena ----
       const lights = this.gatherLights(cam, vis);
-      // sombras de la antorcha más cercana (calidad alta): la luz 0 proyecta sombras
-      R.shadow2.on = false;
+      // Sombras de las luces de la sala (calidad alta): hasta 4 antorchas o lámparas, elegidas entre
+      // las que alumbran lo que tienes delante (no sólo la más cercana). Esas luces pasan a ser las 0..3.
+      for (const T of R.tsh) T.on = false;
       if (R.quality === 'alta' && VX.Settings.data.torchShadows && this.state !== 'title') {
-        const ti = lights.findIndex((l) => l.torch && l.d < 12);
-        if (ti >= 0) {
-          const tl = lights[ti];
-          lights.splice(ti, 1); lights.unshift(tl);
+        const cand = [];
+        for (const l of lights) {
+          if (!l.torch && !l.feat) continue;
+          if (l.d > 30) continue;
+          const vx = l.x - cam.x, vy = l.y - cam.y, vz = l.z - cam.z, dl = l.d || 1;
+          const front = (vx * fwd[0] + vy * fwd[1] + vz * fwd[2]) / dl;   // delante de la cámara
+          const near = l.d < l.r * 0.8;                                    // o me alumbra a mí
+          if (front < -0.2 && !near) continue;
+          cand.push({ l, score: (near ? 2 : 1) * (0.5 + Math.max(0, front)) / (l.d + 3) });
+        }
+        cand.sort((a, b) => b.score - a.score);
+        const pick = cand.slice(0, 4).map((c) => c.l);
+        for (let k = pick.length - 1; k >= 0; k--) { const i = lights.indexOf(pick[k]); lights.splice(i, 1); lights.unshift(pick[k]); }
+        pick.forEach((tl, k) => {
           const tc = tl.torch;
-          R.beginShadow2({ x: tl.x + tc.nx * 0.1, y: tl.y, z: tl.z + tc.nz * 0.1, dx: tc.nx, dy: -0.55, dz: tc.nz, fov: 2.5 });
+          const sp = tc ? { x: tl.x + tc.nx * 0.1, y: tl.y, z: tl.z + tc.nz * 0.1, dx: tc.nx, dy: -0.55, dz: tc.nz, fov: 2.6, far: 22 }
+            : { x: tl.x, y: tl.y, z: tl.z, dx: 0, dy: -1, dz: 0, fov: 2.7, far: 22 };
+          R.beginShadow2(sp, k);
           this.world.render(R, this.currentRoom);
           b.draw();
           R.endShadow();
-          R.shadow2.on = true;
-        }
+          R.tsh[k].on = true;
+        });
       }
       const zt = VX.ZONES[this.zone].tint;
       // ambiente muy oscuro: la linterna, las antorchas y los braseros mandan

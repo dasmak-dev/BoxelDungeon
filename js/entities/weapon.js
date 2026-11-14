@@ -4,6 +4,7 @@
 (function () {
   const M = VX.M;
   const tmp = [0, 0, 0];
+  const ucol = [0, 0, 0, 0];
 
   const MOD0 = () => ({ damage: 1, rate: 1, range: 1, mag: 1, reload: 1, pierce: 0, destruction: 1, pellets: 0, spread: 1, auto: false, recoil: 1 });
 
@@ -18,6 +19,7 @@
       this.cooldown = 0;
       this.reloading = false; this.reloadT = 0;
       this.kick = 0; this.slide = 0; this.flash = 0;
+      this.casings = []; this.ejectQ = []; this.fireT = 99; this.shots = 0;
       this.switchT = 0;
       this.swingT = 0; this.swingSide = 1; this.pendingHit = -1;
       this.tracers = [];
@@ -160,6 +162,7 @@
       this.updateRecoil(dt, game.player);
       this.kick = M.lerp(this.kick, 0, Math.min(1, dt * 14));
       this.slide = Math.max(0, this.slide - dt * 9);
+      VX.GunAnim.update(this, dt, this.slot.id);
       this.flash = Math.max(0, this.flash - dt * 16);
       this.switchT = Math.max(0, this.switchT - dt);
       this.swingT = Math.max(0, this.swingT - dt);
@@ -256,6 +259,33 @@
         if (this.swingType === 'kspin') setTimeout(() => VX.Audio.swish(), 180);
         return;
       }
+      // cada forma del cuchillo tiene su propio juego de golpes
+      const form = VX.Profile.knifeForm ? VX.Profile.knifeForm() : 'cuchillo';
+      const SETS = {
+        // daga: dos estocadas rápidas y un revés con la hoja invertida
+        daga: [['dstab', 0.22, 0.75, 0.08], ['dstab', 0.22, 0.75, 0.08], ['drev', 0.36, 1.1, 0.12]],
+        // machete: hachazo diagonal de arriba abajo y barrido ancho
+        machete: [['mchop', 0.46, 1.35, 0.26], ['mwide', 0.5, 1.25, 0.22]],
+        // bayoneta: dos tajos cortos y una embestida larga
+        bayoneta: [['bslash', 0.3, 0.9, 0.1], ['bslash', 0.3, 0.9, 0.1], ['blunge', 0.42, 1.6, 0.2]],
+        // mariposa: dos cortes rapidísimos y una floritura (se abre girando) con tajo final
+        mariposa: [['bquick', 0.2, 0.7, 0.07], ['bquick', 0.2, 0.7, 0.07], ['bflip', 0.5, 1.3, 0.34]],
+        // katana: desenvaine en tajo ancho y corte vertical
+        katana: [['kiai', 0.46, 1.5, 0.18], ['kdown', 0.52, 1.7, 0.28]],
+      };
+      const set = SETS[form];
+      if (set) {
+        this.swingN = ((this.swingN || 0) + 1) % set.length;
+        const [type, dur, cdK, hitAt] = set[this.swingN];
+        this.swingType = type; this.swingSide = this.swingN % 2 ? 1 : -1;
+        this.cooldown = 1 / st.fireRate * cdK;
+        this.swingT = dur; this.swingDur = dur;
+        this.pendingHit = hitAt;
+        VX.Audio.swish();
+        if (type === 'bflip') { setTimeout(() => VX.Audio.click(), 90); setTimeout(() => VX.Audio.click(), 200); setTimeout(() => VX.Audio.swish(), 320); }
+        if (type === 'kiai' || type === 'kdown') setTimeout(() => VX.Audio.swish(), 60);
+        return;
+      }
       // tres golpes en ciclo: tajo de derecha a izquierda, revés y estocada
       this.swingN = ((this.swingN || 0) + 1) % 3;
       this.swingType = this.swingN === 0 ? 'stab' : 'slash';
@@ -331,26 +361,37 @@
       const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch), sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
       const ox = P.eyeX(), oy = P.eyeY(), oz = P.eyeZ();
       let best = null, bestE = null, bestDir = null;
+      const T = this.swingType;
+      const form = VX.Profile.knifeForm ? VX.Profile.knifeForm() : 'cuchillo';
+      const reach = st.reach * ({ katana: 1.4, machete: 1.15, bayoneta: 1.1 }[form] || 1) * (T === 'blunge' ? 1.3 : 1);
+      const wide = T === 'mwide' || T === 'kiai';
+      const fan = wide ? [0, -0.3, 0.3, -0.6, 0.6, -0.9, 0.9] : [0, -0.25, 0.25, -0.5, 0.5];
+      const extra = [];   // golpes anchos: alcanzan a varios
       // varios rayos en abanico para que sea fácil acertar
-      for (const a of [0, -0.25, 0.25, -0.5, 0.5]) {
+      for (const a of fan) {
         const yaw = P.yaw + a * 0.6, pitch = P.pitch - (a === 0 ? 0 : 0.05);
         const dx = Math.sin(yaw) * Math.cos(pitch), dy = Math.sin(pitch), dz = Math.cos(yaw) * Math.cos(pitch);
         for (const list of [game.enemies, game.corpses]) for (const e of list) {
           if (e.dead || (e.spawnT && e.spawnT > 0.5)) continue;
-          const h = e.body.rayHit(ox, oy, oz, dx, dy, dz, st.reach);
-          if (h && (!best || h.t < best.t)) { best = h; bestE = e; bestDir = [dx, dy, dz]; }
+          const h = e.body.rayHit(ox, oy, oz, dx, dy, dz, reach);
+          if (!h) continue;
+          if (wide && e !== bestE && !extra.some((x) => x.e === e)) extra.push({ e, h, dir: [dx, dy, dz] });
+          if (!best || h.t < best.t) { best = h; bestE = e; bestDir = [dx, dy, dz]; }
         }
-        if (best) break;
+        if (best && !wide) break;
       }
       if (best) {
         const ray = { ox, oy, oz, dx: bestDir[0], dy: bestDir[1], dz: bestDir[2] };
         // eje del tajo: horizontal con algo de diagonal, alternando
         // eje del corte según el tipo de golpe (vertical en el golpe de arriba, corto en la estocada)
         let ax = -cy, ay = this.swingSide > 0 ? 0.6 : -0.6, az = sy;
-        if (this.swingType === 'overhead') { ax *= 0.15; ay = 1; az *= 0.15; }
+        if (this.swingType === 'overhead' || T === 'mchop' || T === 'kdown') { ax *= 0.15; ay = 1; az *= 0.15; }
         const al = Math.hypot(ax, ay, az);
-        const mult = this.swingType === 'stab' ? 1.5 : this.swingType === 'kspin' ? 1.45 : this.swingType === 'overhead' ? 1.3 : 1;
+        const MULT = { stab: 1.5, kspin: 1.45, overhead: 1.3, dstab: 1.1, drev: 1.35, mchop: 1.6, mwide: 1.25, blunge: 1.8, bslash: 1, bquick: 0.85, bflip: 1.5, kiai: 1.6, kdown: 1.9 };
+        const mult = MULT[T] || 1;
         game.dmgSource = 'knife'; game.dmgWeapon = 'knife';
+        // los tajos anchos también cortan a los de al lado (con menos fuerza)
+        for (const x of extra) if (x.e !== bestE && !x.e.dead) { const rr = { ox, oy, oz, dx: x.dir[0], dy: x.dir[1], dz: x.dir[2] }; x.e.hit(x.h, st.damage * mult * 0.7, rr, game, { slash: [ax / al, ay / al, az / al] }); }
         const killed = bestE.hit(best, st.damage * mult, ray, game, { slash: [ax / al, ay / al, az / al] });
         game.dmgSource = null;
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
@@ -375,6 +416,52 @@
       }
     }
 
+    // Efectos de la munición especial (mejoras de la partida) al alcanzar a un enemigo
+    bulletFx(game, e, h, dmg, killed) {
+      const m = this.mods;
+      if (this.def.flame) return;
+      const x = h.vox.wx, y = h.vox.wy, z = h.vox.wz;
+      if (m.frost && !e.isBoss) { e.chillT = 2.5; if (Math.random() < 0.6) for (let i = 0; i < 4; i++) game.particles.spawn(x, y, z, M.rand(-1, 1), M.rand(0, 1.5), M.rand(-1, 1), 0.7, 0.92, 1, 0.025, 0.6, 0.8, 1); }
+      if (m.toxic && !e.isBoss) { e.poisonT = 4; e.poisonDps = Math.max(e.poisonDps || 0, 8 + dmg * 0.15); }
+      if (m.shock) {
+        // el rayo salta a los enemigos más cercanos
+        let from = e, n = m.shock;
+        const hitSet = new Set([e]);
+        for (let k = 0; k < n; k++) {
+          let best = null, bd = 5.5;
+          for (const o of game.enemies) {
+            if (o.dead || hitSet.has(o) || (o.spawnT && o.spawnT > 0.5)) continue;
+            const d = Math.hypot(o.body.cx - from.body.cx, o.body.cy - from.body.cy, o.body.cz - from.body.cz);
+            if (d < bd) { bd = d; best = o; }
+          }
+          if (!best) break;
+          hitSet.add(best);
+          // trazo en zigzag
+          const ax = from.body.cx, ay = from.body.cy, az = from.body.cz, bx = best.body.cx, by = best.body.cy, bz = best.body.cz;
+          let px = ax, py = ay, pz = az;
+          for (let s = 1; s <= 4; s++) {
+            const t = s / 4, j = s < 4 ? 0.25 : 0;
+            const nx = ax + (bx - ax) * t + M.rand(-j, j), ny = ay + (by - ay) * t + M.rand(-j, j), nz = az + (bz - az) * t + M.rand(-j, j);
+            this.tracers.push({ x0: px, y0: py, z0: pz, x1: nx, y1: ny, z1: nz, life: 0.12, max: 0.12, w: 1.6, c: [0.55, 0.85, 1] });
+            px = nx; py = ny; pz = nz;
+          }
+          game.dmgSource = 'gun';
+          best.blast(bx, by, bz, 0.4, dmg * 0.45, game);
+          best.stunT = Math.max(best.stunT || 0, 0.35);
+          from = best;
+        }
+        if (Math.random() < 0.5) VX.Audio.snap && VX.Audio.snap();
+      }
+      if (m.explosive) this.bulletBoom(game, x, y, z, dmg);
+      void killed;
+    }
+    bulletBoom(game, x, y, z, dmg) {
+      const now = game.time;
+      if (this.lastBoom && now - this.lastBoom < 0.1) return;   // con las armas rápidas, como mucho 10 por segundo
+      this.lastBoom = now;
+      game.explode({ x, y, z, R: 1.0, dmg: dmg * 0.45, destr: 0.5, selfK: 0, small: true, frost: !!this.mods.frostBlast });
+    }
+
     // ---------------- Armas de fuego ----------------
     viewToWorld(P, vx, vy, vz) {
       const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch), sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
@@ -389,6 +476,7 @@
       this.slot.ammo--;
       this.cooldown = 1 / st.fireRate;
       this.kick = 1; this.slide = 1; this.flash = 1;
+      VX.GunAnim.onFire(this, this.slot.id, d.form);
       P.recoilPitch += d.recoil + st.damage * 0.0002;
       game.stats.shots++;
       game.roomShots = (game.roomShots || 0) + 1;
@@ -475,6 +563,7 @@
         }
         if (!best) break;
         const killed = bestE.hit(best, dmg, ray, game);
+        if (!game.visualOnly) this.bulletFx(game, bestE, best, dmg, killed);
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
         if (this.def.flame && !killed && !bestE.isBoss && !(bestE.T && bestE.T.fireImmune)) bestE.burn = Math.max(bestE.burn || 0, 3);   // lanzallamas: arde
         ignore.add(bestE);
@@ -497,6 +586,7 @@
         const hx = wHit.x + dx * 0.02, hy = wHit.y + dy * 0.02, hz = wHit.z + dz * 0.02;
         const radius = 0.16 + 0.14 * st.destruction + st.damage / 300;
         const n = game.world.damageSphere(hx, hy, hz, radius, Math.min(140, st.damage * 1.4) * st.destruction, game);
+        if (this.mods.explosive && !this.def.flame) this.bulletBoom(game, wHit.x - dx * 0.1, wHit.y - dy * 0.1, wHit.z - dz * 0.1, st.damage);
         game.particles.sparks(wHit.x, wHit.y, wHit.z, wHit.nx, wHit.ny, wHit.nz, 4);
         if (!n && game.addBulletHole) game.addBulletHole(wHit);   // el agujero se queda en la pared
         if (this.mods.napalm && this.mods.fire && Math.random() < 0.3 && wHit.y < game.world.groundAt(wHit.x, wHit.z) + 0.6) game.addFire(wHit.x, wHit.z, 0.5, 3);
@@ -507,12 +597,18 @@
         if (!n) VX.Audio.wall();
         // mejora "Rebote": la bala busca otro enemigo desde la pared
         if (bounce < (st.ricochet || 0)) {
+          // rebote de verdad: sale reflejada por la normal de la pared y sólo se tuerce un poco
+          // hacia un enemigo que quede cerca de esa dirección (antes buscaba a cualquiera en 14 m)
           const sx = wHit.x - dx * 0.08, sy = wHit.y - dy * 0.08, sz = wHit.z - dz * 0.08;
-          let best = null, bd = 14;
+          const dn = dx * wHit.nx + dy * wHit.ny + dz * wHit.nz;
+          const rx = dx - 2 * dn * wHit.nx, ry = dy - 2 * dn * wHit.ny, rz = dz - 2 * dn * wHit.nz;
+          let best = null, bc = Math.cos(0.32);
           for (const e of game.enemies) {
             if (e.dead || e.spawnT > 0.5) continue;
-            const d = Math.hypot(e.body.cx - sx, e.body.cy - sy, e.body.cz - sz);
-            if (d < bd && game.world.lineOfSight(sx, sy, sz, e.body.cx, e.body.cy, e.body.cz)) { bd = d; best = e; }
+            const ex = e.body.cx - sx, ey = e.body.cy - sy, ez = e.body.cz - sz, d = Math.hypot(ex, ey, ez);
+            if (d > 12 || d < 0.3) continue;
+            const c = (ex * rx + ey * ry + ez * rz) / d;
+            if (c > bc && game.world.lineOfSight(sx, sy, sz, e.body.cx, e.body.cy, e.body.cz)) { bc = c; best = e; }
           }
           if (best) {
             const bx = best.body.cx - sx, by = best.body.cy - sy, bz = best.body.cz - sz, bl = Math.hypot(bx, by, bz);
@@ -526,10 +622,17 @@
       game.dmgSource = null;
       game.world.cutSoft(ox, oy, oz, dx, dy, dz, endT, st.damage, game);
       const ex = ox + dx * endT, ey = oy + dy * endT, ez = oz + dz * endT;
+      // la bala abre un surco en la niebla baja
+      if (game.stirFog && bounce === 0) { game.stirFog(ex, ez, 0.9, 0.7, 0.4); game.stirFog(ox + dx * Math.min(endT, 3), oz + dz * Math.min(endT, 3), 0.8, 0.5, 0.5); }
       if (this.def.flame) return;
       if (this.def.ray) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.14, max: 0.14, c: [0.35, 1, 0.45], w: 3 });
       else if (this.def.bolt) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.09, max: 0.09, c: [0.75, 0.7, 0.6], w: 1.6 });
-      else this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.06 });
+      else {
+        // la trazadora cambia con la munición: más gruesa y lenta (subsónica, magnum), fina y rápida (alta velocidad), azul (eléctrica)…
+        const m = this.mods, cal = m.caliber;
+        const c = m.shock ? [0.55, 0.85, 1] : m.frost ? [0.7, 0.95, 1] : m.toxic ? [0.5, 1, 0.35] : m.explosive ? [1, 0.55, 0.2] : m.tracer;
+        this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: cal === 'subsonic' || cal === 'magnum' ? 0.1 : 0.06, max: cal === 'subsonic' || cal === 'magnum' ? 0.1 : 0.06, c, w: cal === 'magnum' ? 2 : cal === 'subsonic' ? 1.5 : cal === 'highvel' ? 0.7 : 1 });
+      }
     }
 
     // ---------------- Granadas ----------------
@@ -584,7 +687,8 @@
       const d = VX.Weapons.DEFS[id];
       const vm = d.vm;
       let g = vm.g;
-      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id), id === 'knife' ? (pose && pose.form) || VX.Profile.knifeForm() : id === 'pistol' ? (pose && pose.form) || d.form || null : null);
+      const model = VX.Weapons.coloredModel(id, skinOverride || VX.Profile.skinFor(id), id === 'knife' ? (pose && pose.form) || VX.Profile.knifeForm() : id === 'pistol' ? (pose && pose.form) || d.form || null : null, !pose);
+      const A = !pose && !d.melee && !idOverride ? VX.GunAnim.animate(this, id, d, d.form) : null;
       let bx = vm.x, by = vm.y, bz = vm.z, q;
       let bYaw = 0, bPitch = 0, bRoll = 0;   // giro de la hoja sobre la empuñadura (sólo cuchillo)
       if (pose) {
@@ -611,11 +715,7 @@
         by -= Math.abs(Math.cos(P.walkT)) * 0.008 * bob;
         bz += this.kick * (d.kick || 0.03);
         pitch = this.kick * (d.melee ? 0 : 0.22 + (d.recoil || 0) * 2);
-        if (this.reloading) {
-          const k = 1 - this.reloadT / this.reloadTime;
-          const s = Math.sin(k * Math.PI);
-          pitch -= s * 0.55; roll = s * 0.7; by -= s * 0.07;
-        }
+        if (A) { pitch += A.pitch; roll += A.roll; yawR += A.yaw; bx += A.bx; by += A.by; bz += A.bz; }
         if (d.melee) {
           // La mano se mueve poco; casi todo el gesto lo hace la hoja girando sobre la empuñadura
           yawR = d.heavy ? 0.2 : 0.06; pitch = d.heavy ? 0.35 : 0.12;
@@ -657,6 +757,50 @@
               bPitch -= spin;
               yawR += (0.15 - e * 0.55) * back; bx += (0.02 - e * 0.08) * back; bz -= Math.sin(k * Math.PI) * 0.05;
               roll += (0.2 - e * 0.6) * back; by += Math.sin(Math.min(1, k * 1.8) * Math.PI) * 0.03;
+            } else if (this.swingType === 'dstab') {
+              // daga: pinchazo corto y seco, alternando un poco de lado
+              const back = k < 0.2 ? Math.sin((k / 0.2) * Math.PI * 0.5) : 1 - M.smoothstep(0.2, 0.32, k);
+              const thrust = k >= 0.2 ? Math.sin(Math.min(1, (k - 0.2) / 0.3) * Math.PI * 0.5) * (1 - M.smoothstep(0.6, 1, k)) : 0;
+              bz += back * 0.04 - thrust * 0.14; bx += side * 0.02 * thrust; by += thrust * 0.02;
+              yawR -= side * thrust * 0.12; bRoll += side * 0.4 * thrust;
+            } else if (this.swingType === 'drev') {
+              // daga: la gira en la mano (agarre invertido) y da un revés de derecha a izquierda
+              const flip = M.smoothstep(0, 0.22, k) * (1 - M.smoothstep(0.82, 1, k));
+              const e = M.smoothstep(0.25, 0.7, k), back = 1 - M.smoothstep(0.75, 1, k), arc = Math.sin(Math.min(1, k * 1.1) * Math.PI);
+              bPitch += Math.PI * flip;
+              yawR += (-0.35 + e * 0.8) * back; bx += (-0.05 + e * 0.12) * back; bz -= arc * 0.05;
+              roll += (-0.4 + e * 0.8) * back; bYaw += (-0.4 + e * 0.8) * back;
+            } else if (this.swingType === 'mchop' || this.swingType === 'kdown') {
+              // machete / katana: lo alza por encima del hombro y lo descarga en diagonal (la katana, recto)
+              const kat = this.swingType === 'kdown';
+              const up = k < 0.42 ? Math.sin((k / 0.42) * Math.PI * 0.5) : 1 - M.smoothstep(0.42, 0.55, k);
+              const down = k >= 0.42 ? Math.sin(Math.min(1, (k - 0.42) / 0.25) * Math.PI * 0.5) * (1 - M.smoothstep(0.78, 1, k)) : 0;
+              const diag = kat ? 0 : 1;
+              pitch += up * 0.95 - down * 1.35; by += up * 0.09 - down * 0.11; bz += up * 0.03 - down * 0.08;
+              yawR += diag * (up * 0.25 - down * 0.45); roll += diag * (up * 0.45 - down * 0.7) + (kat ? up * 0.1 : 0);
+              bPitch += up * 0.9 - down * 1.1; bx += diag * (up * 0.03 - down * 0.06) - (kat ? up * 0.05 : 0);
+            } else if (this.swingType === 'mwide' || this.swingType === 'kiai') {
+              // barrido ancho (machete) / desenvaine (katana): sale desde el costado y cruza toda la pantalla
+              const kat = this.swingType === 'kiai', A = kat ? 1.6 : 1.35;
+              const wind = k < 0.28 ? Math.sin((k / 0.28) * Math.PI * 0.5) : 1;
+              const e = M.smoothstep(0.24, 0.62, k), back = 1 - M.smoothstep(0.72, 1, k), arc = Math.sin(Math.min(1, k * 1.1) * Math.PI);
+              yawR += side * (0.38 * wind - e * 0.95) * A * back; bx += side * (0.06 * wind - e * 0.16) * back;
+              bz -= arc * 0.07; by += (kat ? -0.04 * wind + e * 0.05 : arc * 0.02) * back;
+              roll += side * (0.4 * wind - e * 0.9) * back; pitch -= arc * (kat ? 0.05 : 0.12);
+              bYaw += side * (0.5 - e * 1.05) * back;
+            } else if (this.swingType === 'blunge') {
+              // bayoneta: se recoge y embiste con todo el brazo, muy lejos
+              const back = k < 0.3 ? Math.sin((k / 0.3) * Math.PI * 0.5) : 1 - M.smoothstep(0.3, 0.42, k);
+              const thrust = k >= 0.3 ? Math.sin(Math.min(1, (k - 0.3) / 0.25) * Math.PI * 0.5) * (1 - M.smoothstep(0.68, 1, k)) : 0;
+              bz += back * 0.07 - thrust * 0.26; bx -= thrust * 0.05; by += thrust * 0.03 - back * 0.02;
+              pitch += back * 0.15 - thrust * 0.08; yawR -= thrust * 0.15; roll -= thrust * 0.2;
+            } else if (this.swingType === 'bflip') {
+              // mariposa: las cachas se abren girando dos veces y remata con un tajo
+              const spin = M.smoothstep(0, 0.55, k) * Math.PI * 4;
+              const e = M.smoothstep(0.55, 0.85, k), back = 1 - M.smoothstep(0.85, 1, k);
+              bRoll += spin; by += Math.sin(Math.min(1, k * 1.8) * Math.PI) * 0.02;
+              yawR += side * (0.2 - e * 0.6) * back; bx += side * (0.03 - e * 0.09) * back; roll += side * (0.3 - e * 0.6) * back;
+              bYaw += side * (0.3 - e * 0.7) * back;
             } else if (this.swingType === 'stab') {
               // estocada: el puño se recoge y sale recto hacia delante, con giro de muñeca
               const back = k < 0.3 ? Math.sin((k / 0.3) * Math.PI * 0.5) : 1 - M.smoothstep(0.3, 0.45, k);
@@ -684,7 +828,9 @@
           const turn = M.smoothstep(0.1, 0.3, k) - M.smoothstep(0.45, 0.65, k) * 2 + M.smoothstep(0.7, 0.88, k);   // 0 → 1 → -1 → 0
           if (d.melee) {
             // el cuchillo da una voltereta en la mano
-            const flip = VX.Profile.knifeForm() === 'karambit' && id === 'knife' ? 0 : M.smoothstep(0.42, 0.62, k) * Math.PI * 2;
+            const fm = id === 'knife' ? VX.Profile.knifeForm() : '';
+            const flip = fm === 'karambit' || fm === 'katana' ? 0 : M.smoothstep(0.42, 0.62, k) * Math.PI * 2 * (fm === 'mariposa' ? 3 : 1);
+            if (fm === 'katana') { bYaw += Math.sin(k * Math.PI * 2) * 0.6 * inn; bPitch -= M.smoothstep(0.3, 0.5, k) * (1 - M.smoothstep(0.6, 0.8, k)) * 0.8; }
             if (VX.Profile.knifeForm() === 'karambit' && id === 'knife') bPitch -= (M.smoothstep(0.35, 0.5, k) + M.smoothstep(0.55, 0.7, k)) * Math.PI * 2;
             yawR = M.lerp(yawR, 0.5 * turn, inn); pitch = M.lerp(pitch, 0.15, inn);
             bYaw = M.lerp(bYaw, 0.9 * turn, inn); bRoll = M.lerp(bRoll, 0.3, inn) + flip;
@@ -701,23 +847,48 @@
       const qb = bladeQ ? M.qMul(q, bladeQ) : q;
       const kar = id === 'knife' && !pose && VX.Profile.knifeForm() === 'karambit';
       const PIV = kar ? (this.swingType === 'kspin' && this.swingT > 0 ? [0, -2, 13] : [0, 0, 6]) : [0, 1, 3];
-      const slideBack = pose ? 0 : this.slide * 4 * g;
-      const pumpBack = pose ? 0 : this.slide * 6 * g;
+      const slideBack = A ? A.slideZ : pose ? 0 : this.slide * 4;
+      const pumpBack = A ? A.pumpZ : pose ? 0 : this.slide * 6;
+      const parts = A ? A.parts : null, lp = [0, 0, 0];
       for (const v of model) {
-        if (pose && pose.noHand && (v.tag === 'hand' || v.tag === 'wrist' || v.tag === 'sleeve')) continue;
-        const zOff = v.slide ? slideBack : v.pump ? pumpBack : 0;
-        const isHand = v.tag === 'sleeve' || (d.heavy && (v.tag === 'hand' || v.tag === 'wrist'));
-        let vq = q;
-        if (bladeQ && !isHand) {
+        let vq = q, insts = null;
+        if (v.part) {
+          const pp = parts && parts[v.part];
+          if (v.part.startsWith('rl_') && !pp) continue;
+          if (pp && pp.hide) continue;
+        }
+        if (bladeQ) {
           // la hoja y el mango giran alrededor del puño
           M.qRot(bladeQ, (v.x - PIV[0]) * g, (v.y - PIV[1]) * g, (v.z - PIV[2]) * g, tmp);
           M.qRot(q, tmp[0] + PIV[0] * g, tmp[1] + PIV[1] * g, tmp[2] + PIV[2] * g, tmp);
           vq = qb;
-        } else M.qRot(q, v.x * g, v.y * g, v.z * g + zOff, tmp);
+        } else {
+          lp[0] = v.x; lp[1] = v.y; lp[2] = v.z + (v.slide ? slideBack : v.pump ? pumpBack : 0);
+          const pp = v.part && parts ? parts[v.part] : null;
+          let pq = null;
+          if (pp) {
+            if (pp.fn) pp.fn(v, lp);
+            if (pp.pre) { M.qRot(pp.pre.q, lp[0] - pp.pre.px, lp[1] - pp.pre.py, lp[2] - pp.pre.pz, tmp); lp[0] = tmp[0] + pp.pre.px; lp[1] = tmp[1] + pp.pre.py; lp[2] = tmp[2] + pp.pre.pz; pq = pp.pre.q; }
+            if (pp.q) { M.qRot(pp.q, lp[0] - pp.px, lp[1] - pp.py, lp[2] - pp.pz, tmp); lp[0] = tmp[0] + pp.px; lp[1] = tmp[1] + pp.py; lp[2] = tmp[2] + pp.pz; pq = pq ? M.qMul(pp.q, pq) : pp.q; }
+            lp[0] += pp.ox || 0; lp[1] += pp.oy || 0; lp[2] += pp.oz || 0;
+            if (pq) vq = M.qMul(q, pq);
+            insts = pp.inst || null;
+          }
+          if (insts) {
+            for (const o of insts) {
+              M.qRot(q, (lp[0] + o[0]) * g, (lp[1] + o[1]) * g, (lp[2] + o[2]) * g, tmp);
+              batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], g, g, g, vq, v.r, v.g, v.b, v.e);
+            }
+            continue;
+          }
+          M.qRot(q, lp[0] * g, lp[1] * g, lp[2] * g, tmp);
+        }
         let r = v.r, gg = v.g, b = v.b, e = v.e;
+        if (v.an && model.ult) { VX.Weapons.ultColor(v, model.ult, game.time, ucol); r = ucol[0]; gg = ucol[1]; b = ucol[2]; e = Math.max(e, ucol[3]); }
         if (v.tag === 'accent' && this.accent && !pose && VX.Profile.skinFor(id) === 'default') { r = this.accent[0]; gg = this.accent[1]; b = this.accent[2]; e = Math.max(e, 0.5); }
         batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], g, g, g, vq, r, gg, b, e);
       }
+      if (A && this.casings.length) VX.GunAnim.drawCasings(this, batch, q, g, bx, by, bz, tmp);
       if (this.flash > 0.05 && !d.melee && !pose) {
         const mz = d.muzzle;
         M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 3) * g, tmp);

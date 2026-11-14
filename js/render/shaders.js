@@ -71,9 +71,12 @@ uniform mat4 u_shadowMat;
 uniform sampler2DShadow u_shadowMap;
 uniform float u_shadowOn;
 uniform float u_shadowTexel;
-uniform mat4 u_shadowMat2;           // sombra de la antorcha más cercana (luz 0)
-uniform sampler2DShadow u_shadowMap2;
-uniform float u_shadowOn2;
+uniform mat4 u_tsMat[4];             // sombras de hasta 4 luces de la sala (las luces 0..3)
+uniform sampler2DShadow u_tsMap0;
+uniform sampler2DShadow u_tsMap1;
+uniform sampler2DShadow u_tsMap2;
+uniform sampler2DShadow u_tsMap3;
+uniform float u_tsOn[4];
 
 uniform vec3 u_ambient;
 uniform vec3 u_camPos;
@@ -87,10 +90,81 @@ uniform float u_water;          // 1 al dibujar superficies de agua con reflejo
 uniform sampler2D u_reflTex;    // imagen reflejada (cámara simétrica respecto al agua)
 uniform vec2 u_res;
 uniform float u_time;
+uniform vec4 u_gf[2];            // niebla baja (hasta 2 salas: la actual y la de al lado): x altura, y densidad, z encendida, w suelo
+uniform vec3 u_gfCol[2];
+uniform vec4 u_gfRect[2];        // rectángulo de cada sala (x0, z0, x1, z1): la niebla no sale de su sala
+uniform vec4 u_gfHoles[8];       // huecos que abren el jugador, los disparos y las explosiones: x, z, radio, fuerza
 
 out vec4 o_color;
 
 float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+// ---- Niebla baja: un manto a ras de suelo que se integra a lo largo del rayo de la cámara ----
+float gfNoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+// devuelve la cantidad de niebla (0..1) y el punto medio del tramo dentro de ella
+float groundFog(int s, vec3 wp, out vec3 pm) {
+  pm = wp;
+  vec4 G = u_gf[s], Rc = u_gfRect[s];
+  if (G.z < 0.5) return 0.0;
+  // sólo dentro de su sala (con un borde suave)
+  float inR = smoothstep(0.0, 0.6, min(min(wp.x - Rc.x, Rc.z - wp.x), min(wp.z - Rc.y, Rc.w - wp.z)));
+  if (inR <= 0.0) return 0.0;
+  float top = G.x, fl = G.w;
+  vec3 c = u_camPos;
+  float ya = c.y - fl, yb = wp.y - fl;
+  if (ya > top && yb > top) return 0.0;
+  float t0 = 0.0, t1 = 1.0, ys = ya, ye = max(yb, 0.0);
+  if (ya > top) { t0 = (ya - top) / max(ya - yb, 1e-4); ys = top; }
+  if (yb > top) { t1 = (top - ya) / max(yb - ya, 1e-4); ye = top; }
+  float L = length(wp - c);
+  float seg = max(t1 - t0, 0.0) * L;
+  if (seg <= 0.0) return 0.0;
+  pm = mix(c, wp, (t0 + t1) * 0.5);
+  vec2 q = pm.xz;
+  float n = gfNoise(q * 0.42 + vec2(u_time * 0.05, u_time * 0.03)) * 0.6 + gfNoise(q * 1.25 - vec2(u_time * 0.07, -u_time * 0.04)) * 0.4;
+  float topN = top * (0.7 + 0.6 * n);
+  float ym = (max(ys, 0.0) + ye) * 0.5;
+  float dens = G.y * inR * clamp((topN - ym) / topN, 0.0, 1.0) * (0.25 + 1.45 * n * n);
+  float hole = 1.0;
+  for (int i = 0; i < 8; i++) {
+    vec4 h = u_gfHoles[i];
+    if (h.w <= 0.0) continue;
+    float d = min(length(wp.xz - h.xy), length(q - h.xy));
+    hole *= 1.0 - h.w * (1.0 - smoothstep(h.z * 0.3, h.z, d));
+  }
+  return 1.0 - exp(-dens * seg * hole);
+}
+// luz que recibe la niebla: ambiente, el haz de la linterna y las luces cercanas (sin sombras)
+vec3 groundFogLight(vec3 p) {
+  vec3 l = u_ambient * 1.1 + vec3(0.002);
+  vec3 L = p - u_spotPos;
+  float d = length(L);
+  float cs = dot(L / max(d, 0.001), u_spotDir);
+  l += u_spotCol * smoothstep(u_spotCone.y, u_spotCone.x, cs) / (1.0 + 0.05 * d * d + 0.15 * d) * 0.32;
+  for (int i = 0; i < 16; i++) {
+    if (i >= u_numLights) break;
+    float dist = length(u_lights[i].xyz - p);
+    float att = clamp(1.0 - dist / u_lights[i].w, 0.0, 1.0);
+    l += u_lightCols[i] * att * att * 0.16;
+  }
+  return l;
+}
+vec3 applyGroundFog(vec3 col, vec3 wp, float emis) {
+  for (int s = 0; s < 2; s++) {
+    vec3 pm;
+    float f = groundFog(s, wp, pm);
+    if (f <= 0.002) continue;
+    vec3 fc = u_gfCol[s] * groundFogLight(pm);
+    fc = (fc * (2.51 * fc + 0.03)) / (fc * (2.43 * fc + 0.59) + 0.14);
+    fc = pow(clamp(fc, 0.0, 1.0), vec3(1.0 / 2.2));
+    col = mix(col, fc, f * (1.0 - clamp(emis, 0.0, 1.0) * 0.85));   // los ojos y lo que brilla asoma entre la niebla
+  }
+  return col;
+}
 
 // Ventana con habitación detrás ("interior mapping"): se traza un rayo dentro de una
 // caja virtual (fondo, paredes, suelo y techo) para ver el piso con profundidad real.
@@ -170,17 +244,23 @@ float shadowAt(vec3 wp, vec3 n) {
   return s * 0.25;
 }
 
-float shadowAt2(vec3 wp, vec3 n) {
-  vec4 sp = u_shadowMat2 * vec4(wp + n * 0.04, 1.0);
+float tsSample(int k, vec3 q) {
+  if (k == 0) return texture(u_tsMap0, q);
+  if (k == 1) return texture(u_tsMap1, q);
+  if (k == 2) return texture(u_tsMap2, q);
+  return texture(u_tsMap3, q);
+}
+float shadowAtK(int k, vec3 wp, vec3 n) {
+  vec4 sp = u_tsMat[k] * vec4(wp + n * 0.04, 1.0);
   if (sp.w <= 0.0) return 1.0;
   vec3 p = sp.xyz / sp.w * 0.5 + 0.5;
   if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
   float t = 1.0 / 1024.0;
   float z = p.z - 0.0012;
-  float s = texture(u_shadowMap2, vec3(p.xy + vec2(-t, -t), z));
-  s += texture(u_shadowMap2, vec3(p.xy + vec2( t, -t), z));
-  s += texture(u_shadowMap2, vec3(p.xy + vec2(-t,  t), z));
-  s += texture(u_shadowMap2, vec3(p.xy + vec2( t,  t), z));
+  float s = tsSample(k, vec3(p.xy + vec2(-t, -t), z));
+  s += tsSample(k, vec3(p.xy + vec2( t, -t), z));
+  s += tsSample(k, vec3(p.xy + vec2(-t,  t), z));
+  s += tsSample(k, vec3(p.xy + vec2( t,  t), z));
   return 0.12 + 0.88 * s * 0.25;
 }
 
@@ -205,6 +285,7 @@ void main() {
     vec3 col = mix(deep, refl, fr);
     // destellos de las ondas
     col += vec3(0.04, 0.05, 0.06) * pow(max(rip.x * rip.y, 0.0), 3.0);
+    col = applyGroundFog(col, v_world, 0.0);
     float fog = smoothstep(u_fogNear, u_fogFar, v_depth);
     o_color = vec4(mix(col, u_fogColor, fog), 1.0);
     return;
@@ -245,7 +326,7 @@ void main() {
     att *= att;
     vec3 l = L / max(dist, 0.001);
     float ndl = max(dot(n, l), 0.0);
-    float ts = (i == 0 && u_shadowOn2 > 0.5 && ndl > 0.0) ? shadowAt2(v_world, n) : 1.0;
+    float ts = (i < 4 && ndl > 0.0 && u_tsOn[i < 4 ? i : 0] > 0.5) ? shadowAtK(i, v_world, n) : 1.0;
     diff += u_lightCols[i] * ndl * att * ts * (0.45 + 0.55 * ao);
     vec3 h = normalize(l + V);
     spec += u_lightCols[i] * pow(max(dot(n, h), 0.0), sExp) * att * ts * 0.18 * sAmt;
@@ -276,6 +357,7 @@ void main() {
   col = (col * (2.51 * col + 0.03)) / (col * (2.43 * col + 0.59) + 0.14);
   col = pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2));
 
+  col = applyGroundFog(col, v_world, emis);
   float fog = smoothstep(u_fogNear, u_fogFar, v_depth);
   col = mix(col, u_fogColor, fog);
   if (u_glass > 0.5) {

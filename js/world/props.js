@@ -977,6 +977,7 @@
       // botín al destrozarlo casi entero
       if (!this.looted && this.alive < this.total * 0.35) {
         this.looted = true;
+        if (game && this.key && game.dropKey) { game.dropKey(this.key, this.cx, this.oy + 0.3, this.cz); this.key = null; }
         if (game && this.type === 'barrel' && game.addOil) game.addOil(this.cx, this.cz, 1.1);   // el aceite se derrama
         if (game && this.def.loot && Math.random() < this.def.loot) {
           const n = this.def.treasure ? M.randInt(15, 25) : this.type === 'sarcophagus' || this.type === 'throne' ? M.randInt(6, 12) : M.randInt(1, 4);
@@ -1074,7 +1075,20 @@
         const q = (Math.random() * this.fill.length) | 0;
         if (this.fill[q] && list.indexOf(q) < 0) list.push(q);
       }
-      if (list.length) { this.drop(list, game, 0, 0); this.afterCarve(game, 0, 0); }
+      if (list.length) {
+        // lo que se quema se convierte en ceniza y pavesas (no en trozos que salen volando)
+        for (const q of list) {
+          if (Math.random() < 0.5) {
+            const i = q % this.w, k = Math.floor(q / this.w) % this.d, j = Math.floor(q / (this.w * this.d));
+            const ash = Math.random() < 0.5;
+            game.particles.spawn(this.ox + (i + 0.5) * PV, this.oy + (j + 0.5) * PV, this.oz + (k + 0.5) * PV, M.rand(-0.3, 0.3), ash ? M.rand(-0.5, 0.3) : M.rand(0.8, 2), M.rand(-0.3, 0.3),
+              ash ? 0.12 : 1, ash ? 0.11 : M.rand(0.35, 0.6), ash ? 0.1 : 0.1, PV * 0.8, M.rand(0.8, 1.6), ash ? 0 : 1, ash ? 0 : 1);
+          }
+          this.fill[q] = 0;
+        }
+        this.alive -= list.length;
+        this.afterCarve(game, 0, 0);
+      }
       // quema a quien esté cerca y propaga el fuego
       const R = Math.max(this.w, this.d) * PV / 2 + 0.6;
       for (const e of game.enemies) if (!e.dead && !e.isBoss && Math.hypot(e.x - this.cx, e.z - this.cz) < R && !(e.T && e.T.fireImmune)) e.burn = Math.max(e.burn || 0, 1.5);

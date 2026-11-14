@@ -47,6 +47,7 @@
     bosses: (n, w) => n === 1 ? `Remata a un jefe con ${w}` : `Remata a ${n} jefes con ${w}`,
     elites: (n, w) => `Mata ${n} zombis élite con ${w}`,
     floor: (n, w) => `Llega al piso ${n} llevando ${w}`,
+    allSkins: (n, w) => `Consigue los ${n} camuflajes de ${w}`,
   };
 
   const Profile = {
@@ -114,6 +115,7 @@
 
     statValue(skin, weapon) {
       if (!skin.cond) return 0;
+      if (skin.cond.stat === 'allSkins') return VX.Weapons.SKINS.filter((s) => s.cond && !s.ultimate && this.isUnlocked(weapon, s.id)).length;
       return (this.data.wstats[weapon] || {})[skin.cond.stat] || 0;
     },
 
@@ -137,7 +139,7 @@
             this.data.unlocked.push(w + ':' + s.id);
             this.dirty = true;
             if (game && game.hud && game.state === 'playing') {
-              game.hud.banner('¡SKIN DESBLOQUEADA!', `${VX.Weapons.DEFS[w].name}: «${s.name}» — equípala en la Armería`, 3.5);
+              game.hud.banner(s.ultimate ? '¡SKIN LEGENDARIA!' : '¡SKIN DESBLOQUEADA!', `${VX.Weapons.DEFS[w].name}: «${VX.Weapons.skinLabel(s, w)}» — equípala en la Armería`, 3.5);
               VX.Audio.upgrade();
             }
           }

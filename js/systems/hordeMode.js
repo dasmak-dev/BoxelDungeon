@@ -76,9 +76,14 @@
     },
 
     // nivel de dificultad (equivale al «piso» de la mazmorra)
-    levelFor(n) { return Math.round(1 + n * 1.1); },
-    totalFor(n) { return Math.round(8 + n * 3.5 + Math.pow(n, 1.35)); },
-    maxAlive(n) { return Math.min(8 + n, 22); },
+    // (más suave que antes: menos zombis por oleada y algo menos de vida, pero más variados;
+    //  en el cooperativo sale más gente según los jugadores)
+    levelFor(n) { return Math.round(1 + n * 0.85); },
+    totalFor(n) {
+      const players = VX.Coop && VX.Coop.active ? 1 + VX.Coop.remotes.size : 1;
+      return Math.round((5 + n * 2.2 + Math.pow(n, 1.3)) * (1 + 0.4 * (players - 1)));
+    },
+    maxAlive(n) { return Math.min(6 + n, 20); },
 
     alive(game) { return game.enemies.filter((e) => !e.dead).length + game.rises.length; },
 
@@ -316,8 +321,21 @@
       const f = game.floor;
       const champion = this.spawned === this.championAt;
       let kind = game.spawner.pickKind(f, this.room.zone || 6);
+      // variedad: a menudo sale uno de los tipos especiales ya desbloqueados por la oleada
+      if (Math.random() < 0.4) {
+        const w = this.wave;
+        const pool = ['runner', 'dog', 'spitter'];
+        if (w >= 3) pool.push('brute', 'exploder', 'shielder');
+        if (w >= 4) pool.push('climber', 'crow');
+        if (w >= 5) pool.push('bloater', 'screamer');
+        if (w >= 6) pool.push('riot', 'archer');
+        kind = M.choice(pool);
+      }
+      // caballero negro y renacido: desde la oleada 3, pocos (≈3 % y 4 % de cada zombi)
+      if (this.wave >= 3) { const r = Math.random(); if (r < 0.03) kind = 'knight'; else if (r < 0.07) kind = 'revenant'; }
+      else if (kind === 'knight' || kind === 'revenant') kind = 'walker';
       if (this.event && this.event.kinds && Math.random() < 0.75) kind = M.choice(this.event.kinds);
-      if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro', 'crow', 'screamer'].includes(kind)) kind = 'walker';
+      if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro', 'crow', 'screamer', 'revenant'].includes(kind)) kind = 'walker';
       const elite = !champion && Math.random() < game.spawner.difficulty(f).elite;
       let z;
       if (champion || elite) {

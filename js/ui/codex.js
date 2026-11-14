@@ -23,6 +23,8 @@
     riot: 'Casco y chaleco antibalas por delante. Dispárale a las piernas, rodéalo o usa explosivos y el cuchillo.',
     screamer: 'No pelea: grita. Su chillido aturde y atrae a más zombis. Es el primero al que hay que callar.',
     crow: 'Llegan en bandada, vuelan en círculos y se lanzan en picado. Escopeta y lanzallamas.',
+    knight: 'Una armadura negra sin nadie dentro. Lo que le arrancas vuelve a su sitio: sólo cae si le rompes el corazón de cristal.',
+    revenant: 'Muere como cualquiera… pero sus restos laten en el suelo. Si no los destrozas, se levanta más fuerte.',
     'boss:tanque': 'Jefe de la Horda (oleada 15). Una montaña de carne que embiste y suelta corredores al perder vida.',
     'boss:coloso': 'Jefe de la Cripta. Salta sobre ti y levanta a los muertos.',
     'boss:ancestro': 'Jefe de las Cloacas. Espirales y calaveras teledirigidas.',
@@ -33,8 +35,33 @@
     'boss:corazon': 'El final de la mazmorra… o eso parece.',
   };
 
+  // Dónde aparece cada enemigo y cómo vencerlo
+  const WHERE = {
+    walker: 'Todos los biomas', runner: 'Todos los biomas', brute: 'Todos (desde el piso 3)', spitter: 'Todos los biomas', exploder: 'Todos los biomas',
+    shielder: 'Todos los biomas', climber: 'Todos los biomas', dog: 'Todos los biomas', skeleton: 'Cripta y Vacío', rat: 'Cloacas', ember: 'Forja y Vacío',
+    archer: 'Cripta y Vacío', necro: 'Cripta, Jardín y Vacío', mimic: 'Cofres misteriosos', miner: 'Minas', sporeling: 'Jardín fúngico',
+    bloater: 'Todos (pisos altos) y Horda', knight: 'Mazmorra, desde el piso 6 (más en Cripta, Forja y Vacío)', revenant: 'Mazmorra, desde el piso 4 (más en Cripta y Jardín)', riot: 'Todos (pisos altos) y Horda', screamer: 'Todos (pisos altos) y Horda', crow: 'Todos (pisos altos) y Horda',
+  };
+  const WEAK = {
+    walker: 'La cabeza. Rómpele una pierna y se arrastra.', runner: 'Espera a que se lance y dispárale de frente.', brute: 'Esquiva la embestida contra un muro y remátalo aturdido.',
+    spitter: 'Acércate: cuerpo a cuerpo apenas se defiende.', exploder: 'Dispárale lejos y que reviente entre los demás.', shielder: 'Rodéalo o rompe el escudo con explosivos.',
+    climber: 'Mira arriba; cae en cuanto le das.', dog: 'Escopeta cuando salte.', skeleton: 'Rómpele el cráneo o se vuelve a montar.', rat: 'Perdigones: llegan juntas.',
+    ember: 'No le prendas fuego: es inmune. Agua y balas.', archer: 'Cúbrete y corta la distancia.', necro: 'El primero de la sala: sin él no se levantan.',
+    mimic: 'Explosivos y distancia; muerde fuerte.', miner: 'Apágale la lámpara en la oscuridad: dispara a la luz.', sporeling: 'Mátalo de lejos para que la nube no te alcance.',
+    bloater: 'De lejos y fuera de su nube.', knight: 'El corazón violeta del pecho, dentro de la jaula dorada. Rodearlo no sirve: hay que apuntar.', revenant: 'Cualquier parte; después, destroza la pila de carne y huesos antes de que deje de latir.', riot: 'Piernas, espalda o explosivos.', screamer: 'Cállalo antes de que grite.', crow: 'Escopeta, lanzallamas o ráfagas.',
+  };
+  // Conocer al enemigo: cuantos más abates de un tipo, más daño le haces
+  const TIERS = [25, 100, 250], BOSS_TIERS = [1, 3, 6], BONUS = [0.05, 0.1, 0.15];
+  function tierOf(id, n) { const t = id.startsWith('boss:') ? BOSS_TIERS : TIERS; let k = 0; while (k < t.length && n >= t[k]) k++; return k; }
+
   const Codex = {
-    open() { this.render(); VX.Menus.show('codex'); },
+    open() { this.sel = this.sel || null; this.render(); VX.Menus.show('codex'); },
+    // multiplicador de daño contra un tipo según lo que lo conoces
+    bonus(id) {
+      const E = VX.Profile.data.codex && VX.Profile.data.codex.enemies;
+      const k = E ? tierOf(id, E[id] || 0) : 0;
+      return 1 + (k ? BONUS[k - 1] : 0);
+    },
 
     render() {
       const d = VX.Profile.data, E = d.codex.enemies;
@@ -45,13 +72,32 @@
       const T = VX.Zombie.TYPES;
       const names = {};
       for (const B of VX.Boss.TYPES) names['boss:' + B.id] = B.name.charAt(0) + B.name.slice(1).toLowerCase();
-      const ids = [...Object.keys(T), ...Object.keys(names)];
-      $('codexEnemies').innerHTML = ids.map((id) => {
+      const ids = [...Object.keys(T).filter((id) => !T[id].pile), ...Object.keys(names)];
+      const known = ids.filter((id) => E[id]).length;
+      let h = `<div class="cprog">Descubiertos ${known} / ${ids.length} · Conocer al enemigo: +5 / +10 / +15 % de daño a los ${TIERS.join(', ')} abatidos (jefes: ${BOSS_TIERS.join(', ')}). Pulsa en uno para ver sus datos.</div>`;
+      h += ids.map((id) => {
         const n = E[id] || 0;
         const name = names[id] || T[id].name;
-        return n ? `<div class="ce"><b>${name}</b> <span>${n} abatidos</span><small>${LORE[id] || ''}</small></div>`
-          : `<div class="ce locked"><b>???</b><small>Aún no lo has abatido</small></div>`;
+        if (!n) return `<div class="ce locked"><b>???</b><small>Aún no lo has abatido</small></div>`;
+        const tiers = id.startsWith('boss:') ? BOSS_TIERS : TIERS, k = tierOf(id, n);
+        const next = tiers[k], prev = k ? tiers[k - 1] : 0;
+        const pct = next ? Math.round((n - prev) / (next - prev) * 100) : 100;
+        const stars = '★'.repeat(k) + '☆'.repeat(3 - k);
+        const open = this.sel === id;
+        let x = `<div class="ce${open ? ' open' : ''}" data-id="${id}"><b>${name}</b> <span>${n} abatidos <i class="cstars">${stars}</i></span>`;
+        x += `<div class="cbar"><div style="width:${pct}%"></div></div>`;
+        x += `<small>${LORE[id] || ''}</small>`;
+        if (open) {
+          const t = T[id];
+          if (t) x += `<div class="cstats">Vida ${t.hp} · Velocidad ${t.speed} m/s · Daño ${t.dmg || '—'} · Oro ${t.gold[0]}–${t.gold[1]}</div>`;
+          if (WHERE[id]) x += `<div class="cline"><b>Dónde:</b> ${WHERE[id]}</div>`;
+          if (WEAK[id]) x += `<div class="cline"><b>Punto débil:</b> ${WEAK[id]}</div>`;
+          x += `<div class="cline"><b>Conocimiento:</b> ${k ? '+' + Math.round(BONUS[k - 1] * 100) + ' % de daño' : 'sin bonificación'}${next ? ` · siguiente a los ${next} (${next - n} más)` : ' · máximo'}</div>`;
+        }
+        return x + '</div>';
       }).join('');
+      $('codexEnemies').innerHTML = h;
+      for (const el of $('codexEnemies').querySelectorAll('.ce[data-id]')) el.onclick = () => { this.sel = this.sel === el.dataset.id ? null : el.dataset.id; this.render(); };
       $('codexUps').innerHTML = VX.Upgrades.list.map((u) => {
         const ok = d.codex.ups.includes(u.id);
         const tag = u.rare ? ' ★' : u.curse ? ' ☠' : u.shop ? ' $' : '';

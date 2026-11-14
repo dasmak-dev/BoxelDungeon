@@ -57,7 +57,9 @@
   // fija la fuente (null = sonidos normales, sin posición)
   A.source = (x, y, z, ref) => { src3 = x === null || x === undefined ? null : { x, y, z, ref: ref || 2.5 }; chain3 = null; };
   // hace sonar fn() desde un punto
-  A.at = (x, y, z, fn, ref) => {
+  A.at = (x, y, z, fn, ref, tag) => {
+    // indicadores visuales de sonido (accesibilidad): avisa al HUD de dónde viene
+    if (VX.Settings && VX.Settings.data.soundViz && VX.game && VX.game.hud && VX.game.hud.soundAt) VX.game.hud.soundAt(x, z, tag || A.vizTag || 'sound');
     const s = src3, c = chain3;
     A.source(x, y, z, ref);
     try { fn(); } finally { src3 = s; chain3 = c; }
@@ -76,16 +78,29 @@
     pn.panningModel = q === 'baja' ? 'equalpower' : 'HRTF';
     pn.distanceModel = 'inverse'; pn.refDistance = S.ref; pn.rolloffFactor = 1.15; pn.maxDistance = 90;
     if (pn.positionX) { pn.positionX.value = S.x; pn.positionY.value = S.y; pn.positionZ.value = S.z; } else pn.setPosition(S.x, S.y, S.z);
-    // pared en medio: sonido apagado
-    let occl = false;
-    try { if (d > 2 && g.world && g.world.lineOfSight) occl = !g.world.lineOfSight(P.x, ey, P.z, S.x, S.y, S.z); } catch (e) { /* nada */ }
+    // pared en medio: cuanto más muro (o una puerta cerrada, otra sala) hay entre medias, más apagado y lejano suena
+    let occl = 0;
+    try { if (d > 1.5 && g.world) occl = A.occlusion(g.world, P.x, ey, P.z, S.x, S.y, S.z); } catch (e) { /* nada */ }
     const f = A.ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.5;
-    f.frequency.value = occl ? 650 : Math.max(1800, 19000 * Math.exp(-d / 35));
-    const gn = A.ctx.createGain(); gn.gain.value = occl ? 0.65 : 1;
+    const open = Math.max(1800, 19000 * Math.exp(-d / 35));
+    f.frequency.value = occl > 0 ? Math.max(220, 900 * Math.pow(1 - occl, 1.6)) : open;
+    const gn = A.ctx.createGain(); gn.gain.value = occl > 0 ? 0.7 - occl * 0.45 : 1;
     f.connect(gn); gn.connect(pn); pn.connect(A.sfx);
     chain3 = f;
     return chain3;
   }
+
+  // Oclusión 0..1: muestrea el rayo entre el oyente y la fuente y cuenta cuánto sólido atraviesa
+  // (una columna fina apenas tapa; un muro grueso, la roca o una puerta cerrada tapan mucho)
+  A.occlusion = (world, ax, ay, az, bx, by, bz) => {
+    const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz);
+    if (L < 0.5) return 0;
+    const n = Math.min(80, Math.ceil(L / 0.25));
+    let solid = 0;
+    for (let i = 1; i < n; i++) { const t = i / n; if (world.isSolidAt(ax + dx * t, ay + dy * t, az + dz * t)) solid++; }
+    if (!solid) return 0;
+    return Math.min(1, 0.3 + solid * 0.25 * 0.35);   // ~0,3 con un poco de muro, 1 con ~2 m de sólido
+  };
 
   // salida con panorama estéreo opcional
   function out(pan) {
@@ -240,6 +255,9 @@
     }
   };
 
+  // pisada de un zombi (más fuerte que la del jugador: se oye venir entre la niebla)
+  A.zstep = () => { const r = Math.random(); noise(0.08, 0.16, 220 + r * 90, 'lowpass', 0, 0.8); noise(0.04, 0.05, 1400 + r * 500, 'bandpass', 0.01, 2); };
+
   // Tamaño de la sala → cuánta reverberación (m³ aproximados)
   A.setRoom = (vol) => {
     if (!A.ctx || !A.revLargeG) return;
@@ -359,12 +377,14 @@
   };
   A.groanAt = (x, z, P, dog, y) => {
     if (!A.ctx) return;
+    A.vizTag = dog ? 'dog' : 'enemy';
     A.at(x, (y !== undefined ? y : (P ? P.y : 0)) + 1.5, z, () => {
       if (dog) { tone(220, 0.25, 'sawtooth', 0.09, 120); noise(0.2, 0.14, 900, 'bandpass', 0.05, 2); return; }
       const f = 70 + Math.random() * 50;
       tone(f, 0.9, 'sawtooth', 0.11, f * 0.7);
       tone(f * 1.02, 0.9, 'sawtooth', 0.08, f * 0.6);
     });
+    A.vizTag = null;
   };
 
   // Ambiente: viento continuo y goteos al azar
@@ -372,6 +392,7 @@
   A.startAmbient = () => {
     if (!A.ctx || A.ambient.on) return;
     A.ambient.on = true;
+    if (A.setBiome) return;   // ahora el fondo lo pone la capa de cada bioma (A.setBiome)
     const src = A.ctx.createBufferSource(); src.buffer = A.noiseBuf; src.loop = true;
     const f = A.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; f.Q.value = 1.5;
     const g = A.ctx.createGain(); g.gain.value = 0.05;
@@ -392,6 +413,110 @@
     };
     void drip;
   };
+  // ---------- Ambiente de fondo de cada bioma ----------
+  // Una capa continua que cambia con el bioma (con fundido): viento por las grietas en la Cripta,
+  // agua que corre en las Cloacas, roca que cruje en las Minas, fuelles y martillos en la Forja,
+  // zumbido de esporas en el Jardín y un tono grave que late en el Vacío.
+  A.bedZone = -2;
+  function bedNode() {
+    if (!A.bed) { A.bed = A.ctx.createGain(); A.bed.gain.value = 1; A.bed.connect(A.sfx); }
+    return A.bed;
+  }
+  function loopNoise(freq, type, q, vol, dst) {
+    const src = A.ctx.createBufferSource(); src.buffer = A.noiseBuf; src.loop = true;
+    const f = A.ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = A.ctx.createGain(); g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(dst); src.start(0, Math.random());
+    return { src, f, g };
+  }
+  function lfo(rate, depth, param) {
+    const o = A.ctx.createOscillator(); o.frequency.value = rate;
+    const g = A.ctx.createGain(); g.gain.value = depth;
+    o.connect(g); g.connect(param); o.start();
+    return o;
+  }
+  function osc(freq, type, vol, dst) {
+    const o = A.ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+    const g = A.ctx.createGain(); g.gain.value = vol;
+    o.connect(g); g.connect(dst); o.start();
+    return { o, g };
+  }
+  A.setBiome = (zone) => {
+    if (!A.ctx || zone === A.bedZone) return;
+    A.bedZone = zone;
+    const t = A.ctx.currentTime, root = bedNode();
+    // fundido de salida de la capa anterior
+    if (A.bedLayer) { const L = A.bedLayer; L.g.gain.setTargetAtTime(0, t, 0.8); setTimeout(() => { for (const n of L.nodes) { try { n.stop ? n.stop() : 0; } catch (e) { /* nada */ } } L.g.disconnect(); }, 4000); clearTimeout(L.timer); L.dead = true; }
+    A.bedLayer = null;
+    if (zone < 0 || zone > 5) return;
+    const g = A.ctx.createGain(); g.gain.value = 0; g.connect(root); g.gain.setTargetAtTime(1, t, 1.2);
+    const L = { g, nodes: [], timer: 0, dead: false };
+    const keep = (x) => { if (x.src) L.nodes.push(x.src); if (x.o) L.nodes.push(x.o); if (x.start && x.stop) L.nodes.push(x); return x; };
+    switch (zone) {
+      case 0: {   // viento que silba por las grietas y un zumbido grave de cripta
+        const w = keep(loopNoise(520, 'bandpass', 3, 0.045, g)); keep(lfo(0.07, 0.035, w.g.gain)); keep(lfo(0.11, 260, w.f.frequency));
+        const w2 = keep(loopNoise(1500, 'bandpass', 9, 0.012, g)); keep(lfo(0.05, 0.012, w2.g.gain)); keep(lfo(0.09, 500, w2.f.frequency));
+        keep(osc(55, 'sine', 0.025, g));
+        break;
+      }
+      case 1: {   // agua corriendo por los canales, con borboteo
+        const a = keep(loopNoise(800, 'bandpass', 0.7, 0.05, g)); keep(lfo(0.3, 0.012, a.g.gain));
+        const b = keep(loopNoise(3200, 'highpass', 0.7, 0.012, g)); keep(lfo(7, 0.008, b.g.gain));
+        keep(loopNoise(160, 'lowpass', 0.8, 0.05, g));
+        break;
+      }
+      case 2: {   // rumor de roca, corrientes de aire en las galerías
+        const r = keep(loopNoise(110, 'lowpass', 1.2, 0.09, g)); keep(lfo(0.05, 0.05, r.g.gain));
+        const w = keep(loopNoise(380, 'bandpass', 2, 0.02, g)); keep(lfo(0.08, 120, w.f.frequency));
+        break;
+      }
+      case 3: {   // rugido del fuego, fuelles que respiran y martillos lejanos
+        const f = keep(loopNoise(260, 'lowpass', 0.9, 0.06, g)); keep(lfo(0.22, 0.045, f.g.gain)); keep(lfo(0.22, 140, f.f.frequency));
+        keep(loopNoise(2400, 'bandpass', 2, 0.006, g));
+        break;
+      }
+      case 4: {   // zumbido de esporas e insectos, aire húmedo
+        const z = keep(osc(118, 'sawtooth', 0.004, g)); keep(lfo(5.5, 0.003, z.g.gain));
+        const z2 = keep(osc(121, 'sawtooth', 0.003, g)); void z2;
+        const h = keep(loopNoise(5200, 'bandpass', 6, 0.008, g)); keep(lfo(0.4, 0.006, h.g.gain));
+        keep(loopNoise(300, 'lowpass', 0.7, 0.03, g));
+        break;
+      }
+      case 5: {   // tono grave que late (dos ondas casi iguales) y barridos de ruido
+        keep(osc(48, 'sine', 0.05, g)); keep(osc(49.3, 'sine', 0.05, g)); keep(osc(96.5, 'triangle', 0.008, g));
+        const s = keep(loopNoise(900, 'bandpass', 4, 0.012, g)); keep(lfo(0.04, 700, s.f.frequency)); keep(lfo(0.06, 0.01, s.g.gain));
+        break;
+      }
+    }
+    // sonidos sueltos de cada bioma, de vez en cuando y desde cualquier lado
+    const extra = () => {
+      if (L.dead || !A.ctx) return;
+      const p = Math.random() * 2 - 1, r = Math.random();
+      const d = (fn) => { const s0 = src3, c0 = chain3; src3 = null; chain3 = null; try { fn(); } finally { src3 = s0; chain3 = c0; } };
+      d(() => {
+        if (zone === 1) for (let i = 0; i < 3; i++) tone(180 + Math.random() * 260, 0.07, 'sine', 0.02, 420, i * 0.09, p);           // burbujas
+        else if (zone === 3) { tone(1500 + r * 300, 0.35, 'triangle', 0.012, null, 0, p); noise(0.03, 0.02, 5000, 'highpass', 0, 1, p); }   // martillo lejano
+        else if (zone === 2 && r < 0.5) for (let i = 0; i < 4; i++) noise(0.03, 0.02, 2500 + Math.random() * 2000, 'bandpass', i * 0.08, 3, p);   // gravilla
+        else if (zone === 4) [0, 4, 7].forEach((n, i) => tone(880 * Math.pow(2, (n + r * 3) / 12), 1.2, 'sine', 0.006, null, i * 0.2, p));
+        else if (zone === 0 && r < 0.4) { const f = 80 + r * 50; tone(f, 1.6, 'sawtooth', 0.008, f * 0.75, 0, p); }                     // gemido lejano
+        else if (zone === 5) tone(1900 + r * 600, 1.5, 'sine', 0.006, 900, 0, p);
+      });
+      L.timer = setTimeout(extra, 2500 + Math.random() * 6000);
+    };
+    L.timer = setTimeout(extra, 2000);
+    A.bedLayer = L;
+  };
+  // Silencio tenso: baja el ambiente y la música un momento (antes de una emboscada)
+  A.duck = (secs = 1.4, to = 0.06) => {
+    if (!A.ctx) return;
+    const t = A.ctx.currentTime;
+    const ps = [A.bed && A.bed.gain, VX.Music && VX.Music.out && VX.Music.out.gain].filter(Boolean);
+    for (const p of ps) {
+      const v = p === (A.bed && A.bed.gain) ? 1 : (VX.Music.vol || 0.55) * 0.6;
+      p.cancelScheduledValues(t); p.setTargetAtTime(v * to, t, 0.12); p.setTargetAtTime(v, t + secs, 0.08);
+    }
+  };
+
   // cristal roto: estallido agudo y tintineo de trozos que caen
   A.glass = (n = 50) => {
     const k = Math.min(1, 0.4 + n / 300);

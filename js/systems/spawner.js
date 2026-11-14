@@ -168,7 +168,7 @@
         let kind = this.pickKind(game.floor, room.zone || 0);
         // campeón: un enemigo enorme con nombre y barra de vida, desde el piso 6 (uno por sala)
         const champion = room.type === 'normal' && !room.hadChampion && game.floor >= 6 && Math.random() < Math.min(0.3, (game.floor - 5) * 0.035);
-        if (champion) { room.hadChampion = true; if (['rat', 'exploder', 'mimic', 'archer', 'necro'].includes(kind)) kind = 'walker'; }
+        if (champion) { room.hadChampion = true; if (['rat', 'exploder', 'mimic', 'archer', 'necro', 'revenant'].includes(kind)) kind = 'walker'; }
         const z = new VX.Zombie(kind, p.x, p.z, game.floor, { elite, champion, y: game.world.groundAt(p.x, p.z) });
         game.enemies.push(z);
         if (champion) { game.champion = z; game.hud.showBoss(z); game.hud.toast('¡Un campeón ronda esta sala!'); }
@@ -328,8 +328,16 @@
         bloater: f >= 4 ? Math.min(0.08, (f - 3) * 0.02) : 0,
         screamer: f >= 5 ? Math.min(0.05, (f - 4) * 0.012) : 0,
         riot: f >= 6 ? Math.min(0.09, (f - 5) * 0.02) : 0,
+        // caballero negro (sólo cae si le rompes el corazón) y renacido (vuelve si no destrozas sus restos)
+        // (más frecuentes desde la 0.35: aparecen antes y con más peso)
+        knight: VX.game && VX.game.mode === 'horde' ? 0 : f >= 4 ? Math.min(0.12, 0.03 + (f - 4) * 0.018) * (zone === 0 || zone === 3 || zone === 5 ? 1.4 : 1) : 0,
+        revenant: VX.game && VX.game.mode === 'horde' ? 0 : f >= 3 ? Math.min(0.18, 0.05 + (f - 3) * 0.025) * (zone === 0 || zone === 4 ? 1.3 : 1) : 0,
       };
-      let r = Math.random();
+      // si los pesos suman más de lo que cabe, se reparten en proporción (antes los últimos de la
+      // lista —antidisturbios, chillón, caballero, renacido…— no llegaban a salir en los pisos altos);
+      // siempre queda al menos un 15 % de zombis normales
+      let sum = 0; for (const k in w) sum += w[k];
+      let r = Math.random() * Math.max(1, sum / 0.85);
       for (const k in w) { if (r < w[k]) return k; r -= w[k]; }
       return 'walker';
     }
@@ -344,6 +352,7 @@
         const a = Math.random() * Math.PI * 2, d = radius < 1.5 ? M.rand(0, radius) * (1 + i * 0.2) : M.rand(1.5, radius);
         const px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
         if (!room || !room.contains(px, pz)) continue;
+        { const lx = Math.floor(px / VX.S) - room.ox, lz = Math.floor(pz / VX.S) - room.oz, w = room.getWalk(); if (!w[lz * room.W + lx]) continue; }   // sólo donde llega el jugador
         const gy = game.world.groundAt(px, pz);
         // nunca encima de un muro invisible ni de un tejado: a la altura del punto de aparición
         if (Math.abs(gy - g0) > 1.1) continue;

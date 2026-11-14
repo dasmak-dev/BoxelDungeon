@@ -35,6 +35,10 @@
       this.doors = {};
       if (this.entrance) this.doors[this.entrance] = { role: 'entrance', closed: false, neighbor: null };
       for (const s of this.exits) this.doors[s] = { role: 'exit', closed: true, neighbor: null, type: null };
+      // base del techo (donde acaban las paredes) y, en la mazmorra, techo de bloques con su relieve:
+      // la rejilla crece hacia arriba lo que haga falta para la bóveda
+      this.ceilBase = this.H - 4;
+      if (type !== 'horde' && VX.Ceilings) { this.ceilPlan = VX.Ceilings.plan(this); this.H = this.ceilBase + 4 + this.ceilPlan.maxH; }
       const n = this.W * this.H * this.D;
       this.grid = new Uint8Array(n);
       this.hp = new Float32Array(n);
@@ -100,7 +104,7 @@
         else if (s === 'zp') { x0 = cu - half; x1 = cu + half; z0 = this.D - 2 - depth; z1 = this.D - 2; }
         else if (s === 'xn') { z0 = cuz - half; z1 = cuz + half; x0 = 2; x1 = 2 + depth; }
         else { z0 = cuz - half; z1 = cuz + half; x0 = this.W - 2 - depth; x1 = this.W - 2; }
-        for (let y = 0; y < this.H - 4; y++)
+        for (let y = 0; y < this.ceilBase; y++)
           for (let z = Math.max(2, z0); z < Math.min(this.D - 2, z1); z++)
             for (let x = Math.max(2, x0); x < Math.min(this.W - 2, x1); x++) {
               const i = this.idx(x, y, z), t = this.grid[i];
@@ -117,7 +121,10 @@
       this.buildShell();
       this.template.build(this);
       if (this.template.relief) this.template.relief(this);
+      if (VX.BiomeDecor) VX.BiomeDecor.apply(this);   // pilastras, nichos, entibados, raíces… según el bioma
+      if (VX.BiomeDecor && !this.gfog) this.gfog = VX.BiomeDecor.fogFor(this);   // niebla baja
       this.clearDoorways();
+      if (this.ceilPlan) VX.Ceilings.fill(this);   // el techo, de bloques (y los pilares suben hasta él)
       const Z = VX.ZONES[this.zone || 0];
       if (this.type === 'normal' && Z) {
         if (Z.hazard === 'spikes') { if (Math.random() < 0.3) this.addRandomHazards('spikes', VX.M.randInt(1, 2)); }
@@ -127,6 +134,7 @@
       }
       this.placeTorches();
       VX.Dress.dress(this);
+      if (VX.FloorDetail) VX.FloorDetail.scatter(this);   // detalle del suelo, de bloques
       for (const s in this.doors) this.setDoor(s, this.doors[s].closed);
     }
 
@@ -152,7 +160,6 @@
       this.markDirty(x, z);
       this.walk = null;
       this.mapVersion++;
-      if (y === this.H - 5 && this.ceiling && this.ceilExt) this.ceilingStale = true;   // un pilar que tocaba el techo cambió
     }
 
     // ---- Ayudantes de diseño (unidades de 0,5 m) ----
@@ -185,7 +192,7 @@
       for (let x = ux * K; x < ux * K + K; x++)
         for (let z = uz * K; z < uz * K + K; z++) {
           const h = Math.max(1, hv - (Math.random() < 0.35 ? 1 : 0));
-          for (let y = 0; y < Math.min(h, this.H - 2); y++) this.set(x, y, z, t);
+          for (let y = 0; y < Math.min(h, this.ceilBase + 2); y++) this.set(x, y, z, t);
         }
     }
 
@@ -232,11 +239,11 @@
             if (m >= K * 2) continue;
             const i = this.idx(x, y, z);
             let t;
-            if (m === 0 || y >= H - 4) t = BL.BEDROCK;
+            if (m === 0 || y >= this.ceilBase) t = BL.BEDROCK;
             else {
               // zócalo de sillares, ladrillo de piedra y alguna mancha de musgo
-              const patch = VX.M.hash3(x >> 3, y >> 2, (z >> 3) + this.index * 17);
-              t = y < 2 ? BL.STONE : patch < 0.1 ? BL.MOSS : BL.BRICK;
+              t = VX.BiomeDecor ? VX.BiomeDecor.shellBlock(this.type === 'shop' ? -1 : (this.zone || 0), x, y, z, this.ceilBase, this.index)
+                : (y < 2 ? BL.STONE : VX.M.hash3(x >> 3, y >> 2, (z >> 3) + this.index * 17) < 0.1 ? BL.MOSS : BL.BRICK);
             }
             this.grid[i] = t; this.hp[i] = BL.info[t].hp;
           }
@@ -372,6 +379,23 @@
             }
           w[i] = ok;
         }
+      // sólo vale lo que se alcanza andando desde el suelo de la sala: fuera los tejados de pilares y
+      // columnas que suben hasta el techo, lo alto de los muros, estanterías, vigas… (antes los
+      // zombis podían aparecer ahí arriba, donde el jugador no llega)
+      const reach = new Uint8Array(W * D), q = new Int32Array(W * D);
+      let qh = 0, qt = 0;
+      for (let i = 0; i < W * D; i++) if (w[i] && hm[i] <= 2) { reach[i] = 1; q[qt++] = i; }
+      while (qh < qt) {
+        const c = q[qh++], cx = c % W, cz = (c / W) | 0;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + dx, nz = cz + dz;
+          if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue;
+          const n = nz * W + nx;
+          if (reach[n] || !w[n] || Math.abs(hm[n] - hm[c]) > 2) continue;
+          reach[n] = 1; q[qt++] = n;
+        }
+      }
+      if (qt > 0) for (let i = 0; i < W * D; i++) if (!reach[i]) w[i] = 0;
       this.hmap = hm;
       this.walk = w;
       return w;
@@ -468,7 +492,7 @@
       const col = H(gx, 777, gz);
       if (col < 0.1 + damp * 0.1) {
         const len = 5 + Math.floor(H(gx, 778, gz) * 18);
-        const top = this.H - 4;
+        const top = this.ceilBase;
         if (y >= top - len) {
           const f = 1 - (top - y) / len;
           const d = 0.72 + (1 - f) * 0.2;
@@ -575,7 +599,8 @@
           for (let x = x0; x < x1; x++) {
             const t = grid[(y * D + z) * W + x];
             if (!t || INV[t] || TRANS[t]) continue;
-            const up = this.solidL(x, y + 1, z);
+            // en la losa del techo la cara de arriba no se ve nunca (nadie mira desde encima)
+            const up = this.solidL(x, y + 1, z) || (y >= this.ceilBase && this.ceilPlan && this.solidL(x, y - 1, z));
             if (this.solidL(x + 1, y, z) && this.solidL(x - 1, y, z) && up &&
                 this.solidL(x, y - 1, z) && this.solidL(x, y, z + 1) && this.solidL(x, y, z - 1)) continue;
             const gx = this.ox + x, gz = this.oz + z;
@@ -587,7 +612,7 @@
               const c = this.floorTint(0.2 + hh * 0.05 + (y * 0.004));
               tmpCol[0] = c[0]; tmpCol[1] = c[1]; tmpCol[2] = c[2];
             }
-            if (t === BL.BRICK || t === BL.MOSS || t === BL.BEDROCK || t === BL.STONE || (inf.terrain && up)) {
+            if (t === BL.BRICK || t === BL.MOSS || t === BL.BEDROCK || t === BL.STONE || t === BL.CSTONE || t === BL.CROCK || t === BL.CRIB || (inf.terrain && up)) {
               const Zn = VX.ZONES[this.zone || 0], Z = Zn.tint;
               tmpCol[0] *= Z[0]; tmpCol[1] *= Z[1]; tmpCol[2] *= Z[2];
               this.weather(gx, y, gz, tmpCol, Zn.damp || 0, inf);
@@ -603,37 +628,12 @@
 
     // Techo: cada sala tiene un estilo según su bioma y su tipo
     // Estilo de techo de la sala (fijo según su posición, bioma y tipo)
-    ceilInfo() { return VX.Ceilings.info(this); }
+    ceilInfo() { return this.ceilPlan ? { ...this.ceilPlan, top: this.ceilBase * S } : { style: 'flat', top: this.ceilBase * S }; }
     // Altura (m) de la cara inferior del techo en un punto del mundo
-    ceilY(wx, wz) { return VX.Ceilings.ceilY(this, wx, wz); }
+    ceilY(wx, wz) { return this.ceilPlan ? VX.Ceilings.ceilY(this, wx, wz) : this.ceilBase * S; }
 
-    // Techo vóxel decorado según el bioma (ver ceilings.js)
-    buildCeiling(R) {
-      const b = this.ceiling = VX.Ceilings.build(this, R);
-      const CI = this.ceilInfo(), top = CI.top;
-      const Z = VX.ZONES[this.zone || 0] || VX.ZONES[0], tn = Z.tint || [1, 1, 1];
-      const BX = (x, y, z, sx, sy, sz, c, e = 0) => b.box(x, y, z, sx, sy, sz, c[0], c[1], c[2], e);
-      this.ceilStyle = CI.style;
-      this.ceilingStale = false;
-      // lo que llega al techo (pilares, columnas, muros) sigue hasta tocarlo cuando el techo es más alto (bóvedas, artesonado)
-      this.ceilExt = 0;
-      {
-        const BL = VX.Blocks, yy = this.H - 5;
-        for (let z = 2; z < this.D - 2; z++) {
-          let run = null;
-          const flush = () => { if (!run) return; const wx0 = (this.ox + run.x0) * S, wx1 = (this.ox + run.x1 + 1) * S, wz = (this.oz + z + 0.5) * S; const yc = run.h + 0.15; const c = BL.info[run.t].color; const k = 0.75; BX((wx0 + wx1) / 2, (top + yc) / 2, wz, wx1 - wx0, yc - top, S, [c[0] * k * tn[0], c[1] * k * tn[1], c[2] * k * tn[2]]); this.ceilExt++; run = null; };
-          for (let x = 2; x < this.W - 2; x++) {
-            const t = this.grid[this.idx(x, yy, z)];
-            const hc = this.ceilY((this.ox + x + 0.5) * S, (this.oz + z + 0.5) * S);
-            const ok = t && t !== BL.BEDROCK && !BL.invisible[t] && !BL.transparent[t] && hc > top + 0.05;
-            if (ok && run && run.t === t && run.x1 === x - 1 && run.h === hc) run.x1 = x;
-            else { flush(); if (ok) run = { x0: x, x1: x, t, h: hc }; }
-          }
-          flush();
-        }
-      }
-      b.upload();
-    }
+    // El techo es parte de la rejilla (ver ceilings.js): no hay lote aparte
+    buildCeiling() { this.ceiling = { draw() {}, dispose() {} }; this.ceilingStale = false; this.ceilStyle = this.ceilPlan ? this.ceilPlan.style : null; }
 
     // Objetos y decoración (vóxel fino)
     updateProps(R) {

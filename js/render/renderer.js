@@ -131,7 +131,7 @@
     R.prog = program(gl, VX.Shaders.vertex, VX.Shaders.fragment);
     const names = ['u_proj', 'u_view', 'u_lights', 'u_lightCols', 'u_numLights', 'u_spotPos', 'u_spotDir', 'u_spotCol',
       'u_spotCone', 'u_shadowMat', 'u_shadowMap', 'u_shadowOn', 'u_shadowTexel', 'u_ambient', 'u_camPos',
-      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_edge', 'u_shadowMat2', 'u_shadowMap2', 'u_shadowOn2', 'u_glass', 'u_clipY', 'u_water', 'u_reflTex', 'u_res', 'u_time'];
+      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_edge', 'u_tsMat', 'u_tsMap0', 'u_tsMap1', 'u_tsMap2', 'u_tsMap3', 'u_tsOn', 'u_glass', 'u_clipY', 'u_water', 'u_reflTex', 'u_res', 'u_time', 'u_gf', 'u_gfCol', 'u_gfHoles', 'u_gfRect'];
     for (const n of names) R.U[n] = gl.getUniformLocation(R.prog, n);
     gl.useProgram(R.prog); gl.uniform1i(R.U.u_reflTex, 2);   // unidad propia (la 0 y la 1 son de sombras)
     R.dprog = program(gl, VX.Shaders.depthVertex, VX.Shaders.depthFragment);
@@ -147,6 +147,8 @@
 
     R.createShadowMap(R.shadowSize);
     R.shadow2 = makeDepthTarget(gl, 1024);
+    // sombras de las luces de la sala (calidad alta): hasta 4 a la vez
+    R.tsh = [R.shadow2, makeDepthTarget(gl, 1024), makeDepthTarget(gl, 1024), makeDepthTarget(gl, 1024)];
     R.initSprites();
     R.initPost();
     R.resize();
@@ -170,10 +172,11 @@
 
   // Sombra de la antorcha más cercana (spot muy abierto mirando hacia la sala)
   R.torchShadowsOn = true;
-  R.beginShadow2 = function (spot) {
-    const gl = R.gl, M = VX.M, T = R.shadow2;
-    const view = M.lookAt(spot.x, spot.y, spot.z, spot.x + spot.dx, spot.y + spot.dy, spot.z + spot.dz, 0, 1, 0);
-    const proj = M.perspective(spot.fov, 1, 0.1, 14);
+  R.beginShadow2 = function (spot, k = 0) {
+    const gl = R.gl, M = VX.M, T = R.tsh ? R.tsh[k] : R.shadow2;
+    const upv = Math.abs(spot.dy) > 0.95 ? [0, 0, 1] : [0, 1, 0];
+    const view = M.lookAt(spot.x, spot.y, spot.z, spot.x + spot.dx, spot.y + spot.dy, spot.z + spot.dz, upv[0], upv[1], upv[2]);
+    const proj = M.perspective(spot.fov, 1, 0.1, spot.far || 14);
     T.mat = M.multiply(proj, view);
     R.setFrustum(T.mat);
     gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
@@ -214,6 +217,16 @@
     const size = q === 'alta' ? 2048 : q === 'media' ? 1024 : 512;
     R.shadowsOn = !!shadows;
     R.quality = q;
+    // Perfil de calidad: cuántas partículas, restos y cadáveres, y a qué distancia los zombis pasan a
+    // un modelo más simple (LOD) y se animan a menos fotogramas. En el móvil, algo más recortado.
+    const touch = document.body.classList.contains('touch');
+    const Qp = {
+      alta: { particles: 1, gibs: 140, corpses: 24, lodNear: 60, animFar: 70, animDiv: 2 },
+      media: { particles: 0.6, gibs: 70, corpses: 14, lodNear: 24, animFar: 30, animDiv: 2 },
+      baja: { particles: 0.35, gibs: 35, corpses: 8, lodNear: 9, animFar: 15, animDiv: 3 },
+    }[q] || {};
+    VX.Q = { ...Qp };
+    if (touch) { VX.Q.particles *= 0.65; VX.Q.gibs = Math.round(VX.Q.gibs * 0.6); VX.Q.corpses = Math.round(VX.Q.corpses * 0.6); VX.Q.lodNear *= 0.7; VX.Q.animFar *= 0.7; }
     if (size !== R.shadowSize) R.createShadowMap(size);
     R.resize();
   };
@@ -258,6 +271,7 @@
 
   // ---------------- Escena ----------------
   // cam: {x,y,z,yaw,pitch}; env: {lights:[{x,y,z,r,cr,cg,cb}], spot:{...,cr,cg,cb,on}, ambient:[r,g,b]}
+  const GF_EMPTY = new Float32Array(32), GF_A = new Float32Array(8), GF_C = new Float32Array(6), GF_R = new Float32Array(8);
   R.beginScene = function (cam, env, tgt) {
     const gl = R.gl, U = R.U, M = VX.M;
     if (tgt) { gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo); gl.viewport(0, 0, tgt.w, tgt.h); }
@@ -286,6 +300,15 @@
     gl.uniform1f(U.u_clipY, tgt && tgt.clipY != null ? tgt.clipY : -1e9);
     gl.uniform1f(U.u_water, 0);
     gl.uniform1f(U.u_time, performance.now() / 1000);
+    // niebla baja (R.gf la pone el juego cada fotograma; null = sin niebla)
+    const gf = R.gf;   // { rooms: [{top, dens, col, rect}], holes }
+    GF_A.fill(0); GF_C.fill(0); GF_R.fill(0);
+    if (gf) for (let i = 0; i < Math.min(2, gf.rooms.length); i++) {
+      const g = gf.rooms[i];
+      GF_A.set([g.top, g.dens, 1, g.floor || 0], i * 4); GF_C.set(g.col, i * 3); GF_R.set(g.rect, i * 4);
+    }
+    gl.uniform4fv(U.u_gf, GF_A); gl.uniform3fv(U.u_gfCol, GF_C); gl.uniform4fv(U.u_gfRect, GF_R);
+    if (gf) gl.uniform4fv(U.u_gfHoles, gf.holes || GF_EMPTY);
     const a = env.ambient;
     gl.uniform3f(U.u_ambient, a[0], a[1], a[2]);
     R.setLights(env.lights);
@@ -300,12 +323,17 @@
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, R.shadowTex);
     gl.uniform1i(U.u_shadowMap, 0);
-    const T2 = R.shadow2;
-    gl.uniform1f(U.u_shadowOn2, T2 && T2.on ? 1 : 0);
-    gl.uniformMatrix4fv(U.u_shadowMat2, false, (T2 && T2.mat) || M.identity());
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, T2.tex);
-    gl.uniform1i(U.u_shadowMap2, 1);
+    // sombras de las luces de la sala: unidades 1, 3, 4 y 5 (la 0 es la linterna, la 2 el reflejo)
+    const units = [1, 3, 4, 5], mats = new Float32Array(64), ons = new Float32Array(4), I = M.identity();
+    for (let k = 0; k < 4; k++) {
+      const T = R.tsh[k];
+      ons[k] = T.on ? 1 : 0;
+      mats.set(T.on && T.mat ? T.mat : I, k * 16);
+      gl.activeTexture(gl.TEXTURE0 + units[k]); gl.bindTexture(gl.TEXTURE_2D, T.tex);
+      gl.uniform1i(U['u_tsMap' + k], units[k]);
+    }
+    gl.uniformMatrix4fv(U.u_tsMat, false, mats);
+    gl.uniform1fv(U.u_tsOn, ons);
     gl.activeTexture(gl.TEXTURE0);
   };
 
@@ -363,6 +391,7 @@
     gl.uniform1f(U.u_fogNear, 50);
     gl.uniform1f(U.u_fogFar, 60);
     gl.uniform1f(U.u_edge, 0.003);
+    gl.uniform4fv(U.u_gf, new Float32Array(8));   // el arma, sin niebla baja
     gl.uniform3f(U.u_ambient, ambient[0], ambient[1], ambient[2]);
     R.setLights([
       { x: 0.4, y: 0.45, z: 0.1, r: 2.5, cr: 2.2, cg: 1.8, cb: 1.4 },
