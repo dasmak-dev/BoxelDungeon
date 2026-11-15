@@ -1457,6 +1457,9 @@
       this.shake(0.4);
     }
 
+    // NPC a los que se puede disparar (el vendedor)
+    npcHit() { return this.npcs.filter((n) => n.hit && !n.dead); }
+
     // Explosión: cráter en el escenario, daño a enemigos/cadáveres/jugador, fuego y humo
     explode(e) {
       const R = e.R, destr = e.destr || 1, sm = !!e.small;   // small: la de las balas explosivas
@@ -1465,10 +1468,18 @@
       this.addScorch(e.x, e.z, R * 0.9);   // hollín permanente
       const reach = R + 0.8;
       this.dmgWeapon = e.weapon || null;
-      for (const list of [this.enemies, this.corpses]) for (const en of list.slice()) {
+      for (const list of [this.enemies, this.corpses, this.npcHit()]) for (const en of list.slice()) {
         if (en.dead) continue;
         const d = Math.hypot(en.body.cx - e.x, en.body.cy - e.y, en.body.cz - e.z);
-        if (d < reach) { en.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / reach) + (sm ? 0 : 10), this); if (e.frost && !en.isBoss) en.chillT = 3; }
+        if (d < reach) {
+          en.blast(e.x, e.y, e.z, R, e.dmg * (1 - d / reach) + (sm ? 0 : 10), this); if (e.frost && !en.isBoss) en.chillT = 3;
+          // onda de choque: tus explosiones lanzan por los aires y aturden
+          if (e.weapon && !sm && this.weapon.mods.shockwave && !en.dead && !en.isBoss && !en.isCorpse && !en.isShopkeeper && en.vy !== undefined) {
+            const dx = en.x - e.x, dz = en.z - e.z, l = Math.hypot(dx, dz) || 1;
+            en.y += 0.05; en.vy = 6 * (1 - d / reach) + 2; en.kx = (en.kx || 0) + dx / l * 8; en.kz = (en.kz || 0) + dz / l * 8;
+            if (en.state !== undefined) { en.state = 'stun'; en.stateT = 1.4; }
+          }
+        }
       }
       this.dmgWeapon = null;
       if (!sm) this.igniteAt(e.x, e.z, R);
@@ -1481,11 +1492,16 @@
       const P = this.player;
       const dp = Math.hypot(P.x - e.x, P.y + 0.9 - e.y, P.z - e.z);
       if (dp < R && this.state === 'playing' && e.selfK !== 0) { const ds = this.dmgSrc; this.dmgSrc = ds || (e.weapon ? 'Tu propia explosión' : 'Una explosión'); P.damage(e.dmg * (e.selfK ?? 0.35) * (1 - dp / R), e.x, e.z, this); this.dmgSrc = ds; }
-      this.blasts.push({ x: e.x, y: e.y, z: e.z, R: Math.max(1.2, R), t: 0, seed: Math.random() * 100, gy: this.world.groundAt(e.x, e.z) });
+      this.blasts.push({ x: e.x, y: e.y, z: e.z, R: sm ? R : Math.max(1.2, R), t: 0, seed: Math.random() * 100, gy: this.world.groundAt(e.x, e.z), pop: sm });
       this.stirFog(e.x, e.z, Math.max(1.2, R) * 2.4, 1, 0.12);
-      if (this.blasts.length > 8) this.blasts.shift();
+      if (this.blasts.length > 16) { const i = this.blasts.findIndex((x) => x.pop); this.blasts.splice(i >= 0 ? i : 0, 1); }
       // chispas rápidas, escombros que caen y brasas que suben despacio
-      const PK = sm ? 0.3 : 1;
+      if (sm) {
+        // bala explosiva: estallido seco, chispas rápidas y cascotes (el resto lo dibuja renderBlasts)
+        for (let i = 0; i < 6; i++) { const c = M.rand(0.08, 0.16); this.particles.spawn(e.x, e.y + 0.1, e.z, M.rand(-4, 4), M.rand(2, 6), M.rand(-4, 4), c, c * 0.9, c * 0.8, M.rand(0.03, 0.06), M.rand(0.8, 1.6)); }
+        VX.Audio.at(e.x, e.y, e.z, () => VX.Audio.explosion(0.75), 4); this.shake(0.07); return;
+      }
+      const PK = 1;
       if (e.frost) for (let i = 0; i < 14; i++) this.particles.spawn(e.x, e.y + 0.2, e.z, M.rand(-4, 4), M.rand(0, 4), M.rand(-4, 4), 0.7, 0.92, 1, M.rand(0.03, 0.05), M.rand(0.5, 1), 0.8, 1);
       for (let i = 0; i < 34 * PK; i++) {
         const a = Math.random() * Math.PI * 2, el = M.rand(-0.2, 1), sp = M.rand(6, 14);
@@ -1604,6 +1620,7 @@
         const t = bl.t, R = bl.R, sd = bl.seed;
         const h = (i, k) => { const v = Math.sin(sd * 12.9898 + i * 78.233 + k * 37.719) * 43758.5453; return v - Math.floor(v); };
         const FI = VX.Renderer.fire, SM = VX.Renderer.smoke;
+        if (bl.pop) { this.renderPop(b, bl, h, Q, FI, SM); continue; }
         // destello inicial: núcleo blanco de cubos y un resplandor suave alrededor
         if (t < 0.12) {
           const k = 1 - t / 0.12, s = R * (0.5 + t * 8);
@@ -1688,6 +1705,62 @@
             const ember = Math.max(0, 0.8 - k * 1.4) * (h(i, 43) < 0.5 ? 1 : 0.3);
             b.rbox(bl.x + Math.cos(a) * d, bl.gy + 0.012 + i * 0.0015, bl.z + Math.sin(a) * d, s, 0.02, s * 0.8, M.qY(h(i, 44) * 6), 0.04 + ember * 0.9, 0.035 + ember * 0.3, 0.03, ember);
           }
+        }
+      }
+    }
+
+    // Estallido de bala explosiva: distinto de una explosión grande. Un destello blanco en estrella,
+    // una cáscara de onda esférica (tres anillos cruzados) que se abre en un instante, chispas muy
+    // rápidas y una bocanada de humo negro con brasas; sin bola de fuego ni anillo en el suelo.
+    renderPop(b, bl, h, Q, FI, SM) {
+      const t = bl.t, R = bl.R, x0 = bl.x, y0 = bl.y, z0 = bl.z;
+      if (t < 0.08) {   // núcleo al rojo blanco
+        const k = 1 - t / 0.08, s = (0.3 + t * 7) * R;
+        b.rbox(x0, y0, z0, s, s, s, M.qAxis(0.577, 0.577, 0.577, bl.seed), 1, 1, 0.95, 1);
+        FI.add(x0, y0, z0, 2.0 * R, 1.6 * k, 1.25 * k, 0.8 * k, 1, 0, bl.seed);
+      }
+      if (t < 0.11) {   // púas de luz en estrella
+        const k = t / 0.11, n = 7;
+        for (let i = 0; i < n; i++) {
+          const a = h(i, 1) * Math.PI * 2, el = (h(i, 2) - 0.5) * 2.6;
+          const dx = Math.cos(a) * Math.cos(el), dy = Math.sin(el), dz = Math.sin(a) * Math.cos(el);
+          const len = R * (0.6 + h(i, 3) * 0.7) * (0.4 + k), w = 0.1 * (1 - k) + 0.02;
+          const ax = dz, az = -dx, al = Math.hypot(ax, az) || 1;
+          b.rbox(x0 + dx * len * 0.5, y0 + dy * len * 0.5, z0 + dz * len * 0.5, w, len, w, M.qAxis(ax / al, 0, az / al, Math.acos(M.clamp(dy, -1, 1))), 1, 0.92, 0.6, 1);
+        }
+      }
+      if (t < 0.24) {   // cáscara de la onda: tres anillos cruzados que se abren
+        const k = t / 0.24, rad = R * (0.2 + Math.sqrt(k) * 1.0), n = Math.round(18 * Math.max(0.6, Q)), sz = 0.07 * (1 - k) + 0.02;
+        const e = Math.max(0, 1 - k * 1.1);
+        for (let ring = 0; ring < 3; ring++) for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + ring;
+          const c = Math.cos(a) * rad, d = Math.sin(a) * rad;
+          const [x, y, z] = ring === 0 ? [c, d * 0.35, d] : ring === 1 ? [c, d, d * 0.35] : [c * 0.35, d, c];
+          b.box(x0 + x, y0 + y, z0 + z, sz, sz, sz, 1, 0.55 + e * 0.4, 0.15 + e * 0.3, e);
+        }
+      }
+      if (t < 0.4) {   // chispas muy rápidas
+        const n = Math.round(26 * Q) + 6;
+        for (let i = 0; i < n; i++) {
+          const life = 0.14 + h(i, 20) * 0.24;
+          if (t > life) continue;
+          const a = h(i, 21) * Math.PI * 2, el = (h(i, 22) - 0.35) * 2.2, sp = 13 + h(i, 23) * 10;
+          const vx = Math.cos(a) * Math.cos(el) * sp, vy = Math.sin(el) * sp, vz = Math.sin(a) * Math.cos(el) * sp;
+          const x = x0 + vx * t, y = y0 + vy * t - 3 * t * t, z = z0 + vz * t;
+          const v = Math.hypot(vx, vy, vz), L = 0.25 + (1 - t / life) * 0.35;
+          const ax = vz / v, az = -vx / v, al = Math.hypot(ax, az) || 1;
+          b.rbox(x, y, z, 0.025, L, 0.025, M.qAxis(ax / al, 0, az / al, Math.acos(M.clamp(vy / v, -1, 1))), 1, 0.85, 0.4, 1);
+        }
+      }
+      if (t > 0.07 && t < 1.4) {   // bocanada de humo negro con brasas dentro
+        const k = (t - 0.07) / 1.33, n = 6;
+        for (let i = 0; i < n; i++) {
+          const a = h(i, 30) * Math.PI * 2, d = R * (0.15 + k * 0.35) * (0.5 + h(i, 31));
+          const x = x0 + Math.cos(a) * d, z = z0 + Math.sin(a) * d, y = y0 + k * 0.9 + h(i, 32) * 0.2;
+          const sz = R * (0.2 + h(i, 33) * 0.12) * (0.6 + k * 0.8) * (1 - k * k);
+          const glow = Math.max(0, 0.18 - k) * 1.6, c = 0.07 + h(i, 34) * 0.04;
+          if (i % 2) b.rbox(x, y, z, sz, sz, sz, M.qAxis(0.577, 0.577, 0.577, h(i, 35) * 6 + t), c + glow * 0.6, c + glow * 0.22, c, glow * 0.5);
+          SM.add(x, y, z, sz * 2.2, c * 1.6, c * 1.5, c * 1.4, 0.5 * (1 - k), h(i, 36) * 6, bl.seed + i);
         }
       }
     }
@@ -2001,7 +2074,7 @@
       this.updateFire(dt);
       this.updateFogHoles(dt); this.fogFootsteps(dt);
       for (const bl of this.blasts) bl.t += dt;
-      if (this.blasts.length) this.blasts = this.blasts.filter((bl) => bl.t < 4);
+      if (this.blasts.length) this.blasts = this.blasts.filter((bl) => bl.t < (bl.pop ? 1.4 : 4));
       this.updateRises(dt);
       this.checkSecret();
       if (this.state === 'playing' && this.mode !== 'horde' && VX.Input.wasPressed(VX.Settings.key('map'))) this.hud.showMap(this);
@@ -2014,6 +2087,7 @@
       if (this.state === 'playing') this.pickups.update(dt, this);
 
       for (const n of this.npcs) {
+        if (n.update) { n.update(dt, this); continue; }   // el vendedor de la tienda va por su cuenta
         n.t += dt;
         const b = n.body;
         const ty = Math.atan2(P.x - b.x, P.z - b.z);
@@ -2158,7 +2232,7 @@
       for (const e of this.enemies) if (!e.dead && e.T && e.T.lamp && nl++ < 3) L.push({ x: e.x + Math.sin(e.body.yaw) * 0.4, y: e.y + 1.9, z: e.z + Math.cos(e.body.yaw) * 0.4, r: 4.5, cr: 1.6, cg: 1.3, cb: 0.7 });
       if (this.currentRoom) for (const p of this.currentRoom.props) if (p.burning > 0 && nf++ < 7) { const fl = 0.8 + Math.sin(this.time * 11 + p.cx * 7) * 0.15; L.push({ x: p.cx, y: p.cy + 0.4, z: p.cz, r: 6, cr: 2.6 * fl, cg: 1.15 * fl, cb: 0.3 * fl }); }
       for (const e of this.enemies) if (!e.dead && e.burn > 0 && nf++ < 8) L.push({ x: e.x, y: e.y + 1, z: e.z, r: 4, cr: 2.2, cg: 1, cb: 0.25 });
-      for (const bl of this.blasts) { if (bl.t > 0.9) continue; const k = Math.pow(1 - bl.t / 0.9, 2) * (0.85 + Math.sin(bl.t * 60) * 0.15); L.push({ x: bl.x, y: bl.y + 0.6, z: bl.z, r: 8 + bl.R * 3, cr: 7 * k, cg: 3.8 * k, cb: 1.1 * k }); }
+      for (const bl of this.blasts) { if (bl.pop) { if (bl.t < 0.16) { const k = 1 - bl.t / 0.16; L.push({ x: bl.x, y: bl.y + 0.2, z: bl.z, r: 6, cr: 9 * k, cg: 6 * k, cb: 3 * k }); } continue; } if (bl.t > 0.9) continue; const k = Math.pow(1 - bl.t / 0.9, 2) * (0.85 + Math.sin(bl.t * 60) * 0.15); L.push({ x: bl.x, y: bl.y + 0.6, z: bl.z, r: 8 + bl.R * 3, cr: 7 * k, cg: 3.8 * k, cb: 1.1 * k }); }
       for (const sg of this.doorSigns()) {
         const pulse = sg.type === 'boss' ? 0.7 + Math.sin(this.time * 5) * 0.3 : 1;
         L.push({ x: sg.x + sg.nx * 0.4, y: 3.2, z: sg.z + sg.nz * 0.4, r: 3.5, cr: sg.c[0] * 0.9 * pulse, cg: sg.c[1] * 0.9 * pulse, cb: sg.c[2] * 0.9 * pulse });
@@ -2248,7 +2322,7 @@
       for (const c of this.corpses) c.render(b);
       for (const g of this.gibs) g.render(b);
       this.renderSigns(b);
-      for (const n of this.npcs) n.body.render(b);
+      for (const n of this.npcs) if (!n.hidden) n.body.render(b);
       this.particles.render(b);
       this.pickups.render(b);
       this.weapon.renderTracers(b);
@@ -2359,8 +2433,11 @@
       const zt = VX.ZONES[this.zone].tint;
       // ambiente muy oscuro: la linterna, las antorchas y los braseros mandan
       const za = VX.ZONES[this.zone].ambient;
-      const am = (this.ambientMul || 1) * this.edgeDark() + (this.bolt || 0) * 3;
-      const ambient = this.state === 'title' ? [0.03, 0.028, 0.04] : za ? [za[0] * am, za[1] * am, za[2] * am] : [0.009 * zt[0], 0.0085 * zt[1], 0.013 * zt[2]];
+      // la tienda está en penumbra (luces cálidas y bajas): se nota al cruzar la puerta
+      const tpl = this.currentRoom && this.currentRoom.template, dimT = tpl && tpl.dim && this.currentRoom.contains(this.player.x, this.player.z) ? tpl.dim : 1;
+      this.roomDim = M.lerp(this.roomDim || 1, dimT, 0.04);
+      const am = (this.ambientMul || 1) * this.edgeDark() * this.roomDim + (this.bolt || 0) * 3;
+      const ambient = this.state === 'title' ? [0.03, 0.028, 0.04] : za ? [za[0] * am, za[1] * am, za[2] * am] : [0.009 * zt[0] * this.roomDim, 0.0085 * zt[1] * this.roomDim, 0.013 * zt[2] * this.roomDim];
       // mirilla: cierra el campo de visión y muestra la lente con la retícula
       const sk = this.state === 'playing' ? (this.weapon.scopeK || 0) : 0;
       R.zoom = 1 - M.smoothstep(0.3, 1, sk) * 0.7;

@@ -25,6 +25,18 @@
     { id: 'segunda', name: 'Segunda oportunidad', desc: 'Una vez por partida, revives con media vida', max: 1, cost: () => 250 },
   ];
 
+  // La tienda del vendedor (0.45): mejoras permanentes que se compran con esencia
+  const SHOPUPS = [
+    { id: 'altars', name: 'Más altares', desc: '+1 altar de venta en cada tienda', max: 3, cost: (l) => 60 + l * 50 },
+    { id: 'select', name: 'Género selecto', desc: 'Un altar puede traer una mejora rara ★ (20/35/50 %)', max: 3, cost: (l) => 70 + l * 55 },
+    { id: 'sale', name: 'Rebajas', desc: 'Uno de los altares sale a mitad de precio (2 con el nivel máximo)', max: 2, cost: (l) => 50 + l * 60 },
+    { id: 'bell', name: 'Campana del vendedor', desc: 'Altar con campana: pagas oro y el vendedor repone todo el género (1 vez; 2 al máximo)', max: 2, cost: (l) => 90 + l * 80 },
+    { id: 'mystery', name: 'Caja misteriosa', desc: 'Altar con una caja sorpresa: una mejora al azar, que puede ser rara… o maldita', max: 1, cost: () => 120 },
+    { id: 'souls', name: 'Altar de las almas', desc: 'Cambia oro por esencia en la tienda (se puede repetir, cada vez más caro)', max: 1, cost: () => 150 },
+    { id: 'apothecary', name: 'Botica', desc: 'El botiquín de la tienda cura más (+60 / +80)', max: 2, cost: (l) => 40 + l * 40 },
+    { id: 'patience', name: 'Paciencia', desc: 'El vendedor se enfada menos: los golpes suben menos los precios y aguanta una muerte más antes de hartarse', max: 2, cost: (l) => 45 + l * 45 },
+  ];
+
   // Arsenal: un arma bloqueada no aparece en tiendas ni la sueltan los jefes
   const ARSENAL = [
     { id: 'pistol', cost: 0 },
@@ -53,7 +65,16 @@
   const Profile = {
     data: DEF(),
     dirty: false,
-    PERKS, ARSENAL,
+    PERKS, ARSENAL, SHOPUPS,
+    shopUp(id) { return ((this.data.shopUps || {})[id]) || 0; },
+    buyShopUp(id) {
+      const u = SHOPUPS.find((x) => x.id === id), l = this.shopUp(id);
+      if (!u || l >= u.max || this.data.essence < u.cost(l)) return false;
+      this.data.essence -= u.cost(l);
+      this.data.shopUps = this.data.shopUps || {}; this.data.shopUps[id] = l + 1;
+      this.save();
+      return true;
+    },
 
     load() {
       let d = {};
@@ -157,6 +178,12 @@
           out.push({ name: sk.name + ' (' + VX.Weapons.DEFS[w].name + ')', what: 'skin', txt: this.condText(sk, w), v, n: sk.cond.n, r: v / sk.cond.n });
         }
       }
+      if (VX.Upgrades) for (const u of VX.Upgrades.list) {
+        const c = u.unlock;
+        if (!c || typeof c !== 'object' || this.upUnlocked(u)) continue;
+        const v = this.upValue(c);
+        out.push({ name: u.name, what: 'mejora', txt: c.txt, v, n: c.n, r: v / c.n });
+      }
       return out.filter((o) => o.r < 1 && o.v > 0).sort((a, b) => b.r - a.r).slice(0, k);   // sólo las que ya has empezado
     },
     checkGear(game) {
@@ -175,6 +202,7 @@
 
     checkUnlocks(game, onlyWeapon) {
       this.checkGear(game);
+      this.checkUps(game);
       if (VX.Weapons && VX.Weapons.KNIVES) this.checkKnives(game);
       if (VX.Weapons && VX.Weapons.PISTOLS) this.checkPistols(game);
       const list = onlyWeapon ? [onlyWeapon] : WEAPON_IDS();
@@ -255,7 +283,29 @@
     },
 
     // ---- Códice y récords ----
-    codexKill(kind) { const e = this.data.codex.enemies; e[kind] = (e[kind] || 0) + 1; this.dirty = true; },
+    codexKill(kind) { const e = this.data.codex.enemies; e[kind] = (e[kind] || 0) + 1; this.dirty = true; this.checkUps(VX.game); },
+
+    // ---- mejoras que se desbloquean luchando (matando a ciertos enemigos o jefes) ----
+    upValue(c) { return c.kind ? ((this.data.codex.enemies || {})[c.kind] || 0) : (this.data[c.stat] || 0); },
+    upUnlocked(u) {
+      const c = u.unlock;
+      if (!c || typeof c !== 'object') return true;
+      return (this.data.upUnlocks || []).includes(u.id) || this.upValue(c) >= c.n;
+    },
+    checkUps(game) {
+      if (!VX.Upgrades) return;
+      this.data.upUnlocks = this.data.upUnlocks || [];
+      for (const u of VX.Upgrades.list) {
+        const c = u.unlock;
+        if (!c || typeof c !== 'object' || this.data.upUnlocks.includes(u.id)) continue;
+        if (this.upValue(c) < c.n) continue;
+        this.data.upUnlocks.push(u.id); this.dirty = true;
+        if (game && game.hud && game.state === 'playing') {
+          const tag = u.rare ? ' ★ RARA' : u.curse ? ' ☠ MALDITA' : '';
+          setTimeout(() => { game.hud.banner('¡NUEVA MEJORA DESBLOQUEADA!', `«${u.name}»${tag} — ${u.desc}`, 4); VX.Audio.upgrade(); }, 900);
+        }
+      }
+    },
     codexUp(id) { if (!this.data.codex.ups.includes(id)) { this.data.codex.ups.push(id); this.dirty = true; } },
 
     // Puntuación de la partida; devuelve { score, record }

@@ -31,6 +31,17 @@
         return `<button data-shop="${u.id}" class="${own ? 'on' : ''}" ${own || d.essence < u.unlock ? 'disabled' : ''}>${u.name.toUpperCase()}` +
           `<small>${u.desc} · ${own ? 'Ya a la venta' : u.unlock + ' esencia'}</small></button>`;
       }).join('');
+      // la tienda del vendedor
+      $('shopUpList').innerHTML = P.SHOPUPS.map((u) => {
+        const l = P.shopUp(u.id), maxed = l >= u.max, cost = u.cost(l);
+        const pips = '■'.repeat(l) + '□'.repeat(u.max - l);
+        return `<button data-shopup="${u.id}" ${maxed || d.essence < cost ? 'disabled' : ''}>${u.name.toUpperCase()} <span class="pips">${pips}</span>` +
+          `<small>${u.desc} · ${maxed ? 'MÁXIMO' : cost + ' esencia'}</small></button>`;
+      }).join('');
+      for (const b of document.querySelectorAll('#shopUpList button')) b.onclick = () => {
+        if (VX.Profile.buyShopUp(b.dataset.shopup)) VX.Audio.upgrade(); else VX.Audio.deny();
+        this.render();
+      };
       for (const b of document.querySelectorAll('#shopUnlockList button')) b.onclick = () => {
         if (VX.Profile.buyShopItem(b.dataset.shop)) VX.Audio.buy(); else VX.Audio.deny();
         this.render();

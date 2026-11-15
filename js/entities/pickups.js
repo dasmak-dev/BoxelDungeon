@@ -27,6 +27,10 @@
     bottle: ['..X..', '..X..', '.XXX.', '.XXX.', '.XXX.'],
     decoy: ['X...X', '.X.X.', '..X..', '.XXX.', '.XXX.'],
     scope: ['.....', 'XXXXX', 'X.X.X', 'XXXXX', '..X..'],
+    blade: ['....X', '...X.', '..X..', 'XX...', 'X....'],
+    flame: ['..X..', '.XX..', '.XXX.', 'XXXXX', '.XXX.'],
+    drop: ['..X..', '.XXX.', 'XXXXX', 'XXXXX', '.XXX.'],
+    bell: ['..X..', '.XXX.', '.XXX.', 'XXXXX', '..X..'],
   };
   // Precalcular offsets
   const SHAPE_VOX = {};
@@ -174,7 +178,7 @@
     else if (it.kind === 'rest') key = 'crystal';
     else if (it.kind === 'throw') key = it.type === 'molotov' ? 'molotov' : it.type === 'decoy' ? 'decoy' : 'frag';
     else if (it.kind === 'attach') key = 'scope';
-    else if (it.kind === 'upgrade' || it.kind === 'offering') {
+    else if (it.kind === 'upgrade' || it.kind === 'offering' || it.kind === 'restock' || it.kind === 'mystery') {
       const rare = !!(it.up && (it.up.rare || it.up.curse === undefined && it.title && it.title.includes('★')));
       key = 'med:' + it.shape + ':' + (it.color || []).join(',') + (rare ? ':r' : '');
       make = () => medallion(it.shape, it.color || [1, 1, 1], rare);
@@ -358,12 +362,30 @@
       }
       game.stats.gold -= it.price;
       it.taken = true;
-      if (it.kind === 'offering') {
+      if (it.kind === 'restock') {
+        // campana del vendedor: repone el género (se puede usar las veces que diga el Santuario)
+        VX.Audio.buy(); VX.Audio.gold();
+        game.spawner.restockShop(game, it.shopRoom || game.currentRoom);
+        it.uses = (it.uses || 1) - 1;
+        if (it.uses > 0) { it.taken = false; it.basePrice = Math.round((it.basePrice || it.price) * 1.6); it.price = Math.round(it.price * 1.6); it.desc = `El vendedor repone todo el género (queda ${it.uses})`; }
+        game.hud.banner('¡GÉNERO NUEVO!', 'El vendedor ha repuesto los altares', 2.2);
+      } else if (it.kind === 'mystery') {
+        // caja misteriosa: normal, rara o maldita
+        const r = Math.random(), kind = r < 0.6 ? 'normal' : r < 0.88 ? 'rare' : 'curse';
+        const up = VX.Upgrades.random(1, game, [], kind, true)[0];
+        VX.Audio.reward();
+        if (up) {
+          const tag = up.rare ? ' ★ RARA' : up.curse ? ' ☠ MALDITA' : '';
+          if (up.curse) { up.apply(game); VX.Profile.codexUp(up.id); game.upgradesTaken.push(up); game.hud.banner('¡MALDICIÓN!', `La caja traía «${up.name}»: ${up.desc}`, 3.5); game.hud.refreshUpgrades(game); VX.Audio.deny(); }
+          else this.addItem({ kind: 'upgrade', up, price: 0, x: it.x, y: it.y + 0.2, z: it.z, title: up.name + tag, desc: up.desc, color: up.color, shape: up.shape });
+        }
+      } else if (it.kind === 'offering') {
         VX.Profile.add('essence', it.essence);
         VX.Profile.save();
         game.essenceBanked = (game.essenceBanked || 0) + it.essence;
         VX.Audio.reward();
         game.hud.banner('OFRENDA ACEPTADA', `+${it.essence} de esencia (ya es tuya aunque caigas)`, 3);
+        if (it.again) { it.taken = false; it.price = Math.round(it.price * 1.5); it.basePrice = it.price; }   // altar de las almas: se repite, más caro
       } else if (it.kind === 'weapon') {
         const r = game.weapon.giveWeapon(it.weapon);
         const name = VX.Weapons.DEFS[it.weapon].name;
@@ -384,7 +406,8 @@
         VX.Audio.buy(); VX.Audio.reload();
         game.hud.banner('MUNICIÓN COMPLETA', 'Cargadores y reservas a tope', 2.2);
       } else if (it.kind === 'heal') {
-        game.player.heal(it.amount);
+        if (game.weapon.mods.berserkPact) { game.hud.toast('El Pacto del berserker no te deja usar botiquines'); }
+        else game.player.heal(it.amount);
         VX.Audio.buy();
         game.hud.toast(`+${it.amount} de vida`);
       } else {

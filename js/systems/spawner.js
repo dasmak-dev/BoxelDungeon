@@ -25,6 +25,7 @@
 
     reset() {
       this.roomsSinceBoss = 0;
+      this.shopBan = 0; this.vendorMem = null;
       this.nextBossIn = 0;
       this.bossCount = 0;          // jefes de bioma derrotados (o empezados)
       this.order = [0, ...M.shuffle([1, 2, 3, 4])];   // orden de los 5 biomas (siempre se empieza en la Cripta)
@@ -84,6 +85,7 @@
           // tienda, mejora, fuente o mapa, las siguientes puertas son de otro tipo
           if (t !== 'normal' && (out.includes(t) || from.type === t || (this.history || []).slice(-3).includes(t))) continue;
           if (t === 'map' && (this.roomsSinceMap || 99) < 9) continue;
+          if (t === 'shop' && this.shopBan > 0) continue;   // el vendedor ha cerrado
           // la Fuente de almas es rara: nunca dos cerca (al menos 6 salas entre una y otra)
           if (t === 'save' && this.roomsSinceSave < 6) continue;
           break;
@@ -100,7 +102,7 @@
       const exits = room.exits;
       if (!exits.length) return;
       let types;
-      if (room.type === 'boss') types = exits.map((_, i) => (i === 0 ? 'shop' : i === 1 && this.roomsSinceSave >= 3 ? 'save' : 'reward'));
+      if (room.type === 'boss') types = exits.map((_, i) => (i === 0 ? (this.shopBan > 0 ? 'reward' : 'shop') : i === 1 && this.roomsSinceSave >= 3 ? 'save' : 'reward'));
       else if (room.plannedTypes && room.plannedTypes.length === exits.length) types = room.plannedTypes.slice();   // ya decididos (mapa)
       else types = this.pickTypes(exits.length, room);
       // jefes: a partir del piso 10, alguna de las puertas puede llevar a uno (al azar)
@@ -179,6 +181,61 @@
       }
     }
 
+    // Género de la tienda en los pedestales (también al tocar la campana: repone todo)
+    fillShop(game, room, slots) {
+      const PR = VX.Profile;
+      const ups = VX.Upgrades.random(Math.max(2, slots.length), game, [], 'shop');
+      // la tienda suele ofrecer un arma que no tengas (sólo las desbloqueadas en el Arsenal)
+      const notOwned = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));
+      const gun = notOwned.length && Math.random() < 0.75 ? M.choice(notOwned) : null;
+      const heal = [40, 60, 80][PR.shopUp('apothecary')];
+      // género selecto: un altar con una mejora rara
+      const rareAt = Math.random() < [0, 0.2, 0.35, 0.5][PR.shopUp('select')] ? M.choice(slots.map((_, i) => i).filter((i) => i > 0)) : -1;
+      const made = [];
+      const add = (it) => { const r = game.pickups.addItem(it); made.push(r); return r; };
+      let ui = 0;
+      slots.forEach((s, i) => {
+        const P = { x: s.x, y: s.y, z: s.z };
+        if (i === rareAt) {
+          const up = VX.Upgrades.random(1, game, [], 'rare')[0];
+          if (up) { add({ kind: 'upgrade', up, price: Math.round(VX.Upgrades.price(game) * 1.7), ...P, title: up.name + ' ★ RARA', desc: up.desc, color: up.color, shape: up.shape, onTake: (g) => g.stats.purchases++ }); return; }
+        }
+        const roll = Math.random();
+        if (i === 2 && gun) {
+          const d = VX.Weapons.DEFS[gun];
+          add({ kind: 'weapon', weapon: gun, price: d.price + game.floor * 2, ...P, title: d.name, desc: weaponDesc(gun), color: [1, 0.85, 0.5], shape: 'star' });
+        } else if ((i === 2 || (i > 2 && roll < 0.25)) && Math.random() < 0.6 && VX.Throw.attachItem(game.weapon, 0)) {
+          const it = VX.Throw.attachItem(game.weapon, Math.round((26 + game.floor * 2) * (game.priceMul || 1)));
+          add({ ...it, ...P, onTake: (g) => g.stats.purchases++ });
+        } else if ((i === 1 || (i > 2 && roll < 0.5)) && Math.random() < 0.35 && VX.Throw.randomType(game.weapon)) {
+          const t = VX.Throw.randomType(game.weapon);
+          add({ ...VX.Throw.item(t, 2, Math.round(VX.Throw.TYPES[t].price * 1.6 + game.floor)), ...P });
+        } else if (i === 0) {
+          add({ kind: 'heal', amount: heal, price: 15 + game.floor + (heal - 40) / 4, ...P, title: heal > 40 ? 'Botiquín grande' : 'Botiquín', desc: `+${heal} de vida`, color: [1, 0.2, 0.25], shape: 'plus' });
+        } else {
+          const up = ups[ui++] || VX.Upgrades.random(1, game, [], 'shop')[0];
+          if (up) add({ kind: 'upgrade', up, price: VX.Upgrades.price(game), ...P, title: up.name, desc: up.desc, color: up.color, shape: up.shape, onTake: (g) => g.stats.purchases++ });
+        }
+      });
+      // rebajas: uno o dos altares a mitad de precio
+      const nSale = PR.shopUp('sale');
+      for (const it of M.shuffle(made.filter((x) => x.price > 0)).slice(0, nSale)) { it.price = Math.max(1, Math.round(it.price * 0.5)); it.title += ' · REBAJA'; it.sale = true; }
+      for (const it of made) { it.shopRoom = room; it.basePrice = it.price; }
+      return made;
+    }
+
+    // la campana: se lleva lo que no hayas comprado y pone género nuevo
+    restockShop(game, room) {
+      const slots = room.features.filter((f) => f.kind === 'shopSlot');
+      for (const it of game.pickups.items) if (it.shopRoom === room && !it.taken && (it.kind === 'upgrade' || it.kind === 'weapon' || it.kind === 'heal' || it.kind === 'throw' || it.kind === 'attach')) {
+        it.taken = true;
+        for (let i = 0; i < 10; i++) game.particles.spawn(it.x, it.y, it.z, M.rand(-1, 1), M.rand(0.5, 2), M.rand(-1, 1), 1, 0.8, 0.3, 0.03, 0.6, 1, 1);
+      }
+      this.fillShop(game, room, slots);
+      const sk = game.npcs.find((n) => n.isShopkeeper && n.room === room);
+      if (sk) { sk.shownMul = 1; sk.applyPrices(game); sk.act = 'wave'; sk.actT = 1.5; }
+    }
+
     // Contenido de las salas tranquilas: se crea al abrir la puerta (antes de entrar)
     prepare(game, room) {
       if (room.prepared) return;
@@ -186,33 +243,33 @@
       switch (room.type) {
         case 'shop': {
           const slots = room.features.filter((f) => f.kind === 'shopSlot');
-          const ups = VX.Upgrades.random(2, game, [], 'shop');
-          // la tienda suele ofrecer un arma que no tengas
-          // sólo armas desbloqueadas en el Arsenal del Santuario
-          const notOwned = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));
-          const gun = notOwned.length && Math.random() < 0.75 ? M.choice(notOwned) : null;
-          slots.forEach((s, i) => {
-            if (i === 2 && gun) {
-              const d = VX.Weapons.DEFS[gun];
-              game.pickups.addItem({ kind: 'weapon', weapon: gun, price: d.price + game.floor * 2, x: s.x, y: s.y, z: s.z, title: d.name, desc: weaponDesc(gun), color: [1, 0.85, 0.5], shape: 'star' });
-            } else if (i === 2 && Math.random() < 0.6 && VX.Throw.attachItem(game.weapon, 0)) {
-              const it = VX.Throw.attachItem(game.weapon, Math.round((26 + game.floor * 2) * (game.priceMul || 1)));
-              game.pickups.addItem({ ...it, x: s.x, y: s.y, z: s.z, onTake: (g) => g.stats.purchases++ });
-            } else if (i === 1 && Math.random() < 0.35 && VX.Throw.randomType(game.weapon)) {
-              const t = VX.Throw.randomType(game.weapon);
-              game.pickups.addItem({ ...VX.Throw.item(t, 2, Math.round(VX.Throw.TYPES[t].price * 1.6 + game.floor)), x: s.x, y: s.y, z: s.z });
-            } else if (i === 0) {
-              game.pickups.addItem({ kind: 'heal', amount: 40, price: 15 + game.floor, x: s.x, y: s.y, z: s.z, title: 'Botiquín', desc: '+40 de vida', color: [1, 0.2, 0.25], shape: 'plus' });
-            } else {
-              const up = ups[i - 1];
-              game.pickups.addItem({ kind: 'upgrade', up, price: VX.Upgrades.price(game), x: s.x, y: s.y, z: s.z, title: up.name, desc: up.desc, color: up.color, shape: up.shape, onTake: (g) => g.stats.purchases++ });
+          const specials = room.features.filter((f) => f.kind === 'shopSpecial');
+          // el pedestal tiene que estar: si algo lo ha borrado (un pasillo de puerta, un derrumbe), se rehace
+          for (const s of [...slots, ...specials]) {
+            const lx = Math.floor(s.x / VX.S) - room.ox, lz = Math.floor(s.z / VX.S) - room.oz;
+            for (let x = lx - 2; x <= lx + 1; x++) for (let z = lz - 2; z <= lz + 1; z++) for (let y = 0; y < 4; y++)
+              if (!room.get(x, y, z)) room.set(x, y, z, VX.Blocks.METAL);
+          }
+          const n0 = game.pickups.items.length;
+          this.fillShop(game, room, slots);
+          // altares especiales (mejoras de la tienda del Santuario)
+          const PR = VX.Profile;
+          for (const f of specials) {
+            if (f.what === 'bell') {
+              const uses = PR.shopUp('bell');
+              game.pickups.addItem({ kind: 'restock', uses, price: 20 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Campana del vendedor', desc: `El vendedor repone todo el género (${uses} ${uses > 1 ? 'veces' : 'vez'})`, action: 'Tocar la campana', color: [0.95, 0.78, 0.3], shape: 'bell' });
+            } else if (f.what === 'mystery') {
+              game.pickups.addItem({ kind: 'mystery', price: 35 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Caja misteriosa', desc: 'Una mejora al azar: normal, rara… o maldita', action: 'Abrir', color: [0.7, 0.4, 1], shape: 'chest' });
+            } else if (f.what === 'souls') {
+              game.pickups.addItem({ kind: 'offering', essence: 5, again: true, price: 25, x: f.x, y: f.y, z: f.z, title: 'Altar de las almas', desc: '+5 de esencia (para siempre). Cada ofrenda cuesta más', action: 'Ofrendar', color: [0.75, 0.55, 1], shape: 'crystal' });
             }
-          });
+          }
+          for (const it of game.pickups.items.slice(n0)) { it.shopRoom = room; it.basePrice = it.price; }
           const v = room.features.find((f) => f.kind === 'vendor');
           if (v) {
-            const body = new VX.VoxelBody(VX.Models.vendor(), 1);
-            body.x = v.x; body.z = v.z; body.yaw = Math.PI / 2; body.y = 0;
-            game.npcs.push({ body, t: 0 });
+            const sk = new VX.Shopkeeper(game, room, v.x, v.z);
+            game.npcs.push(sk);
+            if (sk.markup > 1) sk.applyPrices(game);
           }
           break;
         }
@@ -256,6 +313,7 @@
     onEnter(game, room) {
       this.roomsSinceSave = room.type === 'save' ? 0 : (this.roomsSinceSave || 0) + 1;
       this.roomsSinceMap = room.type === 'map' ? 0 : (this.roomsSinceMap || 99) + 1;
+      if (this.shopBan > 0) this.shopBan--;
       (this.history || (this.history = [])).push(room.type);
       if (this.history.length > 6) this.history.shift();
       if (room.type === 'boss') this.roomsSinceBoss = 0;

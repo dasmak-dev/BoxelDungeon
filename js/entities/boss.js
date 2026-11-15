@@ -654,7 +654,7 @@
       }
       const b = this.body;
       const dir = [ray.dx, ray.dy, ray.dz];
-      if (!game.visualOnly) this.hurt(dmg * (hit.part.name === 'head' ? 1.5 : 1));
+      if (!game.visualOnly) this.hurt(dmg * (hit.part.name === 'head' ? 1.5 : 1) * game.weapon.hitMul(this, hit.part.name, opts, game));
       b.flash = Math.max(b.flash, 0.6);
       const removed = b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles, 0.9);
       game.particles.blood(hit.vox.wx, hit.vox.wy, hit.vox.wz, dir[0], dir[1], dir[2], 8);

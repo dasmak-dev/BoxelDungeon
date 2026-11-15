@@ -1418,11 +1418,92 @@
     },
   };
 
-  Models.vendor = () => humanoid({
-    v: 0.05, leg: [4, 15, 4], torso: [8, 14, 6], arm: [4, 13, 4], head: [8, 8, 8],
-    skin: [0.86, 0.69, 0.53], shirt: [0.35, 0.18, 0.45], sleeve: [0.35, 0.18, 0.45], pants: [0.3, 0.16, 0.4],
-    shoes: [0.2, 0.12, 0.08], eye: [0.3, 0.9, 1.0], tear: 0, clean: true, hood: [0.28, 0.14, 0.38],
-  });
+  // ================= EL VENDEDOR (0.43) =================
+  // Un bicho encorvado de piel gris verdosa, orejas largas que asoman por la capucha, nariz de
+  // garfio y ojos de farol. Túnica morada con ribetes dorados, mochila con un petate enrollado,
+  // farol en la mano izquierda y una bolsa de monedas al cinto. Por dentro está lleno de oro y de
+  // un icor morado que brilla: es lo que se ve al dispararle (y lo que le vuelve a crecer).
+  // cfg: { seed, rage (0..1: los ojos pasan de ámbar a rojo y el icor se aviva) }
+  function merchant(cfg = {}) {
+    const v = 0.05, rage = cfg.rage || 0;
+    const sd = cfg.seed ?? 4242;
+    const H = (i, j, k, s = 0) => M.hash3(i + sd + s * 31, j + s * 7, k + s * 17);
+    const N = (c, amt, i, j, k, s = 0) => { const h = (H(i, j, k, s) - 0.5) * amt; return [c[0] + h, c[1] + h, c[2] + h, c[3] || 0]; };
+    const SKIN = [0.42, 0.47, 0.36], SKIN2 = [0.34, 0.39, 0.3], ROBE = [0.27, 0.13, 0.36], ROBE2 = [0.21, 0.1, 0.29];
+    const GOLD = [0.86, 0.66, 0.22], LEATH = [0.36, 0.22, 0.12], LEATH2 = [0.27, 0.16, 0.09], DK = [0.04, 0.03, 0.05];
+    const EYE = [1, 0.8 - rage * 0.62, 0.25 - rage * 0.2, 1], TEETH = [0.86, 0.82, 0.62], MOUTH = [0.15, 0.03, 0.06];
+    const ICH = [0.5 + rage * 0.2, 0.12, 0.66 - rage * 0.2, 0.55 + rage * 0.3], COIN = [0.98, 0.78, 0.25, 0.45];
+    const inner = (i, j, k) => (H(i, j, k, 5) < 0.35 ? COIN : N(ICH, 0.08, i, j, k, 6));
+    const parts = [];
+    const add = (name, parent, pivot, dims, min, fn, attach, shape, extra) => {
+      const pt = makePart(name, pivot, dims, min, v, (i, j, k, d, surf) => (surf ? fn(i, j, k, d) : inner(i, j, k)), attach || null, shape);
+      pt.parent = parent || null; if (extra) Object.assign(pt, extra);
+      parts.push(pt); return pt;
+    };
+    const hipY = 14;
+    // piernas: calzas oscuras y botas de punta
+    const legFn = (i, j, k, [w, h, d]) => j <= 2 ? N(j === 2 ? LEATH : LEATH2, 0.04, i, j, k) : N([0.17, 0.12, 0.16], 0.04, i, j, k);
+    const legSh = (i, j, k, [w, h, d]) => j <= 2 || corner(i, k, w, d) > 0;
+    add('legL', null, [-2.5, hipY, 0], [4, hipY, 5], [-2, -hipY, -2], legFn, 'top', legSh);
+    add('legR', null, [2.5, hipY, 0], [4, hipY, 5], [-2, -hipY, -2], legFn, 'top', legSh);
+    // torso: túnica con ribete dorado por delante, cinturón con hebilla, joroba
+    add('torso', null, [0, hipY, 0], [11, 13, 8], [-5.5, 0, -4], (i, j, k, [w, h, d]) => {
+      const ci = (w - 1) / 2, front = k === d - 1;
+      if (j === 2 || j === 3) return front && Math.abs(i - ci) < 1 ? GOLD : N(LEATH, 0.04, i, j, k);    // cinturón
+      if (front && Math.abs(i - ci) < 0.6 && j > 3) return GOLD;                                         // ribete
+      if (j === h - 1 && (front || k === 0)) return N(ROBE2, 0.03, i, j, k);
+      return N((i + j * 3) % 7 === 0 ? ROBE2 : ROBE, 0.04, i, j, k);
+    }, 'bottom', (i, j, k, [w, h, d]) => corner(i, k, w, d) > (j >= h - 3 ? 1 : 0));
+    // faldón de la túnica (cubre los muslos, ribete dorado abajo)
+    add('skirt', 'torso', [0, hipY, 0], [12, 6, 9], [-6, -6, -4.5], (i, j, k, [w, h, d]) => j === 0 ? GOLD : N(H(i, 0, k, 8) < 0.15 ? ROBE2 : ROBE, 0.04, i, j, k),
+      null, (i, j, k, [w, h, d]) => corner(i, k, w, d) > 0 && (j === 0 || i === 0 || i === w - 1 || k === 0 || k === d - 1 || j === h - 1), { noBreak: true });
+    // brazos: manga ancha con puño dorado, manos de dedos largos
+    const armFn = (i, j, k, [w, h, d]) => j <= 2 ? N(j === 0 && (i + k) % 2 ? SKIN2 : SKIN, 0.05, i, j, k) : j === 3 ? GOLD : N(ROBE, 0.04, i, j, k);
+    const armSh = (i, j, k, [w, h, d]) => (j <= 2 ? corner(i, k, w, d) > 0 && !(j === 0 && (i % 2 === 1)) : corner(i, k, w, d) > 0 || j >= h - 2);
+    add('armL', 'torso', [-7.5, hipY + 12, 0], [4, 12, 4], [-2, -11, -2], armFn, 'top', armSh);
+    add('armR', 'torso', [7.5, hipY + 12, 0], [4, 12, 4], [-2, -11, -2], armFn, 'top', armSh);
+    // cabeza: adelantada (va encorvado); ojos grandes que brillan y sonrisa de dientes torcidos
+    const hy = hipY + 13;
+    add('head', 'torso', [0, hy, 1.5], [9, 8, 8], [-4.5, 0, -4], (i, j, k, [w, h, d]) => {
+      const front = k === d - 1;
+      if (front && j === 4 && (i === 1 || i === 2 || i === 6 || i === 7)) return EYE;
+      if (front && j === 5 && (i === 1 || i === 7)) return DK;                 // ceño
+      if (front && j === 1 && i >= 2 && i <= 6) return (i % 2 === 0) ? TEETH : MOUTH;
+      if (front && j === 2 && (i === 2 || i === 6)) return MOUTH;
+      return N(H(i, j, k, 3) < 0.2 ? SKIN2 : SKIN, 0.04, i, j, k);
+    }, 'bottom', (i, j, k, [w, h, d]) => corner(i, k, w, d) > (j === h - 1 || j === 0 ? 1 : 0));
+    // nariz de garfio
+    add('nose', 'head', [0, hy + 2, 5.5], [2, 3, 3], [-1, 0, -1], (i, j, k) => N(SKIN, 0.05, i, j, k), null, (i, j, k) => !(j === 2 && k === 2) && !(j === 0 && k === 0));
+    // orejas largas, caídas hacia atrás
+    add('earL', 'head', [-4.5, hy + 5, 0], [5, 2, 2], [-5, 0, -1], (i, j, k) => (j === 0 && i > 0 ? [0.55, 0.38, 0.36] : N(SKIN, 0.05, i, j, k)), null, (i, j, k) => !(i === 0 && j === 1));
+    add('earR', 'head', [4.5, hy + 5, 0], [5, 2, 2], [0, 0, -1], (i, j, k) => (j === 0 && i < 4 ? [0.55, 0.38, 0.36] : N(SKIN, 0.05, i, j, k)), null, (i, j, k) => !(i === 4 && j === 1));
+    // capucha: concha abierta por delante con una punta que cae a la espalda
+    add('hood', 'head', [0, hy, 1.5], [11, 10, 10], [-5.5, -1, -5.5], (i, j, k, [w, h, d]) => (k === d - 1 || j === h - 1 && k > d - 4) ? N(ROBE2, 0.03, i, j, k) : N(ROBE, 0.04, i, j, k), null,
+      (i, j, k, [w, h, d]) => {
+        if (corner(i, k, w, d) <= (j >= h - 2 ? 2 : 0)) return false;
+        const shell = i === 0 || i === w - 1 || k === 0 || j === h - 1 || k === d - 1;
+        if (!shell) return false;
+        if (k === d - 1) return j >= h - 2 || i === 0 || i === w - 1;     // abierta por delante
+        if ((i === 0 || i === w - 1) && j === 6 && k >= 3 && k <= 5) return false;   // por aquí salen las orejas
+        return j >= 2 || k <= 2;
+      });
+    add('hoodTip', 'hood', [0, hy + 8, -4], [5, 4, 5], [-2.5, -4, -5], (i, j, k) => N(ROBE, 0.04, i, j, k), null, (i, j, k, [w, h, d]) => corner(i, j, w, h) + (d - 1 - k) * 0.5 <= 3.5 && corner(i, j, w, h) >= Math.max(0, 1 - k));
+    // mochila con petate enrollado y un cazo colgando
+    add('pack', 'torso', [0, hipY + 2, -4], [10, 10, 5], [-5, 0, -5], (i, j, k, [w, h, d]) => (j === 6 || i === 2 || i === 7) && k === 0 ? N(LEATH2, 0.03, i, j, k) : N(LEATH, 0.05, i, j, k), null,
+      (i, j, k, [w, h, d]) => corner(i, j, w, h) > 0);
+    add('roll', 'pack', [0, hipY + 12, -6.5], [12, 3, 3], [-6, 0, -1.5], (i, j, k) => (i === 3 || i === 8) ? LEATH2 : N([0.5, 0.18, 0.15], 0.05, i, j, k), null, (i, j, k) => !(j !== 1 && k !== 1 && (j + k) % 2 === 0));
+    add('pot', 'pack', [4, hipY + 4, -9.5], [3, 3, 2], [-1.5, -3, -1], () => [0.22, 0.22, 0.24], null);
+    // bolsa de monedas al cinto
+    add('pouch', 'torso', [4, hipY + 2, 4], [3, 3, 2], [-1.5, -2, 0], (i, j, k) => j === 2 ? GOLD : N(LEATH, 0.05, i, j, k), null, (i, j, k) => !(j === 0 && (i === 0 || i === 2)));
+    // farol en la mano izquierda
+    add('lantern', 'armL', [-7.5, hipY + 1, 0], [3, 5, 3], [-1.5, -5, -1.5], (i, j, k, [w, h, d]) => (j === 0 || j === h - 1 || (i !== 1 && k !== 1)) ? [0.12, 0.1, 0.08] : [1, 0.62, 0.22, 1], null,
+      (i, j, k, [w, h, d]) => j < h - 1 || (i === 1 && k === 1));
+    const model = { parts, height: (hy + 9) * v, width: 19 * v, v, depth: 8 * v };
+    return model;
+  }
+  Models.merchant = merchant;
+
+  Models.vendor = () => merchant({ seed: (Math.random() * 9973) | 0 });   // el mercader errante y el de la horda también
 
   Models.knight = knight; Models.pile = pile; Models.hydra = hydra;
   Models.makePart = makePart; Models.corner = corner;   // para piezas de fuera (personalización del jugador)

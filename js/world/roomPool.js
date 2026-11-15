@@ -166,32 +166,54 @@
 
   Pool.normal = [
     {
-      name: 'Columnata', relief: maybeRelief(0.3, 3), w: [46, 58], d: [46, 60],
+      // 0.44: nave de catedral. Dos filas de columnas gruesas, alguna partida con sus tambores por el
+      // suelo, braseros entre ellas, una alfombra de losas por el centro y estatuas al fondo.
+      name: 'Columnata', relief: maybeRelief(0.2, 2), w: [46, 58], d: [50, 62],
       build(r) {
-        const step = M.choice([8, 9, 10]);
-        for (let x = 6; x < r.w - 6; x += step)
-          for (let z = 7; z < r.d - 7; z += step) column(r, x, z, 2, Math.random() < 0.15);
-        if (Math.random() < 0.5) scatterBarrels(r, 3);
+        const cx = Math.floor(r.w / 2), off = M.randInt(7, 9), step = M.choice([8, 9]);
+        let k = 0;
+        for (let z = 8; z < r.d - 8; z += step, k++) for (const x of [cx - off - 1, cx + off - 2]) {
+          const broken = Math.random() < 0.22;
+          column(r, x, z, 3, broken);
+          if (broken) { r.queue('fallen', r.uX(x + (x < cx ? 3 : -2)), r.uZ(z + 2), {}); r.queue('rubble', r.uX(x + 1), r.uZ(z + 3), {}); }
+          if (k % 2 === 1) brazier(r, x + (x < cx ? 4 : -3), z + 1);
+          else if (Math.random() < 0.5) r.queue('web', r.uX(x + 1), r.uZ(z + 1), {});
+        }
+        // pasillo central de losas (un escalón de un vóxel)
+        const L = BL().CSTONE || BL().STONE;
+        for (let z = 6; z < r.d - 6; z++) for (let x = cx - 2; x <= cx + 1; x++) {
+          if (r.isReservedU(x, z)) continue;
+          for (let a = x * 2; a < x * 2 + 2; a++) for (let b = z * 2; b < z * 2 + 2; b++) if (!r.get(a, 0, b)) r.set(a, 0, b, (x === cx - 2 || x === cx + 1) ? BL().STONE : L);
+        }
+        // al fondo, dos estatuas guardando la nave
+        r.queue('statue', r.uX(cx - 4), r.uZ(r.d - 7), { rot: 0 }); r.queue('statue', r.uX(cx + 4), r.uZ(r.d - 7), { rot: 0 });
+        for (let i = 0; i < 4; i++) r.queue(M.choice(['urn', 'bones', 'candles']), r.uX(M.choice([4, r.w - 5])), r.uZ(M.randInt(8, r.d - 8)), {});
       },
     },
     {
-      name: 'Almacén abandonado', relief: maybeRelief(0.3, 3), w: [44, 56], d: [46, 58],
+      // 0.44: despensa de la guarnición (antes «almacén» con estanterías de libros). Pasillos de
+      // palés de madera con cajas, sacos y barriles, y la mesa del intendente.
+      name: 'Almacén abandonado', relief: maybeRelief(0.2, 2), w: [44, 56], d: [46, 58],
       build(r) {
-        const n = Math.floor(area(r) / 90);
-        for (let i = 0; i < n; i++) {
-          const s = M.choice([2, 2, 3]);
-          const x = M.randInt(3, r.w - 6), z = M.randInt(4, r.d - 6);
-          crate(r, x, z, s, M.randInt(2, 4));
-          if (M.chance(0.4)) crate(r, x + s, z, 2, M.randInt(1, 2));
-          if (M.chance(0.25)) crate(r, x, z, s - 1, M.randInt(4, 5));
+        const P = BL().PLANK;
+        for (let z = 8; z < r.d - 9; z += 7) {
+          const gap = M.randInt(6, r.w - 12);
+          for (let x = 4; x < r.w - 6; x += 5) {
+            if (Math.abs(x - gap) < 4 || Math.random() < 0.15) continue;
+            // palé (un vóxel de tablones) con la carga encima
+            for (let a = x * 2; a < x * 2 + 6; a++) for (let b = z * 2; b < z * 2 + 4; b++) if (!r.isReservedU(a >> 1, b >> 1) && r.inBounds(a, 0, b) && !r.get(a, 0, b)) r.set(a, 0, b, P);
+            const roll = Math.random(), y = VX.S, X = r.uX(x), Z = r.uZ(z);
+            if (roll < 0.35) { r.queue('crate', X + 0.4, Z + 0.5, { y }, M.randInt(1, 3)); r.queue('crate', X + 1.1, Z + 0.5, { y }, M.randInt(1, 2)); }
+            else if (roll < 0.6) { for (let i = 0; i < 3; i++) r.queue('sack', X + 0.35 + i * 0.45, Z + 0.5, { y }); }
+            else if (roll < 0.8) { r.queue('barrel', X + 0.4, Z + 0.5, { y }, 2); r.queue('barrel', X + 1.1, Z + 0.5, { y }); }
+            else r.queue('bigcrate', X + 0.75, Z + 0.5, { y });
+          }
         }
-        scatterBarrels(r, M.randInt(2, 4), 0.5);
-        // estanterías
-        for (let i = 0; i < 3; i++) {
-          const z = M.randInt(8, r.d - 10), x = M.randInt(4, r.w - 14), rot = M.choice([0, 2]);
-          for (let k = 0; k < 4; k++) r.queue('shelf', r.uX(x) + 0.5 + k, r.uZ(z) + 0.2, { rot });
-        }
-        for (let i = 0; i < 4; i++) r.queue('sack', r.uX(M.randInt(4, r.w - 5)), r.uZ(M.randInt(5, r.d - 6)));
+        // la mesa del intendente, con velas
+        const tx = M.choice([4, r.w - 7]), tz = M.randInt(5, 7);
+        r.queue('table', r.uX(tx + 1), r.uZ(tz), {}); r.queue('chair', r.uX(tx + 1), r.uZ(tz + 1.6), {});
+        r.features.push({ kind: 'light', x: r.uX(tx + 1), y: 1.3, z: r.uZ(tz), r: 5, c: [1, 0.62, 0.28] });
+        scatterBarrels(r, 2, 0.3);
       },
     },
     {
@@ -406,7 +428,11 @@
     {
       name: 'Cresta', w: [48, 58], d: [52, 62],
       build(r) {
-        for (let i = 0; i < 4; i++) crate(r, M.randInt(4, r.w - 6), M.randInt(5, r.d - 7), 2, M.randInt(2, 3));
+        // 0.44: sin cajas (no pintaban nada en una cresta de roca): piedras, huesos y,
+        // según el bioma, cristales o setas
+        const extra = r.zone === 4 ? 'shrooms' : r.zone === 2 ? 'crystal' : 'bones';
+        for (let i = 0; i < 6; i++) r.queue('rubble', r.uX(M.randInt(4, r.w - 6)), r.uZ(M.randInt(5, r.d - 7)), {});
+        for (let i = 0; i < 4; i++) r.queue(extra, r.uX(M.randInt(4, r.w - 6)), r.uZ(M.randInt(5, r.d - 7)), {});
       },
       relief(r) {
         const hv = M.randInt(3, 4);
@@ -532,13 +558,24 @@
     },
     // ================= Formas de sala =================
     {
+      // 0.44: las cuatro esquinas ya no son bloques macizos: son capillas con arcos que dan a la cruz,
+      // con una estatua o un sepulcro dentro. En el cruce, una fuente rodeada de braseros.
       name: 'Salón en cruz', w: [50, 58], d: [50, 58],
       build(r) {
-        // cuatro bloques macizos en las esquinas: queda una cruz de pasillos anchos
         const g = M.randInt(5, 6), cx = Math.floor(r.w / 2), cz = Math.floor(r.d / 2);
-        for (const [x0, x1] of [[2, cx - g], [cx + g, r.w - 3]])
-          for (const [z0, z1] of [[2, cz - g], [cz + g, r.d - 3]]) solidBlock(r, x0, z0, x1, z1);
-        column(r, cx - 1, cz - 1, 2);
+        const T = Math.random() < 0.3 ? BL().MOSS : BL().BRICK;
+        for (const [x0, x1, ex] of [[2, cx - g, cx - g], [cx + g, r.w - 3, cx + g]])
+          for (const [z0, z1, ez] of [[2, cz - g, cz - g], [cz + g, r.d - 3, cz + g]]) {
+            // muros con arcos en los dos lados que miran al cruce
+            archWall(r, Math.min(x0, x1) * 2, Math.max(x0, x1) * 2 + 1, ez * 2, 'x', T, 18, 2, 14, 6, 7);
+            archWall(r, Math.min(z0, z1) * 2, Math.max(z0, z1) * 2 + 1, ex * 2, 'z', T, 18, 2, 14, 6, 7);
+            const mx = Math.round((x0 + x1) / 2), mz = Math.round((z0 + z1) / 2);
+            r.queue(M.choice(['statue', 'tomb', 'sarcophagus']), r.uX(mx), r.uZ(mz), {});
+            r.queue('candles', r.uX(mx + 2), r.uZ(mz + 1), {});
+            r.features.push({ kind: 'light', x: r.uX(mx), y: 1.6, z: r.uZ(mz), r: 6, c: [1, 0.6, 0.3] });
+          }
+        r.queue('fountain', r.uX(cx), r.uZ(cz), {});
+        for (const [dx, dz] of [[-4, -4], [3, -4], [-4, 3], [3, 3]]) brazier(r, cx + dx, cz + dz);
       },
     },
     {
@@ -557,12 +594,22 @@
       },
     },
     {
+      // 0.44: los dos muros que obligan a serpentear son ahora muros viejos medio derruidos
+      // (ladrillo y musgo, almenas rotas, escombros al pie) en vez de dos bloques lisos.
       name: 'Sala en zigzag', w: [48, 56], d: [54, 64],
       build(r) {
-        // dos muros que salen de lados opuestos: el camino serpentea en forma de N
         const W = r.w, D = r.d;
-        solidBlock(r, 2, Math.round(D * 0.28), Math.round(W * 0.62), Math.round(D * 0.4));
-        solidBlock(r, Math.round(W * 0.38), Math.round(D * 0.6), W - 3, Math.round(D * 0.72));
+        const wall = (x0, x1, z) => {
+          for (let t = 0; t < 2; t++) ruinWall(r, x0, z + t, x1 - x0, true, M.randInt(6, 8), BL().BRICK);
+          for (let x = x0; x < x1; x += M.randInt(4, 7)) r.queue('rubble', r.uX(x), r.uZ(z + (Math.random() < 0.5 ? -1 : 3)), {});
+          // un tramo más alto, con contrafuerte de sillería
+          const bx = M.randInt(x0 + 2, Math.max(x0 + 3, x1 - 3));
+          pillar(r, bx, z - 1, 2, r.h - 3, BL().STONE);
+        };
+        wall(2, Math.round(W * 0.62), Math.round(D * 0.33));
+        wall(Math.round(W * 0.38), W - 3, Math.round(D * 0.66));
+        brazier(r, Math.round(W * 0.75), Math.round(D * 0.22));
+        brazier(r, Math.round(W * 0.2), Math.round(D * 0.8));
         scatterBarrels(r, 2, 0.4);
       },
     },
@@ -1059,28 +1106,77 @@
     return { x: r.uX((Math.min(p[0], q[0]) + Math.max(p[0], q[0]) + 1) / 2), z: r.uZ((Math.min(p[1], q[1]) + Math.max(p[1], q[1]) + 1) / 2) };
   }
 
+  // celdas (no unidades) a ras de suelo: alfombras de un vóxel de alto
+  function lrug(r, F, a0, b0, a1, b1, t, edge) {
+    for (let a = Math.min(a0, a1); a <= Math.max(a0, a1); a++)
+      for (let b = Math.min(b0, b1); b <= Math.max(b0, b1); b++) {
+        const [ux, uz] = F.T(a, b);
+        if (r.isReservedU(ux, uz)) continue;
+        const e = edge && (a === Math.min(a0, a1) || a === Math.max(a0, a1) || b === Math.min(b0, b1) || b === Math.max(b0, b1));
+        for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++) if (!r.get(x, 0, z)) r.set(x, 0, z, e ? edge : t);
+      }
+  }
+
+  // Tienda (0.43): penumbra cálida y acogedora. Pocas luces y bajas (un farol sobre el mostrador,
+  // focos sobre los pedestales, velas), alfombra roja hasta el mostrador, estanterías llenas de
+  // género y cajas y sacos por los rincones. Sin antorchas en las paredes.
+  // Los pedestales van lejos de los pasillos de las puertas laterales: antes, si la tienda tenía
+  // una salida a ese lado, al abrir el paso se borraba el pedestal y el objeto quedaba flotando.
   Pool.shop = [{
-    name: 'Tienda del vendedor', w: [30, 34], d: [30, 34],
+    name: 'Tienda del vendedor', w: [30, 34], d: [30, 34], noTorches: true, dim: 0.35, lit: true,
     build(r) {
-      const F = localFrame(r);
+      const F = localFrame(r), T = BL();
       const ca = Math.floor(F.A / 2), back = F.Bd - 3;
-      // mostrador al fondo, de cara a la entrada
-      lbox(r, F, ca - 6, back - 4, ca + 5, back - 4, 0, 1, BL().METAL, true);
-      lbox(r, F, ca - 7, back - 4, ca - 7, back - 1, 0, 1, BL().GOLDB, true);
-      lbox(r, F, ca + 6, back - 4, ca + 6, back - 1, 0, 1, BL().GOLDB, true);
-      lbox(r, F, ca - 5, back, ca + 4, back, 0, 5, BL().PLANK, true);           // estantería
-      const v = lcenter(r, F, ca - 1, back - 2, ca, back - 2);
+      // mostrador de madera oscura con remates dorados, de cara a la entrada
+      lbox(r, F, ca - 6, back - 5, ca + 5, back - 5, 0, 1, T.PLANK, true);
+      lbox(r, F, ca - 7, back - 5, ca - 7, back - 2, 0, 1, T.GOLDB, true);
+      lbox(r, F, ca + 6, back - 5, ca + 6, back - 2, 0, 1, T.GOLDB, true);
+      // estantería alta al fondo, llena de género de colores (frascos, rollos, cajas)
+      lbox(r, F, ca - 9, back, ca + 8, back, 0, 6, T.PLANK, true);
+      for (let a = ca - 8; a <= ca + 7; a++) for (const y of [1, 3]) if (Math.random() < 0.45) { const [ux, uz] = F.T(a, back - 1); if (!r.isReservedU(ux, uz)) r.box(ux, y, uz, ux, y, uz, T.PRODUCT); }
+      const v = lcenter(r, F, ca - 1, back - 3, ca, back - 3);
       r.features.push({ kind: 'vendor', x: v.x, z: v.z });
-      [-6, 0, 6].forEach((da, i) => {
-        const a = ca + da - 1, b = back - 10;
-        lbox(r, F, a, b, a + 1, b + 1, 0, 1, BL().METAL, true);
+      // pedestales de metal en fila delante del mostrador; con «Más altares» (Santuario) sale
+      // una segunda fila delante
+      const PR = VX.Profile, extra = PR ? PR.shopUp('altars') : 0;
+      const spots = [[-5, back - 9], [-1, back - 9], [3, back - 9]];
+      for (let i = 0; i < extra; i++) spots.push([[-1, -5, 3][i], back - 13]);
+      spots.forEach(([da, b], i) => {
+        const a = ca + da;
+        lbox(r, F, a, b, a + 1, b + 1, 0, 1, T.METAL, true);
         const c = lcenter(r, F, a, b, a + 1, b + 1);
-        r.features.push({ kind: 'shopSlot', slot: i, x: c.x, z: c.z, y: 1.0 });
+        r.features.push({ kind: 'shopSlot', slot: i, x: c.x, z: c.z, y: 1.0, ua: [a, b] });
+        r.features.push({ kind: 'light', x: c.x, y: 2.3, z: c.z, r: 2.6, c: [0.8, 0.62, 0.4] });   // foco sobre cada pedestal
       });
-      const L = lcenter(r, F, ca, back - 6, ca, back - 6);
-      r.features.push({ kind: 'light', x: L.x, y: 2.4, z: L.z, r: 10, c: [1.0, 0.75, 0.35] });
-      const [bx1, bz1] = F.T(3, back - 2), [bx2, bz2] = F.T(F.A - 5, back - 2);
-      brazier(r, bx1, bz1); brazier(r, bx2, bz2);
+      // altares especiales (Santuario): campana, caja misteriosa y altar de las almas.
+      // Van en huecos libres a los lados, lejos de los pasillos de las puertas.
+      const specials = [];
+      if (PR && PR.shopUp('bell')) specials.push(['bell', [0.9, 0.75, 0.3]]);
+      if (PR && PR.shopUp('mystery')) specials.push(['mystery', [0.7, 0.4, 1]]);
+      if (PR && PR.shopUp('souls')) specials.push(['souls', [0.75, 0.55, 1]]);
+      const cands = [[4, back - 7], [F.A - 6, back - 7], [4, back - 11], [F.A - 6, back - 11], [7, back - 3], [F.A - 9, back - 3], [4, back - 15], [F.A - 6, back - 15]];
+      const free = (a, b) => { for (let x = a - 1; x <= a + 2; x++) for (let y = b - 1; y <= b + 2; y++) { const [ux, uz] = F.T(x, y); if (r.isReservedU(ux, uz)) return false; } return true; };
+      for (const [what, col] of specials) {
+        const k = cands.findIndex(([a, b]) => free(a, b));
+        if (k < 0) break;
+        const [a, b] = cands.splice(k, 1)[0];
+        lbox(r, F, a, b, a + 1, b + 1, 0, 0, T.METAL, true);
+        lbox(r, F, a, b, a + 1, b + 1, 1, 1, T.GOLDB, true);
+        const c = lcenter(r, F, a, b, a + 1, b + 1);
+        r.features.push({ kind: 'shopSpecial', what, x: c.x, z: c.z, y: 1.0 });
+        r.features.push({ kind: 'light', x: c.x, y: 2.2, z: c.z, r: 3, c: col });
+      }
+      // alfombra roja con ribete dorado desde la entrada hasta los pedestales
+      lrug(r, F, ca - 2, 3, ca + 1, back - (extra ? 15 : 11), T.CLOTH, T.GOLDB);
+      // farol colgando sobre el mostrador (la luz principal, cálida y baja)
+      const L = lcenter(r, F, ca - 1, back - 4, ca, back - 4);
+      r.features.push({ kind: 'light', x: L.x, y: 2.5, z: L.z, r: 6.5, c: [0.85, 0.48, 0.2] });
+      // velas sobre el mostrador
+      for (const da of [-5, 4]) { const c = lcenter(r, F, ca + da, back - 5, ca + da, back - 5); r.pending.push({ type: 'candles', x: c.x - 0.12, z: c.z - 0.12, at: { y: 1.0, rot: 0 } }); r.features.push({ kind: 'light', x: c.x, y: 1.4, z: c.z, r: 3, c: [1, 0.6, 0.25] }); }
+      // rincones: cajas, sacos y barriles; un banco y una mesa cerca de la entrada para «descansar»
+      for (const [a, b] of [[2, back - 2], [F.A - 4, back - 2]]) { const c = lcenter(r, F, a, b, a + 1, b); r.queue(M.choice(['crate', 'barrel', 'sack']), c.x, c.z, {}, 2); }
+      const t1 = lcenter(r, F, ca - 8, 5, ca - 7, 6), t2 = lcenter(r, F, ca + 6, 5, ca + 7, 6);
+      r.queue('table', t1.x, t1.z, {}); r.queue('bench', t2.x, t2.z, { rot: 1 });
     },
   }];
 

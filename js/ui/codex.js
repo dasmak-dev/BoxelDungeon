@@ -102,6 +102,10 @@
       $('codexUps').innerHTML = VX.Upgrades.list.map((u) => {
         const ok = d.codex.ups.includes(u.id);
         const tag = u.rare ? ' ★' : u.curse ? ' ☠' : u.shop ? ' $' : '';
+        if (u.unlock && typeof u.unlock === 'object' && !VX.Profile.upUnlocked(u)) {
+          const c = u.unlock, v = Math.min(c.n, VX.Profile.upValue(c));
+          return `<div class="ce locked"><b>🔒 ${u.name}${tag}</b><small>${c.txt} (${v}/${c.n})</small></div>`;
+        }
         return ok ? `<div class="ce"><b>${u.name}${tag}</b><small>${u.desc}</small></div>` : `<div class="ce locked"><b>???${tag}</b><small>Sin descubrir</small></div>`;
       }).join('');
     },

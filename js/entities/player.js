@@ -65,7 +65,9 @@
       // cooperativo: en el suelo te arrastras muy despacio; muerto, no te mueves hasta la siguiente oleada
       const coopK = VX.Coop.down ? 0.16 : VX.Coop.deadWait ? 0 : 1;
       this.slowT = Math.max(0, (this.slowT || 0) - dt);   // aturdido (grito del chillón) o en ácido
-      const spd = this.speed * coopK * (this.slowT > 0 ? 0.55 : 1) * (sprint && fz > 0 && !game.weapon.scoped && coopK === 1 ? 1.45 : 1) * (wet ? 0.62 : 1) * (1 - (game.weapon.scopeK || 0) * 0.45);
+      if (this.adrenT > 0) { this.adrenT -= dt; if (this.adrenT <= 0) this.adrenN = 0; }
+      if (this.lungeT > 0) this.lungeT -= dt;
+      const spd = this.speed * (this.adrenT > 0 ? 1 + 0.15 * (this.adrenN || 1) : 1) * coopK * (this.slowT > 0 ? 0.55 : 1) * (sprint && fz > 0 && !game.weapon.scoped && coopK === 1 ? 1.45 : 1) * (wet ? 0.62 : 1) * (1 - (game.weapon.scopeK || 0) * 0.45);
       if (wet && Math.hypot(this.vx, this.vz) > 1 && Math.random() < 0.3) game.particles.spawn(this.x + M.rand(-0.3, 0.3), 0.12, this.z + M.rand(-0.3, 0.3), M.rand(-0.6, 0.6), M.rand(0.8, 1.6), M.rand(-0.6, 0.6), 0.45, 0.55, 0.6, 0.03, 0.6);
       const accel = this.onGround ? 14 : 4;
       if (!(this.dashT > 0)) {
@@ -89,6 +91,7 @@
         if (!l) { dx = sy; dz = cy; }
         this.dashX = dx; this.dashZ = dz;
         this.dashT = 0.2;
+        if (game.weapon.mods.lunge) this.lungeT = 1.2;   // embestida: el siguiente golpe pega más
         if (game.weapon.mods.dashPush) for (const e of game.enemies) {
           const dx = e.x - this.x, dz = e.z - this.z, d = Math.hypot(dx, dz);
           if (!e.dead && !e.isBoss && d < 2.2) { e.kx = (e.kx || 0) + dx / (d || 1) * 9; e.kz = (e.kz || 0) + dz / (d || 1) * 9; }
@@ -192,6 +195,13 @@
       if (this.dead || this.invuln > 0 || VX.Coop.down || VX.Coop.deadWait) return;
       this.hp -= amount;
       if (game.onPlayerHurt) game.onPlayerHurt();
+      const WM = game.weapon && game.weapon.mods;
+      if (WM && WM.counter) game.weapon.counterT = 1.5;
+      // segundo aliento: una vez por sala, al bajar de 25 de vida te curas 25
+      if (WM && WM.secondWind && this.hp > 0 && this.hp < 25 && game.currentRoom && game.currentRoom.swUsed !== true) {
+        game.currentRoom.swUsed = true; this.hp = Math.min(this.maxHp, this.hp + 25);
+        game.hud.banner('', '¡Segundo aliento! +25 de vida', 1.6);
+      }
       this.invuln = 0.25;
       this.hurtT = 0.5;
       const k = Math.min(1, amount / 30);

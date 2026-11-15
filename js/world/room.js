@@ -297,6 +297,7 @@
 
     placeTorches() {
       const BL = VX.Blocks;
+      if (this.template && this.template.noTorches) return;   // la tienda se ilumina a su manera
       // algunas salas están a oscuras: sin antorchas, hace falta la linterna (más cuanto más bajas)
       if (this.type === 'normal' && !this.template.lit && Math.random() < 0.28 + Math.min(0.22, this.index * 0.012)) { this.dark = true; return; }
       const y = 8, step = 44;   // pocas antorchas: la linterna es tu luz principal

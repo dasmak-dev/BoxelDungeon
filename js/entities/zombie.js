@@ -54,7 +54,7 @@
     archer: { ring: false, accel: 6, turn: 8, mass: 0.8, keep: [8, 13], faceClose: 15 },
     necro: { ring: false, accel: 4, turn: 5, mass: 1, keep: [8, 14] },
     exploder: { ring: false, accel: 6, turn: 6, mass: 1 },
-    shielder: { ring: true, accel: 4, turn: 7, mass: 1.8, ringAdd: -0.5, eager: 1.5, faceAlways: true },
+    shielder: { ring: true, accel: 4, turn: 5, mass: 1.8, ringAdd: -0.5, eager: 1.5, faceClose: 7, faceLos: true, turnMax: 2.6 },
     climber: { ring: true, accel: 9, turn: 9, mass: 0.8, ringAdd: 0.5, behind: true, climb: true, dodge: true },
     dog: { ring: false, accel: 11, turn: 10, mass: 0.7, dodge: true },
     skeleton: { ring: true, accel: 7, turn: 7, mass: 0.8 },
@@ -64,10 +64,10 @@
     miner: { ring: true, accel: 4, turn: 5, mass: 1.5, ringAdd: -0.3 },
     sporeling: { ring: true, accel: 8, turn: 8, mass: 0.8, ringAdd: 0.8, eager: 1 },
     bloater: { ring: true, accel: 3, turn: 3, mass: 3.2, ringAdd: -0.4 },
-    riot: { ring: true, accel: 4, turn: 6, mass: 2, ringAdd: -0.3, faceAlways: true },
+    riot: { ring: true, accel: 4, turn: 5, mass: 2, ringAdd: -0.3, faceClose: 7, faceLos: true, turnMax: 2.4 },
     screamer: { ring: false, accel: 6, turn: 7, mass: 0.8, keep: [9, 15] },
     crow: { ring: false, accel: 5, turn: 7, mass: 0.25 },
-    knight: { ring: true, accel: 3.5, turn: 4, mass: 3, ringAdd: -0.4, faceAlways: true, eager: 1.5 },
+    knight: { ring: true, accel: 3.5, turn: 4, mass: 3, ringAdd: -0.4, faceClose: 6, faceLos: true, turnMax: 2.2, eager: 1.5 },
     revenant: { ring: true, accel: 8, turn: 7, mass: 1, ringAdd: 0.4, eager: 1.2 },
     revpile: { ring: false, accel: 0, turn: 0, mass: 50 },
     hydra: { ring: true, accel: 5, turn: 5, mass: 1.1, eager: 1.2 },
@@ -202,6 +202,7 @@
       else if (this.biter && !this.T.quad) s *= 1.12;
       if (this.fuse > 0) s *= 0.75;
       if (this.chillT > 0) s *= 0.5;          // balas de hielo
+      if (this.suppressT > 0) s *= 0.7;       // fuego de supresión
       if (this.stunT > 0) s *= 0.15;          // descarga eléctrica
       return s;
     }
@@ -252,7 +253,9 @@
       if (this.wet) this.burn = 0;
       if (this.burn > 0) {
         this.burn -= dt;
-        this.hp -= 16 * dt;
+        this.hp -= (game.weapon.mods.blueFlame ? 26 : 16) * dt;   // llama azul: quema más deprisa
+        // inmolación: prende a los que tiene al lado
+        if (game.weapon.mods.immolate && Math.random() < dt * 2.5) for (const o of game.enemies) if (o !== this && !o.dead && !(o.burn > 0) && !(o.T && o.T.fireImmune) && Math.hypot(o.x - this.x, o.z - this.z) < 1.6) { o.burn = 3; break; }
         if (Math.random() < 0.15) game.particles.spawn(this.x + M.rand(-0.25, 0.25), this.y + M.rand(0.8, 1.8), this.z + M.rand(-0.25, 0.25), M.rand(-0.3, 0.3), M.rand(1.5, 2.5), M.rand(-0.3, 0.3), 1, M.rand(0.5, 0.8), 0.15, 0.018, M.rand(0.4, 0.8), 1, 1);
         if (this.hp <= 0 && this.spawnT <= 0) { this.die([0, 1, 0], game); return; }
       }
@@ -261,6 +264,15 @@
       // hielo, veneno y descarga (munición especial)
       if (this.chillT > 0) { this.chillT -= dt; b.flash = Math.max(b.flash, 0.12); if (Math.random() < 0.12) game.particles.spawn(this.x + M.rand(-0.3, 0.3), this.y + M.rand(0.3, 1.6), this.z + M.rand(-0.3, 0.3), 0, M.rand(-0.3, 0.2), 0, 0.75, 0.93, 1, 0.022, 0.6, 0.7, 1); }
       if (this.stunT > 0) this.stunT -= dt;
+      if (this.suppressT > 0) this.suppressT -= dt;
+      if (this.markT > 0) { this.markT -= dt; if (Math.random() < 0.25) game.particles.spawn(this.x + M.rand(-0.2, 0.2), this.y + this.body.height + 0.15, this.z + M.rand(-0.2, 0.2), 0, 0.3, 0, 1, 0.2, 0.2, 0.03, 0.35, 1, 1); }
+      // filo sangrante: pierde vida mientras sangra
+      if (this.bleedT > 0) {
+        this.bleedT -= dt;
+        if (!game.visualOnly && !VX.Coop.isClient) this.hp -= (this.bleedDps || 6) * dt;
+        if (Math.random() < 0.3) game.particles.blood(this.x, this.y + M.rand(0.5, 1.4), this.z, 0, -0.5, 0, 1);
+        if (this.hp <= 0 && this.spawnT <= 0) { this.die([0, 1, 0], game); return; }
+      }
       if (this.poisonT > 0) {
         this.poisonT -= dt;
         if (!game.visualOnly && !(VX.Coop.isClient)) this.hp -= (this.poisonDps || 8) * dt;
@@ -550,12 +562,17 @@
       // --- orientación: mira a donde camina; de cerca, al jugador ---
       let targetYaw = Math.atan2(dx, dz);
       const vl = Math.hypot(this.vx, this.vz);
-      if (!(dist < (B.faceClose || 3.2) || B.faceAlways || busy || this.state === 'chargeWind' || this.state === 'retreat' || vl < 0.35)) targetYaw = Math.atan2(this.vx, this.vz);
+      // faceLos: sólo te encara si te ve (si no, mira por donde va, como los demás)
+      const faceP = dist < (B.faceClose || 3.2) && (!B.faceLos || this.los);
+      if (!(faceP || B.faceAlways || busy || this.state === 'chargeWind' || this.state === 'retreat' || vl < 0.35)) targetYaw = Math.atan2(this.vx, this.vz);
       if (this.state === 'charge') targetYaw = Math.atan2(this.chargeX, this.chargeZ);
       let dy = targetYaw - b.yaw;
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
-      b.yaw += dy * Math.min(1, dt * (this.crawling ? 3 : B.turn));
+      let turnStep = dy * Math.min(1, dt * (this.crawling ? 3 : B.turn));
+      // turnMax: giro con velocidad máxima (rad/s): se gira con peso y, si lo rodeas deprisa, le pillas la espalda
+      if (B.turnMax && this.state !== 'charge') turnStep = M.clamp(turnStep, -B.turnMax * dt, B.turnMax * dt);
+      b.yaw += turnStep;
 
       // --- Ataque ---
       this.attackCd -= dt;
@@ -1103,8 +1120,9 @@
           return false;
         }
       }
-      const mult = pn === 'head' ? 2.5 * (game.dmgSource === 'gun' && game.weapon.mods.headMul || 1) : (pn.startsWith('arm') || pn.startsWith('leg') ? 0.7 : 1);
+      const mult = (pn === 'head' ? 2.5 * (game.dmgSource === 'gun' && game.weapon.mods.headMul || 1) : (pn.startsWith('arm') || pn.startsWith('leg') ? 0.7 : 1)) * (game.visualOnly ? 1 : game.weapon.hitMul(this, pn, opts, game));
       if (!game.visualOnly) this.hp -= dmg * mult;
+      if (!game.visualOnly) game.weapon.onHitFx(this, pn, dmg * mult, dir, opts, game);
       b.flash = 0.8;
       const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
       const along = dir[0] * fx + dir[2] * fz, side = dir[0] * fz - dir[2] * fx;
@@ -1265,6 +1283,10 @@
       if (this.T.explode) game.queueExplosion({ x: this.x, y: this.y + 0.8, z: this.z, R: 2.6, dmg: 42 + game.floor * 2, selfK: 1, delay: 0.25 });
       else if (game.weapon.mods.corpseBlast) game.queueExplosion({ x: this.x, y: this.y + 0.7, z: this.z, R: game.weapon.mods.bigCorpse ? 2.8 : 1.7, dmg: game.weapon.mods.bigCorpse ? 70 : 40, selfK: 0, delay: 0.3 });
       if (game.weapon.mods.burnHeal && this.burn > 0) game.player.heal(5);
+      // pirómano: los que mueren quemados devuelven combustible
+      if (game.weapon.mods.pyro && this.burn > 0) { const fl = game.weapon.slots.find((x) => x.id === 'flamer'); if (fl) fl.ammo = Math.min(game.weapon.magFor('flamer'), fl.ammo + Math.ceil(game.weapon.magFor('flamer') * 0.1)); }
+      // adrenalina: cada muerte acelera un poco (hasta 3 veces)
+      if (game.weapon.mods.adrenaline) { const P = game.player; P.adrenN = P.adrenT > 0 ? Math.min(3, (P.adrenN || 0) + 1) : 1; P.adrenT = 3; }
       if (!this.T.quad && game.remains) { game.remains.push({ x: this.x, z: this.z, kind: this.kind === 'necro' ? 'walker' : this.kind, t: game.time }); if (game.remains.length > 24) game.remains.shift(); }
       if (this.champion) {
         const up = VX.Upgrades.random(1, game, [], 'rare')[0];

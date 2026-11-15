@@ -154,8 +154,11 @@
         if (!this.noAmmoT || performance.now() - this.noAmmoT > 1500) { this.noAmmoT = performance.now(); VX.game && VX.game.hud.toast('¡Sin munición! Busca cajas o usa el cuchillo [V]'); }
         return;
       }
+      if (this.mods.belt && this.slot.ammo > 0) return;   // cinta de munición: no se recarga a mano
       this.reloading = true;
       this.reloadT = st.reload;
+      if (this.mods.tacReload && this.slot.ammo <= 0) this.reloadT *= 0.6;     // recarga táctica
+      if (this.mods.belt && this.slot.ammo <= 0) { this.reloadT = st.reload * 1.4; VX.game && VX.game.hud.toast('¡Recalentada!'); }
       VX.Audio.reload();
     }
 
@@ -239,6 +242,21 @@
       }
 
       const st = this.stats();
+      this.counterT = Math.max(0, (this.counterT || 0) - dt);
+      // cinta de munición: el arma recupera balas sola si no disparas
+      if (this.mods.belt && !st.melee && !this.def.grenade && !this.reloading) {
+        this.beltIdle = (this.beltIdle || 0) + dt;
+        if (this.beltIdle > 0.45 && this.slot.ammo < st.mag && (!this.limited || (this.slot.reserve || 0) > 0)) {
+          this.beltAcc = (this.beltAcc || 0) + st.mag * 0.55 * dt;
+          while (this.beltAcc >= 1 && this.slot.ammo < st.mag) { this.beltAcc -= 1; this.slot.ammo++; if (this.limited) this.slot.reserve--; }
+        }
+      }
+      // bocanada: al soltar el gatillo del lanzallamas sale una bola de fuego
+      if (this.def.flame && this.mods.fireball) {
+        if (I.mouseDown && this.slot.ammo > 0 && !this.reloading) this.flameHold = (this.flameHold || 0) + dt;
+        else if (this.flameHold > 0.25 && this.slot.ammo > 0 && game.player.hp > 0) { this.launchFireball(game, st); this.flameHold = 0; }
+        else this.flameHold = 0;
+      }
       if (this.reloading) {
         this.reloadT -= dt;
         if (this.reloadT <= 0) {
@@ -345,7 +363,7 @@
       const smash = this.swingType === 'smash';
       let hits = 0, kills = 0;
       game.dmgSource = 'hammer'; game.dmgWeapon = this.slot.id;
-      for (const list of [game.enemies, game.corpses]) for (const e of list) {
+      for (const list of [game.enemies, game.corpses, game.npcHit()]) for (const e of list) {
         if (e.dead || (e.spawnT && e.spawnT > 0.5)) continue;
         const ex = e.x - P.x, ez = e.z - P.z, dist = Math.hypot(ex, ez);
         if (dist > st.reach + (e.radius || 0.3)) continue;
@@ -409,7 +427,7 @@
       for (const a of fan) {
         const yaw = P.yaw + a * 0.6, pitch = P.pitch - (a === 0 ? 0 : 0.05);
         const dx = Math.sin(yaw) * Math.cos(pitch), dy = Math.sin(pitch), dz = Math.cos(yaw) * Math.cos(pitch);
-        for (const list of [game.enemies, game.corpses]) for (const e of list) {
+        for (const list of [game.enemies, game.corpses, game.npcHit()]) for (const e of list) {
           if (e.dead || (e.spawnT && e.spawnT > 0.5)) continue;
           const h = e.body.rayHit(ox, oy, oz, dx, dy, dz, reach);
           if (!h) continue;
@@ -431,6 +449,7 @@
         // los tajos anchos también cortan a los de al lado (con menos fuerza)
         for (const x of extra) if (x.e !== bestE && !x.e.dead) { const rr = { ox, oy, oz, dx: x.dir[0], dy: x.dir[1], dz: x.dir[2] }; x.e.hit(x.h, st.damage * mult * 0.7, rr, game, { slash: [ax / al, ay / al, az / al] }); }
         const killed = bestE.hit(best, st.damage * mult, ray, game, { slash: [ax / al, ay / al, az / al] });
+        this.meleeExtras(game, st, mult, bestE, [ax / al, ay / al, az / al]);
         game.dmgSource = null;
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
         if (killed && this.mods.meleeHeal && !bestE.isCorpse) game.player.heal(4);   // sinergia Berserker
@@ -440,6 +459,9 @@
         P.knock(Math.sin(P.yaw) * 1.5, Math.cos(P.yaw) * 1.5);
         return;
       }
+      game.dmgSource = 'knife'; game.dmgWeapon = 'knife';
+      this.meleeExtras(game, st, 1, null, [-cy, 0.6, sy]);
+      game.dmgSource = null;
       const dx = sy * cp, dy = sp, dz = cy * cp;
       const ph = game.world.propHit(ox, oy, oz, dx, dy, dz, st.reach);
       if (ph) {
@@ -452,6 +474,43 @@
         game.world.damageSphere(w.x + dx * 0.05, w.y + dy * 0.05, w.z + dz * 0.05, 0.22, 35, game);
         game.particles.sparks(w.x, w.y, w.z, w.nx, w.ny, w.nz, 6);
         VX.Audio.wall();
+      }
+    }
+
+    // Torbellino y Hoja arrojadiza (mejoras de cuerpo a cuerpo)
+    meleeExtras(game, st, mult, hitE, slash) {
+      const m = this.mods, P = game.player;
+      const ox = P.eyeX(), oy = P.eyeY(), oz = P.eyeZ();
+      if (m.whirl) {
+        // corta a todos los que tengas alrededor
+        const R = st.reach * (m.hurricane ? 1.6 : 1.25), k = m.hurricane ? 1 : 0.6;
+        for (const e of game.enemies) {
+          if (e.dead || e === hitE || (e.spawnT && e.spawnT > 0.5)) continue;
+          if (Math.hypot(e.x - P.x, e.z - P.z) > R + (e.radius || 0.3)) continue;
+          let dx = e.body.cx - ox, dy = e.body.cy - oy, dz = e.body.cz - oz; const l = Math.hypot(dx, dy, dz) || 1; dx /= l; dy /= l; dz /= l;
+          const h = e.body.rayHit(ox, oy, oz, dx, dy, dz, R + 1.5);
+          if (h) e.hit(h, st.damage * mult * k, { ox, oy, oz, dx, dy, dz }, game, { slash });
+        }
+        for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; game.particles.spawn(P.x + Math.sin(a) * R * 0.8, oy - 0.4, P.z + Math.cos(a) * R * 0.8, Math.cos(a) * 2, 0, -Math.sin(a) * 2, 0.85, 0.9, 1, 0.02, 0.18, 1, 1); }
+      }
+      if (m.throwBlade) {
+        this.bladeN = ((this.bladeN || 0) + 1) % 3;
+        if (this.bladeN === 0) {
+          // hoja fantasma: vuela 12 m y atraviesa hasta 3 enemigos
+          const cp = Math.cos(P.pitch), dx = Math.sin(P.yaw) * cp, dy = Math.sin(P.pitch), dz = Math.cos(P.yaw) * cp;
+          const wh = game.world.raycast(ox, oy, oz, dx, dy, dz, 12);
+          const maxT = wh ? wh.t : 12;
+          const hits = [];
+          for (const e of game.enemies) {
+            if (e.dead || (e.spawnT && e.spawnT > 0.5)) continue;
+            const h = e.body.rayHit(ox, oy, oz, dx, dy, dz, maxT);
+            if (h) hits.push({ e, h });
+          }
+          hits.sort((a, b) => a.h.t - b.h.t);
+          for (const x of hits.slice(0, 3)) x.e.hit(x.h, st.damage * 1.2, { ox, oy, oz, dx, dy, dz }, game, { slash: [-Math.cos(P.yaw), 0.2, Math.sin(P.yaw)] });
+          this.tracers.push({ x0: ox + dx * 0.5, y0: oy - 0.1, z0: oz + dz * 0.5, x1: ox + dx * maxT, y1: oy + dy * maxT, z1: oz + dz * maxT, life: 0.22, max: 0.22, w: 4, c: [0.6, 0.85, 1] });
+          VX.Audio.swish();
+        }
       }
     }
 
@@ -512,6 +571,12 @@
 
     fire(game, st) {
       const P = game.player, d = this.def;
+      // primer disparo y últimas balas (se miran antes de gastar la bala)
+      this.shotFirst = !!this.mods.firstShot && this.slot.ammo >= st.mag;
+      this.shotLast = !!this.mods.lastRounds && this.slot.ammo - 1 < st.mag * 0.2;
+      this.beltIdle = 0;
+      // detonador remoto: disparar otra granada hace estallar las que están pegadas
+      if (d.grenade && this.mods.remote) for (const g of this.grenades) if (g.stuck && !g.dead && !g.mini) { g.dead = true; this.explode(game, g); }
       this.slot.ammo--;
       this.cooldown = 1 / st.fireRate;
       this.kick = 1; this.slide = 1; this.flash = 1;
@@ -537,6 +602,7 @@
         this.grenades.push({
           x: mx, y: my, z: mzz, vx: fwd[0] * sp0 + P.vx * 0.5, vy: fwd[1] * sp0 + 2.5, vz: fwd[2] * sp0 + P.vz * 0.5,
           life: 4, rot: 0, dmg: st.damage, blast: d.blast * Math.sqrt(st.destruction) * (this.mods.blastR || 1), destr: st.destruction,
+          bounces: this.mods.bouncy ? 1 : 0,
         });
         if (coopDirs) VX.Coop.shareGrenade(this.grenades[this.grenades.length - 1]);
       } else {
@@ -564,6 +630,12 @@
         if (coopDirs) VX.Coop.shareShot(game, ox, oy, oz, coopDirs, this.slot.id, st.damage, st.destruction, mx, my, mzz, this.mods);
       }
       this.applyRecoil(P, d);
+      this.shotFirst = this.shotLast = false;
+      // retroceso propulsor: con perdigones en el aire, el disparo te empuja hacia atrás y arriba
+      if (this.mods.recoilJump && st.pellets > 1 && !P.onGround) {
+        P.vy = Math.max(P.vy, 6.8);
+        P.knock(-fwd[0] * 7, -fwd[2] * 7);
+      }
       const shell = d.pellets > 1;
       game.particles.spawn(mx - fwd[0] * 0.3, my, mzz - fwd[2] * 0.3, -right[0] * 2.5 + M.rand(-0.5, 0.5), 2.5, -right[2] * 2.5 + M.rand(-0.5, 0.5),
         shell ? 0.8 : 0.85, shell ? 0.15 : 0.65, shell ? 0.1 : 0.25, shell ? 0.035 : 0.025, 1.5, 0.2);
@@ -588,7 +660,7 @@
 
       while (true) {
         let best = null, bestE = null;
-        for (const list of [game.enemies, game.corpses]) {
+        for (const list of [game.enemies, game.corpses, game.npcHit()]) {
           for (const e of list) {
             if (e.dead || ignore.has(e) || (e.spawnT && e.spawnT > 0.5)) continue;
             const h = e.body.rayHit(ox, oy, oz, dx, dy, dz, best ? best.t : maxT);
@@ -604,7 +676,8 @@
         const killed = bestE.hit(best, dmg, ray, game);
         if (!game.visualOnly) this.bulletFx(game, bestE, best, dmg, killed);
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
-        if (this.def.flame && !killed && !bestE.isBoss && !(bestE.T && bestE.T.fireImmune)) bestE.burn = Math.max(bestE.burn || 0, 3);   // lanzallamas: arde
+        if (this.def.flame && !killed && !bestE.isBoss && !(bestE.T && bestE.T.fireImmune)) bestE.burn = Math.max(bestE.burn || 0, this.mods.blueFlame ? 2 : 3);   // lanzallamas: arde
+        if (this.def.flame && this.mods.tar && Math.random() < 0.04 && game.addFire && !bestE.isCorpse) game.addFire(bestE.x, bestE.z, 0.7, 5);
         ignore.add(bestE);
         if (pierce > 0) { pierce--; dmg *= 0.75; continue; }
         endT = best.t + 0.4; stoppedByEnemy = true;
@@ -620,7 +693,7 @@
       this.rayKind = stoppedByEnemy ? 1 : wHit ? 2 : 0;
       if (!stoppedByEnemy && wHit && this.def.flame) {
         // el fuego no agujerea: chamusca y a veces prende el suelo
-        if (Math.random() < 0.05 && wHit.ny > 0.5 && game.addFire) game.addFire(wHit.x, wHit.z, 0.5, 2.5);
+        if (Math.random() < (this.mods.tar ? 0.3 : 0.05) && wHit.ny > 0.5 && game.addFire) game.addFire(wHit.x, wHit.z, this.mods.tar ? 0.7 : 0.5, this.mods.tar ? 6 : 2.5);   // brea: charcos que arden
         game.dmgSource = null;
         return;
       }
@@ -631,6 +704,7 @@
         if (this.mods.explosive && !this.def.flame) this.bulletBoom(game, wHit.x - dx * 0.1, wHit.y - dy * 0.1, wHit.z - dz * 0.1, st.damage);
         game.particles.sparks(wHit.x, wHit.y, wHit.z, wHit.nx, wHit.ny, wHit.nz, 4);
         if (!n && game.addBulletHole) game.addBulletHole(wHit);   // el agujero se queda en la pared
+        if (this.mods.magnesium && st.pellets > 1 && Math.random() < 0.07 && wHit.ny > 0.5 && game.addFire) game.addFire(wHit.x, wHit.z, 0.6, 3);
         if (this.mods.napalm && this.mods.fire && Math.random() < 0.3 && wHit.y < game.world.groundAt(wHit.x, wHit.z) + 0.6) game.addFire(wHit.x, wHit.z, 0.5, 3);
         const col = VX.Blocks.color(wHit.block, wHit.gx, wHit.gy, wHit.gz, [0, 0, 0, 0]);
         for (let i = 0; i < 4; i++)
@@ -679,18 +753,48 @@
 
     // ---------------- Granadas ----------------
     updateGrenades(dt, game) {
+      const m = this.mods;
       for (const g of this.grenades) {
         if (g.type) { g.life -= dt; VX.Throw.step(this, game, g, dt); continue; }   // objetos arrojables
-        g.vy -= 14 * dt;
+        if (g.stuck) {
+          // granada pegada (detonador remoto) o mina: espera
+          g.life -= dt; g.armT = Math.max(0, (g.armT || 0) - dt);
+          if (Math.random() < dt * 3) game.particles.spawn(g.x, g.y + 0.06, g.z, 0, 0.3, 0, 1, 0.15, 0.1, 0.03, 0.2, 1, 1);
+          let boom = g.life <= 0;
+          if (g.mine && g.armT <= 0) for (const e of game.enemies) if (!e.dead && Math.hypot(e.x - g.x, e.z - g.z) < 1.7 && Math.abs(e.y - g.y) < 2) { boom = true; break; }
+          if (boom) { g.dead = true; this.explode(game, g); }
+          continue;
+        }
+        const px = g.x, py = g.y, pz = g.z;
+        g.vy -= (g.fireball ? 2.5 : 14) * dt;
         g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
         g.rot += dt * 10; g.life -= dt;
-        if (Math.random() < 0.6) game.particles.spawn(g.x, g.y, g.z, 0, 0.4, 0, 0.35, 0.33, 0.32, 0.05, 0.6, 0, 1);
-        let hit = g.life <= 0 || game.world.isSolidAt(g.x, g.y, g.z) || g.y < 0.05;
-        if (!hit) for (const e of game.enemies) {
+        if (g.fireball) { for (let i = 0; i < 3; i++) game.particles.spawn(g.x + M.rand(-0.1, 0.1), g.y + M.rand(-0.1, 0.1), g.z + M.rand(-0.1, 0.1), M.rand(-0.6, 0.6), M.rand(0, 1), M.rand(-0.6, 0.6), 1, M.rand(0.35, 0.75), 0.1, M.rand(0.06, 0.12), M.rand(0.25, 0.5), 1, 1); }
+        else if (g.mini) { if (Math.random() < 0.7) game.particles.spawn(g.x, g.y, g.z, 0, 0.2, 0, g.col ? g.col[0] : 1, g.col ? g.col[1] : 0.7, g.col ? g.col[2] : 0.2, 0.03, 0.3, 1, 1); }
+        else if (Math.random() < 0.6) game.particles.spawn(g.x, g.y, g.z, 0, 0.4, 0, 0.35, 0.33, 0.32, 0.05, 0.6, 0, 1);
+        let enemyHit = false;
+        for (const e of game.enemies) {
           if (e.dead) continue;
-          if (Math.hypot(e.body.cx - g.x, e.body.cy - g.y, e.body.cz - g.z) < (e.isBoss ? 1.3 : 0.7)) { hit = true; break; }
+          if (Math.hypot(e.body.cx - g.x, e.body.cy - g.y, e.body.cz - g.z) < (e.isBoss ? 1.3 : g.fireball ? 0.9 : 0.7)) { enemyHit = true; break; }
         }
-        if (hit) {
+        const solid = game.world.isSolidAt(g.x, g.y, g.z) || g.y < 0.05;
+        if (!enemyHit && solid && g.bounces > 0 && !g.remote) {
+          // rebotadoras: rebota en lo que toque
+          g.bounces--;
+          const floor = game.world.isSolidAt(px, g.y, pz);
+          g.x = px; g.y = py; g.z = pz;
+          if (floor) g.vy = Math.abs(g.vy) * 0.55; else { g.vx *= -0.6; g.vz *= -0.6; g.vy *= 0.7; }
+          VX.Audio.wall();
+          continue;
+        }
+        if (!enemyHit && !g.remote && !g.mini && !g.fireball && (solid || g.life <= 0) && (m.remote || m.mine)) {
+          // se queda pegada donde cae
+          g.x = px; g.y = solid ? py : g.y; g.z = pz; g.vx = g.vy = g.vz = 0;
+          g.stuck = true; g.mine = !!m.mine; g.armT = 0.6; g.life = m.remote ? 30 : 20;
+          VX.Audio.click();
+          continue;
+        }
+        if (enemyHit || solid || g.life <= 0) {
           g.dead = true;
           // granada de un compañero: sólo rompe paredes y se ve (el daño a los zombis lo cuenta su dueño)
           if (g.remote) { game.visualOnly = true; try { game.explode({ x: g.x, y: g.y, z: g.z, R: g.blast, dmg: g.dmg, destr: g.destr, selfK: 0, weapon: 'launcher' }); } finally { game.visualOnly = false; } }
@@ -702,7 +806,72 @@
     }
 
     explode(game, g) {
-      game.explode({ x: g.x, y: g.y, z: g.z, R: g.blast, dmg: g.dmg, destr: g.destr, weapon: 'launcher' });
+      const m = this.mods;
+      if (g.fireball) {
+        // bocanada: estalla y deja el suelo ardiendo (con «Dragón», una columna de llamas)
+        game.explode({ x: g.x, y: g.y, z: g.z, R: m.dragon ? 2.2 : 1.6, dmg: g.dmg * (m.dragon ? 1.4 : 1), destr: 0.6, selfK: 0, weapon: 'flamer' });
+        if (game.addFire) game.addFire(g.x, g.z, m.dragon ? 1.8 : 1.1, m.dragon ? 7 : 4);
+        if (m.dragon) for (let i = 0; i < 30; i++) game.particles.spawn(g.x + M.rand(-0.5, 0.5), game.world.groundAt(g.x, g.z) + 0.2, g.z + M.rand(-0.5, 0.5), M.rand(-0.5, 0.5), M.rand(4, 9), M.rand(-0.5, 0.5), 1, M.rand(0.3, 0.7), 0.08, M.rand(0.08, 0.15), M.rand(0.5, 1), 1, 1);
+        return;
+      }
+      game.explode({ x: g.x, y: g.y, z: g.z, R: g.blast, dmg: g.dmg, destr: g.destr, weapon: 'launcher', small: !!g.mini });
+      // racimo: suelta minigranadas (con «Fuegos artificiales», 5 y de colores)
+      if (m.cluster && !g.mini) {
+        const n = m.fireworks ? 5 : 3;
+        const COLS = [[1, 0.3, 0.3], [0.3, 1, 0.4], [0.4, 0.6, 1], [1, 0.9, 0.3], [1, 0.4, 1]];
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + Math.random(), sp = M.rand(3, 5);
+          this.grenades.push({ mini: true, x: g.x, y: g.y + 0.3, z: g.z, vx: Math.cos(a) * sp, vy: M.rand(4, 6.5), vz: Math.sin(a) * sp, life: M.rand(0.7, 1.1), rot: 0,
+            dmg: g.dmg * 0.4, blast: g.blast * 0.6, destr: g.destr * 0.5, bounces: 0, col: m.fireworks ? COLS[i % COLS.length] : null });
+        }
+      }
+    }
+
+    // bola de fuego del lanzallamas (mejora «Bocanada»): gasta un poco de depósito
+    launchFireball(game, st) {
+      const P = game.player;
+      const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch), sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
+      const [mx, my, mz] = this.muzzle || [P.eyeX(), P.eyeY(), P.eyeZ()];
+      this.slot.ammo = Math.max(0, this.slot.ammo - 6);
+      this.grenades.push({ fireball: true, x: mx, y: my, z: mz, vx: sy * cp * 20, vy: sp * 20 + 1, vz: cy * cp * 20, life: 1.6, rot: 0, dmg: st.damage * 9, blast: 1.6, destr: 0.6, bounces: 0 });
+      VX.Audio.at ? VX.Audio.explosion(0.15) : 0;
+      game.shake(0.1);
+    }
+
+    // ---- mejoras 0.44: multiplicador de daño según la situación ----
+    hitMul(e, pn, opts, game) {
+      const m = this.mods, P = game.player;
+      const gun = game.dmgSource === 'gun', melee = game.dmgSource === 'knife' || game.dmgSource === 'hammer';
+      let k = 1;
+      if (gun && this.shotFirst) k *= 2;
+      if (gun && this.shotLast) k *= 1.4;
+      if (gun && m.pointBlank && Math.hypot(e.x - P.x, e.z - P.z) < 2.5) k *= 1.6;
+      if (gun && m.blueFlame && this.def.flame) k *= 1.4;
+      if (e.markT > 0) k *= 1.3;
+      if (m.berserkPact) k *= 1 + 0.6 * M.clamp(1 - P.hp / P.maxHp, 0, 1);
+      if (melee) {
+        if (m.lunge && P.lungeT > 0) { k *= 1.8; P.lungeT = 0; game.hud.toast('¡Embestida!'); }
+        if (m.counter && this.counterT > 0) { k *= 3; this.counterT = 0; game.hud.toast('¡Contraataque!'); }
+        if (m.execute && !e.isBoss && e.maxHp && e.hp > 0 && e.hp < e.maxHp * 0.25) { k *= 40; e.executed = true; }
+      }
+      return k;
+    }
+    // efectos al alcanzar a un enemigo (después del daño)
+    onHitFx(e, pn, dmg, dir, opts, game) {
+      const m = this.mods, P = game.player;
+      const gun = game.dmgSource === 'gun', melee = game.dmgSource === 'knife' || game.dmgSource === 'hammer';
+      if (m.bleed && melee && !e.isBoss) { e.bleedT = 4; e.bleedDps = Math.max(e.bleedDps || 0, 6 + dmg * 0.12); }
+      if (gun && m.knee && pn && pn.startsWith('leg') && !e.isBoss && !e.crawling && e.state !== 'stun' && e.state !== 'charge') { e.state = 'stun'; e.stateT = 1.0; e.kx = (e.kx || 0) + dir[0] * 2; e.kz = (e.kz || 0) + dir[2] * 2; }
+      if (gun && m.suppress) e.suppressT = 1.5;
+      if (gun && m.pointBlank && Math.hypot(e.x - P.x, e.z - P.z) < 2.5) { e.kx = (e.kx || 0) + dir[0] * 5; e.kz = (e.kz || 0) + dir[2] * 5; }
+      if (gun && m.magnesium && this.stats().pellets > 1 && !(e.T && e.T.fireImmune)) e.burn = Math.max(e.burn || 0, 3);
+      if (gun && m.mark && !(this.marked && !this.marked.dead && this.marked.markT > 0)) { this.marked = e; e.markT = 5; }
+      if (e.executed && melee) {
+        e.executed = false;
+        game.particles.blood(e.body.cx, e.body.cy, e.body.cz, dir[0] * 2, 1, dir[2] * 2, 30);
+        game.shake(0.2); VX.Audio.splat && VX.Audio.splat();
+        if (m.butcher) game.pickups.dropHeart(e.x, e.y + 1, e.z, 10);
+      }
     }
 
     // ---------------- Render ----------------
@@ -719,8 +888,11 @@
       for (const g of this.grenades) {
         if (g.type) { VX.Throw.render(batch, g, (VX.game && VX.game.time) || 0); continue; }
         const q = M.qAxis(0.6, 0.3, 0.74, g.rot);
+        if (g.fireball) { batch.rbox(g.x, g.y, g.z, 0.22, 0.22, 0.22, q, 1, 0.55, 0.1, 1); batch.rbox(g.x, g.y, g.z, 0.12, 0.12, 0.12, q, 1, 0.95, 0.6, 1); continue; }
+        if (g.mini) { const c = g.col || [0.35, 0.36, 0.3]; batch.rbox(g.x, g.y, g.z, 0.06, 0.06, 0.06, q, c[0], c[1], c[2], g.col ? 0.8 : 0); continue; }
         batch.rbox(g.x, g.y, g.z, 0.09, 0.09, 0.13, q, 0.3, 0.36, 0.22, 0);
-        batch.rbox(g.x, g.y + 0.05, g.z, 0.03, 0.03, 0.03, q, 1, 0.2, 0.1, 1);
+        const blink = g.stuck ? (Math.sin((VX.game ? VX.game.time : 0) * (g.mine ? 14 : 6)) > 0 ? 1 : 0.15) : 1;
+        batch.rbox(g.x, g.y + 0.05, g.z, 0.03, 0.03, 0.03, q, 1, 0.2 * blink, 0.1 * blink, blink);
       }
     }
 

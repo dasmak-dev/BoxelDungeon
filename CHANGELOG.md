@@ -3,6 +3,72 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.45.0] — 2026-11-15
+
+### Añadido
+- **La tienda se mejora con esencia**: nueva sección **LA TIENDA** en el Santuario con 8 mejoras permanentes:
+  - **Más altares** (3 niveles): +1 pedestal de venta por nivel (hasta 6), en una segunda fila.
+  - **Género selecto** (3): uno de los altares puede traer una mejora rara ★ (20/35/50 %).
+  - **Rebajas** (2): uno o dos altares a mitad de precio.
+  - **Campana del vendedor** (2): altar con campana; pagas oro y el vendedor repone todo el género (1 o 2 veces por tienda, cada vez más caro).
+  - **Caja misteriosa**: altar con una mejora sorpresa (normal, rara… o maldita).
+  - **Altar de las almas**: cambia oro por esencia dentro de la tienda (+5 cada vez, cada ofrenda más cara).
+  - **Botica** (2): el botiquín de la tienda cura +60 / +80.
+  - **Paciencia** (2): el vendedor sube menos los precios cuando le pegas y aguanta una muerte más (por nivel) antes de cerrar o volverse hostil.
+- Los altares especiales tienen remate dorado y su propia luz, y se colocan siempre lejos de los pasillos de las puertas.
+
+## [0.44.0] — 2026-11-15
+
+### Añadido
+- **29 mejoras nuevas**, sobre todo para los estilos que tenían pocas:
+  - **Cuerpo a cuerpo**: Ejecución (remata a los que tienen menos del 25 % de vida), Embestida (tras esquivar, +80 % al siguiente golpe), Torbellino (cortas a todos los de alrededor), Filo sangrante ★ (sangrado 4 s), Contraataque ★ (si te golpean, el siguiente golpe hace el triple), Hoja arrojadiza ★ (cada tercer tajo lanza una hoja fantasma que atraviesa enemigos).
+  - **Fuego**: Llama azul (+40 % y quema más deprisa), Brea (charcos ardiendo), Pirómano (los quemados te devuelven combustible), Bocanada ★ (al soltar el gatillo sale una bola de fuego), Inmolación ★ (el fuego se contagia).
+  - **Explosivos**: Rebotadoras, Racimo (3 minigranadas), Detonador remoto (las granadas se pegan y estallan al volver a disparar), Onda de choque ★ (lanza por los aires y aturde), Mina de proximidad ★.
+  - **Precisión**: Primer disparo (la primera bala del cargador hace el doble), Disparo en la rodilla (derriba), Marcar ★ (+30 % de daño al marcado).
+  - **Ráfaga**: Fuego de supresión (frena), Últimas balas (+40 % al final del cargador), Cinta de munición ★ (no recargas: el arma recupera balas sola; si la vacías, se recalienta).
+  - **Perdigones**: Retroceso propulsor (salto extra disparando en el aire), Boca a boca (+60 % y empujón a quemarropa), Dragón de magnesio ★ (perdigones incendiarios).
+  - **Generales**: Segundo aliento (una vez por sala te curas 25 al bajar de 25), Adrenalina (velocidad al matar), Recarga táctica (vacío = 40 % más rápido) y la maldición **Pacto del berserker** (hasta +60 % de daño cuanta menos vida, pero sin botiquines).
+  - **4 sinergias nuevas**: Carnicero (Ejecución + Filo sangrante), Huracán (Torbellino + Muñecas de hierro), Dragón (Bocanada + Mezcla caliente) y Fuegos artificiales (Racimo + Carga reforzada).
+- **Mejoras que se desbloquean luchando**: 17 de las nuevas no salen hasta que cumples su reto (se guarda entre partidas): matar cierto número de un enemigo concreto (40 Perros zombi, 25 Caballeros negros, 60 Esqueletos arqueros, 50 Explosivos, 20 Hidras, 60 Brutos…), derrotar a un jefe concreto (Carnicero, Coloso, Capataz, Reina Micelio) o acumular muertes y jefes. Al cumplirlo sale «¡NUEVA MEJORA DESBLOQUEADA!»; en el Códice aparecen con su candado y su progreso, y la pantalla de muerte te dice cuáles tienes más cerca.
+
+### Cambiado
+- **Salas rediseñadas** que no encajaban con el estilo del juego:
+  - **Columnata**: ya no es una cuadrícula de columnas iguales; ahora es una nave de catedral con dos filas de columnas gruesas (alguna partida, con sus tambores en el suelo), braseros, pasillo central de losas y estatuas al fondo.
+  - **Almacén abandonado**: fuera las estanterías de libros (en unas cloacas o una mina no pintaban nada); ahora es la despensa de la guarnición, con pasillos de palés cargados de cajas, sacos y barriles y la mesa del intendente.
+  - **Salón en cruz**: las cuatro esquinas eran bloques lisos; ahora son capillas con arcos que dan al cruce, con estatuas o sepulcros dentro, y una fuente rodeada de braseros en el centro.
+  - **Sala en zigzag**: los dos bloques lisos son ahora muros viejos medio derruidos, con contrafuertes y escombros.
+  - **Cresta**: sin cajas en mitad de la roca; piedras, huesos y, según el bioma, cristales o setas.
+
+## [0.43.3] — 2026-11-15
+
+### Cambiado
+- **Nuevo estallido para las balas explosivas**: ya no es una explosión grande en miniatura (bola de fuego blanda y anillo en el suelo). Ahora es un golpe seco: destello blanco cegador, púas de luz en estrella, una onda esférica de metralla que se abre en un instante, chispas muy rápidas en todas direcciones y una bocanada de humo negro con brasas. Más luz en el impacto, algo más de temblor de pantalla y cascotes. El daño no cambia.
+
+## [0.43.2] — 2026-11-15
+
+### Cambiado
+- **Antidisturbios, Escudero y Caballero negro se giran de forma más natural**: antes te encaraban siempre y al instante, aunque estuvieran dando la vuelta a una esquina (andaban de lado o de espaldas mirándote). Ahora, como los demás, miran hacia donde caminan y sólo te encaran cuando te tienen a la vista y cerca (6-7 m). Además se giran con peso, a una velocidad máxima: si los rodeas deprisa (o con un dash) les puedes pillar el costado o la espalda.
+
+## [0.43.1] — 2026-11-15
+
+### Corregido
+- Los mensajes del vendedor salían con código HTML a la vista (`<span …>Vendedor:</span>`). Ahora se lee «Vendedor: «…»» limpio.
+
+## [0.43.0] — 2026-11-15
+
+### Añadido
+- **El vendedor es ahora un bicho**: encorvado, de piel gris verdosa, orejas largas que asoman por la capucha, nariz de garfio y ojos de farol; túnica morada con ribetes dorados, mochila con petate, farol en la mano y bolsa de monedas. Tiene animaciones: respira, te sigue con la mirada, mueve las orejas, cuenta monedas, mira el farol, se rasca la cabeza, se apoya en el mostrador cuando te acercas y te saluda al entrar.
+- **Se le puede disparar y romper a trozos** (orejas, nariz, brazos, cabeza…). Por dentro está lleno de oro y de un icor morado que brilla, y todo le vuelve a crecer. Cada golpe **sube los precios** de la tienda, y arrancarle algo los sube más.
+- **Es inmortal**: si lo «matas» se deshace en un remolino de oro e icor y vuelve a formarse de los pies a la cabeza, cada vez **más rápido y más fuerte** (más vida, regenera antes, y los ojos se le van poniendo rojos), pero **siempre del mismo tamaño**. Cada muerte: +25 % a los precios.
+- **A la tercera muerte se harta**: o **cierra la tienda** (se lleva el género y no habrá tiendas en unas cuantas salas) o **se vuelve hostil**: se teletransporta a tu lado, te sacude con el farol y te lanza abanicos de monedas. Hostil sigue siendo inmortal, y cada vez que vuelve lo hace antes y pega más: lo único que puedes hacer es salir de la tienda.
+- **Te recuerda**: si en esta partida ya lo mataste, en la siguiente tienda te saluda con rencor y los precios empiezan algo más altos. El mercader errante y el de la horda tienen el mismo aspecto nuevo.
+
+### Cambiado
+- **Tienda rediseñada**: penumbra cálida y acogedora, sin antorchas en las paredes. Un farol sobre el mostrador de madera, focos pequeños sobre cada pedestal, velas en el mostrador, alfombra roja con ribete dorado desde la entrada, estantería con género al fondo, cajas y sacos en los rincones y una mesa y un banco junto a la puerta. Al entrar, la luz ambiental baja.
+
+### Corregido
+- **Pedestales que no salían** (el objeto flotaba junto a la pared): los dos pedestales de los lados quedaban dentro del pasillo de las puertas laterales de la tienda y, al abrir el paso, se borraban (pasaba en 1 de cada 6 tiendas, más o menos). Ahora los pedestales están en el centro, lejos de las puertas, y además se rehacen si algo los borra.
+
 ## [0.42.0] — 2026-11-14
 
 ### Cambiado
