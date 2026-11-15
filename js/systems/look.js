@@ -24,7 +24,8 @@
       ['Negro', [0.08, 0.07, 0.07]], ['Castaño', [0.3, 0.18, 0.09]], ['Rubio', [0.75, 0.6, 0.3]], ['Pelirrojo', [0.6, 0.25, 0.1]], ['Canoso', [0.7, 0.7, 0.7]], ['Azul', [0.2, 0.35, 0.8]],
       ['Rosa', [0.9, 0.4, 0.6]], ['Verde', [0.3, 0.7, 0.35]], ['Platino', [0.88, 0.85, 0.75]],
     ] },
-    cut: { name: 'Peinado', list: [['Corto'], ['Rapado'], ['Largo'], ['Cresta'], ['Coleta'], ['Afro'], ['Tupé'], ['Melena'], ['Calvo'], ['Dos coletas'], ['Moño']] },
+    cut: { name: 'Peinado', list: [['Corto'], ['Rapado'], ['Largo'], ['Cresta'], ['Coleta'], ['Afro'], ['Tupé'], ['Melena'], ['Calvo'], ['Dos coletas'], ['Moño'],
+      ['Rizos'], ['Trenza'], ['Pinchos'], ['Flequillo'], ['Rastas'], ['Coleta alta'], ['Raya al lado'], ['Mohicano']] },
     hat: { name: 'Cabeza', list: [['Nada'], ['Gorra'], ['Casco militar'], ['Gorro de lana'], ['Capucha'], ['Sombrero'], ['Cinta'], ['Casco de minero'],
       ['Gorra al revés'], ['Bandana'], ['Boina'], ['Lazo'], ['Diadema'], ['Auriculares'], ['Orejas de gato'], ['Corona de flores']] },
     extra: { name: 'Cara', list: [['Nada'], ['Gafas de sol'], ['Mascarilla'], ['Mochila'], ['Bufanda'], ['Parche'],
@@ -56,7 +57,7 @@
         skin: C('skin'), shirt: C('shirt'), pants: C('pants'), shoes: [0.12, 0.1, 0.09], eye: [0.12, 0.12, 0.16],
         hair: l.cut === 8 ? null : l.hat === 4 || l.hat === 2 || l.hat === 7 || l.hat === 9 ? [hair[0], hair[1], hair[2], 0.25]
           : l.cut === 1 ? [hair[0] * 0.6 + 0.3 * 0.4, hair[1] * 0.6 + 0.22 * 0.4, hair[2] * 0.6 + 0.16 * 0.4, 0.55]   // rapado: casi se ve la piel
-          : l.cut === 5 || l.cut === 7 || l.cut === 2 ? [hair[0], hair[1], hair[2], 1] : [hair[0], hair[1], hair[2], 0.7],
+          : l.cut === 5 || l.cut === 7 || l.cut === 2 || l.cut === 11 || l.cut === 15 ? [hair[0], hair[1], hair[2], 1] : [hair[0], hair[1], hair[2], 0.7],
         ragged: 0, tear: 0, jaw: false, wound: false, extras: [],
       };
       cfg.dress = dressFn(l, cfg);
@@ -131,6 +132,31 @@
         for (const sx of [-1, 1]) add(sx < 0 ? 'hairP' : 'hairP2', 'head', [sx * (hw / 2 + 1), top - 7, -1], [2, 5, 2], [-1, 0, -1], HC, (i, j) => !(j === 0 && i === 1));
       } else if (l.cut === 10 && !capped) {   // moño
         add('hairB', 'head', [0, top, -hd / 2 + 1], [4, 3, 4], [-2, 0, -2], HC, (i, j, k, [w, h, d]) => !(corner(i, k, w, d) <= 0));
+      } else if (l.cut === 11) {   // rizos: casquete abultado con bucles sueltos
+        add('hairC', 'head', [0, top - 4, 0], [hw + 2, capped ? 4 : 5, hd + 2], [-(hw + 2) / 2, 0, -(hd + 2) / 2], HC,
+          (i, j, k, [w, h, d]) => (i === 0 || i === w - 1 || k === 0 || j >= 4) && !(k >= d - 2 && j < 4) && !(corner(i, k, w, d) <= (j >= 4 ? 1 : 0)) && M.hash3(i, j, k + 5) < (j >= 4 ? 0.9 : 0.75));
+      } else if (l.cut === 12) {   // trenza larga a la espalda, con su lazo
+        add('hairBr', 'head', [0, top - 15, -hd / 2 - 1], [2, 13, 2], [-1, 0, -1], (i, j, k) => (j % 3 === 0 ? [hair[0] * 0.7, hair[1] * 0.7, hair[2] * 0.7] : HC(i, j, k)), (i, j, k) => !(j % 3 === 0 && i === k));
+        add('hairT', 'head', [0, top - 15, -hd / 2 - 1], [3, 1, 3], [-1.5, 0, -1.5], () => shirt);
+      } else if (l.cut === 13 && !capped) {   // pinchos de punta
+        add('hairSp', 'head', [0, top, 0], [hw, 3, hd], [-hw / 2, 0, -hd / 2], HC,
+          (i, j, k) => j === 0 ? true : j === 1 ? (i + k) % 2 === 0 : i % 3 === 1 && k % 3 === 1);
+      } else if (l.cut === 14) {   // flequillo recto sobre la frente y pelo corto por los lados
+        add('hairF', 'head', [0, top - 3, hd / 2], [hw, 3, 1], [-hw / 2, 0, 0], HC, (i, j) => !(j === 0 && i % 3 === 1));
+        add('hairS', 'head', [0, top - 4, 0], [hw + 2, 4, hd - 2], [-(hw + 2) / 2, 0, -hd / 2 - 1], HC, (i, j, k, [w]) => i === 0 || i === w - 1);
+      } else if (l.cut === 15) {   // rastas: mechones gruesos que caen por los lados y la espalda
+        add('hairR', 'head', [0, top - 13, 0], [hw + 2, 13, hd + 2], [-(hw + 2) / 2, 0, -(hd + 2) / 2],
+          (i, j, k) => { const c = HC(i, j, k), n = j % 4 === 0 ? 0.75 : 1; return [c[0] * n, c[1] * n, c[2] * n]; },
+          (i, j, k, [w, h, d]) => (i === 0 || i === w - 1 || k === 0) && k < d - 3 && (j >= h - 4 || ((i + k) % 2 === 0 && j >= Math.floor(M.hash3(i, 0, k + 9) * 4))));
+      } else if (l.cut === 16) {   // coleta alta: sale de lo alto de la coronilla y cae
+        add('hairP', 'head', [0, top - 6, -hd / 2 - 2], [2, 7, 2], [-1, 0, -1], HC, (i, j) => !(j === 0 && i === 1));
+        add('hairT', 'head', [0, top, -hd / 2 - 1], [3, 2, 2], [-1.5, 0, -1], () => [0.85, 0.2, 0.45]);
+      } else if (l.cut === 17 && !capped) {   // raya al lado: más volumen a un lado y mechón sobre la frente
+        add('hairSw', 'head', [0, top, 0], [hw + 1, 2, hd + 1], [-(hw + 1) / 2, 0, -(hd + 1) / 2], HC,
+          (i, j, k, [w, h, d]) => j === 0 ? i !== 2 : i > 2 && !(corner(i, k, w, d) <= 0));
+        add('hairF', 'head', [-1, top - 2, hd / 2], [5, 2, 1], [0, 0, 0], HC, (i, j) => !(j === 0 && i < 2));
+      } else if (l.cut === 18 && !capped) {   // mohicano alto
+        add('hairM', 'head', [0, top, 0], [2, 5, hd + 1], [-1, 0, -(hd + 1) / 2], HC, (i, j, k, [w, h, d]) => j < 2 || (k > 0 && k < d - 1 && j < h - ((k + 1) % 3 === 0 ? 0 : 1)));
       }
       // ---- más cosas en la cabeza ----
       const flower = (i, j, k) => [[0.95, 0.4, 0.55], [1, 0.85, 0.3], [0.6, 0.45, 0.95], [1, 1, 1]][(i * 3 + k * 5) % 4];

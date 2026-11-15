@@ -478,6 +478,7 @@
       this.pickups.gold = this.pickups.gold.filter((g) => r.contains(g.x, g.z));
       this.npcs = this.npcs.filter((n) => r.contains(n.body.x, n.body.z));
       this.setupVault(r);
+      if (r.vault && !r.vault.open && this.keys && (this.keys.wood || this.keys.silver || this.keys.gold)) this.hud.toast('Hay una cerradura dorada en esta sala: ábrela con tu llave');
       this.enemies = [];
       this.gibs = this.gibs.filter((g) => r.contains(g.x, g.z));
       this.corpses = this.corpses.filter((c) => r.contains(c.body.x, c.body.z));
@@ -1378,7 +1379,7 @@
       const K = VX.KEY_TIERS[tier] || VX.KEY_TIERS.wood;
       const ground = this.world.groundAt(x, z);
       // la llave sale despedida y cae al suelo
-      this.pickups.addItem({ kind: 'key', color3: tier, price: 0, x, y: Math.max(y, ground), z, fall: true, vy: 2.5, title: 'Llave ' + K.name, desc: 'Abre cualquier cerradura de la pared. ' + K.desc, action: 'Coger', color: K.col, shape: 'key' });
+      this.pickups.addItem({ kind: 'key', color3: tier, price: 0, x, y: Math.max(y, ground), z, fall: true, vy: 2.5, title: 'Llave ' + K.name, desc: 'Abre una cerradura dorada de la pared o gírala en el Relicario del vendedor. ' + K.desc, action: 'Coger', color: K.col, shape: 'key' });
       VX.Audio.reward && VX.Audio.reward();
       this.hud.toast('¡Una llave ' + K.name + '!');
     }
@@ -1387,6 +1388,7 @@
       this.keys[tier] = (this.keys[tier] || 0) + 1;
       VX.Audio.gold(); VX.Audio.click();
       this.hud.setKeys && this.hud.setKeys(this.keys);
+      if (!this.keyTip) { this.keyTip = true; this.hud.banner('UNA LLAVE', 'Ábrela en una cerradura dorada de la pared o métela en el Relicario del vendedor', 3.5); }
     }
     tryVault(it) {
       const v = it.vault, r = it.room;
@@ -1452,9 +1454,11 @@
     }
 
     // Bajar por la escalera secreta: todo se desvanece y empiezas en el Vacío
-    enterSecret() {
+    // En cooperativo primero se vota (VX.Coop.proposeSecret); si sale que sí, todos llegan aquí con
+    // la misma semilla y el mismo id de sala, así el Vacío sale igual en todos los equipos.
+    enterSecret(go) {
       if (this.spawner.secret) return;
-      if (VX.Coop.active) { this.hud.toast('Las escaleras secretas no se pueden bajar en cooperativo'); return; }
+      if (VX.Coop.active && !go) { VX.Coop.proposeSecret(this); return; }
       VX.Audio.door(); VX.Audio.phase && VX.Audio.phase();
       const floor = this.floor + 1;
       this.world.keepOnly([]);
@@ -1465,7 +1469,9 @@
       this.hud.hideBoss(); this.boss = null;
       this.spawner.secret = { rooms: 3 };
       VX.Horde.reset();
-      const first = this.world.addStart('start', floor, this.spawner.planExits('zn', 'start', false).slice(0, 2), null, 5);
+      const mk = () => this.world.addStart('start', floor, this.spawner.planExits('zn', 'start', false).slice(0, 2), null, 5);
+      const first = go && go.seed ? VX.Coop.seeded(go.seed, mk) : mk();
+      if (go && go.rid) first.rid = go.rid;
       this.floor = floor;
       this.zone = 5;
       VX.Renderer.fogColor = VX.ZONES[5].fog.slice();
@@ -1477,6 +1483,13 @@
       for (const r of this.world.rooms) r.updateMeshes(VX.Renderer, 9999);
       const P = this.player;
       P.x = 0; P.z = first.worldZ(14); P.y = this.world.groundAt(P.x, P.z); P.vy = 0; P.yaw = 0;
+      if (VX.Coop.active) {
+        // cada uno a un lado, y los caídos vuelven con el grupo
+        const idx = Math.max(0, VX.Coop.order.indexOf(VX.Net.id));
+        P.x = (idx % 2 ? 1 : -1) * Math.ceil(idx / 2) * 0.9;
+        VX.Coop.remoteEnter = true;
+        try { VX.Coop.roomEntered(this, first); } finally { VX.Coop.remoteEnter = false; }
+      }
       this.stats.secretBiome = (this.stats.secretBiome || 0) + 1;
       this.hud.banner(VX.ZONES[5].name, VX.ZONES[5].sub, 4);
       this.shake(0.4);

@@ -96,8 +96,9 @@
       if (down(B.Y)) I.wheel += 1;
       this.key(K('knife'), now[B.RB] || now[B.R3]);
       this.key(K('throw'), now[B.LB]);
-      if (down(B.UP)) this.tap(K('flashlight'));
-      if (down(B.DOWN)) this.tap(K('throwNext'));
+      const voting = VX.Coop && VX.Coop.vote && !VX.Coop.vote.mine;   // votación del cooperativo: arriba sí, abajo no
+      if (down(B.UP)) { if (voting) VX.Coop.castVote(game, true); else this.tap(K('flashlight')); }
+      if (down(B.DOWN)) { if (voting) VX.Coop.castVote(game, false); else this.tap(K('throwNext')); }
       if (down(B.LEFT)) this.tap(K('prev'));
       if (down(B.RIGHT)) I.wheel += 1;
       if (down(B.SELECT)) this.tap(game.mode === 'horde' ? K('wave') : K('map'));

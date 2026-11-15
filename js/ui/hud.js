@@ -364,7 +364,9 @@
       const f = game.pickups.focus;
       if (f) {
         const can = f.price <= game.stats.gold;
-        const price = f.price > 0 ? ` · <span class="${can ? 'price' : 'bad'}">${f.price} oro</span>` : (f.kind === 'rest' || f.kind === 'supply' || f.kind === 'secretChest' || f.kind === 'stairs' ? '' : ' · <span class="price">GRATIS</span>');
+        const price = f.price > 0 ? ` · <span class="${can ? 'price' : 'bad'}">${f.price} oro</span>` : (f.kind === 'keyAltar' ? (() => { const K = game.keys || {}, n = (K.wood || 0) + (K.silver || 0) + (K.gold || 0); return ` · <span class="${n ? 'price' : 'bad'}">1 llave${n ? ' (tienes ' + n + ')' : ' (no tienes)'}</span>`; })()
+          : f.kind === 'stairs' && VX.Coop.active ? ' · <span class="price">se vota</span>'
+          : f.kind === 'rest' || f.kind === 'supply' || f.kind === 'secretChest' || f.kind === 'stairs' || f.kind === 'lockdoor' ? '' : ' · <span class="price">GRATIS</span>');
         const act = f.action || (f.price > 0 ? 'Comprar' : 'Recoger');
         el.prompt.innerHTML = `<b>${f.title}</b> — ${f.desc}<br>${VX.Settings.tag('use')} ${act}${price}` + (f.kind === 'weapon' ? this.weaponCompare(game, f.weapon) : '');
         el.prompt.classList.remove('hidden');

@@ -266,7 +266,9 @@
           // altares especiales (mejoras de la tienda del Santuario)
           const PR = VX.Profile;
           for (const f of specials) {
-            if (f.what === 'bell') {
+            if (f.what === 'keys') {
+              game.pickups.addItem({ kind: 'keyAltar', color3: 'gold', price: 0, x: f.x, y: f.y, z: f.z, title: 'Relicario de las llaves', desc: 'Mete una llave y gira: madera, plata y oro dan premios cada vez mejores (y a veces el gordo)', action: 'Meter una llave', color: [1, 0.78, 0.3], shape: 'key' });
+            } else if (f.what === 'bell') {
               const uses = PR.shopUp('bell');
               game.pickups.addItem({ kind: 'restock', uses, price: 20 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Campana del vendedor', desc: `El vendedor repone todo el género (${uses} ${uses > 1 ? 'veces' : 'vez'})`, action: 'Tocar la campana', color: [0.95, 0.78, 0.3], shape: 'bell' });
             } else if (f.what === 'mystery') {

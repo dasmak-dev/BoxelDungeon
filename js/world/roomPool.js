@@ -1150,7 +1150,7 @@
       });
       // altares especiales (Santuario): campana, caja misteriosa y altar de las almas.
       // Van en huecos libres a los lados, lejos de los pasillos de las puertas.
-      const specials = [];
+      const specials = [['keys', [1, 0.78, 0.3]]];   // el relicario de las llaves está siempre
       if (PR && PR.shopUp('bell')) specials.push(['bell', [0.9, 0.75, 0.3]]);
       if (PR && PR.shopUp('mystery')) specials.push(['mystery', [0.7, 0.4, 1]]);
       if (PR && PR.shopUp('souls')) specials.push(['souls', [0.75, 0.55, 1]]);

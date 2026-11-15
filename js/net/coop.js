@@ -78,6 +78,10 @@
       N.on('nb', (d) => this.onNeighbors(g(), d));
       N.on('enter', (d) => this.onEnterMsg(g(), d));
       N.on('door', (d) => { const G = g(); if (G.mode === 'dungeon' && G.state !== 'title') G.openDoorRemote(d.rid, d.s); });
+      // votación para bajar todos al bioma secreto
+      N.on('vq', (d, from) => this.onVoteStart(g(), d, from));
+      N.on('vv', (d, from) => this.onVote(g(), d, from));
+      N.on('vr', (d) => this.onVoteResult(g(), d));
       N.on('enterReq', (d) => { if (this.isHost) this.onEnterMsg(g(), d, true); });
       N.on('clear', (d) => { const G = g(); if (this.isClient && G.currentRoom && G.currentRoom.rid === d.rid && !G.currentRoom.cleared) G.clearRoom(G.currentRoom, !!d.s); });
     },
@@ -129,6 +133,7 @@
       this.role = null;
       this.remotes.clear(); this.reps.clear();
       this.pendingNb = null; this.pendingEnter = null;
+      this.vote = null; this.voteUI();
       const el = document.getElementById('coopTags'); if (el) el.innerHTML = '';
       const pl = document.getElementById('coopPlayers'); if (pl) pl.innerHTML = '';
       if (VX.game) VX.game.coopPrompt = null;
@@ -179,6 +184,7 @@
       }
       this.lookT -= dt;
       if (this.lookT <= 0) { this.lookT = 3; N.send(this.lookMsg(game), 'all'); }
+      if (this.vote) this.voteTick(dt, game);
       this.stT -= dt;
       if (this.stT <= 0) { this.stT = 1.5; N.send({ k: 'st', s: this.myStats(game) }, 'all'); }
       // mazmorra (invitado): si la receta de las salas vecinas llegó antes o después de tiempo, se aplica aquí
@@ -846,6 +852,87 @@
       this.pendingNb.delete(room.rid);
       if (this.pendingEnter) { const pe = this.pendingEnter; this.pendingEnter = null; this.onEnterMsg(game, pe); }
     },
+    // ---------------- votación: bajar todos al bioma secreto ----------------
+    // Quien pulsa «Bajar» en la escalera propone; cada uno vota (Y / N o los botones) y,
+    // si la mayoría dice que sí, el anfitrión manda bajar a todos a la vez (con la misma semilla).
+    proposeSecret(game) {
+      if (game.mode !== 'dungeon') return;
+      if (this.vote) { game.hud.toast('Ya hay una votación en marcha'); return; }
+      if ((this.voteCd || 0) > performance.now()) { game.hud.toast('Esperad un poco antes de volver a votar'); return; }
+      const msg = { k: 'vq', by: this.myName() };
+      VX.Net.send(msg, this.isHost ? undefined : 'all');
+      this.onVoteStart(game, msg, VX.Net.id);
+    },
+    onVoteStart(game, d, from) {
+      if (game.mode !== 'dungeon' || game.state === 'title' || this.vote) return;
+      this.vote = { by: d.by || 'Alguien', from, t: 20, yes: new Set([from]), no: new Set(), mine: from === VX.Net.id ? 1 : 0 };
+      VX.Audio.phase && VX.Audio.phase();
+      if (from !== VX.Net.id) game.hud.banner('¿BAJAR AL VACÍO?', `${this.vote.by} ha encontrado una escalera secreta. Votad: Y sí · N no`, 3.5);
+      this.voteUI();
+    },
+    onVote(game, d, from) {
+      const v = this.vote;
+      if (!v) return;
+      v.yes.delete(from); v.no.delete(from);
+      (d.y ? v.yes : v.no).add(from);
+      this.voteUI();
+    },
+    castVote(game, yes) {
+      const v = this.vote;
+      if (!v || v.mine) return;
+      v.mine = yes ? 1 : -1;
+      VX.Net.send({ k: 'vv', y: yes ? 1 : 0 }, this.isHost ? undefined : 'all');
+      this.onVote(game, { y: yes ? 1 : 0 }, VX.Net.id);
+      VX.Audio.click && VX.Audio.click();
+    },
+    voteTick(dt, game) {
+      const v = this.vote, I = VX.Input;
+      v.t -= dt;
+      if (!v.mine && game.state === 'playing') {
+        if (I.wasPressed('KeyY')) this.castVote(game, true);
+        else if (I.wasPressed('KeyN')) this.castVote(game, false);
+      }
+      if (Math.floor(v.t + dt) !== Math.floor(v.t)) this.voteUI();
+      if (!this.isHost) return;
+      // decide el anfitrión: mayoría de todos los que estáis (quien no vota cuenta como «no»)
+      const total = this.partySize();
+      const pass = v.yes.size > total / 2, fail = v.no.size >= total / 2 || v.t <= 0;
+      if (!pass && !fail) return;
+      this.secretN = (this.secretN || 0) + 1;
+      const res = pass ? { k: 'vr', ok: 1, seed: (Math.random() * 2147483647) | 0, rid: 'V' + this.secretN, y: v.yes.size, n: total } : { k: 'vr', ok: 0, y: v.yes.size, n: total };
+      VX.Net.send(res);
+      this.onVoteResult(game, res);
+    },
+    onVoteResult(game, d) {
+      this.vote = null; this.voteUI();
+      if (game.mode !== 'dungeon' || game.state === 'title') return;
+      if (!d.ok) {
+        this.voteCd = performance.now() + 12000;
+        game.hud.banner('SEGUÍS EN LA MAZMORRA', `Sólo ${d.y} de ${d.n} quería${d.y === 1 ? '' : 'n'} bajar`, 2.5);
+        VX.Audio.deny && VX.Audio.deny();
+        return;
+      }
+      game.enterSecret({ seed: d.seed, rid: d.rid });
+    },
+    // recuadro de la votación (arriba, en el centro); los botones sirven en táctil y con el ratón libre
+    voteUI() {
+      let el = document.getElementById('voteBox');
+      const v = this.vote;
+      if (!v) { if (el) el.classList.add('hidden'); return; }
+      if (!el) {
+        el = document.createElement('div'); el.id = 'voteBox';
+        el.innerHTML = '<div class="vtTitle"></div><div class="vtCount"></div><div class="vtBtns"><button class="vtYes">Sí (Y)</button><button class="vtNo">No (N)</button></div>';
+        document.body.appendChild(el);
+        const tap = (yes) => (e) => { e.preventDefault(); e.stopPropagation(); this.castVote(VX.game, yes); };
+        for (const [c, y] of [['.vtYes', true], ['.vtNo', false]]) { const b = el.querySelector(c); b.addEventListener('click', tap(y)); b.addEventListener('touchstart', tap(y), { passive: false }); }
+      }
+      el.classList.remove('hidden');
+      const total = this.partySize();
+      el.querySelector('.vtTitle').textContent = `${v.by} quiere bajar al Vacío (bioma secreto)`;
+      el.querySelector('.vtCount').textContent = `Sí ${v.yes.size} · No ${v.no.size} · de ${total} · hace falta mayoría · ${Math.max(0, Math.ceil(v.t))} s`;
+      el.querySelector('.vtBtns').classList.toggle('hidden', !!v.mine);
+    },
+
     // alguien ha entrado en una sala nueva: si he sido yo, aviso; los muertos vuelven
     roomEntered(game, r) {
       if (game.mode !== 'dungeon') return;

@@ -254,8 +254,8 @@
         if (cfg.jaw && j === 2 && i >= 1 && i <= w - 2) return i % 2 ? J(TOOTH, 0.06, i, j, k) : MOUTH;   // dientes de arriba
         if (cfg.cheekTear && j >= 2 && j <= 3 && i === (sideWound ? w - 2 : 1)) return j === 2 ? J(TOOTH, 0.05, i, j, k) : FLESH2;
       }
-      if (cfg.hair && j === h - 1 && H(i, k, 77, 16) < cfg.hair[3]) return J(cfg.hair, 0.06, i, j, k);
-      if (cfg.hair && j >= h - 3 && (k <= 1 || i === 0 || i === w - 1) && H(i, j, k, 17) < cfg.hair[3] * 0.8) return J(cfg.hair, 0.05, i, j, k);
+      if (cfg.hair && j === h - 1 && H(i, k, 77, 16) < cfg.hair[3]) return J(mul(cfg.hair, 1), 0.06, i, j, k);   // mul: sin el 4º valor (cuánto pelo), que J tomaría como brillo
+      if (cfg.hair && j >= h - 3 && (k <= 1 || i === 0 || i === w - 1) && H(i, j, k, 17) < cfg.hair[3] * 0.8) return J(mul(cfg.hair, 1), 0.05, i, j, k);
       if (dirty && patch(i, j, k, 0.12, 9)) return J([0.5, 0.06, 0.06], 0.05, i, j, k);
       if (dirty && stain(i, j, k, 0.08, 4)) return J(BONE, 0.05, i, j, k);   // cráneo asomando
       return J(cfg.skin, 0.06, i, j, k);

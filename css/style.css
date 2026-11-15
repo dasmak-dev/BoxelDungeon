@@ -636,3 +636,14 @@ body.cb #prompt .cmpUp { color: #6fb6ff; } body.cb #prompt .cmpDn { color: #ffb3
 body.padOn #touchUI { display: none !important; }
 .padFocus { outline: 3px solid #ffd76a !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(255, 215, 106, 0.25) !important; }
 .padHelp { grid-column: 1 / -1; font-size: 13px; line-height: 1.6; opacity: 0.85; text-align: left; }
+
+/* votación del cooperativo (bajar al bioma secreto) */
+#voteBox { position: fixed; top: 14%; left: 50%; transform: translateX(-50%); z-index: 40; padding: 10px 16px; background: rgba(20, 8, 32, 0.86); border: 2px solid #a45cff; border-radius: 6px; color: #eee; text-align: center; font-family: inherit; pointer-events: auto; box-shadow: 0 0 18px rgba(164, 92, 255, 0.45); }
+#voteBox.hidden { display: none; }
+#voteBox .vtTitle { font-size: 15px; color: #d6b3ff; margin-bottom: 4px; }
+#voteBox .vtCount { font-size: 12px; opacity: 0.85; }
+#voteBox .vtBtns { margin-top: 8px; display: flex; gap: 10px; justify-content: center; }
+#voteBox .vtBtns.hidden { display: none; }
+#voteBox button { font: inherit; font-size: 14px; padding: 6px 16px; border: 0; border-radius: 4px; cursor: pointer; color: #111; }
+#voteBox .vtYes { background: #7be07b; }
+#voteBox .vtNo { background: #e07b7b; }

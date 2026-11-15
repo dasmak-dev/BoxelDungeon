@@ -3,6 +3,23 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.48.0] — 2026-11-15
+
+### Añadido
+- **Relicario de las llaves** en todas las tiendas: metes una llave (usa la mejor que tengas) y gira como una tómbola hasta dar un premio. Cuanto mejor la llave, mejor el premio:
+  - **Madera**: oro, un corazón, explosivos, una mejora… o, muy de vez en cuando, una mejora rara.
+  - **Plata**: mucho oro, mejoras, mejoras raras, +6 de esencia o un arma gratis.
+  - **Oro**: mejoras raras, dos mejoras, un arma, +15 de esencia o el premio gordo (mejora rara, mejora, 50 de oro y vida al máximo).
+- **Cooperativo: votación para bajar al bioma secreto**. Quien encuentra la escalera propone bajar y sale una votación para todos (Y = sí, N = no; con mando, cruceta arriba o abajo; en el móvil, con los botones). Si la mayoría dice que sí, bajáis todos juntos al Vacío; si no (o pasan 20 s), seguís en la mazmorra.
+- **8 peinados nuevos**: rizos, trenza, pinchos, flequillo, rastas, coleta alta, raya al lado y mohicano.
+
+### Cambiado
+- **Las cerraduras se ven mejor**: llevan un marco dorado y el ojo de la cerradura tiene un brillo cálido. Al coger tu primera llave te explica para qué sirve, y al entrar en una sala con cerradura (si llevas llave) te avisa.
+- **Jefes más suaves en la mazmorra en cooperativo**: +40 % de vida por compañero (antes +70 %) y un 5 % menos de daño por compañero.
+
+### Corregido
+- **Línea brillante en la cabeza** con algunos peinados (afro, largo, melena…): el pelo de lo alto de la cabeza brillaba como si tuviera luz propia.
+
 ## [0.47.0] — 2026-11-15
 
 ### Añadido

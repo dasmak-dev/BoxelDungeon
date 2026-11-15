@@ -325,6 +325,9 @@
           if (row[col] === 'X') r.set(c[0], c[1], c[2], BL.LOCKR);
           cells.push(c);
         }
+        // marco dorado alrededor (no cae al abrirla): así se reconoce de lejos
+        for (let y = g; y <= top + 1; y++) for (const al of [A0, A1]) { const c = cell(al, lay(3), y); r.set(c[0], c[1], c[2], BL.GOLDB); }
+        for (let al = A0; al <= A1; al++) { const c = cell(al, lay(3), top + 1); r.set(c[0], c[1], c[2], BL.GOLDB); }
         const [dx, dz] = wallPt(w, a, 0.55);
         r.vault = { cells, x: dx, z: dz, y: g * S, cx, cz, open: false };
         r.walk = null;

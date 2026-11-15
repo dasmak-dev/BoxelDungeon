@@ -172,7 +172,7 @@
     let key = null, make = null;
     if (it.kind === 'heal') key = 'medkit';
     else if (it.kind === 'refill') key = 'ammo';
-    else if (it.kind === 'key') { key = 'key:' + it.color3; make = () => ITEM_MODELS.key({ wood: [0.46, 0.29, 0.14], silver: [0.62, 0.64, 0.7], gold: [0.85, 0.6, 0.17] }[it.color3] || [0.85, 0.6, 0.17]); }
+    else if (it.kind === 'key' || it.kind === 'keyAltar') { key = 'key:' + it.color3; make = () => ITEM_MODELS.key({ wood: [0.46, 0.29, 0.14], silver: [0.62, 0.64, 0.7], gold: [0.85, 0.6, 0.17] }[it.color3] || [0.85, 0.6, 0.17]); }
     else if (it.kind === 'map') key = 'scroll';
     else if (it.kind === 'chest') key = 'chest';
     else if (it.kind === 'rest') key = 'crystal';
@@ -278,11 +278,80 @@
           const gnd = game.world.groundAt(it.x, it.z);
           if (it.y <= gnd) { it.y = gnd; if (it.vy < -3) { it.vy *= -0.3; } else { it.fall = false; it.vy = 0; } }
         }
+        if (it.spinT > 0) this.spinTick(it, dt, game);
         const d = Math.hypot(it.x - P.x, it.z - P.z);
         if (d < best) { best = d; this.focus = it; }
       }
       if (this.focus && VX.Input.wasPressed(VX.Settings.key('use'))) this.interact(this.focus, game);
       this.items = this.items.filter((i) => !i.taken);
+    }
+
+    // ---- Relicario de las llaves (tienda): una tómbola que se paga con llaves ----
+    spinKeys(it, game) {
+      if (it.spinT > 0) return;
+      const K = game.keys = game.keys || { wood: 0, silver: 0, gold: 0 };
+      const tier = ['gold', 'silver', 'wood'].find((t) => K[t] > 0);   // la mejor que tengas
+      if (!tier) { VX.Audio.deny(); game.hud.toast('Necesitas una llave: las sueltan algunos zombis y salen de vasijas y cajas'); return; }
+      K[tier]--; game.hud.setKeys && game.hud.setKeys(K);
+      it.spinT = 1.9; it.spinTier = tier; it.tick = 0;
+      VX.Audio.door && VX.Audio.door();
+      game.hud.toast('Llave ' + VX.KEY_TIERS[tier].name + ' dentro… ¡gira!');
+    }
+    spinTick(it, dt, game) {
+      it.spinT -= dt;
+      it.t += dt * 9 * Math.min(1, it.spinT + 0.3);   // gira rápido y va frenando
+      it.tick -= dt;
+      if (it.tick <= 0 && it.spinT > 0) {
+        it.tick = 0.06 + (1.9 - it.spinT) * 0.09;
+        it.cyc = ((it.cyc || 0) + 1) % 3;
+        it.color3 = ['wood', 'silver', 'gold'][it.cyc];
+        VX.Audio.click();
+      }
+      if (it.spinT <= 0) { it.spinT = 0; it.color3 = it.spinTier; this.keyPrize(it, game); setTimeout(() => { it.color3 = 'gold'; }, 1200); }
+    }
+    keyPrize(it, game) {
+      const tier = it.spinTier, r = Math.random(), P = game.player;
+      // los premios salen delante del relicario, hacia ti
+      let dx = P.x - it.x, dz = P.z - it.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+      const at = (k = 0) => ({ x: it.x + dx * 0.9 + dz * k * 0.6, y: it.y, z: it.z + dz * 0.9 - dx * k * 0.6 });
+      const up = (kind, k) => { const u = VX.Upgrades.random(1, game, [], kind)[0]; if (u) this.addItem({ kind: 'upgrade', up: u, price: 0, ...at(k), title: u.name + (u.rare ? ' ★ RARA' : ''), desc: u.desc, color: u.color, shape: u.shape }); return !!u; };
+      const gold = (n) => { const a = at(); this.dropGold(a.x, a.y + 0.4, a.z, n); };
+      const thr = (n, k) => { const ty = VX.Throw && VX.Throw.randomType(game.weapon); if (ty) this.addItem({ ...VX.Throw.item(ty, n, 0), ...at(k) }); return !!ty; };
+      const ess = (n) => { VX.Profile.add('essence', n); VX.Profile.save(); game.essenceBanked = (game.essenceBanked || 0) + n; };
+      const gun = (k) => {
+        const list = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));
+        if (!list.length) return false;
+        const id = M.choice(list), d = VX.Weapons.DEFS[id];
+        this.addItem({ kind: 'weapon', weapon: id, price: 0, ...at(k), title: d.name, desc: 'Gratis, del relicario', color: [1, 0.85, 0.5], shape: 'star' });
+        return true;
+      };
+      let title, sub, big = false;
+      if (tier === 'wood') {
+        if (r < 0.4) { gold(M.randInt(12, 20)); title = 'MONEDAS'; sub = 'Un puñado de oro'; }
+        else if (r < 0.62) { this.dropHeart(at().x, it.y + 0.4, at().z, 25); title = 'UN CORAZÓN'; sub = '+25 de vida'; }
+        else if (r < 0.8 && thr(2)) { title = 'EXPLOSIVOS'; sub = 'Dos para lanzar'; }
+        else if (r < 0.96) { up('normal'); title = 'UNA MEJORA'; sub = 'Cógela del suelo'; }
+        else { up('rare'); title = '¡PREMIO GORDO!'; sub = 'Una mejora rara con una llave de madera'; big = true; }
+      } else if (tier === 'silver') {
+        if (r < 0.25) { gold(M.randInt(25, 40)); title = 'MUCHO ORO'; sub = 'Una buena bolsa'; }
+        else if (r < 0.6) { up('normal'); gold(8); title = 'UNA MEJORA'; sub = 'Y algo de oro'; }
+        else if (r < 0.78) { up('rare'); title = 'MEJORA RARA'; sub = '★'; big = true; }
+        else if (r < 0.9) { ess(6); title = '+6 DE ESENCIA'; sub = 'Ya es tuya aunque caigas'; }
+        else if (gun()) { title = '¡UN ARMA!'; sub = 'Gratis'; big = true; }
+        else { up('rare'); title = 'MEJORA RARA'; sub = '★'; big = true; }
+      } else {
+        if (r < 0.45) { up('rare'); title = 'MEJORA RARA'; sub = '★'; big = true; }
+        else if (r < 0.65) { up('normal', -1); up('normal', 1); gold(20); title = 'DOS MEJORAS'; sub = 'Y oro'; }
+        else if (r < 0.8 && gun(-1)) { up('normal', 1); title = '¡UN ARMA!'; sub = 'Y una mejora'; big = true; }
+        else if (r < 0.92) { ess(15); gold(15); title = '+15 DE ESENCIA'; sub = 'Para siempre, y algo de oro'; }
+        else { up('rare', -1); up('normal', 1); gold(50); P.heal(P.maxHp); title = '¡¡PREMIO GORDO!!'; sub = 'Mejora rara, mejora, 50 de oro y vida al máximo'; big = true; }
+      }
+      game.hud.banner(title, 'Relicario (llave ' + VX.KEY_TIERS[tier].name + '): ' + sub, big ? 3.2 : 2.2);
+      big ? (VX.Audio.upgrade ? VX.Audio.upgrade() : VX.Audio.reward()) : VX.Audio.reward();
+      if (big) game.shake(0.2);
+      const c = VX.KEY_TIERS[tier].col;
+      for (let i = 0; i < (big ? 60 : 25); i++) game.particles.spawn(it.x, it.y + 0.4, it.z, M.rand(-2, 2), M.rand(1.5, 5), M.rand(-2, 2), c[0], c[1], c[2], 0.04, M.rand(0.6, 1.4), 1, 1);
+      VX.Profile.add('keyAltar', 1, game);
     }
 
     interact(it, game) {
@@ -295,7 +364,7 @@
           game.particles.spawn(it.x, it.y, it.z, M.rand(-3, 3), M.rand(1, 5), M.rand(-3, 3), 0.4, 0.9, 1, 0.05, M.rand(0.6, 1.4), 1);
         return;
       }
-      if (it.kind === 'stairs') { it.taken = true; game.enterSecret(); return; }
+      if (it.kind === 'stairs') { if (VX.Coop.active) { game.enterSecret(); return; } it.taken = true; game.enterSecret(); return; }   // en cooperativo se vota
       if (it.kind === 'perk') { VX.HordeMode.buyPerk(game, it); return; }
       if (it.kind === 'secretChest') {
         it.taken = true;
@@ -331,6 +400,7 @@
         return;
       }
       if (it.kind === 'key') { it.taken = true; game.takeKey(it.color3); return; }
+      if (it.kind === 'keyAltar') { this.spinKeys(it, game); return; }
       if (it.kind === 'lockdoor') { game.tryVault(it); return; }
       if (it.kind === 'map') { it.taken = true; game.studyMap(); return; }
       if (it.kind === 'supply') { it.taken = true; VX.HordeMode.openSupply(game, it); return; }
@@ -490,7 +560,7 @@
         if (mdl) {
           // objeto en 3D: gira despacio y flota; en la tienda, quieto sobre el mostrador
           // tamaño según el objeto (las mejoras y las llaves, algo más pequeñas)
-          const vs = (it.kind === 'chest' || it.kind === 'rest' ? 0.034 : it.kind === 'upgrade' || it.kind === 'offering' ? 0.03 : it.kind === 'key' ? 0.028 : 0.032), q = M.qY(it.t * 1.1);
+          const vs = (it.kind === 'chest' || it.kind === 'rest' ? 0.034 : it.kind === 'upgrade' || it.kind === 'offering' ? 0.03 : it.kind === 'key' ? 0.028 : it.kind === 'keyAltar' ? 0.045 : 0.032), q = M.qY(it.t * 1.1);
           const by = it.fall ? it.y + 0.05 : it.y + 0.36 + Math.sin(it.t * 2.2) * 0.05;
           for (const o of mdl) {
             M.qRot(q, o[0] * vs, o[1] * vs, o[2] * vs, tmp);
