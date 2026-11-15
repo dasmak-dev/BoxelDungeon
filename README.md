@@ -62,7 +62,7 @@ Va mejor en Chrome para Android. La primera vez el juego empieza en calidad medi
 
 Cooperativo: personaliza tu personaje en **Armería → PERSONAJE** (tus compañeros te ven así, con tus skins); al morir ves la partida con un compañero y vuelves en la siguiente oleada; al final de cada oleada sale la tabla del equipo.
 
-Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.46.0**.
+Historial completo de cambios en [CHANGELOG.md](CHANGELOG.md). Versión actual: **0.46.1**.
 
 ## Modo Horda cooperativo (hasta 4 jugadores)
 Uno crea la sala, los demás se unen con su código de 4 letras y, cuando estéis todos, el anfitrión elige mapa. Cada uno ejecuta el juego en su ordenador; el servidor solo reenvía mensajes.

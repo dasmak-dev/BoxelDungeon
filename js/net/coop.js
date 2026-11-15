@@ -77,6 +77,7 @@
       // mazmorra cooperativa: salas nuevas, entrar todos a la vez y sala despejada
       N.on('nb', (d) => this.onNeighbors(g(), d));
       N.on('enter', (d) => this.onEnterMsg(g(), d));
+      N.on('door', (d) => { const G = g(); if (G.mode === 'dungeon' && G.state !== 'title') G.openDoorRemote(d.rid, d.s); });
       N.on('enterReq', (d) => { if (this.isHost) this.onEnterMsg(g(), d, true); });
       N.on('clear', (d) => { const G = g(); if (this.isClient && G.currentRoom && G.currentRoom.rid === d.rid && !G.currentRoom.cleared) G.clearRoom(G.currentRoom, !!d.s); });
     },
@@ -426,9 +427,16 @@
 
     // ---------------- disparos e impactos ----------------
     // (invitado) un impacto mío en una réplica: el anfitrión aplica el daño
-    reportHit(e, dmg, ray, opts) {
+    // qué parte y qué vóxel (relativo al tamaño de la parte): así la herida sale en el mismo sitio
+    // aunque el zombi esté un poco desplazado en el otro equipo
+    partOf(hit) {
+      if (!hit || !hit.part || !hit.vox) return {};
+      const p = hit.part, v = hit.vox, dm = p.dims || [1, 1, 1];
+      return { pn: p.name, q: [r2((v.i + 0.5) / dm[0]), r2((v.j + 0.5) / dm[1]), r2((v.k + 0.5) / dm[2])] };
+    },
+    reportHit(e, dmg, ray, opts, hit) {
       if (!e.netId) return;
-      VX.Net.send({ k: 'hit', id: e.netId, dmg: r2(dmg), o: [r2(ray.ox), r2(ray.oy), r2(ray.oz)], d: [r3(ray.dx), r3(ray.dy), r3(ray.dz)], sl: opts && opts.slash ? 1 : 0 });
+      VX.Net.send({ k: 'hit', id: e.netId, dmg: r2(dmg), o: [r2(ray.ox), r2(ray.oy), r2(ray.oz)], d: [r3(ray.dx), r3(ray.dy), r3(ray.dz)], sl: opts && opts.slash ? 1 : 0, ...this.partOf(hit) });
     },
     reportKill(e) {
       if (!e.netId) return;
@@ -439,9 +447,9 @@
       VX.Net.send({ k: 'bl', id: e.netId, x: r2(x), y: r2(y), z: r2(z), R: r2(R), dmg: r2(dmg) });
     },
     // (anfitrión) que los demás vean la herida
-    shareHitFx(e, dmg, ray, opts, by = 0) {
+    shareHitFx(e, dmg, ray, opts, by = 0, hit) {
       if (!e.netId) e.netId = (VX.Net.id + 1) * 1000000 + (this.netSeq = (this.netSeq || 0) + 1);
-      VX.Net.send({ k: 'hx', by, id: e.netId, dmg: r2(dmg), o: [r2(ray.ox), r2(ray.oy), r2(ray.oz)], d: [r3(ray.dx), r3(ray.dy), r3(ray.dz)], sl: opts && opts.slash ? 1 : 0 });
+      VX.Net.send({ k: 'hx', by, id: e.netId, dmg: r2(dmg), o: [r2(ray.ox), r2(ray.oy), r2(ray.oz)], d: [r3(ray.dx), r3(ray.dy), r3(ray.dz)], sl: opts && opts.slash ? 1 : 0, ...this.partOf(hit) });
     },
     findEnemy(game, id) {
       if (this.isClient) return this.reps.get(id);
@@ -451,7 +459,18 @@
     // el impacto se repite con el mismo rayo sobre el cuerpo de este equipo
     replayHit(game, e, d, applyDamage) {
       const ray = { ox: d.o[0], oy: d.o[1], oz: d.o[2], dx: d.d[0], dy: d.d[1], dz: d.d[2] };
-      const h = e.body.rayHit(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, 80);
+      let h = e.body.rayHit(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, 80);
+      // si el rayo no da en la misma parte (el zombi está un poco movido aquí), se busca el vóxel
+      // equivalente de esa parte
+      if (d.pn && (!h || h.part.name !== d.pn)) {
+        const p = e.body.byName[d.pn];
+        if (p && !p.detached && d.q) {
+          const dm = p.dims || [1, 1, 1], ti = d.q[0] * dm[0], tj = d.q[1] * dm[1], tk = d.q[2] * dm[2];
+          let best = null, bd = 1e9;
+          for (const v of p.vox) { if (!v.alive) continue; const dd = (v.i + 0.5 - ti) ** 2 + (v.j + 0.5 - tj) ** 2 + (v.k + 0.5 - tk) ** 2; if (dd < bd) { bd = dd; best = v; } }
+          if (best) { e.body.computeWorld(); h = { t: 1, part: p, vox: best }; }
+        }
+      }
       if (!applyDamage) game.visualOnly = true;
       game.noReward = true;
       try {
@@ -503,7 +522,7 @@
         w, dmg: r2(dmg), de: r2(destr), fx: fx || undefined, cal: cal || undefined, tc }, this.isHost ? undefined : 'all');
     },
     onShot(game, d) {
-      if (d.by === VX.Net.id || game.mode !== 'horde') return;
+      if (d.by === VX.Net.id || game.state === 'title') return;
       const r = this.remotes.get(d.by);
       if (r) r.shotT = 0.12;
       const def = VX.Weapons.DEFS[d.w] || VX.Weapons.DEFS.pistol;
@@ -584,14 +603,15 @@
     // da igual que llegue dos veces o que el otro ya la hubiera roto.
     wdCells: [], wdProps: [], wdT: 0,
     noteCell(game, gx, gy, gz) {
-      if (!this.active || game.applyingRemote || game.mode !== 'horde') return;
+      if (!this.active || game.applyingRemote) return;
       if (!game.localAct && !this.isHost) return;
       if (this.wdCells.length < 6000) this.wdCells.push(gx, gy, gz);
     },
     noteProp(game, p, h, dmg, ray) {
-      if (!this.active || game.applyingRemote || game.mode !== 'horde') return;
+      if (!this.active || game.applyingRemote) return;
       if (!game.localAct && !this.isHost) return;
-      const ri = game.world.rooms.indexOf(p.room), pi = ri < 0 ? -1 : p.room.props.indexOf(p);
+      // la sala va por su id (en la mazmorra el orden de la lista de salas puede no coincidir)
+      const ri = p.room && p.room.rid ? p.room.rid : game.world.rooms.indexOf(p.room), pi = ri === -1 ? -1 : p.room.props.indexOf(p);
       if (pi < 0 || this.wdProps.length > 400) return;
       this.wdProps.push(ri, pi, r2(h.x), r2(h.y), r2(h.z), Math.round(dmg), r2(ray.dx), r2(ray.dz));
     },
@@ -606,7 +626,7 @@
       VX.Net.send(msg, this.isHost ? undefined : 'all');
     },
     onWorld(game, d) {
-      if (!game || game.mode !== 'horde' || game.state === 'title') return;
+      if (!game || game.state === 'title') return;
       const W = game.world, c = d.c || [], p = d.p || [];
       game.applyingRemote = true; game.visualOnly = true;
       try {
@@ -622,7 +642,7 @@
           W.destroyCell(r, lx, gy, lz, t, game, n++ < 40 ? 1 : 0);   // con pocos cascotes: el ruido ya lo hizo quien lo rompió
         }
         for (let i = 0; i + 7 < p.length; i += 8) {
-          const room = W.rooms[p[i]], pr = room && room.props[p[i + 1]];
+          const room = typeof p[i] === 'string' ? W.rooms.find((q) => q.rid === p[i]) : W.rooms[p[i]], pr = room && room.props[p[i + 1]];
           if (!pr || pr.dead) continue;
           pr.hit({ x: p[i + 2], y: p[i + 3], z: p[i + 4] }, p[i + 5], { dx: p[i + 6], dy: 0, dz: p[i + 7] }, game);
         }
@@ -766,6 +786,11 @@
 
     // ---------------- mazmorra cooperativa ----------------
     // ejecuta fn con un azar con semilla (para que una sala salga igual en todos los equipos)
+    withTemplate(tpl, fn) {
+      const Pool = VX.RoomPool, pick0 = Pool.pick;
+      if (tpl) Pool.pick = () => tpl;
+      try { return fn(); } finally { Pool.pick = pick0; }
+    },
     seeded(seed, fn) {
       const r0 = Math.random;
       Math.random = mulberry(seed);
@@ -794,7 +819,10 @@
       try {
         for (const rc of d.list) {
           if (room.doors[rc.side] && room.doors[rc.side].neighbor) continue;
-          const n = this.seeded(rc.seed, () => game.world.addNeighbor(room, rc.side, rc.t, rc.ex, rc.z, { lateralBoss: !!rc.lb }));
+          // la misma plantilla que eligió el anfitrión (el historial de plantillas puede no coincidir)
+          const Pool = VX.RoomPool;
+          const tpl = rc.tn && [...(Pool[rc.t] || []), ...(Pool.event || [])].find((t) => t.name === rc.tn);
+          const n = this.withTemplate(tpl, () => this.seeded(rc.seed, () => game.world.addNeighbor(room, rc.side, rc.t, rc.ex, rc.z, { lateralBoss: !!rc.lb })));
           n.rid = room.rid + '.' + rc.side;
           if (rc.bn) n.bossNext = true;
           if (rc.bk) n.bossKind = rc.bk;
@@ -881,13 +909,13 @@
     },
     // lo ha matado otro, pero le diste hace poco: asistencia
     noteAssist(e, game) {
-      if (!this.active || game.mode !== 'horde' || !e.myHitT || game.time - e.myHitT > 6 || e.assisted) return;
+      if (!this.active || !e.myHitT || game.time - e.myHitT > 6 || e.assisted) return;
       e.assisted = true;
       this.cnt.as++; game.stats.gold += 2; game.stats.totalGold += 2;
     },
     // lo has matado tú y estaba encima de un compañero: le has salvado
     noteSave(e, game) {
-      if (!this.active || game.mode !== 'horde') return;
+      if (!this.active) return;
       for (const r of this.remotes.values()) {
         if (!r.seen || r.dead || Math.hypot(r.x - e.x, r.z - e.z) > 2.4) continue;
         if (game.time - (r.savedT || -99) < 6) return;

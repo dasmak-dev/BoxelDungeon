@@ -395,6 +395,7 @@
       }
       if (this.doorFocus && !this.pickups.focus && VX.Input.wasPressed(VX.Settings.key('use'))) {
         const s = this.doorFocus.side, d = cr.doors[s];
+        if (VX.Coop.active) VX.Net.send({ k: 'door', rid: cr.rid, s }, VX.Coop.isHost ? undefined : 'all');   // los compañeros también la ven abrirse
         this.spawner.prepare(this, d.neighbor);
         cr.setDoor(s, false);
         // el rastrillo sube (animación) en lugar de desaparecer
@@ -403,6 +404,19 @@
         this.shake(0.12);
         this.doorFocus = null;
       }
+    }
+
+    // un compañero ha abierto una puerta de esta sala
+    openDoorRemote(rid, s) {
+      const cr = this.currentRoom;
+      if (!cr || cr.rid !== rid) return;
+      const d = cr.doors[s];
+      if (!d || !d.closed || !d.neighbor) return;
+      this.spawner.prepare(this, d.neighbor);
+      cr.setDoor(s, false);
+      this.doorAnims.push({ room: cr, side: s, t: 0, dur: 1.0 });
+      VX.Audio.gate();
+      this.shake(0.08);
     }
 
     roomLogic() {

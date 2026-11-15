@@ -130,11 +130,12 @@
         const nexits = this.planExits(ent, t, t === 'boss');
         const nz = t === 'boss' && this.finalPending && !this.secret ? 5 : zone;
         const seed = (Math.random() * 2147483647) | 0;
-        const n = VX.Coop.seeded(seed, () => game.world.addNeighbor(room, side, t, nexits, nz, { lateralBoss }));
+        const tpl = VX.RoomPool.pick(t, nz);   // la plantilla se elige fuera: así la construcción gasta el mismo azar en todos los equipos
+        const n = VX.Coop.withTemplate(tpl, () => VX.Coop.seeded(seed, () => game.world.addNeighbor(room, side, t, nexits, nz, { lateralBoss })));
         n.rid = (room.rid || 'S') + '.' + side;
         if (pushBoss && t === 'normal') n.bossNext = true;
         if (t === 'boss') n.bossKind = this.secret ? 'guardian' : this.finalPending ? 'corazon' : VX.ZONES[zone].boss;
-        if (recipes) recipes.push({ side, t, ex: nexits, z: nz, lb: lateralBoss ? 1 : 0, seed, bn: n.bossNext ? 1 : 0, bk: n.bossKind || null, ev: n.event || null });
+        if (recipes) recipes.push({ side, t, ex: nexits, z: nz, lb: lateralBoss ? 1 : 0, seed, bn: n.bossNext ? 1 : 0, bk: n.bossKind || null, ev: n.event || null, tn: n.template && n.template.name });
         if (game.mapReveal > 0) this.planFor(game, n);
       });
       if (recipes) VX.Coop.sendNeighbors(game, room, recipes);

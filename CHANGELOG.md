@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.46.1] — 2026-11-15
+
+### Corregido
+- **Mazmorra en cooperativo**:
+  - **Las puertas**: si uno abre una puerta, los demás la ven abrirse (con su rastrillo y su ruido).
+  - **Los bloques rotos**: lo que rompe cada jugador (disparos, golpes, explosiones, objetos del escenario) se rompe también en los demás. Antes sólo pasaba en la Horda.
+  - **Los disparos de los compañeros** (fogonazo, trazadoras, sonido) también se ven y se oyen en la mazmorra.
+  - **Las heridas de los zombis**: un impacto se repite en el mismo sitio del cuerpo en todos los equipos aunque el zombi esté un poco desplazado en el otro; así, si un compañero le destroza o le arranca la pierna, tú también lo ves (y al revés).
+  - Las salas usan exactamente la misma plantilla en todos los equipos (antes podían elegirse distintas en raras ocasiones).
+  - Las asistencias y los «salvados» cuentan también en la mazmorra.
+
 ## [0.46.0] — 2026-11-15
 
 ### Añadido

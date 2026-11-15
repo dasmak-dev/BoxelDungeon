@@ -1112,8 +1112,8 @@
       // cooperativo: el invitado avisa al anfitrión de sus impactos; el anfitrión enseña los suyos a los demás
       const C = VX.Coop;
       if (C.active && !game.visualOnly) {
-        if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts); }
-        else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0);
+        if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts, hit); }
+        else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0, hit);
       }
       if (this.T.knight) return this.knightHit(hit, dmg, ray, game, opts);
       if (this.T.hydra) return this.hydraHit(hit, dmg, ray, game, opts);

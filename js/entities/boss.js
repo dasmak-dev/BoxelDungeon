@@ -649,8 +649,8 @@
       if (game.localAct && !game.visualOnly) VX.Coop.noteHit && VX.Coop.noteHit(this, dmg, game);
       const C = VX.Coop;
       if (C.active && !game.visualOnly) {
-        if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts); }
-        else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0);
+        if (C.isClient) { if (game.localAct) C.reportHit(this, dmg, ray, opts, hit); }
+        else if (!game.noReward) C.shareHitFx(this, dmg, ray, opts, 0, hit);
       }
       const b = this.body;
       const dir = [ray.dx, ray.dy, ray.dz];
