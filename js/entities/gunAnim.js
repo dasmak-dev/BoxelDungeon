@@ -233,23 +233,30 @@
   }
   function spawn(w, e) {
     const sh = e.kind === 'shell';
-    // y en el mundo: la vaina sale por la derecha, cae al suelo y rebota (se ve al mirar abajo)
-    const g = VX.game, P = g && g.player;
-    if (P && g.particles && !g.visualOnly) {
-      const c = Math.cos(P.yaw), s = Math.sin(P.yaw), ey = P.eyeY ? P.eyeY() : P.y + 1.6;
-      const rx = -c, rz = s;   // derecha de la cámara
-      const fx = s, fz = c;
-      const x = P.x + rx * 0.22 + fx * 0.3, z = P.z + rz * 0.22 + fz * 0.3;
-      g.particles.spawn(x, ey - 0.12, z, rx * M.rand(1.2, 2) + fx * M.rand(-0.3, 0.3), M.rand(1.5, 2.6), rz * M.rand(1.2, 2) + fz * M.rand(-0.3, 0.3),
-        sh ? 0.62 : 0.86, sh ? 0.1 : 0.66, sh ? 0.07 : 0.26, sh ? 0.03 : 0.018, M.rand(1.6, 2.4), 0.1);
-    }
+    // y en el mundo: además cae una vaina «de verdad» que rebota en el suelo (se ve al mirar abajo).
+    // Sale un poco después y por debajo del arma, fuera de la vista: antes salía a la vez y desde el
+    // mismo sitio que la de la animación, y parecía que el arma soltaba dos o tres casquillos.
+    (w.worldQ || (w.worldQ = [])).push({ t: 0.22, sh });
     w.casings.push({ x: e.x, y: e.y, z: e.z, vx: 70 + Math.random() * 50 + (e.vx || 0), vy: 90 + Math.random() * 50 + (e.vy || 0), vz: 30 + Math.random() * 40 + (e.vz || 0),
       a: Math.random() * 3, va: 12 + Math.random() * 10, t: 0.7, kind: e.kind, big: sh });
+  }
+  function worldCasing(sh) {
+    const g = VX.game, P = g && g.player;
+    if (!P || !g.particles || g.visualOnly) return;
+    const c = Math.cos(P.yaw), s = Math.sin(P.yaw), ey = P.eyeY ? P.eyeY() : P.y + 1.6;
+    const rx = -c, rz = s, fx = s, fz = c;   // derecha y delante de la cámara
+    const x = P.x + rx * 0.45 + fx * 0.15, z = P.z + rz * 0.45 + fz * 0.15;
+    g.particles.spawn(x, ey - 0.75, z, rx * M.rand(0.6, 1.1) + fx * M.rand(-0.2, 0.2), M.rand(0.2, 0.8), rz * M.rand(0.6, 1.1) + fz * M.rand(-0.2, 0.2),
+      sh ? 0.62 : 0.86, sh ? 0.1 : 0.66, sh ? 0.07 : 0.26, sh ? 0.03 : 0.018, M.rand(1.6, 2.4), 0.1);
   }
   function update(w, dt, id) {
     w.fireT = (w.fireT == null ? 99 : w.fireT) + dt;
     if (VX.Audio.reloadTick) VX.Audio.reloadTick(w, id);   // sonido de cada pieza de la recarga
     for (const e of w.ejectQ) { e.t -= dt; if (e.t <= 0) spawn(w, e); }
+    if (w.worldQ && w.worldQ.length) {
+      for (const e of w.worldQ) { e.t -= dt; if (e.t <= 0) worldCasing(e.sh); }
+      w.worldQ = w.worldQ.filter((e) => e.t > 0);
+    }
     w.ejectQ = w.ejectQ.filter((e) => e.t > 0);
     // la recortada suelta los dos cartuchos al abrirse
     if (w.reloading && id === 'dbarrel') {

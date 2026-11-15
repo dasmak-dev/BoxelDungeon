@@ -10,12 +10,7 @@
       // arranca en silencio y sube poco a poco: al entrar o recargar no puede sonar un golpe fuerte
       A.master.gain.value = 0;
       A.master.gain.setTargetAtTime(A.hidden ? 0 : 0.9 * (A.masterVol ?? 1), A.ctx.currentTime + 0.15, 0.45);
-      // limitador a la salida: ningún pico (muchos sonidos a la vez, una explosión cerca…) pasa de cierto nivel
-      A.limiter = A.ctx.createDynamicsCompressor();
-      A.limiter.threshold.value = -9; A.limiter.knee.value = 6; A.limiter.ratio.value = 14;
-      A.limiter.attack.value = 0.002; A.limiter.release.value = 0.25;
-      A.master.connect(A.limiter);
-      A.limiter.connect(A.ctx.destination);
+      A.master.connect(A.ctx.destination);
       A.sfx = A.ctx.createGain();
       A.sfx.gain.value = A.volume * 0.5;
       A.sfx.connect(A.master);

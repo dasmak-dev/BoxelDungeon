@@ -19,7 +19,7 @@
       this.cooldown = 0;
       this.reloading = false; this.reloadT = 0;
       this.kick = 0; this.slide = 0; this.flash = 0;
-      this.casings = []; this.ejectQ = []; this.fireT = 99; this.shots = 0;
+      this.casings = []; this.ejectQ = []; this.fireT = 99; this.shots = 0; this.puffs = [];
       this.switchT = 0;
       this.swingT = 0; this.swingSide = 1; this.pendingHit = -1;
       this.tracers = [];
@@ -202,6 +202,7 @@
       this.kick = M.lerp(this.kick, 0, Math.min(1, dt * 14));
       this.slide = Math.max(0, this.slide - dt * 9);
       VX.GunAnim.update(this, dt, this.slot.id);
+      if (this.puffs.length) { for (const p of this.puffs) p.t += dt; this.puffs = this.puffs.filter((p) => p.t < 0.7); }
       this.flash = Math.max(0, this.flash - dt * 16);
       this.switchT = Math.max(0, this.switchT - dt);
       this.swingT = Math.max(0, this.swingT - dt);
@@ -597,6 +598,14 @@
       const vm = d.vm, mz = d.muzzle;
       this.muzzle = this.viewToWorld(P, vm.x + mz[0] * vm.g, vm.y + mz[1] * vm.g, vm.z + mz[2] * vm.g);
       const [mx, my, mzz] = this.muzzle;
+      // fogonazo ligero en la punta (sólo las armas de balas): un destello suave y una voluta de humo
+      if (!d.grenade && !d.flame && !d.beam && !d.bolt && !d.ray && ['pistol', 'smg', 'rifle', 'shotgun', 'dbarrel', 'lmg'].includes(this.slot.id)) {
+        if (this.puffs.length > 24) this.puffs.shift();
+        // la punta tal como se ve: el arma se dibuja con 58° de campo de visión y el mundo con el tuyo,
+        // así que la posición en pantalla se pasa de una perspectiva a la otra
+        const tw = this.tipWorld({ x: P.eyeX(), y: P.eyeY(), z: P.eyeZ(), yaw: P.yaw, pitch: P.pitch + P.recoilPitch }) || [mx, my, mzz];
+        this.puffs.push({ x: tw[0], y: tw[1], z: tw[2], dx: fwd[0], dy: fwd[1], dz: fwd[2], t: 0, big: d.pellets > 1 ? 1.35 : 1, seed: Math.random() * 100 });
+      }
 
       const coopDirs = VX.Coop.active ? [] : null;
       if (d.grenade) {
@@ -638,9 +647,7 @@
         P.vy = Math.max(P.vy, 6.8);
         P.knock(-fwd[0] * 7, -fwd[2] * 7);
       }
-      const shell = d.pellets > 1;
-      game.particles.spawn(mx - fwd[0] * 0.3, my, mzz - fwd[2] * 0.3, -right[0] * 2.5 + M.rand(-0.5, 0.5), 2.5, -right[2] * 2.5 + M.rand(-0.5, 0.5),
-        shell ? 0.8 : 0.85, shell ? 0.15 : 0.65, shell ? 0.1 : 0.25, shell ? 0.035 : 0.025, 1.5, 0.2);
+      // (0.53.1: ya no sale aquí la vaina antigua, que iba hacia la izquierda; las vainas las suelta GunAnim, a la derecha)
       if (this.slot.ammo <= 0) this.startReload();
     }
 
@@ -1108,6 +1115,8 @@
         batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], g, g, g, vq, r, gg, b, e);
       }
       if (A && this.casings.length) VX.GunAnim.drawCasings(this, batch, q, g, bx, by, bz, tmp);
+      // dónde queda la boca del cañón en pantalla (para el fogonazo, que se dibuja en el mundo)
+      if (!pose && !d.melee && !idOverride && d.muzzle) { const mz = d.muzzle; M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 1) * g, tmp); this.vmTip = [bx + tmp[0], by + tmp[1], bz + tmp[2]]; }
       if (this.flash > 0.05 && !d.melee && !pose) {
         const mz = d.muzzle;
         M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 3) * g, tmp);
@@ -1117,6 +1126,33 @@
           batch.rbox(bx + tmp[0] + M.rand(-0.018, 0.018) * f, by + tmp[1] + M.rand(-0.018, 0.018) * f, bz + tmp[2] - M.rand(0, 0.05),
             s, s, s, M.qZ(Math.random() * 3), 1, 0.75 + Math.random() * 0.2, 0.35, 1);
         }
+      }
+    }
+
+    // Fogonazo ligero: destello cálido y suave que dura un suspiro, y una voluta de humo tenue que
+    // sale hacia delante, sube y se deshace
+    // la boca del cañón (como se ve en pantalla) en coordenadas del mundo, para una cámara dada
+    tipWorld(cam) {
+      const vt = this.vmTip;
+      if (!vt) return null;
+      const R = VX.Renderer, k = Math.tan((R.fov || 1.3) * (R.zoom || 1) / 2) / Math.tan(29 * Math.PI / 180);
+      const vx = vt[0] * k, vy = vt[1] * k, vz = vt[2];
+      const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
+      return [cam.x - cy * vx + -sy * sp * vy - sy * cp * vz, cam.y + cp * vy - sp * vz, cam.z + sy * vx + -cy * sp * vy - cy * cp * vz];
+    }
+    renderMuzzle(cam) {
+      const R = VX.Renderer, FI = R.fire, SM = R.smoke;
+      if (!FI || !this.puffs.length) return;
+      const tip = cam ? this.tipWorld(cam) : null;   // el destello va pegado al arma (que sube con el retroceso)
+      for (const p of this.puffs) {
+        const t = p.t, B = p.big;
+        if (t < 0.06) {
+          const k = 1 - t / 0.06, X = tip ? tip[0] : p.x, Y = tip ? tip[1] : p.y, Z = tip ? tip[2] : p.z;
+          FI.add(X, Y, Z, 0.26 * B * (0.7 + k * 0.3), 0.55 * k, 0.36 * k, 0.14 * k, 0.4, p.seed, p.seed);
+          FI.add(X + p.dx * 0.05, Y + p.dy * 0.05, Z + p.dz * 0.05, 0.11 * B, 0.7 * k, 0.58 * k, 0.36 * k, 0.55, p.seed * 2, p.seed + 1);
+        }
+        const k = t / 0.7, go = 1 - Math.pow(1 - Math.min(1, t / 0.35), 2);
+        SM.add(p.x + p.dx * 0.25 * go, p.y + p.dy * 0.25 * go + t * 0.35, p.z + p.dz * 0.25 * go, (0.07 + k * 0.3) * B, 0.55, 0.53, 0.5, 0.2 * (1 - k) * Math.min(1, t / 0.05), p.seed + t * 0.8, p.seed);
       }
     }
 

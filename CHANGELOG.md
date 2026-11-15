@@ -3,6 +3,31 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.53.2] — 2026-11-16
+
+### Añadido
+- **Fogonazo ligero** en la punta de las armas de balas (pistola, subfusil, rifle, escopeta, recortada y ametralladora): al disparar sale un destello cálido y suave que dura un instante, y una voluta de humo muy tenue que avanza, sube y se deshace. El destello va pegado a la boca del cañón aunque el arma suba con el retroceso, y en la escopeta y la recortada es algo más grande.
+
+## [0.53.1] — 2026-11-16
+
+### Corregido
+- **Salía un casquillo hacia la izquierda al disparar** (pistola, rifle y demás). Era una vaina antigua que salía de la boca del arma, además de la de la animación. Se ha quitado: ahora las vainas solo salen por la derecha, como se expulsan de verdad.
+
+## [0.53.0] — 2026-11-16
+
+### Cambiado
+- **Vuelven los sonidos y la música de antes de la 0.51.** Se quitan los sonidos «por capas» (disparos, explosiones, fuego, impactos, puertas, monedas…), la banda sonora nueva y las fanfarrias. En la mazmorra suena otra vez la música de siempre, también con los jefes y en el Vacío.
+- Se mantienen los **sonidos de recarga pieza a pieza** de cada arma.
+- Se quita el limitador de volumen de la salida. Se mantienen el fundido al arrancar y el límite de sonidos a la vez.
+
+### Añadido
+- **Música de la Horda**: una marcha de guerra propia mientras hay zombis. Lleva bombo de marcha, toms, un bajo que no para, golpes de acorde a contratiempo y una melodía de metales, con un redoble al final de cada frase. Con 10 zombis o más se añaden capas (más toms y platos, y la melodía sube de octava). Entre oleadas suena la música de exploración del mapa.
+
+## [0.52.1] — 2026-11-16
+
+### Corregido
+- **Parecía que las armas soltaban varios casquillos por disparo.** Cada disparo suelta uno en la animación del arma y otro de verdad que cae al suelo, y los dos salían a la vez desde el mismo sitio. Ahora el del suelo aparece un poco después, por debajo del arma y fuera de la vista: al disparar se ve un solo casquillo, y al mirar abajo sigue viéndose caer y rebotar.
+
 ## [0.52.0] — 2026-11-16
 
 ### Añadido

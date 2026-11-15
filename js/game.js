@@ -2074,14 +2074,13 @@
       const Mu = VX.Music;
       if (this.boss && !this.boss.dead) {
         const b = this.boss, ph = Math.max(b.phase || 0, b.hp < b.maxHp * 0.33 ? 2 : b.hp < b.maxHp * 0.66 ? 1 : 0);
-        if (Mu.bossPhase !== ph) { Mu.bossPhase = ph; if (Mu.mode === 'boss') Mu.bpm = 140 * (1 + ph * 0.06); }   // cada fase, la música aprieta
-        return (b.T && b.T.id === 'corazon') || r.finalBoss ? 'final' : 'boss';
+        Mu.bossPhase = ph;
+        return 'boss';
       }
       Mu.bossPhase = 0;
       const alive = this.enemies.filter((e) => !e.dead).length;
       Mu.intensity = alive;
       if (alive) return this.mode === 'horde' ? 'horde' : 'combat';
-      if (this.mode === 'dungeon' && (this.zone === 5 || this.spawner.secret)) return 'void';
       if (r.type === 'shop' || (this.mode === 'horde' && VX.HordeMode.merchant)) return 'shop';
       if (r.type === 'save') return 'save';
       return 'explore';
@@ -2534,6 +2533,7 @@
       this.pickups.render(b);
       this.weapon.renderTracers(b);
       this.renderBlasts(b);
+      this.weapon.renderMuzzle(spec ? null : cam);
       this.renderSap(b);
       this.renderGas();
       this.bullets.render(b, this.time);
