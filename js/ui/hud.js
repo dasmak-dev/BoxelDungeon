@@ -403,7 +403,8 @@
       const loc = document.getElementById('locator');
       const left = game.enemies.filter((e) => !e.dead && !e.isBoss && e.spawnT <= 0);
       const roomT = game.currentRoom && game.currentRoom.entered ? (this.roomT = (this.roomT || 0) + dt) : (this.roomT = 0);
-      if (VX.Settings.data.enemyLocator && left.length && left.length <= 3 && roomT > 8) {
+      // aunque estén desactivadas, salen solas si los últimos llevan mucho rato sin aparecer
+      if (left.length && ((VX.Settings.data.enemyLocator && left.length <= 3 && roomT > 8) || (left.length <= 2 && roomT > 25))) {
         let html = '';
         for (const e of left) {
           const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz) || 1;

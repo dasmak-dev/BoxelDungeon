@@ -3,6 +3,18 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.49.0] — 2026-11-15
+
+### Añadido
+- **Controles del mando configurables**: nueva pestaña **MANDO** en Ajustes. Clic (o A) en una acción y pulsa el botón nuevo; si otra acción lo usaba, se intercambian. Hay acciones nuevas que se pueden poner en un botón (recargar sola, inspeccionar el arma) y un botón para volver a los de siempre. Start (pausa) y A / B en los menús no se cambian. La ayuda de Controles muestra tus botones.
+
+### Corregido
+- **El último enemigo invisible** («queda 1» y algo te pega sin verse), también en la mazmorra en cooperativo. Un vigilante revisa a los enemigos cada medio segundo:
+  - **Sin cuerpo visible** (destrozado sin llegar a morir) o con la posición rota: muere.
+  - **Fuera de la sala, bajo el suelo o metido en un bloque** durante 3 s: se le saca a un sitio libre cerca de ti.
+  - **Si quedan 1 o 2 y nadie les hace daño en 40 s**: se les saca delante de ti («¡el último estaba escondido!»); si a los otros 40 s sigue igual, se desvanece y la sala se despeja.
+  - Las **flechas hacia los últimos enemigos** salen solas si quedan 1 o 2 y la sala se alarga (más de 25 s), aunque estén desactivadas en Ajustes.
+
 ## [0.48.0] — 2026-11-15
 
 ### Añadido

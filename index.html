@@ -145,7 +145,7 @@
   <!-- Ajustes -->
   <div id="settings" class="screen hidden">
     <h2>AJUSTES</h2>
-    <div class="setTabs"><button class="small setTab on" data-tab="snd">SONIDO</button><button class="small setTab" data-tab="gfx">GRÁFICOS</button><button class="small setTab" data-tab="ctl">CONTROLES</button><button class="small setTab" data-tab="keys">TECLAS</button><button class="small setTab" data-tab="ui">INTERFAZ</button><button class="small setTab" data-tab="prof">PERFIL</button></div>
+    <div class="setTabs"><button class="small setTab on" data-tab="snd">SONIDO</button><button class="small setTab" data-tab="gfx">GRÁFICOS</button><button class="small setTab" data-tab="ctl">CONTROLES</button><button class="small setTab" data-tab="keys">TECLAS</button><button class="small setTab" data-tab="pad">MANDO</button><button class="small setTab" data-tab="ui">INTERFAZ</button><button class="small setTab" data-tab="prof">PERFIL</button></div>
     <div class="settingsGrid setPane" data-pane="snd">
       <label>Volumen general <span id="masterVal"></span></label>
       <input type="range" id="setMaster" min="0" max="1" step="0.05">
@@ -207,7 +207,7 @@
       </select>
       <label>Sensibilidad del mando <span id="padSensVal"></span></label>
       <input type="range" id="setPadSens" min="0.4" max="2.5" step="0.05">
-      <p class="padHelp"><b>Mando</b> (Xbox, PlayStation, Switch Pro… en PC y móvil): stick izq. moverse (L3 correr) · stick der. apuntar · RT disparar · LT mirilla · A saltar · B esquivar · X usar / recargar · Y cambiar de arma · RB cuchillo · LB lanzar · cruceta: ↑ linterna, ↓ objeto, ← → armas · Start pausa · Select mapa. En los menús: cruceta o stick para moverte, A aceptar, B volver.</p>
+      <p class="padHelp"><b>Mando</b> (Xbox, PlayStation, Switch Pro… en PC y móvil; los botones se cambian en la pestaña MANDO): <span id="padHelpTxt"></span></p>
       <label>Sensibilidad táctil <span id="touchSensVal"></span></label>
       <input type="range" id="setTouchSens" min="0.3" max="3" step="0.05">
       <label>Apuntado asistido (táctil)</label>
@@ -253,6 +253,12 @@
       <button class="small keyBind" data-action="throw"></button>
       <label>Tecla: cambiar objeto a lanzar</label>
       <button class="small keyBind" data-action="throwNext"></button>
+    </div>
+    <div class="settingsGrid setPane hidden" data-pane="pad">
+      <div class="setSec">Clic (o A) en una acción y pulsa el botón nuevo del mando · Start cancela</div>
+      <div id="padBinds" class="padBinds"></div>
+      <label>Volver a los botones de siempre</label>
+      <button id="padResetBtn" class="small secondary">RESTAURAR</button>
     </div>
     <div class="settingsGrid setPane hidden" data-pane="ui">
       <label>Brillo <span id="brightVal"></span></label>

@@ -429,6 +429,7 @@
       }
       // cooperativo (invitado): los zombis, las oleadas y cuándo se despeja la sala los decide el anfitrión
       if (VX.Coop.isClient) return;
+      this.enemyWatch(cr);
       if (cr.ambushAt) {
         // silencio tenso: el ambiente y la música se apagan justo antes de que salten
         if (!cr.ducked) { cr.ducked = true; VX.Audio.duck && VX.Audio.duck(Math.max(0.6, cr.ambushAt - this.time + 0.15)); }
@@ -456,6 +457,66 @@
           VX.Audio.roar();
         } else if (alive === 0 && cr.pendingWaves <= 0) this.clearRoom(cr);
       }
+    }
+
+    // ---------------- Vigilante de enemigos atascados ----------------
+    // A veces un enemigo se queda vivo pero no se ve: metido en una pared o en el suelo, fuera de la
+    // sala, o con el cuerpo ya destrozado sin haber muerto. La sala no se despeja y algo te pega sin
+    // que lo veas. Cada medio segundo se revisa a los que quedan:
+    //  · sin cuerpo visible o con la posición rota → muere
+    //  · fuera de la sala, bajo el suelo o dentro de un bloque un rato → se le saca a un sitio libre
+    //  · si sólo quedan 1 o 2 y nadie les hace daño en 40 s → se les saca delante; a la segunda, se desvanecen
+    enemyWatch(cr) {
+      if (this.time < (this.watchAt || 0)) return;
+      this.watchAt = this.time + 0.5;
+      const live = this.enemies.filter((e) => !e.dead && !(e.spawnT > 0));
+      if (!live.length) return;
+      const few = live.length <= 2 && !this.boss;
+      for (const e of live) {
+        const now = this.time;
+        if (e._wHp !== e.hp) { e._wHp = e.hp; e._wHpT = now; }
+        if (!Number.isFinite(e.x) || !Number.isFinite(e.z) || !Number.isFinite(e.y)) { this.watchKill(e, 'perdido'); continue; }
+        if (e.isBoss) continue;
+        // ¿le queda algo que se vea?
+        let vis = 0;
+        for (const p of e.body.parts) if (!p.detached && !p.hidden) { for (const v of p.vox) if (v.alive) { vis++; if (vis > 3) break; } if (vis > 3) break; }
+        if (vis <= 3 && !e.T.grows) { this.watchKill(e, 'sin cuerpo'); continue; }
+        // ¿atascado?
+        const g = this.world.groundAt(e.x, e.z);
+        const out = !cr.contains(e.x, e.z) || e.y < g - 1.2 || e.y < -4 ||
+          (!e.T.fly && this.world.boxCollides(e.x - 0.15, e.y + 0.5, e.z - 0.15, e.x + 0.15, e.y + 1.1, e.z + 0.15));
+        e._wOut = out ? (e._wOut || 0) + 0.5 : 0;
+        if (e._wOut >= 3) { e._wOut = 0; this.watchPull(e, cr, false); continue; }
+        // los últimos, escondidos sin que nadie les dé
+        if (few && now - (e._wHpT || now) > 40) {
+          e._wHpT = now;
+          if (e._wPulled) this.watchKill(e, 'escondido');
+          else { e._wPulled = true; this.watchPull(e, cr, true); }
+        }
+      }
+    }
+    watchPull(e, cr, tell) {
+      const P = this.player;
+      for (let i = 0; i < 80; i++) {
+        const a = Math.random() * 6.283, d = 3 + Math.random() * 6;
+        const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
+        if (!cr.insideDeep(x, z)) continue;
+        const y = this.world.groundAt(x, z);
+        if (this.world.boxCollides(x - 0.35, y + 0.2, z - 0.35, x + 0.35, y + 1.7, z + 0.35)) continue;
+        e.x = x; e.z = z; e.y = y; e.vy = 0; e.vx = e.vz = 0; e.path = null;
+        if (e.body) { e.body.x = x; e.body.y = y; e.body.z = z; e.body.computeWorld && e.body.computeWorld(); }
+        for (let k = 0; k < 25; k++) this.particles.spawn(x, y + 0.8, z, M.rand(-1.5, 1.5), M.rand(0.5, 3), M.rand(-1.5, 1.5), 0.5, 0.2, 0.7, 0.04, M.rand(0.6, 1.2), 1, 1);
+        if (tell) { this.hud.toast('¡El último estaba escondido: ahí lo tienes!'); VX.Audio.roar && VX.Audio.roar(); }
+        return true;
+      }
+      this.watchKill(e, 'atascado');
+      return false;
+    }
+    watchKill(e, why) {
+      e.allowDie = true; e.hp = 0; e.noLoot = true;
+      try { e.die([0, 1, 0], this); } catch (err) { e.dead = true; }
+      e.dead = true;
+      this.hud.toast(why === 'escondido' ? 'El último enemigo se ha desvanecido' : 'Un enemigo atascado se ha desvanecido');
     }
 
     enterRoom(r) {

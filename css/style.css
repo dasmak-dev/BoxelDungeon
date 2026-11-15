@@ -647,3 +647,6 @@ body.padOn #touchUI { display: none !important; }
 #voteBox button { font: inherit; font-size: 14px; padding: 6px 16px; border: 0; border-radius: 4px; cursor: pointer; color: #111; }
 #voteBox .vtYes { background: #7be07b; }
 #voteBox .vtNo { background: #e07b7b; }
+
+/* ajustes del mando: misma rejilla que las teclas */
+.padBinds { display: contents; }

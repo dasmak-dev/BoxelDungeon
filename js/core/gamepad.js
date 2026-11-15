@@ -11,6 +11,18 @@
   const I = VX.Input;
   const DZ = 0.16;   // zona muerta de los sticks
   const B = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, SELECT: 8, START: 9, L3: 10, R3: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+  // nombre de cada botón (Xbox / PlayStation)
+  const BTN_NAMES = ['A / ✕', 'B / ○', 'X / □', 'Y / △', 'LB / L1', 'RB / R1', 'LT / L2', 'RT / R2', 'Select / Share', 'Start / Options', 'L3', 'R3', 'Cruceta ↑', 'Cruceta ↓', 'Cruceta ←', 'Cruceta →'];
+  // acciones configurables (Ajustes → Mando) y su botón por defecto (-1: ninguno). Start (pausa)
+  // y, en los menús, A aceptar / B volver no se cambian, para no quedarse sin poder salir.
+  const ACTIONS = [
+    ['fire', 'Disparar', B.RT], ['aim', 'Mirilla', B.LT], ['jump', 'Saltar', B.A], ['dash', 'Esquivar', B.B],
+    ['use', 'Usar (si no hay nada: recargar)', B.X], ['reload', 'Recargar', -1], ['next', 'Arma siguiente', B.Y], ['next2', 'Arma siguiente (2º botón)', B.RIGHT],
+    ['prev', 'Arma anterior', B.LEFT], ['knife', 'Cuchillazo', B.RB], ['knife2', 'Cuchillazo (2º botón)', B.R3], ['throw', 'Lanzar objeto', B.LB],
+    ['throwNext', 'Cambiar objeto a lanzar', B.DOWN], ['flashlight', 'Linterna', B.UP], ['sprint', 'Correr (pulsar)', B.L3], ['map', 'Mapa / llamar la oleada', B.SELECT],
+    ['inspect', 'Inspeccionar el arma', -1],
+  ];
+  const DEF = {}; for (const [a, , b] of ACTIONS) DEF[a] = b;
 
   const Pad = {
     active: false,      // se ha usado el mando hace poco (oculta los controles táctiles, no hace falta el ratón)
@@ -18,6 +30,23 @@
     held: {},           // teclas que el mando mantiene pulsadas
     sprint: false,
     navT: 0, focus: -1,
+    ACTIONS, BTN_NAMES, waitBind: null,
+    // botón asignado a una acción
+    btnOf(a) { const m = VX.Settings.data.pad; return m && m[a] !== undefined ? m[a] : DEF[a]; },
+    btnName(i) { return i >= 0 ? BTN_NAMES[i] || 'Botón ' + i : '—'; },
+    // asigna; si otra acción usaba ese botón, se intercambian
+    bind(a, btn) {
+      const S = VX.Settings, m = S.data.pad = { ...DEF, ...(S.data.pad || {}) };
+      const old = m[a];
+      for (const k in m) if (k !== a && m[k] === btn) m[k] = old;
+      m[a] = btn; S.save();
+    },
+    resetBinds() { VX.Settings.data.pad = null; VX.Settings.save(); },
+    // la ayuda de los ajustes, con los botones de cada uno
+    helpText() {
+      const n = (a) => this.btnName(this.btnOf(a));
+      return `Stick izq. moverse · stick der. apuntar · ${n('fire')} disparar · ${n('aim')} mirilla · ${n('jump')} saltar · ${n('dash')} esquivar · ${n('use')} usar · ${n('knife')} cuchillo · ${n('throw')} lanzar · Start pausa. En los menús: cruceta o stick para moverte, A aceptar, B volver.`;
+    },
 
     pad() {
       const list = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -47,6 +76,13 @@
       const down = (i) => now[i] && !this.prev[i];
       const ax = (i) => { const v = p.axes[i] || 0; return Math.abs(v) < DZ ? 0 : (v - Math.sign(v) * DZ) / (1 - DZ); };
       const lx = ax(0), ly = ax(1), rx = ax(2), ry = ax(3);
+      // Ajustes → Mando: esperando a que pulses el botón nuevo
+      if (this.waitBind) {
+        const i = now.findIndex((b, k) => b && !this.prev[k]);
+        if (i >= 0) { if (i !== B.START) this.bind(this.waitBind, i); this.waitBind = null; VX.Menus && VX.Menus.syncPad && VX.Menus.syncPad(); }
+        this.prev = now;
+        return;
+      }
       if (now.some((b) => b) || Math.hypot(lx, ly) > 0.3 || Math.hypot(rx, ry) > 0.3) this.setActive(true);
       if (!this.active) { this.prev = now; return; }
 
@@ -63,7 +99,7 @@
 
       // moverse: analógico (el jugador lee I.padMove)
       I.padMove = Math.hypot(lx, ly) > 0 ? { x: lx, y: -ly } : null;
-      if (down(B.L3)) this.sprint = !this.sprint;
+      { const i = this.btnOf('sprint'); if (i >= 0 && down(i)) this.sprint = !this.sprint; }
       if (Math.hypot(lx, ly) < 0.2) this.sprint = false;
       this.key(K('run'), !VX.Settings.data.autoRun && this.sprint);
 
@@ -79,29 +115,33 @@
       I.dx += curve(rx) * 1150 * S * dt * scope * fr;
       I.dy += curve(ry) * 820 * S * dt * scope * fr;
 
-      // gatillos y botones
-      const rt = btn(B.RT);
-      if (rt && !this.prev[B.RT]) { I.mouseClicked = true; I.mouseDown = true; }
-      if (!rt && this.prev[B.RT]) I.mouseDown = false;
-      I.rightDown = btn(B.LT);
-      if (down(B.LT)) I.rightClicked = game.weapon && game.weapon.slot && game.weapon.slot.id === 'rifle';
-      this.key(K('jump'), now[B.A]);
-      this.key(K('dash'), now[B.B]);
-      // X: usar si hay algo delante (comprar, abrir…); si no, recargar
-      if (down(B.X)) {
+      // gatillos y botones (según lo configurado en Ajustes → Mando)
+      const on = (a) => { const i = this.btnOf(a); return i >= 0 && !!now[i]; };
+      const was = (a) => { const i = this.btnOf(a); return i >= 0 && !!this.prev[i]; };
+      const tapA = (a) => on(a) && !was(a);
+      const rt = on('fire');
+      if (rt && !was('fire')) { I.mouseClicked = true; I.mouseDown = true; }
+      if (!rt && was('fire')) I.mouseDown = false;
+      I.rightDown = on('aim');
+      if (tapA('aim')) I.rightClicked = game.weapon && game.weapon.slot && game.weapon.slot.id === 'rifle';
+      this.key(K('jump'), on('jump'));
+      this.key(K('dash'), on('dash'));
+      // usar si hay algo delante (comprar, abrir…); si no, recargar
+      if (tapA('use')) {
         const pr = document.getElementById('prompt');
         const canUse = (pr && !pr.classList.contains('hidden')) || !!game.coopPrompt;
         this.tap(canUse ? K('use') : K('reload'));
       }
-      if (down(B.Y)) I.wheel += 1;
-      this.key(K('knife'), now[B.RB] || now[B.R3]);
-      this.key(K('throw'), now[B.LB]);
-      const voting = VX.Coop && VX.Coop.vote && !VX.Coop.vote.mine;   // votación del cooperativo: arriba sí, abajo no
-      if (down(B.UP)) { if (voting) VX.Coop.castVote(game, true); else this.tap(K('flashlight')); }
-      if (down(B.DOWN)) { if (voting) VX.Coop.castVote(game, false); else this.tap(K('throwNext')); }
-      if (down(B.LEFT)) this.tap(K('prev'));
-      if (down(B.RIGHT)) I.wheel += 1;
-      if (down(B.SELECT)) this.tap(game.mode === 'horde' ? K('wave') : K('map'));
+      if (tapA('reload')) this.tap(K('reload'));
+      if (tapA('inspect')) this.tap(K('inspect'));
+      if (tapA('next') || tapA('next2')) I.wheel += 1;
+      this.key(K('knife'), on('knife') || on('knife2'));
+      this.key(K('throw'), on('throw'));
+      const voting = VX.Coop && VX.Coop.vote && !VX.Coop.vote.mine;   // votación del cooperativo: linterna sí, cambiar objeto no
+      if (tapA('flashlight')) { if (voting) VX.Coop.castVote(game, true); else this.tap(K('flashlight')); }
+      if (tapA('throwNext')) { if (voting) VX.Coop.castVote(game, false); else this.tap(K('throwNext')); }
+      if (tapA('prev')) this.tap(K('prev'));
+      if (tapA('map')) this.tap(game.mode === 'horde' ? K('wave') : K('map'));
       if (down(B.START)) { this.release(); I.locked = false; game.pause(); }
       this.prev = now;
     },

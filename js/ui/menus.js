@@ -112,6 +112,17 @@
         };
         rd.readAsText(f);
       });
+      // mando: una fila por acción; clic y pulsa el botón nuevo en el mando
+      const pb = $('padBinds');
+      if (pb && VX.Pad) {
+        pb.innerHTML = VX.Pad.ACTIONS.map(([a, label]) => `<label>${label}</label><button class="small padBind" data-pad="${a}"></button>`).join('');
+        for (const b of pb.querySelectorAll('.padBind')) b.addEventListener('click', () => {
+          VX.Audio.click();
+          VX.Pad.waitBind = b.dataset.pad;
+          b.textContent = 'Pulsa un botón del mando…';
+        });
+        $('padResetBtn').addEventListener('click', () => { VX.Audio.click(); VX.Pad.resetBinds(); this.syncPad(); });
+      }
       // reasignar teclas: clic en el botón y pulsa la tecla nueva (Esc cancela)
       this.waitKey = null;
       for (const b of document.querySelectorAll('.keyBind')) b.addEventListener('click', () => {
@@ -120,6 +131,7 @@
         b.textContent = 'Pulsa una tecla…';
       });
       window.addEventListener('keydown', (e) => {
+        if (VX.Pad && VX.Pad.waitBind && e.code === 'Escape') { VX.Pad.waitBind = null; this.syncPad(); return; }
         if (!this.waitKey) return;
         e.preventDefault(); e.stopPropagation();
         if (e.code !== 'Escape') S.bind(this.waitKey, e.code);
@@ -177,6 +189,13 @@
       const S = VX.Settings;
       for (const b of document.querySelectorAll('.keyBind')) b.textContent = S.keyName(S.key(b.dataset.action));
       for (const b of document.querySelectorAll('[data-key]')) b.textContent = S.keyName(S.key(b.dataset.key));
+      this.syncPad();
+    },
+    syncPad() {
+      const Pd = VX.Pad;
+      if (!Pd) return;
+      for (const b of document.querySelectorAll('.padBind')) b.textContent = Pd.waitBind === b.dataset.pad ? 'Pulsa un botón del mando…' : Pd.btnName(Pd.btnOf(b.dataset.pad));
+      const h = document.getElementById('padHelpTxt'); if (h) h.textContent = Pd.helpText();
     },
 
     openSettings(from) {
