@@ -15,6 +15,7 @@
   }
 
   function updateExposure(p) {
+    p.ver = (p.ver || 0) + 1;   // la malla de la pieza en la GPU se rehace
     const vox = p.vox;
     for (const v of vox) {
       if (!v.alive) continue;
@@ -72,14 +73,10 @@
           p.wp[0] = bx + tmp[0]; p.wp[1] = by + tmp[1]; p.wp[2] = bz + tmp[2];
           p.q = M.qMul(rootQ, localQ(p));
         }
-        // sólo la superficie: el interior se calcula bajo demanda (ensureAll) al cortar
-        const q = p.q;
-        for (const vx of p.vox) {
-          if (!vx.alive || !vx.exposed) continue;
-          M.qRot(q, vx.x * s, vx.y * s, vx.z * s, tmp);
-          vx.wx = p.wp[0] + tmp[0]; vx.wy = p.wp[1] + tmp[1]; vx.wz = p.wp[2] + tmp[2];
-        }
       }
+      // la posición de cada vóxel ya no se calcula en cada fotograma: sólo cuando hace falta
+      // (un disparo, una explosión, un corte…), con ensureSurf / ensureAll. El dibujo va en la GPU.
+      this._surf = false;
       this._all = false;
       const tp = this.byName.torso;
       if (!tp.detached) {
@@ -88,8 +85,25 @@
       } else { this.cx = bx; this.cy = by + 0.5; this.cz = bz; }
     }
 
+    // Posición en el mundo de los vóxeles de la superficie (bajo demanda)
+    ensureSurf() {
+      if (this._surf) return;
+      this._surf = true;
+      const s = this.scale;
+      for (const p of this.parts) {
+        if (p.detached) continue;
+        const q = p.q;
+        for (const vx of p.vox) {
+          if (!vx.alive || !vx.exposed) continue;
+          M.qRot(q, vx.x * s, vx.y * s, vx.z * s, tmp);
+          vx.wx = p.wp[0] + tmp[0]; vx.wy = p.wp[1] + tmp[1]; vx.wz = p.wp[2] + tmp[2];
+        }
+      }
+    }
+
     // Posición de todos los vóxeles vivos (también los interiores)
     ensureAll() {
+      this.ensureSurf();
       if (this._all) return;
       this._all = true;
       const s = this.scale;
@@ -122,6 +136,9 @@
     }
 
     render(batch) {
+      // lote principal de la escena: el cuerpo se dibuja en la GPU pieza a pieza (R.drawBodies)
+      if (batch.bodies && VX.Renderer.bodyOn) { VX.Renderer.bodies.push(this); return; }
+      this.ensureSurf();
       const sz = this.v * 1.002;
       const f = this.flash;
       for (const p of this.parts) {
@@ -165,6 +182,7 @@
     }
 
     rayHit(ox, oy, oz, dx, dy, dz, maxT) {
+      this.ensureSurf();
       const Lx = this.cx - ox, Ly = this.cy - oy, Lz = this.cz - oz;
       const tca = Lx * dx + Ly * dy + Lz * dz;
       const pad = this.hitPad || 0, R = this.radius + pad;   // hitPad: margen extra para dianas pequeñas (cuervo)
@@ -190,6 +208,7 @@
     }
 
     carveTunnel(ox, oy, oz, dx, dy, dz, entryT, radius, particles, maxDebris = 26) {
+      this.ensureSurf();
       this.ensureAll();
       const removed = {};
       let debris = 0;
@@ -222,6 +241,7 @@
 
     // Tajo de cuchillo: corte a lo largo de un segmento (eje a) y poco profundo (dirección d)
     carveSlash(px, py, pz, ax, ay, az, dx, dy, dz, halfLen, radius, depth, particles) {
+      this.ensureSurf();
       this.ensureAll();
       const removed = {};
       let debris = 0;
@@ -254,6 +274,7 @@
 
     // Vóxel vivo más cercano a un punto (para explosiones)
     nearestVoxel(x, y, z) {
+      this.ensureSurf();
       this.ensureAll();
       let best = null, bd = Infinity;
       for (const p of this.parts) {
@@ -269,6 +290,7 @@
 
     // Corte genérico según el tipo de golpe
     cutFor(hit, dmg, ray, opts, destruction, particles, radiusK = 1.1) {
+      this.ensureSurf();
       if (opts && opts.blunt) return this.carveSphere(hit.vox.wx, hit.vox.wy, hit.vox.wz, this.v * 3.4, particles, ray.dx, ray.dy, ray.dz);
       if (opts && opts.slash) {
         const a = opts.slash;
@@ -279,6 +301,7 @@
     }
 
     carveSphere(px, py, pz, radius, particles, dirx, diry, dirz, maxDebris = 14) {
+      this.ensureSurf();
       this.ensureAll();
       const r2 = radius * radius;
       const removed = {};
@@ -390,6 +413,7 @@
 
     // Todas las partes pasan a ser trozos físicos (se desvanecen con el tiempo)
     collapse(gibs, dirx, dirz, force = 2) {
+      this.ensureSurf();
       for (const p of this.parts) {
         if (p.detached) continue;
         const ox = p.wp[0] - this.x, oz = p.wp[2] - this.z;

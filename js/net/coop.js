@@ -50,6 +50,7 @@
       N.on('start', (d) => { if (N.isClient) this.begin(d.map, d.seed, d.order); });
       N.on('me', (d, from) => this.onMe(g(), d, from));
       N.on('s', (d) => this.onSnap(g(), d));
+      N.onBin = (u8) => { if (u8[0] !== 1) return; let d; try { d = VX.Pack.decodeSnap(u8); } catch (e) { return; } if (d) this.onSnap(g(), d); };
       N.on('hit', (d, from) => this.onHit(g(), d, from));
       N.on('hx', (d) => this.onHitFx(g(), d));
       N.on('kill', (d, from) => this.onKill(g(), d, from));
@@ -201,7 +202,12 @@
       if (this.isHost) {
         this.shareProjectiles(game);
         this.snapT -= dt;
-        if (this.snapT <= 0) { this.snapT = 1 / SNAP_HZ; N.send(this.snapshot(game)); }
+        if (this.snapT <= 0) {
+          this.snapT = 1 / SNAP_HZ;
+          const sn = this.snapshot(game);
+          // binario y sólo lo que cambia (0.52); con un servidor antiguo, JSON como antes
+          if (N.bin && VX.Pack) N.sendBin(VX.Pack.encodeSnap(sn)); else N.send(sn);
+        }
         this.checkAllDown(game);
       } else {
         this.meT -= dt;
@@ -833,6 +839,7 @@
       if (tpl) Pool.pick = () => tpl;
       try { return fn(); } finally { Pool.pick = pick0; }
     },
+    mulberry: (s) => mulberry(s),
     seeded(seed, fn) {
       const r0 = Math.random;
       Math.random = mulberry(seed);
@@ -945,11 +952,13 @@
       const wasHost = this.role === 'host';
       this.role = VX.Net.role;
       if (wasHost && this.isClient) { for (const e of game.enemies) e.dead = true; game.enemies = []; this.reps.clear(); game.boss = null; game.hud.hideBoss(); }
+      if (VX.Pack) { VX.Pack.resetEnc(); VX.Pack.resetDec(); }
       game.hud.banner('RECONECTADO', 'Vuelves a estar con tus compañeros', 2.5);
       if (this.isClient) VX.Net.send({ k: 'hello', rid: game.currentRoom && game.currentRoom.rid });
     },
     // (anfitrión) alguien ha vuelto: que se ponga en mi sala, con sus vecinas
     onHello(game, d, from) {
+      if (VX.Pack) VX.Pack.enc.n = 0;   // alguien vuelve: el próximo estado va entero
       if (!this.isHost) return;
       if (!this.remotes.has(from)) {
         const p = VX.Net.players.find((q) => q.id === from);

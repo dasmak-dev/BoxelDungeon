@@ -26,6 +26,7 @@ const TYPES = {
 // ---------------- HTTP: archivos del juego y comprobación de estado ----------------
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent((req.url || '/').split('?')[0]);
+  if (url === '/daily') { daily(req, res); return; }
   if (url === '/health') { res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' }); res.end('ok ' + rooms.size); return; }
   let file = path.join(ROOT, url === '/' ? 'index.html' : url);
   if (!file.startsWith(ROOT) || file.includes(`${path.sep}server${path.sep}`)) { res.writeHead(403); res.end(); return; }
@@ -36,10 +37,50 @@ const server = http.createServer((req, res) => {
   });
 });
 
+// ---------------- Mazmorra diaria: clasificación ----------------
+// GET /daily?date=AAAA-MM-DD → las 10 mejores marcas del día · POST /daily {date,id,name,score,floor,kills,time}
+// Se guarda la mejor marca de cada jugador (por su identificador) en server/daily.json, sólo los
+// últimos 7 días. En Render el disco se borra al reiniciar el servicio: la tabla vuelve a empezar.
+const DAILY_FILE = path.join(__dirname, 'daily.json');
+let boards = {};
+try { boards = JSON.parse(fs.readFileSync(DAILY_FILE, 'utf8')) || {}; } catch (e) { boards = {}; }
+let dailyDirty = false;
+setInterval(() => { if (!dailyDirty) return; dailyDirty = false; fs.writeFile(DAILY_FILE, JSON.stringify(boards), () => {}); }, 30000);
+function daily(req, res) {
+  const H = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+  const top = (date, id) => {
+    const list = Object.values(boards[date] || {}).sort((a, b) => b.score - a.score || a.time - b.time);
+    return { top: list.slice(0, 10).map((e) => ({ name: e.name, score: e.score, floor: e.floor, kills: e.kills, me: e.id === id })), total: list.length, pos: id ? list.findIndex((e) => e.id === id) + 1 : 0 };
+  };
+  const okDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && Math.abs(Date.parse(d + 'T12:00:00Z') - Date.now()) < 2 * 86400000;
+  if (req.method === 'OPTIONS') { res.writeHead(204, H); res.end(); return; }
+  if (req.method === 'GET') {
+    const q = new URL(req.url, 'http://x').searchParams, date = q.get('date') || new Date().toISOString().slice(0, 10);
+    res.writeHead(200, H); res.end(JSON.stringify(top(date, q.get('id') || ''))); return;
+  }
+  if (req.method !== 'POST') { res.writeHead(405, H); res.end('{}'); return; }
+  let body = '';
+  req.on('data', (c) => { body += c; if (body.length > 2000) req.destroy(); });
+  req.on('end', () => {
+    let m;
+    try { m = JSON.parse(body); } catch (e) { res.writeHead(400, H); res.end('{}'); return; }
+    const date = String(m.date || ''), id = String(m.id || '').slice(0, 40), score = Math.floor(+m.score || 0);
+    if (!okDate(date) || !id || !(score >= 0 && score < 1e8)) { res.writeHead(400, H); res.end('{}'); return; }
+    const b = boards[date] || (boards[date] = {});
+    const prev = b[id];
+    const name = String(m.name || 'Anónimo').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16) || 'Anónimo';
+    if (!prev || score > prev.score) b[id] = { id, name, score, floor: Math.floor(+m.floor || 0), kills: Math.floor(+m.kills || 0), time: Math.floor(+m.time || 0) };
+    else prev.name = name;
+    for (const k of Object.keys(boards)) if (Date.now() - Date.parse(k + 'T00:00:00Z') > 7 * 86400000) delete boards[k];
+    dailyDirty = true;
+    res.writeHead(200, H); res.end(JSON.stringify(top(date, id)));
+  });
+}
+
 // ---------------- WebSocket mínimo (RFC 6455) ----------------
 function sendFrame(sock, str, opcode = 1) {
   if (sock.destroyed) return;
-  const data = Buffer.from(str);
+  const data = Buffer.isBuffer(str) ? str : Buffer.from(str);
   const len = data.length;
   let head;
   if (len < 126) { head = Buffer.alloc(2); head[1] = len; }
@@ -73,9 +114,10 @@ server.on('upgrade', (req, sock) => {
       if (op === 8) { sendFrame(sock, '', 8); sock.end(); return; }
       if (op === 9) { sendFrame(sock, payload.toString(), 10); continue; }
       if (op === 10) { conn.alive = true; continue; }
-      if (op === 1 || op === 0) {
+      if (op === 1 || op === 2 || op === 0) {
+        if (op) frag.op = op;
         frag.push(payload);
-        if (fin) { const text = Buffer.concat(frag).toString(); frag = []; onMessage(conn, text); }
+        if (fin) { const all = Buffer.concat(frag), o = frag.op; frag = []; if (o === 2) onBinary(conn, all); else onMessage(conn, all.toString()); }
       }
     }
   });
@@ -113,7 +155,7 @@ function onMessage(conn, text) {
     conn.id = 0; conn.name = String(m.name || 'Anfitrión').slice(0, 16); conn.room = room;
     room.members.set(0, conn);
     rooms.set(room.code, room);
-    conn.send({ t: 'created', code: room.code, id: 0, host: 0, players: roster(room) });
+    conn.send({ t: 'created', code: room.code, id: 0, host: 0, bin: 1, players: roster(room) });
     console.log(`sala ${room.code} creada (${rooms.size} activas)`);
   } else if (m.t === 'join') {
     if (conn.room) return;
@@ -125,7 +167,7 @@ function onMessage(conn, text) {
       room.gone.delete(tok);
       conn.id = back.id; conn.name = back.name; conn.token = tok; conn.room = room;
       room.members.set(conn.id, conn);
-      conn.send({ t: 'joined', code: room.code, id: conn.id, host: room.host.id, back: true, started: room.started, players: roster(room) });
+      conn.send({ t: 'joined', code: room.code, id: conn.id, host: room.host.id, back: true, bin: 1, started: room.started, players: roster(room) });
       for (const c of room.members.values()) if (c !== conn) c.send({ t: 'peer', id: conn.id, name: conn.name, back: true, players: roster(room) });
       console.log(`sala ${room.code}: vuelve ${conn.id}`);
       return;
@@ -134,7 +176,7 @@ function onMessage(conn, text) {
     if (room.members.size >= MAX_PLAYERS) { conn.send({ t: 'error', msg: 'La sala está llena (máximo 4)' }); return; }
     conn.id = room.nextId++; conn.name = String(m.name || 'Jugador').slice(0, 16); conn.room = room; conn.token = tok;
     room.members.set(conn.id, conn);
-    conn.send({ t: 'joined', code: room.code, id: conn.id, host: room.host.id, players: roster(room) });
+    conn.send({ t: 'joined', code: room.code, id: conn.id, host: room.host.id, bin: 1, players: roster(room) });
     for (const c of room.members.values()) if (c !== conn) c.send({ t: 'peer', id: conn.id, name: conn.name, players: roster(room) });
   } else if (m.t === 'started') {
     if (conn.room && conn.room.host === conn) conn.room.started = !!m.v;
@@ -149,6 +191,19 @@ function onMessage(conn, text) {
       for (const c of room.members.values()) if (c !== conn) sendFrame(c.sock, out);
     } else sendFrame(room.host.sock, out);
   }
+}
+
+// mensajes binarios (estado del cooperativo, 0.52): [destino u16][datos] → a cada destinatario [remitente u16][datos]
+// destino 65535 = lo normal (anfitrión → todos, invitado → anfitrión), 65534 = todos, otro = ese jugador
+function onBinary(conn, buf) {
+  const room = conn.room;
+  if (!room || buf.length < 2) return;
+  conn.alive = true;
+  const to = buf.readUInt16BE(0), out = Buffer.from(buf);
+  out.writeUInt16BE(conn.id & 0xffff, 0);
+  if (to < 65534) { const c = room.members.get(to); if (c) sendFrame(c.sock, out, 2); }
+  else if (conn === room.host || to === 65534) { for (const c of room.members.values()) if (c !== conn) sendFrame(c.sock, out, 2); }
+  else sendFrame(room.host.sock, out, 2);
 }
 
 function onClose(conn) {

@@ -41,6 +41,7 @@
     resetCollections() {
       if (VX.Throw) VX.Throw.reset();
       this.enemies = [];
+      this.jobs = [];
       this.corpses = [];
       this.gibs = [];
       this.projectiles = [];
@@ -116,6 +117,9 @@
     startRun(save, opts = {}) {
       if (!opts.coop && (VX.Coop.active || VX.Net.code)) { VX.Coop.stop(); VX.Net.leave(); }
       this.mode = 'dungeon';
+      // mazmorra diaria: semilla del día (también al continuar una partida diaria guardada)
+      this.daily = opts.daily || (save && save.daily) || null;
+      this.dailyRes = null;
       this.ambientMul = 1;
       { const hp = document.getElementById('hordePerks'); if (hp) hp.innerHTML = ''; }
       VX.Renderer.fogNear = VX.Renderer.fogFar = VX.Renderer.cullDist = undefined;
@@ -145,6 +149,7 @@
         this.floor = 0;
         const rnd0 = Math.random;
         if (opts.rng) Math.random = opts.rng;   // cooperativo: la primera sala sale igual en todos
+        else if (this.daily) Math.random = VX.Coop.mulberry(VX.Daily.roomSeed(this, 'S', 'start'));
         try { first = this.world.addStart('start', 0, this.spawner.planExits('zn', 'start', false).concat().slice(0, 3)); } finally { Math.random = rnd0; }
         first.rid = 'S';
         this.applyPerks();
@@ -177,12 +182,14 @@
       VX.Menus.hideAll();
       this.hud.show(true);
       VX.Input.lock();
-      if (save) this.hud.banner('PARTIDA REANUDADA', `Continúas en el piso ${save.floor}`, 3);
+      if (this.daily && !save) this.hud.banner('MAZMORRA DIARIA', 'La misma para todos hoy · llega lo más hondo que puedas', 3.5);
+      else if (save) this.hud.banner('PARTIDA REANUDADA', `Continúas en el piso ${save.floor}`, 3);
       else this.hud.banner('VOXEL DUNGEON', `Acércate a una puerta para abrirla  ·  [${VX.Settings.keyName(VX.Settings.key('flashlight'))}] linterna  ·  [${VX.Settings.keyName(VX.Settings.key('inspect'))}] inspeccionar arma`, 3.5);
     }
 
     // ---------------- Modo Horda ----------------
     startHorde(mapId, opts = {}) {
+      this.daily = null;
       this.objectives = null; this.obj = null; VX.Objectives.render(this, false); VX.Tutorial.s = null; VX.Tutorial.box(false);
       this.escaped = false;
       // una partida normal (no cooperativa) cierra cualquier sala abierta
@@ -269,10 +276,11 @@
 
     // Guardar y salir (suspender): sólo se puede reanudar una vez y se borra al morir
     saveAndQuit() {
+      this.flushJobs();
       if (this.mode === 'horde' || VX.Coop.active) { this.abandonRun(); return; }
       const r = this.currentRoom, Sp = this.spawner;
       const snap = { floor: this.floor, bossPending: !!(r.cleared && r.bossNext), zone: this.zone,
-        spawner: Sp.snapshot() };
+        spawner: Sp.snapshot(), daily: this.daily || null };
       if (!r.cleared) {
         // la sala a medias no cuenta: se vuelve a jugar una equivalente
         snap.floor = Math.max(0, this.floor - 1);
@@ -315,6 +323,7 @@
       this.essenceGain = Math.round(this.floor * 0.8 + this.stats.bosses * 8 + this.stats.kills / 20);
       VX.Profile.add('essence', this.essenceGain);
       this.runResult = VX.Profile.submitRun(this);
+      if (this.daily) this.dailyRes = VX.Daily.submit(this, this.runResult);
       this.coopTable = VX.Coop.active ? VX.Coop.table(this, true) : '';   // quién hizo qué (mazmorra en cooperativo)
       const cr = this.currentRoom;
       this.deathWhere = cr ? { type: cr.type, zone: cr.zone || 0, floor: this.floor } : null;
@@ -391,6 +400,8 @@
       const cr = this.currentRoom, P = this.player;
       this.doorFocus = null;
       if (!cr || !cr.cleared || this.state !== 'playing') return;
+      // si la sala de al lado aún se está construyendo (trabajos repartidos) y te acercas a una puerta, se termina ya
+      if (this.jobs && this.jobs.length) for (const s0 of cr.exits) { const w = cr.doorWorld(s0); if (Math.hypot(w.x - P.x, w.z - P.z) < 5) { this.flushJobs(cr); break; } }
       let best = 2.4;
       for (const s of cr.exits) {
         const d = cr.doors[s];
@@ -474,6 +485,22 @@
       }
     }
 
+    // ---------------- Trabajos repartidos en varios fotogramas ----------------
+    // (construir las salas vecinas, …): cada fotograma se hacen los que quepan en «ms» milisegundos
+    // (al menos uno). flushJobs termina los pendientes (todos, o sólo los de una sala).
+    runJobs(ms) {
+      const J = this.jobs;
+      if (!J || !J.length) return;
+      const t0 = performance.now();
+      do { const j = J.shift(); j.fn(); } while (J.length && performance.now() - t0 < ms);
+    }
+    flushJobs(tag) {
+      const J = this.jobs;
+      if (!J || !J.length) return;
+      if (!tag) { while (J.length) J.shift().fn(); return; }
+      for (let i = 0; i < J.length;) { if (J[i].tag === tag) J.splice(i, 1)[0].fn(); else i++; }
+    }
+
     // ---------------- Vigilante de enemigos atascados ----------------
     // A veces un enemigo se queda vivo pero no se ve: metido en una pared o en el suelo, fuera de la
     // sala, o con el cuerpo ya destrozado sin haber muerto. La sala no se despeja y algo te pega sin
@@ -535,6 +562,7 @@
     }
 
     enterRoom(r) {
+      this.flushJobs();
       if (VX.Audio.setBiome) VX.Audio.setBiome(this.mode === 'horde' ? -1 : (r.zone || 0));
       const prev = this.currentRoom;
       this.currentRoom = r;
@@ -1558,7 +1586,7 @@
       const floor = this.floor + 1;
       this.world.keepOnly([]);
       this.pickups.items = []; this.pickups.gold = [];
-      this.npcs = []; this.enemies = []; this.corpses = []; this.gibs = []; this.decals = [];
+      this.npcs = []; this.enemies = []; this.corpses = []; this.gibs = []; this.decals = []; this.jobs = [];
       this.oils = []; this.fires = []; this.blasts = []; this.fallers = []; this.blockFallers = []; this.rises = []; this.projectiles = []; this.shockwaves = []; this.telegraphs = [];
       this.bullets.clear(); this.doorAnims = [];
       this.hud.hideBoss(); this.boss = null;
@@ -2100,6 +2128,7 @@
         try { this.weapon.update(dt, this); } finally { this.localAct = false; }
         if (this.mode === 'horde') { if (VX.Coop.isClient) VX.HordeMode.clientUpdate(this, dt); else VX.HordeMode.update(this, dt); }
         else this.roomLogic();
+        this.runJobs(4);
         VX.Objectives.update(this, dt);
         VX.Tutorial.update(this, dt);
         this.updateChallenge(dt);
@@ -2492,6 +2521,9 @@
       // ---- lote dinámico ----
       const b = this.dyn;
       b.clear();
+      b.bodies = true;            // los cuerpos de vóxeles van aparte, en la GPU (R.drawBodies)
+      R.bodies.length = 0;
+      R.gcBodies();
       for (const e of this.enemies) if (!e.dead) e.render(b);
       if (VX.Coop.active) for (const rp of VX.Coop.remotes.values()) if (rp.seen) rp.render(b);
       for (const c of this.corpses) c.render(b);
@@ -2573,6 +2605,7 @@
         R.beginShadow(spot);
         this.world.render(R, this.currentRoom);
         b.draw();
+        R.drawBodies(true);
         R.endShadow();
       }
 
@@ -2602,6 +2635,7 @@
           R.beginShadow2(sp, k);
           this.world.render(R, this.currentRoom);
           b.draw();
+          R.drawBodies(true);
           R.endShadow();
           R.tsh[k].on = true;
         });
@@ -2628,12 +2662,14 @@
           R.beginReflection(cam, { lights, spot, ambient }, w0.y);
           this.world.render(R, room);
           b.draw();
+          R.drawBodies(false);
           R.reflReady = true;
         }
       }
       R.beginScene(cam, { lights, spot, ambient });
       this.world.render(R, this.currentRoom);
       b.draw();
+      R.drawBodies(false);
       if (wat && wat.length) {
         if (!room.waterBatch) {
           // superficie del agua: discos hechos con franjas finas que no se salen del pilón

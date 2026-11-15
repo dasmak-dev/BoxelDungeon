@@ -77,6 +77,7 @@
       <p class="tag">Desciende. Dispara. Destroza.</p>
       <div class="menuList">
         <button id="newBtn">NUEVA PARTIDA</button>
+        <button id="dailyBtn" class="secondary daily">MAZMORRA DIARIA<small id="dailyInfo">La misma para todos hoy · clasificación</small></button>
         <button id="hordeBtn" class="secondary horde">MODO HORDA<small id="hordeInfo">Oleadas infinitas · elige mapa</small></button>
         <button id="sanctuaryBtn" class="secondary">SANTUARIO<small id="essenceInfo">Mejoras permanentes</small></button>
         <button id="armoryBtn" class="secondary">ARMERÍA<small>Skins de armas</small></button>
@@ -133,6 +134,21 @@
   </div>
 
   <!-- Códice -->
+  <!-- Mazmorra diaria -->
+  <div id="daily" class="screen hidden">
+    <h2>MAZMORRA DIARIA</h2>
+    <p class="dSub"><span id="dailyDate"></span> · la misma mazmorra para todo el mundo</p>
+    <p class="dSub">Las mismas salas tras las mismas puertas y los mismos enemigos. Llega lo más hondo que puedas.</p>
+    <div id="dailyMine" class="dMine"></div>
+    <div id="dailyBoard" class="dBoard"></div>
+    <div class="dNameRow">Tu nombre en la tabla: <input id="dailyName" maxlength="16"></div>
+    <div class="menuList">
+      <button id="dailyPlay">JUGAR LA DE HOY</button>
+      <button id="dailyBack" class="secondary">VOLVER</button>
+    </div>
+    <p class="dSub" id="dailyNext"></p>
+  </div>
+
   <div id="codex" class="screen hidden">
     <h2>CÓDICE</h2>
     <div id="codexBest"></div>
@@ -419,11 +435,13 @@
   <script src="js/systems/look.js"></script>
   <script src="js/systems/spawner.js"></script>
   <script src="js/systems/objectives.js"></script>
+  <script src="js/systems/daily.js"></script>
   <script src="js/systems/tutorial.js"></script>
   <script src="js/systems/selftest.js"></script>
   <script src="js/systems/horde.js"></script>
   <script src="js/systems/hordeMode.js"></script>
   <script src="js/net/net.js"></script>
+  <script src="js/net/pack.js"></script>
   <script src="js/entities/remotePlayer.js"></script>
   <script src="js/net/coop.js"></script>
 

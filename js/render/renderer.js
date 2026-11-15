@@ -131,11 +131,12 @@
     R.prog = program(gl, VX.Shaders.vertex, VX.Shaders.fragment);
     const names = ['u_proj', 'u_view', 'u_lights', 'u_lightCols', 'u_numLights', 'u_spotPos', 'u_spotDir', 'u_spotCol',
       'u_spotCone', 'u_shadowMat', 'u_shadowMap', 'u_shadowOn', 'u_shadowTexel', 'u_ambient', 'u_camPos',
-      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_gamma', 'u_edge', 'u_tsMat', 'u_tsMap0', 'u_tsMap1', 'u_tsMap2', 'u_tsMap3', 'u_tsOn', 'u_glass', 'u_clipY', 'u_water', 'u_reflTex', 'u_res', 'u_time', 'u_gf', 'u_gfCol', 'u_gfHoles', 'u_gfRect'];
+      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_gamma', 'u_edge', 'u_tsMat', 'u_tsMap0', 'u_tsMap1', 'u_tsMap2', 'u_tsMap3', 'u_tsOn', 'u_glass', 'u_clipY', 'u_water', 'u_reflTex', 'u_res', 'u_time', 'u_gf', 'u_gfCol', 'u_gfHoles', 'u_gfRect', 'u_bp', 'u_bq', 'u_bflash', 'u_bparts'];
     for (const n of names) R.U[n] = gl.getUniformLocation(R.prog, n);
     gl.useProgram(R.prog); gl.uniform1i(R.U.u_reflTex, 2);   // unidad propia (la 0 y la 1 son de sombras)
     R.dprog = program(gl, VX.Shaders.depthVertex, VX.Shaders.depthFragment);
     R.DU.u_lightVP = gl.getUniformLocation(R.dprog, 'u_lightVP');
+    R.DU.u_bp = gl.getUniformLocation(R.dprog, 'u_bp'); R.DU.u_bq = gl.getUniformLocation(R.dprog, 'u_bq'); R.DU.u_bparts = gl.getUniformLocation(R.dprog, 'u_bparts');
 
     R.cubeBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, R.cubeBuffer);
@@ -241,6 +242,79 @@
   };
 
   R.createBatch = (cap = 1024, dynamic = false) => new Batch(R.gl, cap, dynamic);
+
+  // ---- Cuerpos de vóxeles en la GPU (0.52) ----
+  // Cada pieza de un cuerpo (cabeza, brazo, torso…) guarda sus vóxeles una sola vez en la tarjeta
+  // gráfica, en coordenadas de la pieza. Cada fotograma sólo se manda dónde está y cómo está girada
+  // la pieza: antes se giraba cada vóxel en la CPU y se subían todos de nuevo en cada fotograma.
+  // La malla de una pieza se rehace sólo cuando cambia (pierde vóxeles, se mancha, se regenera…).
+  R.bodies = [];
+  R.bodyOn = true;
+  const PARTS = 48;   // piezas por llamada de dibujo (el shader tiene sitio para 48)
+  const partCaches = new Set();
+  const partBuf = new Float32Array(PARTS * 8);
+  // huella del cuerpo: cambia si una pieza pierde vóxeles, se suelta o cambia de color
+  function sigOf(body) {
+    let s = (body.ver || 0) * 7919;
+    const ps = body.parts;
+    for (let i = 0; i < ps.length; i++) { const p = ps[i]; s = (s * 31 + (p.detached ? 0 : p.alive + 1) * 3 + (p.ver || 0)) | 0; }
+    return s;
+  }
+  // la malla del cuerpo en la GPU (un trozo por cada 48 piezas): se rehace sólo si cambia la huella
+  R.bodyBatches = function (body) {
+    const sig = sigOf(body);
+    let c = body.gpu;
+    if (c && !c.dead && c.sig === sig) { c.used = R.frameN; return c; }
+    if (c && !c.dead) for (const b of c.b) b.dispose();
+    if (c) partCaches.delete(c);
+    const ps = body.parts, nCh = Math.ceil(ps.length / PARTS);
+    c = body.gpu = { b: [], sig, used: R.frameN };
+    const s = body.scale, sz = body.v * 1.002 / s;
+    for (let ch = 0; ch < nCh; ch++) {
+      let n = 0;
+      for (let i = ch * PARTS; i < Math.min(ps.length, (ch + 1) * PARTS); i++) { const p = ps[i]; if (!p.detached && p.alive) n += p.alive; }
+      const b = new Batch(R.gl, Math.max(16, n), false);
+      for (let i = ch * PARTS; i < Math.min(ps.length, (ch + 1) * PARTS); i++) {
+        const p = ps[i];
+        if (p.detached || !p.alive) continue;
+        const k = i - ch * PARTS;
+        for (const vx of p.vox) if (vx.alive && vx.exposed) b._put(vx.x, vx.y, vx.z, sz, sz, sz, k, 0, 0, 1, vx.r, vx.g, vx.b, vx.e, ONE8);
+      }
+      b.upload();
+      c.b.push(b);
+    }
+    partCaches.add(c);
+    return c;
+  };
+  // dibuja los cuerpos de este fotograma con el programa que esté activo (escena, sombras o reflejo)
+  R.drawBodies = function (depth) {
+    if (!R.bodies.length) return;
+    const gl = R.gl, U = depth ? R.DU : R.U;
+    gl.uniform4f(U.u_bp, 0, 0, 0, 1);
+    for (const body of R.bodies) {
+      if (!depth) gl.uniform1f(U.u_bflash, body.flash > 0 ? body.flash : 0);
+      const c = R.bodyBatches(body), ps = body.parts;
+      for (let ch = 0; ch < c.b.length; ch++) {
+        const b = c.b[ch];
+        if (!b.count) continue;
+        for (let i = ch * PARTS, k = 0; i < Math.min(ps.length, (ch + 1) * PARTS); i++, k++) {
+          const p = ps[i], o = k * 8;
+          partBuf[o] = p.wp[0]; partBuf[o + 1] = p.wp[1]; partBuf[o + 2] = p.wp[2]; partBuf[o + 3] = body.scale;
+          partBuf[o + 4] = p.q[0]; partBuf[o + 5] = p.q[1]; partBuf[o + 6] = p.q[2]; partBuf[o + 7] = p.q[3];
+        }
+        gl.uniform4fv(U.u_bparts, partBuf);
+        b.draw();
+      }
+    }
+    gl.uniform4f(U.u_bp, 0, 0, 0, 0);
+    if (!depth) gl.uniform1f(U.u_bflash, 0);
+  };
+  // libera las mallas de piezas que llevan un rato sin dibujarse (enemigos muertos, cadáveres que se fueron)
+  R.gcBodies = function () {
+    R.frameN = (R.frameN || 0) + 1;
+    if (R.frameN % 120) return;
+    for (const c of partCaches) if (R.frameN - (c.used || 0) > 240) { for (const b of c.b) b.dispose(); partCaches.delete(c); c.dead = true; }
+  };
 
   // ---------------- Sombras ----------------
   // spot: {x,y,z, dx,dy,dz, fov}

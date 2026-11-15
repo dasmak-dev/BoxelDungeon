@@ -3,6 +3,19 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.52.0] — 2026-11-16
+
+### Añadido
+- **Mazmorra diaria** (botón en el título): cada día, la misma mazmorra para todo el mundo. Las mismas salas tras las mismas puertas, con los mismos enemigos y la misma tienda. Hay una clasificación con las 10 mejores marcas del día, tu puesto al morir, tu nombre en la tabla y cuánto falta para la siguiente. Sin conexión se juega igual y se guarda tu mejor marca. Si sales con «guardar y salir», la partida sigue siendo la diaria.
+- **Servidor**: rutas `/daily` para la clasificación, que guarda los últimos 7 días en `server/daily.json`. En Render la tabla se vacía si se reinicia el servicio.
+- **Juego sin conexión completo**: al instalarse, el juego descarga todos sus archivos, así que funciona sin internet desde el primer momento. Las copias de versiones antiguas se borran solas.
+
+### Mejorado
+- **Enemigos dibujados en la tarjeta gráfica**: cada pieza del cuerpo guarda sus vóxeles en la GPU y en cada fotograma sólo se manda dónde está y cómo está girada. Antes se giraban y subían todos los vóxeles en cada fotograma. Con 30 zombis en pantalla, el dibujo de los cuerpos pasa de unos 7 ms a 1,5 ms por fotograma, y las llamadas de dibujo bajan de 946 a 220. La malla se rehace sólo cuando el cuerpo cambia (disparos, cortes, regeneración).
+- **Sin tirones al entrar en una sala**: las salas vecinas se construyen en segundo plano, una por fotograma. Si te acercas a una puerta antes de que estén listas, se terminan en ese momento. Entrar en una sala pasa de 15–60 ms a 1–20 ms.
+- **Límite de sonidos a la vez** (96 en ordenador, 48 en móvil): en un tiroteo enorme ya no se acumulan cientos de sonidos que ahogaban el audio del móvil.
+- **Cooperativo más ligero**: el estado de la partida viaja en binario y sólo con lo que ha cambiado, con un envío completo cada segundo. Con 18 enemigos, el anfitrión manda unos 5 KB/s en vez de 15. Se sincroniza exactamente lo mismo que antes, incluida la destrucción. Hace falta el servidor nuevo; con uno antiguo se usa el formato de antes.
+
 ## [0.51.0] — 2026-11-15
 
 ### Añadido

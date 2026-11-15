@@ -99,12 +99,19 @@
           if (was === 'open' && this.code) this.lobby({ t: 'closed', msg: 'Se ha perdido la conexión con el servidor' });
           this.reset();
         };
+        ws.binaryType = 'arraybuffer';
         ws.onmessage = (ev) => {
+          if (typeof ev.data !== 'string') {
+            // binario: [remitente u16][datos] (estado del cooperativo empaquetado)
+            this.bytesIn += ev.data.byteLength;
+            if (ev.data.byteLength > 2 && this.onBin) this.onBin(new Uint8Array(ev.data, 2), new DataView(ev.data).getUint16(0));
+            return;
+          }
           this.bytesIn += ev.data.length;
           let m;
           try { m = JSON.parse(ev.data); } catch (e) { return; }
           if (m.t === 'msg') { const h = this.handlers[m.d && m.d.k]; if (h) h(m.d, m.from); return; }
-          if (m.t === 'created' || m.t === 'joined') { this.id = m.id; this.code = m.code; this.role = m.id === (m.host ?? 0) ? 'host' : 'client'; this.remember(); }
+          if (m.t === 'created' || m.t === 'joined') { this.bin = !!m.bin; this.id = m.id; this.code = m.code; this.role = m.id === (m.host ?? 0) ? 'host' : 'client'; this.remember(); }
           if (m.t === 'host') this.role = m.id === this.id ? 'host' : 'client';   // el anfitrión se ha ido
           if (m.players) this.players = m.players;
           this.lobby(m);
@@ -164,6 +171,15 @@
       this.ws.send(s);
     },
     // a: id concreto; sin él, el anfitrión lo manda a todos y un invitado al anfitrión ('all' = a todos)
+    // binario (sólo si el servidor lo entiende: lo dice al entrar en la sala)
+    sendBin(u8, to) {
+      if (!this.ws || this.state !== 'open') return;
+      const b = new Uint8Array(u8.length + 2);
+      new DataView(b.buffer).setUint16(0, to === undefined ? 65535 : to === 'all' ? 65534 : to);
+      b.set(u8, 2);
+      this.bytesOut += b.length;
+      this.ws.send(b);
+    },
     send(d, to) { this.raw(to === undefined ? { t: 'msg', d } : { t: 'msg', d, to }); },
     on(k, fn) { this.handlers[k] = fn; },
 

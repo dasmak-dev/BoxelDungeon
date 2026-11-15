@@ -142,6 +142,7 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     const dst = out(pan); if (!dst) return;
     o.connect(g); g.connect(dst);
+    if (!A.voice(o)) return;
     o.start(t); o.stop(t + dur + 0.02);
   }
 
@@ -157,11 +158,17 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     const dst = out(pan); if (!dst) return;
     s.connect(f); f.connect(g); g.connect(dst);
+    if (!A.voice(s)) return;
     s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
   }
 
   // para js/core/sfx.js (sonidos más ricos): la misma salida (3D, buses) que el resto
   A._out = (pan) => out(pan);
+  // límite de sonidos a la vez (0.52): en un tiroteo grande se acumulaban cientos de nodos de audio
+  // y el móvil se ahogaba. Si ya suenan demasiados, los nuevos (los más pequeños) se saltan.
+  A.voices = 0;
+  A.maxVoices = /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent) ? 48 : 96;
+  A.voice = (node) => { if (A.voices >= A.maxVoices) return false; A.voices++; node.onended = () => { A.voices--; }; return true; };
   A._tone = tone; A._noise = noise;
   A.setVolume = (v) => { A.volume = v; if (A.sfx) A.sfx.gain.value = v * 0.5; };
   // volumen general (música + efectos) y silencio cuando el juego no se ve (pestaña oculta, minimizado…)

@@ -199,6 +199,7 @@
         this.maxHp = this.hp = this.hp * (1 + 0.5 * k); this.baseSpeed *= 1 + 0.12 * k; this.dmg = Math.round(this.dmg * (1 + 0.25 * k));
         this.body.scale *= 1 + 0.08 * k; this.body.height *= 1 + 0.08 * k; this.body.v *= 1 + 0.08 * k;
         for (const p of this.body.parts) for (const v of p.vox) if (v.e > 0) { v.r = 1; v.g = 0.35 - Math.min(0.3, k * 0.1); v.b = 0.1; v.e = 1; }
+        this.body.ver = (this.body.ver || 0) + 1;
         this.spawnT = 0.9;
       }
     }
@@ -1230,6 +1231,7 @@
     }
 
     blast(x, y, z, R, dmg, game) {
+      this.body.ensureSurf();
       if (this.dead) return false;
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
       const b = this.body;
@@ -1322,6 +1324,7 @@
         const core = this.body.byName.core, cx = core && core.wp ? core.wp[0] : this.x, cy = core && core.wp ? core.wp[1] : this.y + 1.2, cz = core && core.wp ? core.wp[2] : this.z;
         for (let i = 0; i < 40; i++) game.particles.spawn(cx, cy, cz, M.rand(-5, 5), M.rand(0, 6), M.rand(-5, 5), 0.8, 0.3, 1, M.rand(0.03, 0.07), M.rand(0.6, 1.4), 1, 1);
         for (const p of this.body.parts) for (const v of p.vox) if (v.e > 0) v.e = 0;
+        this.body.ver = (this.body.ver || 0) + 1;
         VX.Audio.at(cx, cy, cz, () => { VX.Audio.glass && VX.Audio.glass(30); VX.Audio.slam(); }, 5);
         game.shake(0.35);
         game.hud.toast('¡Corazón roto!');
@@ -1438,6 +1441,7 @@
       return false;
     }
     knightRegen(dt, game) {
+      this.body.ensureSurf();
       const b = this.body;
       if (this.dead || !b) return;
       if (this.T.hydra && this.burn > 0) return;   // el fuego cauteriza: mientras arde no se regenera

@@ -1,7 +1,7 @@
 // Pantalla de título, ajustes, pausa y fin de partida.
 (function () {
   const $ = (id) => document.getElementById(id);
-  const SCREENS = ['title', 'settings', 'pause', 'gameover', 'armory', 'sanctuary', 'codex', 'hordeSelect'];
+  const SCREENS = ['title', 'settings', 'pause', 'gameover', 'armory', 'sanctuary', 'codex', 'hordeSelect', 'daily'];
 
   const Menus = {
     settingsFrom: 'title',
@@ -14,6 +14,7 @@
       click('hordeBtn', () => this.showHorde());
       click('hordeBack', () => { if (VX.Lobby.inRoom()) VX.Lobby.leave(); this.showTitle(); });
       VX.Lobby.init(game);
+      VX.Daily.init(game);
       click('settingsBtn', () => this.openSettings('title'));
       click('armoryBtn', () => VX.Armory.open(game));
       click('armoryBack', () => VX.Armory.close());
@@ -25,7 +26,7 @@
       click('pauseSettingsBtn', () => this.openSettings('pause'));
       click('quitBtn', () => game.abandonRun());
       click('gameoverSanctBtn', () => { game.quitToTitle(); VX.Sanctuary.open(); });
-      click('restartBtn', () => (game.mode === 'horde' ? game.startHorde(game.hordeMap) : game.newGame()));
+      click('restartBtn', () => (game.mode === 'horde' ? game.startHorde(game.hordeMap) : game.daily ? VX.Daily.start(game) : game.newGame()));
       click('toTitleBtn', () => game.quitToTitle());
       click('backSettingsBtn', () => this.show(this.settingsFrom));
       click('resetSettingsBtn', () => { VX.Settings.reset(); this.syncSettings(); });
@@ -320,7 +321,7 @@
 
     showGameOver(stats, floor, essence = 0, res = null, time = 0, game = null) {
       const acc = stats.shots ? Math.round((stats.hits / stats.shots) * 100) : 0;
-      $('restartBtn').textContent = res && res.horde ? 'OTRA VEZ' : 'NUEVA PARTIDA';
+      $('restartBtn').textContent = res && res.horde ? 'OTRA VEZ' : game && game.daily ? 'OTRA VEZ LA DIARIA' : 'NUEVA PARTIDA';
       document.querySelector('#gameover h2').textContent = res && res.escaped ? '¡HAS ESCAPADO!' : 'HAS CAÍDO';
       if (res && res.horde) {
         $('stats').innerHTML =
@@ -339,7 +340,7 @@
       $('stats').innerHTML = this.statCards([
         ['Piso', floor], ['Zombis', stats.kills], ['Cabezas', stats.headshots], ['Jefes', stats.bosses],
         ['Oro', stats.totalGold], ['Precisión', acc + '%'], ['Tiempo', tm], ['Esencia', '+' + essence, 'ess'],
-      ]) + (res ? `<div class="sScore">Puntuación <b>${res.score}</b>${res.record ? ' <span style="color:#7fd36b">¡NUEVO RÉCORD!</span>' : res.prev ? ` · récord ${res.prev.score}` : ''} · esencia total ${VX.Profile.data.essence}</div>` : '') +
+      ]) + (game && game.daily && game.dailyRes ? `<div class="sScore" id="dailyResult">${VX.Daily.resultText(game, game.dailyRes)}</div>` : '') + (res ? `<div class="sScore">Puntuación <b>${res.score}</b>${res.record ? ' <span style="color:#7fd36b">¡NUEVO RÉCORD!</span>' : res.prev ? ` · récord ${res.prev.score}` : ''} · esencia total ${VX.Profile.data.essence}</div>` : '') +
         (game && game.coopTable ? `<div class="coopFinal">${game.coopTable}</div>` : '') + this.deathInfo(game);
       this.show('gameover');
     },

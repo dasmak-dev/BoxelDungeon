@@ -98,7 +98,15 @@
     }
 
     // Genera las salas vecinas de 'room' (tras sus puertas de salida)
+    // mazmorra diaria: lo que se decide en una sala sale de la semilla del día y de esa sala
+    dailyRun(game, room, k, fn) {
+      if (!game.daily || this._dly) return fn();
+      this._dly = true;
+      try { return VX.Coop.seeded(VX.Daily.roomSeed(game, room.rid, k), fn); } finally { this._dly = false; }
+    }
+
     populateNeighbors(game, room) {
+      if (game.daily && !this._dly) return this.dailyRun(game, room, 'nb', () => this.populateNeighbors(game, room));
       const exits = room.exits;
       if (!exits.length) return;
       // mazmorra cooperativa: las salas nuevas las genera el anfitrión y manda la «receta» a los demás
@@ -131,7 +139,10 @@
         const cand = exits.filter((s, i) => (s === 'xp' || s === 'xn') && types[i] !== 'boss' && types[i] !== 'shop' && types[i] !== 'save');
         if (cand.length) { goldSide = M.choice(cand); types[exits.indexOf(goldSide)] = 'reward'; }
       }
-      exits.forEach((side, i) => {
+      // cada sala vecina se construye en su propio trabajo, repartidos en varios fotogramas (game.jobs):
+      // así entrar en una sala no da un tirón. Al abrir una puerta se termina lo que falte.
+      const job = (fn, k) => { const f = game.daily ? () => this.dailyRun(game, room, 'nb.' + (k || 'x'), fn) : fn; return game.jobs ? game.jobs.push({ tag: room, fn: f }) : f(); };
+      exits.forEach((side, i) => job(() => {
         const t = types[i];
         const ent = VX.Room.OPP[side];
         const nexits = this.planExits(ent, t, t === 'boss');
@@ -145,8 +156,8 @@
         if (side === goldSide) this.goldDoor(room, side, n, Math.random() < 0.5 ? 'hoard' : 'rare');
         if (recipes) recipes.push({ gv: n.goldVault || null, side, t, ex: nexits, z: nz, lb: lateralBoss ? 1 : 0, seed, bn: n.bossNext ? 1 : 0, bk: n.bossKind || null, ev: n.event || null, tn: n.template && n.template.name });
         if (game.mapReveal > 0) this.planFor(game, n);
-      });
-      if (recipes) VX.Coop.sendNeighbors(game, room, recipes);
+      }, side));
+      if (recipes) job(() => VX.Coop.sendNeighbors(game, room, recipes));
     }
 
     // cierra esa puerta con llave de oro (la sala de detrás es un tesoro o un vendedor raro)
@@ -264,6 +275,7 @@
 
     // Contenido de las salas tranquilas: se crea al abrir la puerta (antes de entrar)
     prepare(game, room) {
+      if (game.daily && !this._dly) return this.dailyRun(game, room, 'prep', () => this.prepare(game, room));
       if (room.prepared) return;
       room.prepared = true;
       switch (room.type) {
@@ -360,6 +372,7 @@
     }
 
     onEnter(game, room) {
+      if (game.daily && !this._dly) return this.dailyRun(game, room, 'enter', () => this.onEnter(game, room));
       const client = VX.Coop.isClient && game.mode === 'dungeon';   // cooperativo: los enemigos los pone el anfitrión
       this.roomsSinceSave = room.type === 'save' ? 0 : (this.roomsSinceSave || 0) + 1;
       this.roomsSinceMap = room.type === 'map' ? 0 : (this.roomsSinceMap || 99) + 1;

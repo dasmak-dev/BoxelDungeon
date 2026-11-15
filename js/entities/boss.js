@@ -684,6 +684,7 @@
     }
 
     blast(x, y, z, R, dmg, game) {
+      this.body.ensureSurf();
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
       if (this.dead) return false;
       const b = this.body;

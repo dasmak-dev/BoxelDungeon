@@ -15,6 +15,12 @@ layout(location=7) in vec4 i_ao1;
 
 uniform mat4 u_proj;
 uniform mat4 u_view;
+// pieza de un cuerpo guardada en la GPU (0.52): los vóxeles vienen en coordenadas de la pieza y aquí
+// se colocan con su posición y su giro. u_bp.w = escala (0 = instancia normal, sin pieza)
+uniform vec4 u_bp;
+uniform vec4 u_bq;
+uniform float u_bflash;
+uniform vec4 u_bparts[96];   // hasta 48 piezas por llamada: [posición xyz + escala, giro]
 
 out vec3 v_nrm;
 out vec3 v_lnrm;
@@ -31,12 +37,14 @@ vec3 qrot(vec4 q, vec3 v) {
 }
 
 void main() {
-  vec3 p = qrot(i_quat, a_pos * i_scale) + i_pos;
-  v_nrm = qrot(i_quat, a_nrm);
+  vec4 iq = i_quat; vec3 ip = i_pos; vec4 ic = i_col;
+  if (u_bp.w > 0.0) { int k = int(i_quat.x + 0.5) * 2; vec4 P = u_bparts[k]; iq = u_bparts[k + 1]; ip = qrot(iq, i_pos * P.w) + P.xyz; ic.rgb = mix(ic.rgb, vec3(1.0, 0.85, 0.85), u_bflash); }
+  vec3 p = qrot(iq, a_pos * i_scale) + ip;
+  v_nrm = qrot(iq, a_nrm);
   v_lnrm = a_nrm;
   v_local = a_pos;
   v_scale = i_scale;
-  v_col = i_col;
+  v_col = ic;
   v_world = p;
   float ax = step(0.0, a_pos.x), ay = step(0.0, a_pos.y), az = step(0.0, a_pos.z);
   vec4 sel = mix(i_ao0, i_ao1, az);
@@ -404,12 +412,17 @@ layout(location=3) in vec3 i_scale;
 layout(location=4) in vec4 i_quat;
 layout(location=5) in vec4 i_col;
 uniform mat4 u_lightVP;
+uniform vec4 u_bp;
+uniform vec4 u_bq;
+uniform vec4 u_bparts[96];
 vec3 qrot(vec4 q, vec3 v) {
   vec3 t = 2.0 * cross(q.xyz, v);
   return v + q.w * t + cross(q.xyz, t);
 }
 void main() {
-  vec3 p = qrot(i_quat, a_pos * i_scale) + i_pos;
+  vec4 iq = i_quat; vec3 ip = i_pos;
+  if (u_bp.w > 0.0) { int k = int(i_quat.x + 0.5) * 2; vec4 P = u_bparts[k]; iq = u_bparts[k + 1]; ip = qrot(iq, i_pos * P.w) + P.xyz; }
+  vec3 p = qrot(iq, a_pos * i_scale) + ip;
   // los objetos totalmente emisivos (llamas, chispas) no proyectan sombra
   gl_Position = i_col.a > 0.95 ? vec4(2.0, 2.0, 2.0, 1.0) : u_lightVP * vec4(p, 1.0);
 }`,

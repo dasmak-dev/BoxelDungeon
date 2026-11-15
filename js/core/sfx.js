@@ -26,6 +26,7 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     const dst = A._out(pan); if (!dst) return;
     s.connect(fl); fl.connect(g); g.connect(dst);
+    if (A.voice && !A.voice(s)) return;
     s.start(t, Math.random() * 0.6); s.stop(t + dur + 0.03);
   }
   // tono con caída de frecuencia (f → f2)
@@ -39,7 +40,9 @@
     g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + att);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     const dst = A._out(pan); if (!dst) return;
-    o.connect(g); g.connect(dst); o.start(t); o.stop(t + dur + 0.03);
+    o.connect(g); g.connect(dst);
+    if (A.voice && !A.voice(o)) return;
+    o.start(t); o.stop(t + dur + 0.03);
   }
   // metal: varios armónicos inarmónicos que se apagan a distinto ritmo (suena a pieza de acero)
   function metal(f, vol, delay = 0, pan, decay = 0.18, ratios = [1, 2.76, 5.4, 8.93]) {
