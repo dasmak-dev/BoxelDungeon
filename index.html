@@ -18,6 +18,7 @@
 
   <!-- HUD -->
   <div id="hud" class="hidden">
+    <div id="objPanel" class="objList hidden"></div>
     <div id="coopTags"></div>
     <div id="coopPlayers"></div>
     <div id="crosshair"><span></span><span></span><span></span><span></span></div>
@@ -37,7 +38,8 @@
 
     <div id="bossBar" class="hidden">
       <div id="bossName">JEFE</div>
-      <div class="bar"><div id="bossFill"></div></div>
+      <div class="bar"><div id="bossFill"></div><i class="bossMark" style="left:66%"></i><i class="bossMark" style="left:33%"></i></div>
+      <div id="bossPhase"></div>
     </div>
 
     <div id="upgradeList"></div>
@@ -119,16 +121,15 @@
 
   <!-- Santuario: mejoras permanentes con esencia -->
   <div id="sanctuary" class="screen hidden">
-    <h2>SANTUARIO</h2>
+    <div class="sancHead"><h2>SANTUARIO</h2><div id="essenceTotal"></div></div>
     <p class="tag">Cada vez que caes, tu alma deja <b>esencia</b>. Gástala en ventajas para siempre.</p>
-    <div id="essenceTotal"></div>
-    <div class="sancCols">
-      <div><h3>BENDICIONES</h3><div id="perkList" class="sancList"></div></div>
-      <div><h3>LA TIENDA</h3><p class="sancNote">Mejora la tienda del vendedor: más altares, mejor género y servicios.</p><div id="shopUpList" class="sancList"></div>
-        <h3 style="margin-top:18px">MERCANCÍA</h3><p class="sancNote">Objetos nuevos que podrán aparecer a la venta en las tiendas.</p><div id="shopUnlockList" class="sancList"></div></div>
-      <div><h3>ARSENAL</h3><p class="sancNote">Sólo las armas desbloqueadas aparecen en las tiendas y en los botines de los jefes.</p><div id="startWeaponList" class="sancList"></div></div>
+    <div class="sancTabs" id="sancTabs"></div>
+    <p class="sancNote" id="sancNote"></p>
+    <div id="sancGrid" class="sancGrid"></div>
+    <div class="row sancFoot">
+      <label class="sancOnly"><input type="checkbox" id="sancAfford"> Sólo lo que puedo comprar</label>
+      <button id="sanctuaryBack" class="small">VOLVER</button>
     </div>
-    <button id="sanctuaryBack" class="small">VOLVER</button>
   </div>
 
   <!-- Códice -->
@@ -189,6 +190,8 @@
         <option value="60">60 FPS</option>
         <option value="30">30 FPS (ahorra batería)</option>
       </select>
+      <label>Ahorro de batería (30 FPS y menos resolución)</label>
+      <input type="checkbox" id="setSaver">
       <label>Mostrar FPS</label>
       <input type="checkbox" id="setFps">
     </div>
@@ -208,6 +211,8 @@
       <label>Sensibilidad del mando <span id="padSensVal"></span></label>
       <input type="range" id="setPadSens" min="0.4" max="2.5" step="0.05">
       <p class="padHelp"><b>Mando</b> (Xbox, PlayStation, Switch Pro… en PC y móvil; los botones se cambian en la pestaña MANDO): <span id="padHelpTxt"></span></p>
+      <label>Colocar los controles táctiles (mover y tamaño)</label>
+      <button id="touchLayoutBtn" class="small secondary">PERSONALIZAR</button>
       <label>Sensibilidad táctil <span id="touchSensVal"></span></label>
       <input type="range" id="setTouchSens" min="0.3" max="3" step="0.05">
       <label>Apuntado asistido (táctil)</label>
@@ -256,6 +261,8 @@
     </div>
     <div class="settingsGrid setPane hidden" data-pane="pad">
       <div class="setSec">Clic (o A) en una acción y pulsa el botón nuevo del mando · Start cancela</div>
+      <label>Mando</label>
+      <span id="padWhich" class="padWhich">Ningún mando conectado (pulsa un botón)</span>
       <div id="padBinds" class="padBinds"></div>
       <label>Volver a los botones de siempre</label>
       <button id="padResetBtn" class="small secondary">RESTAURAR</button>
@@ -279,8 +286,16 @@
       <div class="row tight">
         <button id="exportProfileBtn" class="small secondary">EXPORTAR</button>
         <button id="importProfileBtn" class="small secondary">IMPORTAR</button>
+        <button id="tutorialBtn" class="small secondary" title="Se repite en la próxima partida">REPETIR TUTORIAL</button>
         <input type="file" id="importProfileFile" accept=".json,application/json" class="hidden">
       </div>
+      <label>Registro de errores <small id="errCount"></small><br><small>Cópialo y pásalo para que se pueda arreglar</small></label>
+      <div class="row tight">
+        <button id="errCopyBtn" class="small secondary">COPIAR</button>
+        <button id="errClearBtn" class="small secondary">BORRAR</button>
+      </div>
+      <label>Modo de pruebas<br><small>Genera todas las salas y prueba cada enemigo buscando fallos (unos minutos)</small></label>
+      <button id="selfTestBtn" class="small secondary">PROBAR</button>
     </div>
     <div class="row">
       <button id="resetSettingsBtn" class="secondary small">RESTABLECER</button>
@@ -296,6 +311,7 @@
       <button id="pauseSettingsBtn" class="secondary">AJUSTES</button>
       <button id="quitBtn" class="secondary">ABANDONAR PARTIDA<small>Cuenta como muerte: ganas la esencia</small></button>
     </div>
+    <div id="pauseObj" class="objList"></div>
     <div id="pauseInfo"></div>
   </div>
 
@@ -312,6 +328,7 @@
         <button id="coopCreate" class="small">CREAR SALA</button>
         <input id="coopCode" maxlength="4" placeholder="CÓDIGO" spellcheck="false" autocomplete="off">
         <button id="coopJoin" class="small secondary">UNIRSE</button>
+        <button id="coopBack" class="small hidden" title="Vuelves con tu personaje tal como estaba">VOLVER A LA PARTIDA</button>
         <span id="coopSrv" class="coopSrv" title="Estado del servidor del cooperativo"></span>
         <button id="coopCfg" class="small secondary" title="Dirección del servidor">⚙</button>
       </div>
@@ -352,9 +369,11 @@
   <!-- Núcleo -->
   <script src="js/core/namespace.js"></script>
   <script src="js/core/math.js"></script>
+  <script src="js/core/errlog.js"></script>
   <script src="js/core/input.js"></script>
   <script src="js/core/gamepad.js"></script>
   <script src="js/core/audio.js"></script>
+  <script src="js/core/sfx.js"></script>
   <script src="js/core/music.js"></script>
   <script src="js/core/settings.js"></script>
   <script src="js/core/save.js"></script>
@@ -399,6 +418,9 @@
   <script src="js/systems/throwables.js"></script>
   <script src="js/systems/look.js"></script>
   <script src="js/systems/spawner.js"></script>
+  <script src="js/systems/objectives.js"></script>
+  <script src="js/systems/tutorial.js"></script>
+  <script src="js/systems/selftest.js"></script>
   <script src="js/systems/horde.js"></script>
   <script src="js/systems/hordeMode.js"></script>
   <script src="js/net/net.js"></script>

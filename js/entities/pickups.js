@@ -256,7 +256,7 @@
           if (g.regen) { game.player.heal(g.heal); game.player.regenT = 8; VX.Audio.orb(); game.hud.toast('Corazón de hidra: regeneras vida unos segundos'); continue; }
           if (g.heal) { game.player.heal(g.heal); VX.Audio.orb(); game.hud.toast(`+${g.heal} de vida`); continue; }
           if (g.ammo) {
-            if (game.weapon.addAmmo(g.ammo)) { VX.Audio.reload(); game.hud.toast('+munición'); }
+            if (game.weapon.addAmmo(g.ammo)) { (VX.Audio.ammoPickup || VX.Audio.reload)(); game.hud.toast('+munición'); }
             else { VX.Audio.click(); game.hud.toast('Munición al máximo'); }
             continue;
           }
@@ -293,6 +293,7 @@
       const tier = ['gold', 'silver', 'wood'].find((t) => K[t] > 0);   // la mejor que tengas
       if (!tier) { VX.Audio.deny(); game.hud.toast('Necesitas una llave: las sueltan algunos zombis y salen de vasijas y cajas'); return; }
       K[tier]--; game.hud.setKeys && game.hud.setKeys(K);
+      VX.Objectives.keyUsed(game);
       it.spinT = 1.9; it.spinTier = tier; it.tick = 0;
       VX.Audio.door && VX.Audio.door();
       game.hud.toast('Llave ' + VX.KEY_TIERS[tier].name + ' dentro… ¡gira!');
@@ -326,7 +327,11 @@
         return true;
       };
       let title, sub, big = false;
-      if (tier === 'wood') {
+      // premio especial: los objetivos de partida, si aún no los tienes (más fácil cuanto mejor la llave)
+      if (VX.Profile.objLevel() === 0 && Math.random() < ({ wood: 0.04, silver: 0.12, gold: 0.3 }[tier] || 0)) {
+        VX.Profile.unlockObjectives(null);
+        title = '¡OBJETIVOS DE PARTIDA!'; sub = 'Desde la próxima partida, cada una trae objetivos que dan esencia'; big = true;
+      } else if (tier === 'wood') {
         if (r < 0.4) { gold(M.randInt(12, 20)); title = 'MONEDAS'; sub = 'Un puñado de oro'; }
         else if (r < 0.62) { this.dropHeart(at().x, it.y + 0.4, at().z, 25); title = 'UN CORAZÓN'; sub = '+25 de vida'; }
         else if (r < 0.8 && thr(2)) { title = 'EXPLOSIVOS'; sub = 'Dos para lanzar'; }

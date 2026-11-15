@@ -248,6 +248,7 @@
   }
   function update(w, dt, id) {
     w.fireT = (w.fireT == null ? 99 : w.fireT) + dt;
+    if (VX.Audio.reloadTick) VX.Audio.reloadTick(w, id);   // sonido de cada pieza de la recarga
     for (const e of w.ejectQ) { e.t -= dt; if (e.t <= 0) spawn(w, e); }
     w.ejectQ = w.ejectQ.filter((e) => e.t > 0);
     // la recortada suelta los dos cartuchos al abrirse

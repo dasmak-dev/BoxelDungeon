@@ -96,6 +96,40 @@
     { id: 'leyenda', name: 'Leyenda', ultimate: true, cond: { stat: 'allSkins', n: 8 } },
   ];
 
+  // Skins especiales (0.51): cada arma tiene la suya, con una misión propia de su estilo
+  const SPECIAL = {
+    pistol: [{ id: 'duelista', name: 'Duelista', special: true, cond: { stat: 'long', n: 40 },
+      pal: { main: [0.9, 0.86, 0.76], dark: [0.32, 0.2, 0.12], grip: [0.42, 0.24, 0.12], steel: [0.98, 0.94, 0.8], accent: [1, 0.8, 0.3, 0.7], blade: [0.95, 0.9, 0.78] } }],
+    smg: [{ id: 'acrobata', name: 'Acróbata', special: true, cond: { stat: 'air', n: 40 },
+      pal: { main: [0.85, 0.15, 0.6], dark: [0.35, 0.05, 0.3], grip: [0.1, 0.1, 0.14], steel: [0.2, 0.9, 1, 0.6], accent: [0.2, 1, 1, 1], blade: [0.9, 0.3, 0.7] } }],
+    shotgun: [{ id: 'quemarropa', name: 'Quemarropa', special: true, cond: { stat: 'close', n: 80 },
+      pal: { main: [0.12, 0.1, 0.1], dark: [0.06, 0.05, 0.05], grip: [0.3, 0.12, 0.06], steel: [1, 0.35, 0.08, 0.8], accent: [1, 0.55, 0.1, 1], blade: [0.9, 0.3, 0.08] } }],
+    rifle: [{ id: 'francotirador', name: 'Francotirador', special: true, cond: { stat: 'scoped', n: 60 },
+      pal: { main: [0.3, 0.38, 0.2], dark: [0.18, 0.22, 0.12], grip: [0.38, 0.3, 0.18], steel: [0.25, 0.27, 0.22], accent: [0.6, 0.75, 0.3], blade: [0.35, 0.4, 0.25], checker: true } },
+    { id: 'halcon', name: 'Ojo de halcón', special: true, cond: { stat: 'longHead', n: 25 },
+      pal: { main: [0.95, 0.95, 0.97], dark: [0.55, 0.57, 0.62], grip: [0.2, 0.2, 0.24], steel: [1, 0.82, 0.35, 0.5], accent: [1, 0.85, 0.3, 1], blade: [0.95, 0.95, 1] } }],
+    launcher: [{ id: 'demolicion', name: 'Demolición', special: true, cond: { stat: 'multi', n: 25 },
+      pal: { main: [0.95, 0.75, 0.1], dark: [0.1, 0.1, 0.1], grip: [0.12, 0.12, 0.12], steel: [0.3, 0.3, 0.32], accent: [1, 0.3, 0.1, 0.9], blade: [0.95, 0.75, 0.1], checker: true } }],
+    hammer: [{ id: 'rompehuesos', name: 'Rompehuesos', special: true, cond: { stat: 'limbs', n: 80 },
+      pal: { main: [0.86, 0.82, 0.7], dark: [0.4, 0.08, 0.06], grip: [0.3, 0.06, 0.05], steel: [0.92, 0.88, 0.76], accent: [0.6, 0.05, 0.05, 0.4], blade: [0.86, 0.8, 0.68] } }],
+    crossbow: [{ id: 'cazador', name: 'Cazador', special: true, cond: { stat: 'long', n: 40 },
+      pal: { main: [0.28, 0.18, 0.1], dark: [0.16, 0.1, 0.06], grip: [0.2, 0.3, 0.14], steel: [0.5, 0.55, 0.45], accent: [0.4, 0.85, 0.3, 0.6], blade: [0.6, 0.62, 0.55] } }],
+    dbarrel: [{ id: 'trueno', name: 'Doble trueno', special: true, cond: { stat: 'multi', n: 20 },
+      pal: { main: [0.16, 0.2, 0.32], dark: [0.08, 0.1, 0.18], grip: [0.22, 0.16, 0.12], steel: [0.6, 0.75, 1, 0.5], accent: [0.6, 0.85, 1, 1], blade: [0.5, 0.65, 0.95] } }],
+    lmg: [{ id: 'supresion', name: 'Supresión', special: true, cond: { stat: 'magKills', n: 15 },
+      pal: { main: [0.32, 0.34, 0.2], dark: [0.18, 0.19, 0.12], grip: [0.12, 0.12, 0.1], steel: [0.4, 0.4, 0.38], accent: [1, 0.5, 0.1, 0.8], blade: [0.35, 0.36, 0.22] } }],
+    flamer: [{ id: 'infierno', name: 'Infierno', special: true, cond: { stat: 'burn', n: 100 },
+      pal: { main: [0.08, 0.06, 0.07], dark: [0.04, 0.03, 0.03], grip: [0.15, 0.06, 0.04], steel: [1, 0.4, 0.05, 0.9], accent: [1, 0.7, 0.15, 1], blade: [1, 0.35, 0.05, 0.8] } }],
+    raygun: [{ id: 'desintegrador', name: 'Desintegrador', special: true, cond: { stat: 'multi', n: 30 },
+      pal: { main: [0.82, 0.84, 0.9], dark: [0.4, 0.42, 0.5], grip: [0.18, 0.12, 0.25], steel: [0.75, 0.35, 1, 0.8], accent: [0.85, 0.5, 1, 1], blade: [0.8, 0.82, 0.9] } }],
+    knife: [{ id: 'sombra', name: 'Sombra', special: true, cond: { stat: 'air', n: 20 },
+      pal: { main: [0.06, 0.06, 0.08], dark: [0.03, 0.03, 0.04], grip: [0.1, 0.08, 0.12], steel: [0.55, 0.2, 0.9, 0.7], accent: [0.7, 0.3, 1, 1], blade: [0.18, 0.15, 0.25] } }],
+  };
+  // todas las skins de un arma: las comunes, su especial y, al final, la legendaria
+  function skinsFor(w) { const sp = SPECIAL[w] || []; return SKINS.filter((s) => !s.ultimate).concat(sp, SKINS.filter((s) => s.ultimate)); }
+  const ALL_SKINS = () => SKINS.concat(...Object.values(SPECIAL));
+  function findSkin(id) { return ALL_SKINS().find((s) => s.id === id); }
+
   const HAND = { hand: [0.78, 0.6, 0.47], wrist: [0.7, 0.53, 0.42], sleeve: [0.18, 0.2, 0.17] };
 
   // ---------------- Modelos ----------------
@@ -975,7 +1009,7 @@
       const add = attVoxels(id, form, atts), taken = new Set(add.map((v) => v.x + ',' + v.y + ',' + v.z));
       base = base.filter((v) => !taken.has(v.x + ',' + v.y + ',' + v.z)).concat(add);
     }
-    const skin = SKINS.find((s) => s.id === skinId) || SKINS[0];
+    const skin = findSkin(skinId) || SKINS[0];
     const U = skin.ultimate ? ULT[id] : null;
     const pal = { ...AMMO_PAL, ...DEFAULT_PAL[id], ...((form && DEFAULT_PAL[id + ':' + form]) || {}), ...(skin.pal || {}) };
     const out = base.map((v) => {
@@ -1016,5 +1050,5 @@
   DEFS.smg.sfx = 'smg'; DEFS.shotgun.sfx = 'shotgun'; DEFS.rifle.sfx = 'rifle'; DEFS.launcher.sfx = 'launcher';
   for (const id of ['crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun']) DEFS[id].sfx = id;
 
-  VX.Weapons = { DEFS, GUNS, SKINS, MODELS, KNIVES, PISTOLS, ULT, ultColor, coloredModel, applyPistolForm, skinLabel, skinPal, ATTACH, attFits };
+  VX.Weapons = { DEFS, GUNS, SKINS, SPECIAL, skinsFor, findSkin, MODELS, KNIVES, PISTOLS, ULT, ultColor, coloredModel, applyPistolForm, skinLabel, skinPal, ATTACH, attFits };
 })();

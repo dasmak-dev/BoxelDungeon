@@ -59,9 +59,16 @@
       bindRange('setFov', 'fov', (v) => v + '°', 'fovVal');
       $('setQuality').addEventListener('change', (e) => S.set('quality', e.target.value));
       $('setTouch').addEventListener('change', (e) => S.set('touchMode', e.target.value));
+      $('errCopyBtn').addEventListener('click', async () => { VX.Audio.click(); const ok = await VX.ErrLog.copy(); $('profileMsg').textContent = ok ? `Copiado: ${VX.ErrLog.list.length} errores` : 'No se pudo copiar'; });
+      $('errClearBtn').addEventListener('click', () => { VX.Audio.click(); VX.ErrLog.clear(); $('profileMsg').textContent = 'Registro borrado'; });
+      $('selfTestBtn').addEventListener('click', () => { VX.Audio.click(); if (game.state !== 'title' && !confirm('Se abandonará la partida en curso. ¿Seguir?')) return; this.hideAll(); setTimeout(() => VX.SelfTest.run(game), 50); });
+      VX.ErrLog.badge();
+      $('tutorialBtn').addEventListener('click', () => { VX.Audio.click(); VX.Tutorial.reset(); $('profileMsg').textContent = 'El tutorial saldrá en tu próxima partida.'; });
+      $('touchLayoutBtn').addEventListener('click', () => { VX.Audio.click(); VX.Touch.editLayout(); });
       $('setAimAssist').addEventListener('change', (e) => S.set('aimAssist', e.target.checked));
       $('setVibrate').addEventListener('change', (e) => { S.set('vibrate', e.target.checked); if (e.target.checked) VX.Haptics.buzz(60, true); });
       $('setFpsCap').addEventListener('change', (e) => S.set('fpsCap', +e.target.value));
+      $('setSaver').addEventListener('change', (e) => S.set('batterySaver', e.target.checked));
       bindRange('setTouchSens', 'touchSens', (v) => v.toFixed(2) + 'x', 'touchSensVal');
       bindRange('setPadSens', 'padSens', (v) => v.toFixed(2) + 'x', 'padSensVal');
       $('setShadows').addEventListener('change', (e) => S.set('shadows', e.target.checked));
@@ -164,7 +171,7 @@
       $('setFov').value = d.fov; $('fovVal').textContent = d.fov + '°';
       $('setQuality').value = d.quality;
       $('setTouch').value = d.touchMode || 'auto';
-      $('setAimAssist').checked = d.aimAssist !== false; $('setVibrate').checked = d.vibrate !== false; $('setFpsCap').value = String(d.fpsCap || 0);
+      $('setAimAssist').checked = d.aimAssist !== false; $('setVibrate').checked = d.vibrate !== false; $('setFpsCap').value = String(d.fpsCap || 0); $('setSaver').checked = !!d.batterySaver;
       $('setPadSens').value = d.padSens || 1; $('padSensVal').textContent = (d.padSens || 1).toFixed(2) + 'x';
       $('setTouchSens').value = d.touchSens || 1; $('touchSensVal').textContent = (d.touchSens || 1).toFixed(2) + 'x';
       $('setShadows').checked = d.shadows;
@@ -196,6 +203,8 @@
       if (!Pd) return;
       for (const b of document.querySelectorAll('.padBind')) b.textContent = Pd.waitBind === b.dataset.pad ? 'Pulsa un botón del mando…' : Pd.btnName(Pd.btnOf(b.dataset.pad));
       const h = document.getElementById('padHelpTxt'); if (h) h.textContent = Pd.helpText();
+      const w = document.getElementById('padWhich');
+      if (w) { const own = Pd.curId && VX.Settings.data.padById && VX.Settings.data.padById[Pd.curId]; w.textContent = Pd.curId ? `${Pd.padLabel()} · ${own ? 'con su propia configuración' : 'configuración común (al cambiar algo, se guarda sólo para este mando)'}` : 'Ningún mando conectado (pulsa un botón)'; }
     },
 
     openSettings(from) {
@@ -247,6 +256,7 @@
 
     // resumen de la partida en la pausa: cómo vas, tus mejoras (con su efecto), armas y equipo
     fillPause(game) {
+      { const po = $('pauseObj'); if (po) po.innerHTML = game.mode === 'dungeon' && game.objectives ? '<div class="objT">OBJETIVOS DE LA PARTIDA</div>' + VX.Objectives.html(game) : ''; }
       const el = $('pauseInfo');
       if (!el) return;
       const esc = (t) => String(t).replace(/[<>&]/g, '');
@@ -278,11 +288,25 @@
       if (!game) return '';
       const esc = (t) => String(t).replace(/[<>&]/g, '');
       let h = '<div id="deathInfo">';
-      const res = game.runResult || {};
-      if (!res.escaped && game.lastHitBy) h += `<div class="dRow dKill">Te mató: <b>${esc(game.lastHitBy)}</b></div>`;
+      const res = game.runResult || {}, S = game.stats || {};
+      // dónde y quién
+      const where = game.deathWhere && game.mode !== 'horde' ? `${(VX.ZONES[game.deathWhere.zone] || {}).name || ''} · ${(VX.ROOM_TYPES[game.deathWhere.type] || {}).label || 'sala'} · piso ${game.deathWhere.floor}` : '';
+      if (!res.escaped && (game.lastHitBy || where)) h += `<div class="dRow dKill">${game.lastHitBy ? `Te mató: <b>${esc(game.lastHitBy)}</b>` : ''}${where ? `<small> · en ${esc(where)}</small>` : ''}</div>`;
+      // momentos de la partida
+      const wk = Object.entries(S.wKills || {}).sort((a, b) => b[1] - a[1]);
+      const fav = wk[0] && VX.Weapons.DEFS[wk[0][0]];
+      const mom = [];
+      if (fav) mom.push(['Arma favorita', `${esc(fav.name)} <small>(${wk[0][1]} muertes)</small>`]);
+      if (S.bestMulti > 1) mom.push(['Mejor racha', `${S.bestMulti} seguidos`]);
+      if (S.dmgDealt) mom.push(['Daño hecho', Math.round(S.dmgDealt).toLocaleString('es')]);
+      const tot0 = Object.values(game.dmgTaken || {}).reduce((a, b) => a + b, 0);
+      if (tot0) mom.push(['Daño recibido', Math.round(tot0).toLocaleString('es')]);
+      if (S.secrets) mom.push(['Secretos', S.secrets]);
+      if (mom.length) h += '<div class="dCol"><u>TU PARTIDA</u>' + mom.map(([k, v]) => `<div class="dMom"><span>${k}</span><b>${v}</b></div>`).join('') + (wk.length > 1 ? '<div class="dWk">' + wk.slice(0, 5).map(([id, n]) => `<span>${esc((VX.Weapons.DEFS[id] || {}).name || id)} ${n}</span>`).join('') + '</div>' : '') + '</div>';
       const dm = Object.entries(game.dmgTaken || {}).sort((a, b) => b[1] - a[1]).slice(0, 4);
-      const tot = Object.values(game.dmgTaken || {}).reduce((a, b) => a + b, 0) || 1;
-      if (dm.length) h += '<div class="dCol"><u>DAÑO RECIBIDO</u>' + dm.map(([k, v]) => `<div class="dBar"><span>${esc(k)}</span><i style="width:${Math.round(v / tot * 100)}%"></i><b>${Math.round(v)}</b></div>`).join('') + '</div>';
+      const tot = tot0 || 1;
+      if (dm.length) h += '<div class="dCol"><u>QUIÉN TE HIZO DAÑO</u>' + dm.map(([k, v]) => `<div class="dBar"><span>${esc(k)}</span><i style="width:${Math.round(v / tot * 100)}%"></i><b>${Math.round(v)}</b></div>`).join('') + '</div>';
+      if (game.objectives && game.mode !== 'horde') h += '<div class="dCol"><u>OBJETIVOS</u><div class="objList">' + VX.Objectives.html(game) + '</div></div>';
       const ups = {};
       for (const u of game.upgradesTaken || []) ups[u.name] = (ups[u.name] || 0) + 1;
       const W = game.weapon, atts = W ? W.slots.filter((s) => W.attList(s.id).length).map((s) => VX.Weapons.DEFS[s.id].name + ': ' + W.attList(s.id).map((a) => VX.Weapons.ATTACH[a].name).join(', ')) : [];
@@ -291,6 +315,8 @@
       if (goals.length) h += '<div class="dCol"><u>TE FALTA POCO PARA</u>' + goals.map((g) => `<div class="dGoal"><b>${esc(g.name)}</b> <small>${g.what}</small><br><small>${esc(g.txt)}</small><span class="pb"><i style="width:${Math.round(g.r * 100)}%"></i></span><small>${g.v}/${g.n}</small></div>`).join('') + '</div>';
       return h + '</div>';
     },
+    // tarjetas con las cifras principales
+    statCards(list) { return '<div class="sCards">' + list.map(([k, v, c]) => `<div class="sCard${c ? ' ' + c : ''}"><b>${v}</b><span>${k}</span></div>`).join('') + '</div>'; },
 
     showGameOver(stats, floor, essence = 0, res = null, time = 0, game = null) {
       const acc = stats.shots ? Math.round((stats.hits / stats.shots) * 100) : 0;
@@ -309,15 +335,12 @@
         this.show('gameover');
         return;
       }
-      $('stats').innerHTML =
-        `Piso alcanzado: <b>${floor}</b><br>` +
-        `Zombis eliminados: <b>${stats.kills}</b><br>` +
-        `Cabezas reventadas: <b>${stats.headshots}</b><br>` +
-        `Jefes derrotados: <b>${stats.bosses}</b><br>` +
-        `Oro recogido: <b>${stats.totalGold}</b><br>` +
-        `Precisión: <b>${acc}%</b><br>` +
-        `Tiempo: <b>${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}</b>` + (res ? ` · Puntuación: <b>${res.score}</b>${res.record ? ' <span style="color:#7fd36b">¡NUEVO RÉCORD!</span>' : ` (récord ${res.prev.score})`}` : '') + '<br>' +
-        `<span style="color:#c99bff">Esencia obtenida: <b style="color:#c99bff">+${essence}</b> (total ${VX.Profile.data.essence})</span>` + this.deathInfo(game);
+      const tm = `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`;
+      $('stats').innerHTML = this.statCards([
+        ['Piso', floor], ['Zombis', stats.kills], ['Cabezas', stats.headshots], ['Jefes', stats.bosses],
+        ['Oro', stats.totalGold], ['Precisión', acc + '%'], ['Tiempo', tm], ['Esencia', '+' + essence, 'ess'],
+      ]) + (res ? `<div class="sScore">Puntuación <b>${res.score}</b>${res.record ? ' <span style="color:#7fd36b">¡NUEVO RÉCORD!</span>' : res.prev ? ` · récord ${res.prev.score}` : ''} · esencia total ${VX.Profile.data.essence}</div>` : '') +
+        (game && game.coopTable ? `<div class="coopFinal">${game.coopTable}</div>` : '') + this.deathInfo(game);
       this.show('gameover');
     },
   };

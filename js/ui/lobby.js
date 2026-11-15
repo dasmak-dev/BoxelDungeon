@@ -16,6 +16,7 @@
       $('coopCreate').addEventListener('click', () => this.create());
       $('coopJoin').addEventListener('click', () => this.join());
       $('coopLeave').addEventListener('click', () => this.leave());
+      $('coopBack').addEventListener('click', () => this.back());
       // la partida normal (mazmorra) también en cooperativo: la empieza el anfitrión
       $('coopDungeon').addEventListener('click', () => { if (!VX.Net.isHost) return; VX.Audio.click(); $('hordeMaps').innerHTML = '<p class="hordeIntro">Preparando la mazmorra para todos…</p>'; setTimeout(() => VX.Coop.hostStart('dungeon'), 30); });
       $('coopCfg').addEventListener('click', () => {
@@ -68,6 +69,15 @@
       this.msg('Conectando con el servidor…');
       try { await VX.Net.join(code, this.name()); } catch (e) { this.msg(e.message); this.busy(false); }
     },
+    // volver a una partida que se quedó a medias (se cortó, se cerró la pestaña…)
+    async back() {
+      const lr = VX.Net.lastRoom();
+      if (!lr) { this.refresh(); return; }
+      VX.Audio.init(); VX.Audio.click();
+      this.busy(true);
+      this.msg('Volviendo a la sala ' + lr.code + '…');
+      try { await VX.Net.join(lr.code, lr.name, lr.token); } catch (e) { this.msg(e.message); this.busy(false); }
+    },
     leave() {
       VX.Audio.click();
       VX.Coop.stop();
@@ -79,9 +89,21 @@
     onLobby(m) {
       const game = this.game;
       if (m.t === 'created') { this.busy(false); this.msg('Pasa el código a tus amigos. Cuando estéis, elige un mapa: empezaréis todos a la vez.'); }
+      else if (m.t === 'joined' && m.back) {
+        this.busy(false);
+        VX.Net.reconnecting = false;
+        if (VX.Coop.active) VX.Coop.rejoined(game, m);          // se cortó un momento: sigue la misma partida
+        else if (m.started) { this.msg('Recuperando la partida…'); VX.Coop.askResume(game); }   // pestaña nueva: el anfitrión manda cómo va
+        else this.msg('¡De vuelta en la sala!');
+      }
       else if (m.t === 'joined') { this.busy(false); this.msg('¡Dentro! El anfitrión elegirá el mapa.'); }
-      else if (m.t === 'error') { this.busy(false); this.msg(m.msg); VX.Net.leave(); }
-      else if (m.t === 'peer') { VX.Audio.click(); if (VX.Coop.active) game.hud.toast(`${m.name} se ha unido`); }
+      else if (m.t === 'error') {
+        this.busy(false);
+        if (VX.Net.reconnecting) { VX.Net.reconnecting = false; VX.Net.forget(); this.onLobby({ t: 'closed', msg: 'La sala ya no existe' }); return; }
+        if (/No existe/.test(m.msg)) VX.Net.forget();
+        this.msg(m.msg); VX.Net.leave();
+      }
+      else if (m.t === 'peer') { VX.Audio.click(); if (VX.Coop.active) game.hud.toast(m.back ? `${m.name} ha vuelto` : `${m.name} se ha unido`); }
       else if (m.t === 'leave') { if (VX.Coop.active) VX.Coop.peerLeft(m.id); }
       else if (m.t === 'host') {
         if (VX.Coop.active) VX.Coop.hostChanged(game, m.id, m.left);
@@ -106,6 +128,9 @@
     refresh() {
       const N = VX.Net, inRoom = this.inRoom();
       $('coopIdle').classList.toggle('hidden', inRoom);
+      const lr = !inRoom && VX.Net.lastRoom();
+      $('coopBack').classList.toggle('hidden', !lr);
+      if (lr) $('coopBack').textContent = 'VOLVER A ' + lr.code;
       $('coopRoom').classList.toggle('hidden', !inRoom);
       if (inRoom) {
         $('coopRoomCode').textContent = N.code;

@@ -32,16 +32,22 @@
     navT: 0, focus: -1,
     ACTIONS, BTN_NAMES, waitBind: null,
     // botón asignado a una acción
-    btnOf(a) { const m = VX.Settings.data.pad; return m && m[a] !== undefined ? m[a] : DEF[a]; },
+    // cada mando guarda su propia configuración (por su nombre); si no tiene, la común
+    curMap() { const D = VX.Settings.data; return (this.curId && D.padById && D.padById[this.curId]) || D.pad; },
+    btnOf(a) { const m = this.curMap(); return m && m[a] !== undefined ? m[a] : DEF[a]; },
+    padLabel() { return this.curId ? this.curId.replace(/\s*\(.*?(Vendor|STANDARD).*?\)\s*/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 48) : ''; },
     btnName(i) { return i >= 0 ? BTN_NAMES[i] || 'Botón ' + i : '—'; },
     // asigna; si otra acción usaba ese botón, se intercambian
     bind(a, btn) {
-      const S = VX.Settings, m = S.data.pad = { ...DEF, ...(S.data.pad || {}) };
+      const S = VX.Settings, D = S.data;
+      let m;
+      if (this.curId) { D.padById = D.padById || {}; m = D.padById[this.curId] = { ...DEF, ...(D.pad || {}), ...(D.padById[this.curId] || {}) }; }
+      else m = D.pad = { ...DEF, ...(D.pad || {}) };
       const old = m[a];
       for (const k in m) if (k !== a && m[k] === btn) m[k] = old;
       m[a] = btn; S.save();
     },
-    resetBinds() { VX.Settings.data.pad = null; VX.Settings.save(); },
+    resetBinds() { const D = VX.Settings.data; if (this.curId && D.padById) delete D.padById[this.curId]; else D.pad = null; VX.Settings.save(); },
     // la ayuda de los ajustes, con los botones de cada uno
     helpText() {
       const n = (a) => this.btnName(this.btnOf(a));
@@ -70,6 +76,7 @@
 
     poll(dt, game) {
       const p = this.pad();
+      if (p && p.id !== this.curId) { this.curId = p.id; VX.Menus && VX.Menus.syncPad && VX.Menus.syncPad(); }
       if (!p) { if (this.active) { this.release(); this.setActive(false); } return; }
       const btn = (i) => !!(p.buttons[i] && (p.buttons[i].pressed || p.buttons[i].value > 0.45));
       const now = p.buttons.map((_, i) => btn(i));
@@ -132,6 +139,9 @@
         const canUse = (pr && !pr.classList.contains('hidden')) || !!game.coopPrompt;
         this.tap(canUse ? K('use') : K('reload'));
       }
+      // levantar a un compañero se hace MANTENIENDO usar (antes el mando sólo lo pulsaba un instante)
+      if (VX.Coop && VX.Coop.active && game.coopPrompt && on('use')) this.key(K('use'), true);
+      else if (this.held[K('use')] && !on('use')) this.key(K('use'), false);
       if (tapA('reload')) this.tap(K('reload'));
       if (tapA('inspect')) this.tap(K('inspect'));
       if (tapA('next') || tapA('next2')) I.wheel += 1;

@@ -375,7 +375,9 @@
         el.prompt.classList.remove('hidden');
       } else if (game.doorFocus) {
         const info = VX.ROOM_TYPES[game.doorFocus.type] || {};
-        el.prompt.innerHTML = `<b>Puerta</b> — ${info.label || 'Siguiente sala'}<br>${VX.Settings.tag('use')} Abrir`;
+        const df = game.doorFocus, K = game.keys || {};
+        el.prompt.innerHTML = df.gold ? `<b>Puerta dorada</b> — ${df.vault === 'hoard' ? 'Sala del tesoro' : 'Vendedor raro'}<br>${VX.Settings.tag('use')} Abrir · <span class="${K.gold ? 'price' : 'bad'}">llave de oro${K.gold ? '' : ' (no tienes)'}</span>`
+          : `<b>Puerta</b> — ${info.label || 'Siguiente sala'}<br>${VX.Settings.tag('use')} Abrir`;
         el.prompt.classList.remove('hidden');
       } else el.prompt.classList.add('hidden');
 
@@ -393,7 +395,12 @@
 
       // jefe
       const bb = (game.boss && !game.boss.dead) ? game.boss : (game.champion && !game.champion.dead ? game.champion : null);
-      if (bb) el.bossFill.style.width = `${Math.max(0, bb.hp / bb.maxHp) * 100}%`;
+      if (bb) {
+        el.bossFill.style.width = `${Math.max(0, bb.hp / bb.maxHp) * 100}%`;
+        // fase del jefe: 1/3, 2/3, 3/3 (la barra cambia de color en cada una)
+        const ph = Math.max(bb.phase || 0, bb.hp < bb.maxHp * 0.33 ? 2 : bb.hp < bb.maxHp * 0.66 ? 1 : 0);   // en el invitado sale de la vida
+        if (this.bossPh !== ph) { this.bossPh = ph; const pe = document.getElementById('bossPhase'); if (pe) pe.textContent = ['FASE 1 / 3', 'FASE 2 / 3 · FURIA', 'FASE 3 / 3 · FINAL'][ph] || ''; el.boss.dataset.phase = ph; }
+      }
 
       this.fpsAcc = (this.fpsAcc || 0) + dt; this.fpsN = (this.fpsN || 0) + 1;
       if (this.fpsAcc > 0.5) { el.fps.textContent = Math.round(this.fpsN / this.fpsAcc) + ' FPS'; this.fpsAcc = 0; this.fpsN = 0; }

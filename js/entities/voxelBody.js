@@ -376,6 +376,7 @@
     }
 
     detach(name, gibs, vx, vy, vz) {
+      if (VX.onLimb && /^(arm|leg|head)/.test(name) && this.byName[name] && !this.byName[name].detached) VX.onLimb(this, name);
       const p = this.byName[name];
       if (!p || p.detached) return null;
       this.ensureAll();

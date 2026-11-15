@@ -3,6 +3,104 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.51.0] — 2026-11-15
+
+### Añadido
+- **Recargas con sonido pieza a pieza**, sincronizado con la animación de cada arma:
+  - **Pistolas y subfusil**: sueltas el cargador, el viejo cae al suelo con un ruido metálico, encaja el nuevo con un golpe y la corredera va atrás y adelante.
+  - **Rifle**: el cargador viejo sale despedido y cae, el nuevo entra de un golpe y el cerrojo sube, va atrás (con la vaina tintineando), adelante y baja.
+  - **Revólver**: se abre el tambor, la varilla expulsa las seis vainas (cada una suena al caer), entra el cargador rápido y se cierra con un golpe y el trinquete.
+  - **Escopeta, recortada y lanzagranadas**: se abren por la bisagra, cada cartucho o granada suena al entrar y se cierran de golpe. La escopeta además se monta y la recortada suelta sus dos cartuchos.
+  - **Ametralladora**: tapa, caja fuera, caja dentro, cinta que entra eslabón a eslabón, tapa cerrada de golpe y montar.
+  - **Ballesta**: manivela con trinquete, la cuerda que se engancha, el virote que se coloca y el clic.
+  - **Lanzallamas**: válvula cerrada con siseo, depósito fuera y dentro, válvula abierta y el gas que vuelve.
+  - **Desintegrador**: la célula sale con un chispazo, entra y el arma se carga con un zumbido que sube.
+- **Skins especiales**: cada arma tiene una propia, con una misión de su estilo. Salen en la Armería marcadas como «◆ ESPECIAL»:
+  - Pistola **Duelista** (40 muertes a más de 20 m) · Subfusil **Acróbata** (40 en el aire) · Escopeta **Quemarropa** (80 a menos de 2,5 m)
+  - Rifle **Francotirador** (60 con la mirilla) y **Ojo de halcón** (25 cabezas a más de 18 m)
+  - Lanzagranadas **Demolición** (25 veces 2 o más de un disparo) · Mazo **Rompehuesos** (80 extremidades) · Ballesta **Cazador** (40 a más de 20 m)
+  - Recortada **Doble trueno** (20 veces 2 o más de un disparo) · Ametralladora **Supresión** (15 muertes con un solo cargador)
+  - Lanzallamas **Infierno** (100 que estén ardiendo) · Desintegrador **Desintegrador** (30 veces 2 o más de un disparo) · Cuchillo **Sombra** (20 en el aire)
+- **Doble salto**: nueva bendición del Santuario (220 de esencia). Suelta y vuelve a pulsar saltar en el aire.
+- **Nueva banda sonora**:
+  - Un **segundo tema del título**, que se alterna con el de siempre.
+  - **Melodía propia de cada bioma** al explorar.
+  - Una **segunda parte en el combate**, con toms y un riff agudo cuando hay muchos enemigos.
+  - **Marcha de la Horda**, **tema del Vacío** (el bioma secreto) y **tema del jefe final**.
+  - **Jefes**: la música aprieta en cada fase (más rápida, más bombo, coro y medio tono más alta en la fase final).
+  - **Fanfarrias** al despejar una sala, al vencer a un jefe y al encontrar un secreto.
+- **Sonidos mejorados**, hechos por capas (estallido, cuerpo, golpe grave, mecánica y eco de la sala) en lugar de un pitido y un ruido:
+  - Todos los disparos, las explosiones (con cascotes que caen), el fuego (rugido, cuerpo que respira, chasquidos y savia que sisea) y las antorchas.
+  - Los impactos en carne y en pared, el cuchillo, el mazo, las muertes de los zombis, las monedas, las puertas y el rastrillo, la esquiva, el clic del arma vacía y la munición que recoges.
+
+### Cambiado
+- **Objetivos de partida desbloqueables**: al principio no salen. Se desbloquean de tres formas: en el Santuario (bendición «Objetivos de partida», 120 de esencia), venciendo a tu primer jefe o como premio del Relicario (más probable con llaves mejores). El nivel 2 de la bendición da 4 objetivos y un 25 % más de esencia.
+- **Retos de sala más difíciles**: el de «en X segundos» se calcula con la vida que hay que quitar y lo grande que es la sala, con poco margen (más o menos la mitad que antes). Da 15 de oro más.
+
+## [0.50.3] — 2026-11-15
+
+### Cambiado
+- **Los menús van a 30 FPS** (título, pausa, ajustes, Santuario…). No necesitan más, y con los FPS sin límite la tarjeta gráfica iba a tope nada más cargar. Eso podía hacer que el ordenador zumbara o acelerara el ventilador (un siseo que baja poco a poco). Jugando no cambia nada.
+
+## [0.50.2] — 2026-11-15
+
+### Corregido
+- **Enemigos que aparecían encerrados**: podían salir dentro de recintos cerrados de una sala (por ejemplo, dentro del murete del pozo en «Pozo central»), desde donde no hay camino hasta ti. Se quedaban ahí sin llegar nunca, y era otra causa de «queda 1 enemigo y no lo veo». Ahora sólo aparecen (y sólo cuentan como sitio transitable) en la zona principal de la sala.
+- **El rodeo para atacarte por los lados** empieza ya cerca (a 7 m, antes a 11): desde lejos alargaba mucho el camino en las salas grandes.
+
+### Cambiado
+- **Modo de pruebas más fiable** (los avisos que daba sin ser fallos):
+  - Cierra la puerta de entrada, como el juego. Antes los enemigos salían por ella y contaban como «fuera de la sala».
+  - Ya no avisa de los que esperan su turno en el cerco a unos metros (lo hacen a propósito), ni de los lentos que sí se van acercando.
+  - Ya no prueba los restos del renacido ni los brotes, que no aparecen solos.
+  - Cada pelea dura 25 s.
+
+## [0.50.1] — 2026-11-15
+
+### Corregido
+- **Sonido muy fuerte al entrar en el juego o al recargar**:
+  - El sonido arranca en silencio y sube con un fundido de medio segundo.
+  - Al volver a la pestaña también vuelve con un fundido corto, en vez de de golpe.
+  - Hay un **limitador** a la salida: aunque suenen muchas cosas a la vez (explosiones, disparos…) nunca llega a saturar ni a dar un golpe de volumen.
+
+## [0.50.0] — 2026-11-15
+
+### Añadido
+- **Cooperativo: reconectar**. Si se te corta la conexión, el juego vuelve a entrar solo (lo intenta durante 2 minutos) y sigues en la misma partida. Si cierras la pestaña o recargas, en la sala de espera sale **VOLVER A XXXX**: el anfitrión te manda la partida y apareces en su sala con tu personaje como estaba (vida, armas, mejoras, oro y llaves). El servidor guarda tu sitio 15 minutos.
+- **Cooperativo: el anfitrión puede irse** también en la mazmorra: otro jugador pasa a dirigir la partida, con los mismos enemigos y las mismas salas, y quien vuelva se pone al día con él.
+- **Cooperativo: levantar a un compañero**:
+  - **Cuenta atrás visible**: el caído ve cuántos segundos le quedan, y los demás los ven en su etiqueta.
+  - **Más rápido entre varios**: cada compañero de pie que haya alrededor acelera la reanimación un 60 %.
+  - **Penalización**: cada vez que te levantan pierdes un 10 % de la vida máxima hasta la siguiente sala u oleada. Además, cada caída en la misma sala te deja 8 s menos en el suelo (mínimo 12 s).
+- **Enemigos que se coordinan**:
+  - De los que atacan por turno, el primero va de frente y los demás **dan un rodeo para entrarte por los lados o por la espalda**.
+  - Corredores, perros, esqueletos, arqueros, escupidores, nigromantes, chillones, ratas y esporas **huyen un rato cuando les queda poca vida** (una vez) y luego vuelven.
+  - Los escupidores y los chillones que no te ven **buscan otro sitio desde donde verte**, en vez de ir directos a por ti.
+- **Fases de los jefes más claras**:
+  - Marcas en la barra al 66 % y al 33 %, y el rótulo «FASE 1/3, 2/3, 3/3». La barra cambia de color y late en la fase final.
+  - Al cambiar de fase: rugido más largo, onda que te aparta, fogonazo de su color y un instante a cámara lenta (en cooperativo no).
+  - Anuncia el ataque que estrena en esa fase y es lo primero que hace al acabar el rugido.
+  - Le salen chispas de su color, más cuanto más avanzada la fase.
+- **Objetivos de partida** (mazmorra): al empezar salen 3 al azar entre 12 (despejar salas sin daño, matar a cuchillo, reventar cabezas, usar llaves, arrancar extremidades, matar con explosiones, llegar a un piso…). Cada uno cumplido da esencia en el momento. Se ven al empezar, en la pausa y en la pantalla final.
+- **Puertas doradas**: desde el piso 2, a veces una puerta lateral sale con herrajes de oro y necesita una **llave de oro**. Detrás hay una **sala del tesoro** (mucho oro, mejora rara, corazón y explosivos) o un **vendedor raro** (dos mejoras raras y un arma a mitad de precio).
+- **Tutorial corto** la primera vez: en la sala de salida te pide moverte, mirar, disparar, recargar, esquivar, el cuchillazo, lanzar una granada y coger una llave, y te explica para qué sirven. Se puede saltar, y repetir desde Ajustes → Perfil.
+- **Controles táctiles personalizables** (Ajustes → Controles → Personalizar): mueve cada botón y la cruceta, cambia su tamaño y la opacidad.
+- **Ajustes por mando**: cada mando guarda su propia configuración de botones (la pestaña MANDO dice cuál está conectado).
+- **Ahorro de batería** (Ajustes → Gráficos): 30 FPS y menos resolución. Si el móvil tiene poca batería y no está cargando, te lo sugiere.
+- **Registro de errores** (Ajustes → Perfil): guarda los últimos fallos, con la versión y dónde estabas. Se puede COPIAR para pasarlo, o BORRAR.
+- **Modo de pruebas** (Ajustes → Perfil → PROBAR, o `?test=1`):
+  - Construye todas las salas y comprueba que se puede llegar a todas las salidas y que con la misma semilla salen iguales.
+  - Hace pelear a cada tipo de enemigo y avisa si se atasca, se sale de la sala o no llega a ti.
+  - Al acabar enseña un informe para copiar.
+
+### Cambiado
+- **Pantalla de fin de partida**: cifras en tarjetas, sala, zona y piso donde caíste, arma favorita y muertes por arma, mejor racha, daño hecho y recibido, quién te hizo daño, los objetivos y, en cooperativo, la tabla del equipo también en la mazmorra.
+- **Santuario rediseñado**: pestañas (Bendiciones, La tienda, Mercancía, Arsenal) con tarjetas en cuadrícula, sin listas largas ni scroll. Cada pestaña dice cuántas cosas puedes comprar ya, y se puede filtrar «sólo lo que puedo comprar».
+- **Calidad automática más fina**: si caen los FPS, quita primero lo que menos se nota (oclusión, resplandor, polvo y niebla, partículas, sombras de las antorchas) y baja la resolución poco a poco antes de cambiar de nivel de calidad. Lo devuelve paso a paso si sobra margen.
+
+### Corregido
+- **Con mando no se podía levantar a un compañero** (por ejemplo al anfitrión): el botón de usar sólo «tocaba» un instante y hay que mantenerlo. Ahora, con alguien caído al lado, se mantiene.
+
 ## [0.49.0] — 2026-11-15
 
 ### Añadido

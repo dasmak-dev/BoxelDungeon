@@ -115,7 +115,15 @@
         if (this.dashT <= 0) this.dashT = 0;
       }
 
-      if (this.onGround && I.isDown(KS.key('jump')) && !VX.Coop.down && !VX.Coop.deadWait) { this.vy = 6.4; this.onGround = false; }
+      if (this.onGround && I.isDown(KS.key('jump')) && !VX.Coop.down && !VX.Coop.deadWait) { this.vy = 6.4; this.onGround = false; this.airJumps = 0; this.jumpHeld = true; }
+      // doble salto (bendición del Santuario): otra vez en el aire, soltando y volviendo a pulsar
+      else if (!this.onGround && !I.isDown(KS.key('jump'))) this.jumpHeld = false;
+      else if (!this.onGround && !this.jumpHeld && I.isDown(KS.key('jump')) && (this.airJumps || 0) < (VX.Profile.data.perks.doble || 0) && game.state === 'playing' && !VX.Coop.down && !VX.Coop.deadWait) {
+        this.vy = 6.0; this.airJumps = (this.airJumps || 0) + 1; this.jumpHeld = true;
+        VX.Audio.dash && VX.Audio.dash();
+        if (game.particles) for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; game.particles.spawn(this.x + Math.cos(a) * 0.3, this.y + 0.05, this.z + Math.sin(a) * 0.3, Math.cos(a) * 2, -0.5, Math.sin(a) * 2, 0.8, 0.85, 1, 0.03, 0.5, 1); }
+      }
+      if (this.onGround) this.airJumps = 0;
       this.vy -= 19 * dt;
       if (this.vy < -30) this.vy = -30;
 
@@ -197,6 +205,7 @@
         game.dmgTaken = game.dmgTaken || {};
         game.dmgTaken[src] = (game.dmgTaken[src] || 0) + amount;
         game.lastHitBy = src;
+        VX.Objectives.hurt(game, amount);
       }
       if (this.dead || this.invuln > 0 || VX.Coop.down || VX.Coop.deadWait) return;
       this.hp -= amount;

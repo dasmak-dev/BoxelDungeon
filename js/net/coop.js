@@ -82,6 +82,10 @@
       N.on('vq', (d, from) => this.onVoteStart(g(), d, from));
       N.on('vv', (d, from) => this.onVote(g(), d, from));
       N.on('vr', (d) => this.onVoteResult(g(), d));
+      // reconexión: ponerse al día
+      N.on('hello', (d, from) => this.onHello(g(), d, from));
+      N.on('resume', (d, from) => { if (this.isHost) VX.Net.send(this.resumeData(g()), from); });
+      N.on('rsm', (d) => this.resume(g(), d));
       N.on('enterReq', (d) => { if (this.isHost) this.onEnterMsg(g(), d, true); });
       N.on('clear', (d) => { const G = g(); if (this.isClient && G.currentRoom && G.currentRoom.rid === d.rid && !G.currentRoom.cleared) G.clearRoom(G.currentRoom, !!d.s); });
     },
@@ -111,6 +115,7 @@
         this.remotes.set(p.id, new VX.RemotePlayer(p.id, p.name, Math.max(0, this.order.indexOf(p.id))));
       }
       this.pendingNb = this.pendingNb || new Map();
+      this.mapId = mapId; this.seed = seed; this.path = []; this.nbLog = new Map(); this.wound = 0; this.downsHere = 0;
       // mapa idéntico en todos: el azar de la construcción sale de la semilla compartida
       if (mapId === 'dungeon') game.startCoopDungeon(seed, mulberry(seed));
       else game.startHorde(mapId, { seed, rng: mulberry(seed) });
@@ -170,6 +175,8 @@
         if (H.phase === 'wave' && game.boss && !game.boss.dead) H.bossWave = true;
       }
       this.snapT = 0; this.overT = 0;
+      // mazmorra: la sala sigue (los zombis ya son míos); si ya no queda ninguno, se despeja sola
+      if (game.mode === 'dungeon' && game.currentRoom) { const cr = game.currentRoom; cr.pendingWaves = cr.pendingWaves || 0; if (this.vote) this.vote.t = Math.min(this.vote.t, 20); }
       game.hud.banner('ERES EL ANFITRIÓN', 'El anfitrión se ha ido: la partida sigue y ahora la diriges tú', 3.5);
     },
 
@@ -247,7 +254,7 @@
     },
     meState(game) {
       const P = game.player, ac = this.actState(game);
-      return { k: 'me', x: r2(P.x), y: r2(P.y), z: r2(P.z), yaw: r3(P.yaw), p: r3(P.pitch), vx: r2(P.vx), vz: r2(P.vz), hp: Math.round(P.hp), mh: P.maxHp, dn: this.down ? 1 : 0, dd: this.deadWait ? 1 : 0, w: game.weapon.slot.id, a: ac[0], ak: ac[1], as: ac[2], fl: P.flashlight ? 1 : 0 };
+      return { k: 'me', x: r2(P.x), y: r2(P.y), z: r2(P.z), yaw: r3(P.yaw), p: r3(P.pitch), vx: r2(P.vx), vz: r2(P.vz), hp: Math.round(P.hp), mh: P.maxHp, dn: this.down ? 1 : 0, dd: this.deadWait ? 1 : 0, w: game.weapon.slot.id, a: ac[0], ak: ac[1], as: ac[2], fl: P.flashlight ? 1 : 0, dt: this.down ? Math.ceil(this.downT) : 0 };
     },
     onMe(game, d, from) {
       if (!this.isHost) return;
@@ -264,8 +271,8 @@
     snapshot(game) {
       const P = game.player, H = VX.HordeMode;
       const ac = this.actState(game);
-      const pl = [[VX.Net.id, r2(P.x), r2(P.y), r2(P.z), r3(P.yaw), r3(P.pitch), Math.round(P.hp), P.maxHp, (this.down ? 1 : 0) | (this.deadWait ? 2 : 0) | (P.flashlight ? 4 : 0), game.weapon.slot.id, ac[0], ac[1], ac[2]]];
-      for (const r of this.remotes.values()) if (r.seen) pl.push([r.id, r2(r.tx), r2(r.ty), r2(r.tz), r3(r.tyaw), r3(r.tpitch), Math.round(r.hp), r.maxHp, (r.down ? 1 : 0) | (r.dead ? 2 : 0) | (r.fl ? 4 : 0), r.weapon, r.act || 0, r2(r.actK || 0), r.actS || 0]);
+      const pl = [[VX.Net.id, r2(P.x), r2(P.y), r2(P.z), r3(P.yaw), r3(P.pitch), Math.round(P.hp), P.maxHp, (this.down ? 1 : 0) | (this.deadWait ? 2 : 0) | (P.flashlight ? 4 : 0), game.weapon.slot.id, ac[0], ac[1], ac[2], this.down ? Math.ceil(this.downT) : 0]];
+      for (const r of this.remotes.values()) if (r.seen) pl.push([r.id, r2(r.tx), r2(r.ty), r2(r.tz), r3(r.tyaw), r3(r.tpitch), Math.round(r.hp), r.maxHp, (r.down ? 1 : 0) | (r.dead ? 2 : 0) | (r.fl ? 4 : 0), r.weapon, r.act || 0, r2(r.actK || 0), r.actS || 0, r.downLeft || 0]);
       const en = [];
       for (const e of game.enemies) {
         if (e.dead && e !== game.boss) continue;
@@ -310,7 +317,7 @@
           r = new VX.RemotePlayer(p[0], q ? q.name : 'Jugador', Math.max(0, this.order.indexOf(p[0])));
           this.remotes.set(p[0], r);
         }
-        r.setState({ x: p[1], y: p[2], z: p[3], yaw: p[4], p: p[5], hp: p[6], mh: p[7], dn: p[8] & 1, dd: p[8] & 2, fl: p[8] & 4 ? 1 : 0, w: p[9], a: p[10], ak: p[11], as: p[12] });
+        r.setState({ x: p[1], y: p[2], z: p[3], yaw: p[4], p: p[5], hp: p[6], mh: p[7], dn: p[8] & 1, dd: p[8] & 2, fl: p[8] & 4 ? 1 : 0, w: p[9], a: p[10], ak: p[11], as: p[12], dt: p[13] });
       }
       // zombis y jefes
       const seen = new Set();
@@ -714,19 +721,29 @@
       const P = game.player;
       P.hp = 0;
       this.down = true;
-      this.downT = DOWN_TIME;
+      this.downsHere = (this.downsHere || 0) + 1;
+      this.downT = this.downMax = Math.max(12, DOWN_TIME - (this.downsHere - 1) * 8);   // cada caída en la misma sala, menos tiempo para levantarte
       P.vx = P.vz = 0;
       this.cnt.dn++;
       game.hud.banner('¡HAS CAÍDO!', `Un compañero puede levantarte manteniendo ${VX.Settings.keyName(VX.Settings.key('use'))} a tu lado`, 3);
       VX.Audio.hurt(1);
       VX.Net.send({ k: 'chat', m: `${this.myName()} ha caído: ¡levántalo!` }, this.isHost ? undefined : 'all');
     },
+    // sala nueva u oleada nueva: se curan las heridas de haber caído
+    healWounds(game) {
+      this.downsHere = 0;
+      if (this.wound) { game.player.maxHp += this.wound; this.wound = 0; }
+    },
     revived(game) {
       if (!this.down) return;
       const P = game.player;
       this.down = false;
+      // herido: -10 % de vida máxima hasta la siguiente sala (o la siguiente oleada)
+      const cut = (this.wound || 0) < P.maxHp * 0.35 ? Math.round(P.maxHp * 0.1) : 0;
+      this.wound = (this.wound || 0) + cut; P.maxHp -= cut;
       P.hp = Math.round(P.maxHp * 0.4);
       P.invuln = 2;
+      game.hud.toast('Herido: -10 % de vida máxima hasta la siguiente sala');
       P.eyeOffset = 0;
       game.hud.banner('¡TE HAN LEVANTADO!', '', 2);
       VX.Audio.phase && VX.Audio.phase();
@@ -736,6 +753,7 @@
       if (this.down) {
         P.eyeOffset = M.lerp(P.eyeOffset, -1.1, Math.min(1, dt * 4));
         this.downT -= dt;
+        game.coopPrompt = `<b>EN EL SUELO</b> · te quedan <b>${Math.max(0, Math.ceil(this.downT))} s</b><br>Un compañero tiene que mantener ${VX.Settings.keyName(VX.Settings.key('use'))} a tu lado`;
         if (this.downT <= 0) {
           this.down = false; this.deadWait = true;
           game.hud.banner('HAS MUERTO', game.mode === 'dungeon' ? 'Volverás en la siguiente sala si tus compañeros la despejan · mientras, ves la partida con ellos' : 'Volverás al empezar la siguiente oleada si tus compañeros aguantan · mientras, ves la partida con ellos', 4);
@@ -748,6 +766,7 @@
       if (game.mode === 'horde' && H.wave !== this.lastWave && H.phase === 'wave') {
         this.lastWave = H.wave;
         this.markWaveStart(game);
+        this.healWounds(game);
         // al empezar la oleada vuelven los muertos y los que seguían en el suelo (la partida sigue porque alguien aguantó)
         if (this.deadWait || this.down) {
           this.deadWait = false; this.down = false; this.spec = null;
@@ -769,10 +788,13 @@
           if (d < bd && Math.abs(r.y - P.y) < 1.5) { bd = d; target = r; }
         }
       }
-      if (!target) { this.reviveT = 0; game.coopPrompt = this.specPrompt || null; return; }
+      if (!target) { this.reviveT = 0; if (!this.down) game.coopPrompt = this.specPrompt || null; return; }
       if (VX.Input.keys[VX.Settings.key('use')]) {
         if (this.reviveId !== target.id) { this.reviveId = target.id; this.reviveT = 0; }
-        this.reviveT += dt;
+        // cuantos más compañeros (de pie) alrededor del caído, más rápido se le levanta
+        let help = 0;
+        for (const r of this.remotes.values()) if (r !== target && !r.down && !r.dead && Math.hypot(r.x - target.x, r.z - target.z) < REVIVE_DIST + 0.4) help++;
+        this.reviveT += dt * (1 + 0.6 * help);
         if (this.reviveT >= REVIVE_TIME) {
           VX.Net.send({ k: 'rv' }, target.id);
           target.down = false;
@@ -784,7 +806,7 @@
         }
       } else this.reviveT = 0;
       const pct = Math.round(this.reviveT / REVIVE_TIME * 100);
-      game.coopPrompt = `<b>${target.name}</b> está en el suelo<br>[mantén ${VX.Settings.keyName(VX.Settings.key('use'))}] Levantar${pct ? ` · ${pct}%` : ''}`;
+      game.coopPrompt = `<b>${target.name}</b> está en el suelo${target.downLeft ? ` (${target.downLeft} s)` : ''}<br>[mantén ${VX.Settings.keyName(VX.Settings.key('use'))}${VX.Pad && VX.Pad.active ? ' / ' + VX.Pad.btnName(VX.Pad.btnOf('use')) : ''}] Levantar${pct ? ` · ${pct}%` : ''}`;
     },
     checkAllDown(game) {
       if (game.state !== 'playing') return;
@@ -820,11 +842,14 @@
     sendNeighbors(game, room, list) {
       const P = VX.Profile, su = {};
       for (const u of P.SHOPUPS || []) su[u.id] = P.shopUp(u.id);
-      VX.Net.send({ k: 'nb', rid: room.rid || 'S', list, su });
+      const msg = { k: 'nb', rid: room.rid || 'S', list, su };
+      (this.nbLog || (this.nbLog = new Map())).set(msg.rid, msg);   // para quien vuelva a conectarse
+      VX.Net.send(msg);
     },
     onNeighbors(game, d) {
       // puede llegar antes de que haya empezado la partida aquí: se guarda igual
       (this.pendingNb || (this.pendingNb = new Map())).set(d.rid, d);
+      (this.nbLog || (this.nbLog = new Map())).set(d.rid, d);   // por si me toca ser el anfitrión y alguien vuelve
       if (!this.isClient || game.mode !== 'dungeon') return;
       const r = game.world.rooms.find((q) => q.rid === d.rid);
       if (r && r === game.currentRoom) this.applyNeighbors(game, r);
@@ -846,12 +871,101 @@
           n.rid = room.rid + '.' + rc.side;
           if (rc.bn) n.bossNext = true;
           if (rc.bk) n.bossKind = rc.bk;
+          if (rc.gv) game.spawner.goldDoor(room, rc.side, n, rc.gv);
           n.updateMeshes && n.updateMeshes(VX.Renderer, 9999);
         }
       } finally { VX.forceShopUps = null; }
       this.pendingNb.delete(room.rid);
       if (this.pendingEnter) { const pe = this.pendingEnter; this.pendingEnter = null; this.onEnterMsg(game, pe); }
     },
+    // ---------------- reconexión ----------------
+    // mi personaje (vida, armas, mejoras, oro, llaves), guardado en cada sala nueva
+    saveChar(game) {
+      try {
+        const P = game.player;
+        localStorage.setItem('boxel.coopChar', JSON.stringify({ code: VX.Net.code, at: Date.now(),
+          player: { hp: P.hp, maxHp: P.maxHp - (this.wound || 0), speed: P.speed, magnet: P.magnet, dashMax: P.dashMax, dashMul: P.dashMul, regenRoom: P.regenRoom || 0 },
+          weapon: game.weapon.serialize(), upgrades: game.upgradesTaken.map((u) => u.id), synergies: game.synergies || [],
+          stats: { ...game.stats }, keys: game.keys || null, cnt: this.cnt }));
+      } catch (e) { /* nada */ }
+    },
+    loadChar(game) {
+      let c = null;
+      try { c = JSON.parse(localStorage.getItem('boxel.coopChar') || 'null'); } catch (e) { /* nada */ }
+      if (!c || c.code !== VX.Net.code) return false;
+      Object.assign(game.player, c.player);
+      game.weapon.load(c.weapon);
+      game.upgradesTaken = (c.upgrades || []).map((id) => VX.Upgrades.byId[id]).filter(Boolean);
+      game.synergies = c.synergies || [];
+      Object.assign(game.stats, c.stats);
+      if (c.keys) { game.keys = c.keys; game.hud.setKeys && game.hud.setKeys(c.keys); }
+      if (c.cnt) this.cnt = c.cnt;
+      game.hud.refreshUpgrades(game);
+      return true;
+    },
+    // (anfitrión) todo lo que hace falta para rehacer la partida en una pestaña nueva
+    resumeData(game) {
+      return { k: 'rsm', mode: game.mode, map: this.mapId, seed: this.seed, order: this.order, path: this.path || [], nb: this.nbLog ? [...this.nbLog.values()] : [],
+        floor: game.floor, zone: game.zone, wave: VX.HordeMode.wave, phase: VX.HordeMode.phase, secretN: this.secretN || 0 };
+    },
+    askResume(game) { VX.Net.send({ k: 'resume' }); },
+    // (invitado en pestaña nueva) rehace la partida: el mismo mapa y, en la mazmorra, sala tras sala por el mismo camino
+    resume(game, d) {
+      if (this.active && game.state === 'playing') return;
+      VX.Menus.hideAll && VX.Menus.hideAll();
+      this.begin(d.mode === 'dungeon' ? 'dungeon' : d.map, d.seed, d.order);
+      this.pendingNb = new Map(d.nb.map((m) => [m.rid, m]));
+      if (d.mode === 'dungeon') {
+        this.replaying = true;
+        try {
+          for (const st of d.path) {
+            if (!st.rid || st.rid === game.currentRoom.rid) continue;
+            if (/^V\d+$/.test(st.rid)) { game.enterSecret({ seed: st.seed, rid: st.rid }); continue; }
+            const cr = game.currentRoom;
+            if (!cr.nbDone) this.applyNeighbors(game, cr);
+            const r = game.world.rooms.find((q) => q.rid === st.rid);
+            if (!r) break;
+            this.remoteEnter = true;
+            try { game.enterRoom(r); } finally { this.remoteEnter = false; }
+            r.cleared = true;
+          }
+        } finally { this.replaying = false; }
+        this.path = d.path.slice();
+        if (d.floor !== undefined) game.floor = d.floor;
+      } else {
+        const H = VX.HordeMode;
+        if (d.wave) { H.wave = d.wave; H.phase = d.phase === 'wave' ? 'break' : d.phase; game.floor = H.levelFor(d.wave); }
+      }
+      const ok = this.loadChar(game);
+      game.hud.banner('DE VUELTA EN LA PARTIDA', ok ? 'Con tu personaje tal como estaba' : 'Empiezas con lo básico (no había nada guardado)', 3.5);
+      VX.Net.send({ k: 'hello', rid: game.currentRoom && game.currentRoom.rid });
+    },
+    // se cortó un momento: si mientras tanto pasé a ser invitado (era el anfitrión), mis zombis pasan a ser réplicas
+    rejoined(game, m) {
+      const wasHost = this.role === 'host';
+      this.role = VX.Net.role;
+      if (wasHost && this.isClient) { for (const e of game.enemies) e.dead = true; game.enemies = []; this.reps.clear(); game.boss = null; game.hud.hideBoss(); }
+      game.hud.banner('RECONECTADO', 'Vuelves a estar con tus compañeros', 2.5);
+      if (this.isClient) VX.Net.send({ k: 'hello', rid: game.currentRoom && game.currentRoom.rid });
+    },
+    // (anfitrión) alguien ha vuelto: que se ponga en mi sala, con sus vecinas
+    onHello(game, d, from) {
+      if (!this.isHost) return;
+      if (!this.remotes.has(from)) {
+        const p = VX.Net.players.find((q) => q.id === from);
+        this.remotes.set(from, new VX.RemotePlayer(from, p ? p.name : 'Jugador', Math.max(0, this.order.indexOf(from))));
+      }
+      if (game.mode !== 'dungeon' || !game.currentRoom) return;
+      const cr = game.currentRoom;
+      if (this.nbLog && this.nbLog.has(cr.rid)) VX.Net.send(this.nbLog.get(cr.rid), from);
+      if (d.rid !== cr.rid) {
+        const parent = cr.rid.slice(0, cr.rid.lastIndexOf('.'));
+        if (this.nbLog && this.nbLog.has(parent)) VX.Net.send(this.nbLog.get(parent), from);
+        VX.Net.send({ k: 'enter', rid: cr.rid }, from);
+      }
+      if (cr.cleared) VX.Net.send({ k: 'clear', rid: cr.rid, s: 1 }, from);
+    },
+
     // ---------------- votación: bajar todos al bioma secreto ----------------
     // Quien pulsa «Bajar» en la escalera propone; cada uno vota (Y / N o los botones) y,
     // si la mayoría dice que sí, el anfitrión manda bajar a todos a la vez (con la misma semilla).
@@ -905,6 +1019,7 @@
     },
     onVoteResult(game, d) {
       this.vote = null; this.voteUI();
+      if (d.rid) this.secretN = Math.max(this.secretN || 0, +d.rid.slice(1) || 0);
       if (game.mode !== 'dungeon' || game.state === 'title') return;
       if (!d.ok) {
         this.voteCd = performance.now() + 12000;
@@ -937,7 +1052,10 @@
     roomEntered(game, r) {
       if (game.mode !== 'dungeon') return;
       if (this.isClient) { for (const e of this.reps.values()) e.dead = true; this.reps.clear(); }   // las réplicas de la sala anterior ya no existen
+      // el camino de salas (para reconstruir la partida a quien vuelva) y mi personaje, por si se cierra la pestaña
+      if (!this.replaying) { (this.path || (this.path = [])).push({ rid: r.rid }); this.saveChar(game); }
       if (!this.remoteEnter) VX.Net.send({ k: this.isHost ? 'enter' : 'enterReq', rid: r.rid });
+      this.healWounds(game);
       if (this.deadWait || this.down) {
         this.deadWait = false; this.down = false; this.spec = null;
         const P = game.player;
@@ -1107,7 +1225,7 @@
         const hp = Math.max(0, Math.min(1, r.hp / (r.maxHp || 100)));
         const dist = Math.hypot(r.x - VX.game.player.x, r.z - VX.game.player.z);
         const op = dist > 45 ? 0.5 : 1;
-        html += `<div class="ctag${r.down ? ' down' : ''}" style="left:${sx | 0}px;top:${sy | 0}px;opacity:${op}"><span style="color:rgb(${c})">${r.name}</span>${r.down ? '<em>¡CAÍDO!</em>' : r.dead ? '<em>muerto</em>' : `<i><b style="width:${Math.round(hp * 100)}%;background:rgb(${c})"></b></i>`}</div>`;
+        html += `<div class="ctag${r.down ? ' down' : ''}" style="left:${sx | 0}px;top:${sy | 0}px;opacity:${op}"><span style="color:rgb(${c})">${r.name}</span>${r.down ? `<em>¡CAÍDO!${r.downLeft ? ' ' + r.downLeft + ' s' : ''}</em>` : r.dead ? '<em>muerto</em>' : `<i><b style="width:${Math.round(hp * 100)}%;background:rgb(${c})"></b></i>`}</div>`;
       }
       el.innerHTML = html;
       // lista de jugadores (esquina)

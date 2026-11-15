@@ -34,6 +34,12 @@
       patterns: [['charge', 'slam', 'raise'], ['charge', 'slam', 'raise', 'leap'], ['charge3', 'slam', 'raise', 'leap3', 'raise']] },
   ];
 
+  // nombre de cada ataque (para anunciar el nuevo en cada fase)
+  const PATTERN_NAMES = { leap: 'salto', leap3: 'triple salto', slam: 'pisotón', rocks: 'rocas', raise: 'levantar muertos', ring: 'anillo de balas', spiral: 'espiral', spiral2: 'doble espiral',
+    homing: 'calaveras teledirigidas', fan: 'abanico', blink: 'teletransporte', rain: 'lluvia', ringGap: 'anillo con hueco', dynamite: 'dinamita', dynamite3: 'triple dinamita', sweep: 'barrido',
+    rockfall: 'derrumbe', charge: 'embestida', charge3: 'triple embestida', hook: 'gancho', spin: 'molinillo', wall: 'muro de fuego', brood: 'crías', spores: 'esporas', roots: 'raíces',
+    laser: 'rayo', laser2: 'doble rayo' };
+
   class Boss {
     constructor(x, z, floor, bossNum, forceId) {
       const T = BOSSES.find((b) => b.id === forceId) || M.choice(BOSSES.filter((b) => !b.horde));
@@ -301,6 +307,7 @@
     }
 
     choosePattern(game) {
+      if (this.forcePattern) { const f = this.forcePattern; this.forcePattern = null; this.startPattern(f); return; }
       const list = this.T.patterns[this.phase].filter((n) => n !== this.lastPattern);
       const P = game.player, dist = Math.hypot(P.x - this.x, P.z - this.z);
       let pick = M.choice(list);
@@ -374,16 +381,27 @@
       const want = this.hp < this.maxHp * 0.33 ? 2 : this.hp < this.maxHp * 0.66 ? 1 : 0;
       if (want > this.phase) {
         this.phase = want;
-        this.state = 'phase'; this.stateT = 1.8; this.pattern = null;
-        this.invuln = 1.8;
+        this.state = 'phase'; this.stateT = 2.3; this.pattern = null;
+        this.invuln = 2.3;
         this.speed *= 1.15;
         A.phase(); A.roar();
-        game.shake(0.6);
-        game.hud.banner(this.phase === 1 ? '¡FURIA!' : '¡FASE FINAL!', this.name + (this.phase === 1 ? ' se enfurece' : ' lo da todo'), 2.4);
+        game.shake(0.8);
+        // se estrena un ataque que no tenía: se anuncia y es lo primero que hace al acabar el rugido
+        const fresh = this.T.patterns[this.phase].filter((n) => !this.T.patterns[this.phase - 1].includes(n));
+        this.forcePattern = fresh.length ? M.choice(fresh) : null;
+        const nm = this.forcePattern && PATTERN_NAMES[this.forcePattern];
+        game.hud.banner(this.phase === 1 ? '¡FURIA!' : '¡FASE FINAL!', this.name + (this.phase === 1 ? ' se enfurece' : ' lo da todo') + (nm ? ' · nuevo ataque: ' + nm : ''), 2.8);
+        // onda que te aparta, fogonazo del color del jefe y un instante a cámara lenta
+        const kx = P.x - this.x, kz = P.z - this.z, kl = Math.hypot(kx, kz) || 1;
+        if (kl < 8) P.knock(kx / kl * 9, kz / kl * 9, 3);
+        game.slowMo = Math.max(game.slowMo || 0, 0.45);
+        for (let i = 0; i < 90; i++) { const a = Math.random() * 6.283, s = M.rand(4, 10); game.particles.spawn(this.x, this.y + 1.2, this.z, Math.cos(a) * s, M.rand(0.5, 4), Math.sin(a) * s, this.T.col[0], this.T.col[1], this.T.col[2], 0.06, M.rand(0.5, 1.1), 1, 1); }
         game.bullets.ring(this.x, this.y + 1.0, this.z, 30, 6, { b: { dmg: this.bulletDmg, col: this.T.col, r: 0.18 } });
         if (this.T.minions) for (let i = 0; i < 2 + this.phase; i++) game.spawner.spawnZombieNear(game, this.x, this.z, 6, this.T.minions);
       }
 
+      // aura de la fase: cuanto más avanzada, más chispas de su color le salen del cuerpo
+      if (this.phase > 0 && Math.random() < this.phase * 0.35) { const c = this.T.col; game.particles.spawn(this.x + M.rand(-0.8, 0.8), this.y + M.rand(0.4, 2.4), this.z + M.rand(-0.8, 0.8), M.rand(-0.3, 0.3), M.rand(1, 2.5), M.rand(-0.3, 0.3), c[0], c[1], c[2], 0.035, M.rand(0.4, 0.9), 1, 1); }
       this.stateT -= dt;
       switch (this.state) {
         case 'intro':

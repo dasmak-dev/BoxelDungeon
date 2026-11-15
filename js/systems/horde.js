@@ -41,10 +41,17 @@
         return { e, s, d };
       });
       scored.sort((a, b) => a.s - b.s);
+      // los que atacan: el primero va de frente y los demás dan un rodeo para entrarte por los
+      // lados o por la espalda (alternando), así no vienen todos en fila delante de la mira
+      const face = Math.atan2(Math.cos(P.yaw), Math.sin(P.yaw));
+      let fl = 0;
       scored.forEach((o, i) => {
         const had = o.e.token;
         o.e.token = i < maxTok && o.d < 14;
         if (o.e.token && !had) o.e.waitT = 0;
+        if (o.e.token && i > 0 && !o.e.B.behind) {
+          if (!had || o.e.flankA === undefined) { fl++; o.e.flankSide = fl % 2 ? 1 : -1; o.e.flankA = face + o.e.flankSide * (fl > 2 ? 2.9 : 2.0); }
+        } else o.e.flankA = undefined;
       });
 
       // --- huecos del anillo (sólo los que esperan y ven al jugador) ---

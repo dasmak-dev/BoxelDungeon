@@ -58,6 +58,81 @@
       document.body.classList.toggle('touch', this.on);
       if (VX.Renderer && VX.Renderer.quality) VX.Renderer.setQuality(VX.Renderer.quality, VX.Renderer.shadowsOn);   // recalcula el perfil (móvil)
       if (!this.on) this.releaseAll();
+      this.applyLayout();
+    },
+
+    // ---- disposición personalizada (Ajustes → Controles → Colocar botones táctiles) ----
+    // cada control se puede mover y cambiar de tamaño; se guarda como desplazamiento y escala
+    parts() {
+      const out = { pad: this.pad };
+      for (const k in this.btn) if (!this.btn[k].closest('.ttop')) out[k] = this.btn[k];
+      return out;
+    },
+    applyLayout() {
+      if (!this.el) return;
+      const L = VX.Settings.data.touchLayout || {}, P = this.parts();
+      for (const k in P) {
+        const v = L[k] || {};
+        P[k].style.setProperty('--dx', (v.dx || 0) + 'px');
+        P[k].style.setProperty('--dy', (v.dy || 0) + 'px');
+        P[k].style.setProperty('--s', v.s || 1);
+      }
+      this.el.style.setProperty('--ta', VX.Settings.data.touchAlpha ?? 1);
+    },
+    editLayout() {
+      const S = VX.Settings;
+      const L = S.data.touchLayout = JSON.parse(JSON.stringify(S.data.touchLayout || {}));
+      this.editing = true; this.releaseAll();
+      const ov = document.createElement('div');
+      ov.id = 'touchEdit';
+      ov.innerHTML = `<div class="teBar"><b>Arrastra cada control a donde quieras</b><span class="teSel">Toca uno para elegirlo</span>
+        <button class="small secondary teMinus">TAMAÑO −</button><button class="small secondary tePlus">TAMAÑO +</button>
+        <label>Opacidad <input type="range" class="teAlpha" min="0.25" max="1" step="0.05"></label>
+        <button class="small secondary teReset">RESTAURAR</button><button class="small teDone">LISTO</button></div>`;
+      document.body.appendChild(ov);
+      this.homeParent = this.el.parentNode;
+      ov.appendChild(this.el);
+      document.body.classList.add('touchEditing');
+      const P = this.parts();
+      let sel = null, drag = null;
+      const select = (k) => { sel = k; for (const q in P) P[q].classList.toggle('teOn', q === k); ov.querySelector('.teSel').textContent = 'Elegido: ' + ({ pad: 'cruceta', fire: 'disparo', run: 'correr' }[k] || (P[k].textContent || k).trim().toLowerCase()); };
+      const down = (k) => (e) => {
+        e.preventDefault(); e.stopPropagation();
+        select(k);
+        const v = L[k] || (L[k] = {});
+        const pt = e.touches ? e.touches[0] : e;
+        drag = { k, x: pt.clientX, y: pt.clientY, dx: v.dx || 0, dy: v.dy || 0 };
+      };
+      const move = (e) => {
+        if (!drag) return;
+        e.preventDefault();
+        const pt = e.touches ? e.touches[0] : e, v = L[drag.k];
+        v.dx = Math.round(drag.dx + pt.clientX - drag.x); v.dy = Math.round(drag.dy + pt.clientY - drag.y);
+        this.applyLayout();
+      };
+      const up = () => { drag = null; };
+      this.editHandlers = [];
+      for (const k in P) for (const ev of ['mousedown', 'touchstart']) { const h = down(k); P[k].addEventListener(ev, h, { passive: false }); this.editHandlers.push([P[k], ev, h]); }
+      for (const [ev, h] of [['mousemove', move], ['touchmove', move], ['mouseup', up], ['touchend', up]]) { window.addEventListener(ev, h, { passive: false }); this.editHandlers.push([window, ev, h]); }
+      const size = (f) => { if (!sel) return; const v = L[sel] || (L[sel] = {}); v.s = Math.max(0.6, Math.min(1.8, Math.round(((v.s || 1) + f) * 100) / 100)); this.applyLayout(); };
+      ov.querySelector('.teMinus').onclick = () => size(-0.1);
+      ov.querySelector('.tePlus').onclick = () => size(0.1);
+      const al = ov.querySelector('.teAlpha'); al.value = S.data.touchAlpha ?? 1;
+      al.oninput = () => { S.data.touchAlpha = +al.value; this.applyLayout(); };
+      ov.querySelector('.teReset').onclick = () => { for (const k in L) delete L[k]; S.data.touchAlpha = 1; al.value = 1; this.applyLayout(); };
+      ov.querySelector('.teDone').onclick = () => this.endEdit();
+    },
+    endEdit() {
+      const ov = document.getElementById('touchEdit');
+      for (const [el, ev, h] of this.editHandlers || []) el.removeEventListener(ev, h);
+      this.editHandlers = null;
+      for (const b of this.el.querySelectorAll('.teOn')) b.classList.remove('teOn');
+      if (this.homeParent) this.homeParent.appendChild(this.el);
+      if (ov) ov.remove();
+      document.body.classList.remove('touchEditing');
+      this.editing = false;
+      VX.Settings.save();
+      this.applyLayout();
     },
 
     build() {
@@ -89,6 +164,7 @@
     },
 
     onStart(e) {
+      if (this.editing) return;   // colocando los botones: no se juega
       e.preventDefault();
       this.fullscreenOnce();
       for (const t of e.changedTouches) {

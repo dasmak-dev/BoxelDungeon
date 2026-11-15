@@ -16,7 +16,21 @@
   const HARM = [62, 64, 65, 67, 69, 70, 73, 74, 76, 77];                // re menor armónica
   const BOSS_RIFF = [0, -1, 3, -1, 4, 3, 1, -1, 0, -1, 5, 4, 3, -1, 6, 4];
 
-  const TEMPO = { title: 70, explore: 76, combat: 124, boss: 140, shop: 96, save: 64, silent: 80, death: 60 };
+  const TEMPO = { title: 70, explore: 76, combat: 124, boss: 140, shop: 96, save: 64, silent: 80, death: 60, horde: 132, void: 58, final: 150 };
+  // 0.51: más temas
+  const PROG_B = [[46, 'M'], [48, 'M'], [45, 'm'], [50, 'm']];          // Bb C Am Dm (segunda parte del combate)
+  const PROG_TITLE2 = [[45, 'm'], [41, 'M'], [43, 'M'], [40, 'M']];     // Am F G E (segundo tema del título)
+  const PROG_MARCH = [[43, 'm'], [43, 'm'], [39, 'M'], [42, 'M']];      // Gm Gm Eb F# (Horda: marcha)
+  // melodía de cada bioma al explorar (grados sobre la raíz; -99 = silencio)
+  const MOTIF = [
+    [12, -99, 15, 14, 12, -99, 10, -99, 12, 15, 19, -99, 17, 15, 14, -99],   // Cripta
+    [7, -99, -99, 10, 12, -99, 10, 7, -99, -99, 5, -99, 7, -99, -99, -99],   // Cloacas
+    [12, 12, -99, 15, -99, 12, 10, -99, 12, -99, 7, -99, 10, 12, -99, -99],  // Minas
+    [12, -99, 13, -99, 16, -99, 13, 12, 10, -99, 12, -99, 13, 12, -99, -99], // Forja
+    [14, -99, 16, -99, 18, -99, 20, -99, 18, -99, 16, -99, 14, -99, -99, -99], // Jardín
+    [12, -99, -99, 18, -99, -99, 13, -99, -99, 17, -99, -99, 12, -99, -99, -99], // Vacío
+  ];
+  const FINAL_RIFF = [0, 3, 1, -1, 4, 3, 6, -1, 0, 3, 1, 5, 4, 3, 2, 1];
 
   // Carácter musical de cada bioma: transposición, tempo, timbre y una capa propia
   //  0 Cripta: órgano grave · 1 Cloacas: goteos con eco · 2 Minas: martillos lejanos
@@ -59,6 +73,17 @@
   Mu.setVolume = function (v) {
     Mu.vol = v;
     if (Mu.out) Mu.out.gain.setTargetAtTime(v * 0.6, A().ctx.currentTime, 0.1);
+  };
+
+  Mu.bossPhase = 0; Mu.intensity = 0;
+  // fanfarria corta (sala despejada, jefe vencido, secreto…): suena encima de la música
+  Mu.sting = function (kind) {
+    const ctx = A().ctx;
+    if (!ctx || !Mu.out || ctx.state !== 'running') return;
+    const t = ctx.currentTime + 0.05;
+    if (kind === 'clear') { [62, 65, 69, 74].forEach((n, i) => pluck(t + i * 0.09, n + 12, 0.7, 0.05, 'triangle', 0.5)); pad(t + 0.3, [62, 69, 74], 1.6, 0.025, 1200); }
+    else if (kind === 'boss') { [50, 57, 62, 65, 69, 74].forEach((n, i) => pluck(t + i * 0.12, n + 12, 1.2, 0.06, 'sawtooth', 0.4)); pad(t + 0.7, [50, 57, 62, 66], 3, 0.04, 1500); kick(t + 0.7, 0.5); }
+    else if (kind === 'secret') { [74, 73, 70, 66].forEach((n, i) => pluck(t + i * 0.18, n, 1.5, 0.04, 'sine', 0.9)); }
   };
 
   Mu.setMode = function (m) {
@@ -190,6 +215,18 @@
     const spb = 60 / Mu.bpm;      // segundos por negra
     const R = Math.random;
 
+    if (m === 'title' && Math.floor(bar / 16) % 2 === 1) {
+      // segundo tema del título: arpegio que sube y una melodía lenta encima
+      const [root, q] = PROG_TITLE2[Math.floor(bar / 2) % 4];
+      const ch = chordNotes(root, q);
+      if (s === 0 && bar % 2 === 0) pad(t, ch.map((n) => n + 12), spb * 8, 0.028, 750);
+      if (s === 0 || s === 8) bass(t, root - 12, spb * 2, 0.09);
+      if (s % 2 === 0) pluck(t, [ch[0], ch[1], ch[2], ch[1] + 12, ch[2] + 12, ch[1] + 12, ch[2], ch[1]][(s / 2) % 8] + 24, 0.6, 0.03, 'sine', 0.5);
+      const mel = [76, -1, -1, 74, 72, -1, 71, -1, 72, -1, -1, 69, 71, -1, -1, -1][s];
+      if (bar % 4 >= 2 && mel > 0) pluck(t, mel + (root - 45), 1.4, 0.04, 'triangle', 0.6);
+      return;
+    }
+
     if (m === 'title' || m === 'save' || m === 'death') {
       const prog = m === 'save' ? PROG_SAVE : PROG_DARK;
       const [root, q] = prog[Math.floor(bar / 2) % 4];
@@ -214,7 +251,34 @@
       if (s === 0 || s === 10) bass(t, root - 12, spb * 2, 0.11);
       if (s % 2 === 0 && R() < 0.22) pluck(t, ch[Math.floor(R() * 3)] + 24 + (R() < 0.3 ? 12 : 0), 0.9, 0.035, Z.lead, 0.6);
       if (s === 8 && bar % 4 === 3) noiseHit(t, 1.2, 0.03, 400, 'lowpass');
+      // la melodía del bioma: dos compases de cada ocho
+      if (bar % 8 >= 4 && bar % 8 < 6) { const mo = (MOTIF[Mu.zone] || MOTIF[0])[s]; if (mo > -99) pluck(t, root + mo + 12, 1.1, 0.032, Z.lead, 0.55); }
       zoneLayer(t, s, bar, root, ch, spb);
+      return;
+    }
+
+    if (m === 'void') {
+      // el Vacío (bioma secreto): dos acordes que no resuelven, latidos graves y voces que se deslizan
+      const root = bar % 4 < 2 ? 49 : 48;
+      if (s === 0 && bar % 2 === 0) pad(t, [root, root + 6, root + 13], spb * 8, 0.03, 380);
+      if (s === 0 || s === 3) kick(t, s === 0 ? 0.28 : 0.16);
+      if (s === 0 && bar % 4 === 0) pluck(t, root + 30, 4, 0.03, 'sine', 0.95);
+      if (s % 4 === 2 && Math.random() < 0.3) pluck(t, root + 24 + [0, 1, 6, 7, 13][Math.floor(Math.random() * 5)], 2, 0.022, 'sine', 0.9);
+      if (s === 8 && bar % 2 === 1) noiseHit(t, 2.4, 0.025, 260, 'lowpass');
+      return;
+    }
+
+    if (m === 'horde') {
+      // Horda: marcha con tambores graves, metales en sincopa y bajo que no para
+      const [root, q] = PROG_MARCH[Math.floor(bar / 2) % 4];
+      const ch = chordNotes(root, q);
+      if (s % 4 === 0) kick(t, 0.46);
+      if (s === 4 || s === 12) snare(t, 0.17);
+      if (s === 14 || s === 15) snare(t, 0.08);
+      if (s % 2 === 1) hat(t, 0.03);
+      bass(t, root - 12 + (s % 8 === 7 ? 7 : 0), spb * 0.22, 0.13, 'sawtooth', true);
+      if (s === 0 || s === 3 || s === 6 || s === 10) pad(t, ch.map((n) => n + 12), spb * 0.5, 0.03, 1800);   // golpes de metales
+      if (bar % 4 === 3 && s % 2 === 0) pluck(t, ch[(s / 2) % 3] + 24, 0.3, 0.035, 'square', 0.3);
       return;
     }
 
@@ -229,7 +293,11 @@
     }
 
     if (m === 'combat') {
-      let [root, q] = PROG_MINOR[bar % 4];
+      const partB = bar % 16 >= 8;
+      let [root, q] = (partB ? PROG_B : PROG_MINOR)[bar % 4];
+      // con muchos enemigos se añaden toms y un riff agudo
+      if (Mu.intensity >= 5 && (s === 13 || s === 14 || s === 15)) noiseHit(t, 0.12, 0.08, 220 + s * 30, 'bandpass');
+      if (partB && s % 4 === 1) pluck(t, chordNotes(root + (ZM[Mu.zone] || ZM[0]).tr, q)[s % 3] + 36, 0.18, 0.025, 'square', 0.35);
       root += (ZM[Mu.zone] || ZM[0]).tr;
       if (s % 8 === 0 && R() < 0.5) zoneLayer(t, s, bar, root, chordNotes(root, q), spb, true);
       const ch = chordNotes(root, q);
@@ -242,14 +310,33 @@
       return;
     }
 
+    if (m === 'final') {
+      // el Corazón de la mazmorra: riff doble, coro de órgano y redobles
+      const [root] = PROG_DARK[Math.floor(bar / 2) % 4];
+      if (s % 2 === 0) kick(t, 0.5);
+      if (s === 4 || s === 12) snare(t, 0.22);
+      if (s >= 12 && bar % 2 === 1) snare(t, 0.1);
+      hat(t, s % 2 ? 0.025 : 0.045);
+      bass(t, root - 12 + (s % 4 === 3 ? 6 : 0), spb * 0.22, 0.17, 'sawtooth', true);
+      const r = FINAL_RIFF[s];
+      if (r >= 0) { pluck(t, HARM[r] + (root - 50), 0.2, 0.045, 'sawtooth', 0.2); pluck(t, HARM[r] + (root - 50) - 12, 0.2, 0.03, 'square', 0.1); }
+      if (s === 0 && bar % 2 === 0) pad(t, [root, root + 3, root + 7, root + 10].map((n) => n + 12), spb * 8, 0.03, 1200);
+      return;
+    }
+
     if (m === 'boss') {
       const [root] = PROG_DARK[Math.floor(bar / 2) % 4];
+      const ph = Mu.bossPhase || 0;
+      // fase 2: más bombo y platos; fase 3: doble bombo, coro y todo medio tono más alto
+      if (ph >= 1 && s % 2 === 0 && s % 4 !== 0) kick(t, 0.28);
+      if (ph >= 2 && s % 4 === 2) noiseHit(t, 0.3, 0.05, 6000, 'highpass');
+      if (ph >= 2 && s === 0 && bar % 2 === 0) pad(t, [root + 13, root + 16, root + 20], spb * 8, 0.022, 1600);
       if (s % 4 === 0 || (s === 14)) kick(t, 0.5);
       if (s === 4 || s === 12) snare(t, 0.2);
       hat(t, s % 2 ? 0.02 : 0.04);
       bass(t, root - 12 + (s % 4 === 3 ? 7 : 0), spb * 0.22, 0.16, 'sawtooth', true);
       const r = BOSS_RIFF[s];
-      if (r >= 0) pluck(t, HARM[r] + (bar % 4 >= 2 ? 0 : -12) + (root - 50), 0.22, 0.045, 'sawtooth', 0.2);
+      if (r >= 0) pluck(t, HARM[r] + (bar % 4 >= 2 ? 0 : -12) + (root - 50) + (ph >= 2 ? 1 : 0), 0.22, 0.045, 'sawtooth', 0.2);
       if (s === 0 && bar % 2 === 0) pad(t, [root, root + 3, root + 6].map((n) => n + 12), spb * 8, 0.022, 900);
     }
   };

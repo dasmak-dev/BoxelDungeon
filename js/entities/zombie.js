@@ -42,6 +42,8 @@
   };
 
   const FALL_TIME = 0.6;
+  // los que huyen cuando les queda poca vida (los zombis sin mente, no)
+  const FLEE = { runner: 1, dog: 1, archer: 1, necro: 1, screamer: 1, spitter: 1, skeleton: 1, rat: 1, sporeling: 1 };
   let UID = 0;
 
   // Comportamiento de cada tipo:
@@ -393,7 +395,13 @@
           case 'screamer':
           case 'spitter': {
             const [lo, hi] = B.keep;
-            if (!this.los || dist > hi) { const p = this.pathTo(game, dist, toX, toZ); gx = p[0]; gz = p[1]; want = 1; }
+            this.noLosT = this.los ? 0 : (this.noLosT || 0) + dt;
+            if (this.los) this.spot = null;
+            if (!this.los && this.noLosT > 1 && dist < hi + 5) {
+              const sp = this.spot && this.spotT > game.time ? this.spot : (this.spot = this.findSpot(game, (lo + hi) / 2), this.spotT = game.time + 4, this.spot);
+              if (sp) { const sx = sp[0] - this.x, sz = sp[1] - this.z, l = Math.hypot(sx, sz); if (l > 0.4) { gx = sx / l; gz = sz / l; want = 1; } else { gx = toX; gz = toZ; want = 0; } }
+              else { const p = this.pathTo(game, dist, toX, toZ); gx = p[0]; gz = p[1]; want = 1; }
+            } else if (!this.los || dist > hi) { const p = this.pathTo(game, dist, toX, toZ); gx = p[0]; gz = p[1]; want = 1; }
             else {
               if (this.stateT <= 0) { this.stateT = M.rand(1.8, 3.4); this.sideDir = -this.sideDir; }
               const tx = -toZ * this.sideDir, tz = toX * this.sideDir;
@@ -465,6 +473,18 @@
               this.startLeap(game, toX, toZ, 6.5, 5);
           }
         }
+      }
+
+      // con poca vida, algunos huyen un rato (una vez) y luego vuelven
+      if (FLEE[this.kind] && !this.isBoss && !this.fled && !this.elite && this.hp < this.maxHp * 0.25 && this.hp > 0 && dist < 9) {
+        this.fled = true; this.fleeT = M.rand(2.2, 3.4);
+        VX.Audio.groan && VX.Audio.groan();
+      }
+      if (this.fleeT > 0) {
+        this.fleeT -= dt;
+        const w = Math.sin(game.time * 3 + this.uid) * 0.4;
+        gx = -toX - toZ * w; gz = -toZ + toX * w; want = 1.15;
+        this.token = false;
       }
 
       // en la Horda, si te subes a un coche o a un muro bajo, no se quedan mirando: empujan y trepan
@@ -596,7 +616,7 @@
       // --- Ataque ---
       this.attackCd -= dt;
       const wind = this.T.quad ? 0.25 : this.biter ? 0.32 : 0.45;
-      const canAttack = this.state === 'chase' || this.crawling;
+      const canAttack = (this.state === 'chase' || this.crawling) && !(this.fleeT > 0);
       if (this.T.explode || this.screamT > 0) { /* el explosivo no golpea: revienta; el chillón está gritando */ }
       else if (this.windup > 0) {
         this.windup -= dt;
@@ -663,6 +683,22 @@
     }
 
     // Cerco: con turno de ataque va a por ti; si no, espera en su hueco del anillo
+    // un sitio a cierta distancia del jugador desde el que se le vea (para los que atacan de lejos)
+    findSpot(game, R) {
+      const P = game.player, W = game.world, cr = game.currentRoom;
+      let best = null, bd = 1e9;
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + this.uid, x = P.x + Math.cos(a) * R, z = P.z + Math.sin(a) * R;
+        if (cr && cr.insideDeep && !cr.insideDeep(x, z)) continue;
+        const y = W.groundAt(x, z);
+        if (Math.abs(y - this.y) > 1.2 || W.boxCollides(x - 0.3, y + 0.2, z - 0.3, x + 0.3, y + 1.6, z + 0.3)) continue;
+        if (!W.lineOfSight(x, y + 1.2, z, P.x, P.y + 1.2, P.z)) continue;
+        const d = Math.hypot(x - this.x, z - this.z);
+        if (d < bd) { bd = d; best = [x, z]; }
+      }
+      return best;
+    }
+
     approachRing(game, dist, toX, toZ, stopDist) {
       const p = this.pathTo(game, dist, toX, toZ);
       const H = VX.Horde, P = game.player;
@@ -670,6 +706,19 @@
       let ringA = this.ringA;
       // el trepador prefiere atacar por la espalda
       if (this.B.behind && ringA !== undefined) ringA = Math.atan2(-Math.cos(P.yaw), -Math.sin(P.yaw)) + Math.sin(this.uid) * 0.8;
+      // con turno y rodeando: primero va al costado o a la espalda y desde ahí se lanza
+      if (this.token && this.flankA !== undefined && this.los && dist > 2.4 && dist < 7) {   // el rodeo empieza ya cerca: desde lejos alargaba mucho el camino
+        const cur = Math.atan2(this.z - P.z, this.x - P.x);
+        let da = this.flankA - cur;
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        if (Math.abs(da) > 0.5) {
+          const rr = Math.max(2.6, Math.min(dist, 4.5)), a = cur + M.clamp(da, -0.9, 0.9);
+          const px = P.x + Math.cos(a) * rr - this.x, pz = P.z + Math.sin(a) * rr - this.z, l = Math.hypot(px, pz) || 1;
+          this.gx = px / l; this.gz = pz / l; this.want = 1.05;
+          return;
+        }
+      }
       if (this.token || !this.los || !this.direct || dist > R + 2.5 || ringA === undefined) {
         this.gx = p[0]; this.gz = p[1];
         this.want = dist > stopDist ? (this.token ? 1 : 0.9) : 0;
@@ -1237,6 +1286,7 @@
         game.stats.headshots++;
         VX.Profile.add('headshots', 1, game);
         VX.Profile.addW(this.lastW, 'heads', 1, game);
+        if (Math.hypot(this.x - game.player.x, this.z - game.player.z) > 18) VX.Profile.addW(this.lastW, 'longHead', 1, game);
         this.hp = 0;
       }
       const legHit = pn.startsWith('leg');
@@ -1507,6 +1557,7 @@
         game.stats.headshots++;
         VX.Profile.add('headshots', 1, game);
         VX.Profile.addW(this.lastW, 'heads', 1, game);
+        if (Math.hypot(this.x - game.player.x, this.z - game.player.z) > 18) VX.Profile.addW(this.lastW, 'longHead', 1, game);
         // corta una cabeza y salen dos: si no la has quemado ni volado, del cuello brotan dos
         const burnt = caut || this.burn > 0 || game.dmgSource === 'blast';
         if (!this.twin && !burnt && !this.gen && !VX.Coop.isClient) { this.becomeTwin(game, dir); return false; }
@@ -1702,6 +1753,24 @@
       }
     }
 
+    // misiones de las skins especiales: cómo ha sido la muerte (mirilla, distancia, en el aire…)
+    specialStats(game) {
+      const w = this.lastW, PR = VX.Profile, P = game.player, W = game.weapon;
+      if (!w) return;
+      const d = Math.hypot(this.x - P.x, this.z - P.z);
+      if (w === 'rifle' && W.scoped) PR.addW(w, 'scoped', 1, game);
+      if (d >= 20) PR.addW(w, 'long', 1, game);
+      if (d <= 2.5) PR.addW(w, 'close', 1, game);
+      if (!P.onGround) PR.addW(w, 'air', 1, game);
+      if (this.burn > 0) PR.addW(w, 'burn', 1, game);
+      // varios de un solo disparo: muertes con la misma arma en el mismo fotograma (perdigones, rayo, explosión…)
+      const m = game.multiK;
+      if (m && m.w === w && m.f === game.frame) { m.n++; if (m.n === 2) PR.addW(w, 'multi', 1, game); }
+      else game.multiK = { w, f: game.frame, n: 1 };
+      // con un solo cargador
+      if (W.slot && W.slot.id === w) { W.magKills = (W.magKills || 0) + 1; PR.maxW(w, 'magKills', W.magKills, game); }
+    }
+
     reward(game) {
       // cooperativo: el oro y las estadísticas son de quien lo mata (a los demás que le dieron, asistencia)
       if (game.noReward || (VX.Coop.isClient && !game.localAct)) { if (VX.Coop.isHost && game.mode === 'horde') VX.HordeMode.killed++; VX.Coop.noteAssist && VX.Coop.noteAssist(this, game); return; }
@@ -1720,6 +1789,7 @@
       VX.Profile.add('kills', 1, game);
       if (game.dmgSource === 'knife') { VX.Profile.add('knifeKills', 1, game); if (this.elite || this.champion) VX.Profile.add('knifeElites', 1, game); }
       VX.Profile.addW(this.lastW, 'kills', 1, game);
+      this.specialStats(game);
       VX.Profile.codexKill(this.kind);
       if (this.elite) VX.Profile.addW(this.lastW, 'elites', 1, game);
       if (game.weapon.mods.lifesteal) game.player.heal(3);

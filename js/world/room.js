@@ -267,6 +267,7 @@
     setDoor(side, closed) {
       const BL = VX.Blocks;
       const r = this.doorRange(side);
+      const gold = this.doors[side] && this.doors[side].goldLock;   // puerta dorada: los herrajes son de oro y brillan
       // portón de dos hojas que ocupa todo el hueco: tablones de madera con
       // herrajes de hierro (bordes, dos bandas y la junta central), simétrico
       for (let a = 0; a < 8; a++)
@@ -274,7 +275,7 @@
           for (let t = 0; t < 4; t++) {
             const mid = t === 1 || t === 2;
             let v = BL.AIR;
-            if (closed && mid) v = Room.doorIron(a, y, r.y1) ? BL.DOOR : BL.DOORWOOD;
+            if (closed && mid) v = Room.doorIron(a, y, r.y1) ? (gold ? BL.LOCKY : BL.DOOR) : (gold && (a === 3 || a === 4) && Math.abs(y - Math.floor(r.y1 / 2)) <= 1 ? BL.LOCKY : BL.DOORWOOD);
             this.doorCell(r, a, t, y, v);
           }
       for (let t = 0; t < 4; t++)
@@ -383,20 +384,29 @@
       // sólo vale lo que se alcanza andando desde el suelo de la sala: fuera los tejados de pilares y
       // columnas que suben hasta el techo, lo alto de los muros, estanterías, vigas… (antes los
       // zombis podían aparecer ahí arriba, donde el jugador no llega)
-      const reach = new Uint8Array(W * D), q = new Int32Array(W * D);
-      let qh = 0, qt = 0;
-      for (let i = 0; i < W * D; i++) if (w[i] && hm[i] <= 2) { reach[i] = 1; q[qt++] = i; }
-      while (qh < qt) {
-        const c = q[qh++], cx = c % W, cz = (c / W) | 0;
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nx = cx + dx, nz = cz + dz;
-          if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue;
-          const n = nz * W + nx;
-          if (reach[n] || !w[n] || Math.abs(hm[n] - hm[c]) > 2) continue;
-          reach[n] = 1; q[qt++] = n;
+      // y sólo la zona principal: el suelo conectado más grande. Los recintos cerrados (el interior
+      // del pozo, una jaula, un patio tapiado) tienen suelo a ras pero no se llega andando: ahí los
+      // zombis aparecían y se quedaban encerrados sin poder llegar a ti
+      const comp = new Int32Array(W * D).fill(-1), q = new Int32Array(W * D);
+      let best = -1, bestN = 0, id = 0;
+      for (let s0 = 0; s0 < W * D; s0++) {
+        if (!w[s0] || hm[s0] > 2 || comp[s0] >= 0) continue;
+        let qh = 0, qt = 0;
+        comp[s0] = id; q[qt++] = s0;
+        while (qh < qt) {
+          const c = q[qh++], cx = c % W, cz = (c / W) | 0;
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = cx + dx, nz = cz + dz;
+            if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue;
+            const n = nz * W + nx;
+            if (comp[n] >= 0 || !w[n] || Math.abs(hm[n] - hm[c]) > 2) continue;
+            comp[n] = id; q[qt++] = n;
+          }
         }
+        if (qt > bestN) { bestN = qt; best = id; }
+        id++;
       }
-      if (qt > 0) for (let i = 0; i < W * D; i++) if (!reach[i]) w[i] = 0;
+      if (best >= 0) for (let i = 0; i < W * D; i++) if (comp[i] !== best) w[i] = 0;
       this.hmap = hm;
       this.walk = w;
       return w;

@@ -27,6 +27,7 @@
         spawner: snap.spawner || Sp.snapshot(),
         stats: { ...game.stats },
         revives: game.revives || 0,
+        objectives: VX.Objectives ? VX.Objectives.serialize(game) : null,
         gameVersion: VX.VERSION,
       };
       try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch (e) { return false; }

@@ -108,21 +108,33 @@ function onMessage(conn, text) {
   conn.alive = true;
   if (m.t === 'create') {
     if (conn.room) return;
-    const room = { code: newCode(), host: conn, members: new Map(), nextId: 1, started: false };
+    const room = { code: newCode(), host: conn, members: new Map(), nextId: 1, started: false, gone: new Map() };
+    conn.token = String(m.token || '').slice(0, 40);
     conn.id = 0; conn.name = String(m.name || 'Anfitrión').slice(0, 16); conn.room = room;
     room.members.set(0, conn);
     rooms.set(room.code, room);
-    conn.send({ t: 'created', code: room.code, id: 0, players: roster(room) });
+    conn.send({ t: 'created', code: room.code, id: 0, host: 0, players: roster(room) });
     console.log(`sala ${room.code} creada (${rooms.size} activas)`);
   } else if (m.t === 'join') {
     if (conn.room) return;
     const room = rooms.get(String(m.code || '').toUpperCase().trim());
     if (!room) { conn.send({ t: 'error', msg: 'No existe ninguna sala con ese código' }); return; }
+    // reconexión: quien se fue (o perdió la conexión) vuelve con su mismo número
+    const tok = String(m.token || '').slice(0, 40), back = tok && room.gone.get(tok);
+    if (back && room.members.size < MAX_PLAYERS && !room.members.has(back.id)) {
+      room.gone.delete(tok);
+      conn.id = back.id; conn.name = back.name; conn.token = tok; conn.room = room;
+      room.members.set(conn.id, conn);
+      conn.send({ t: 'joined', code: room.code, id: conn.id, host: room.host.id, back: true, started: room.started, players: roster(room) });
+      for (const c of room.members.values()) if (c !== conn) c.send({ t: 'peer', id: conn.id, name: conn.name, back: true, players: roster(room) });
+      console.log(`sala ${room.code}: vuelve ${conn.id}`);
+      return;
+    }
     if (room.started) { conn.send({ t: 'error', msg: 'La partida de esa sala ya ha empezado' }); return; }
     if (room.members.size >= MAX_PLAYERS) { conn.send({ t: 'error', msg: 'La sala está llena (máximo 4)' }); return; }
-    conn.id = room.nextId++; conn.name = String(m.name || 'Jugador').slice(0, 16); conn.room = room;
+    conn.id = room.nextId++; conn.name = String(m.name || 'Jugador').slice(0, 16); conn.room = room; conn.token = tok;
     room.members.set(conn.id, conn);
-    conn.send({ t: 'joined', code: room.code, id: conn.id, players: roster(room) });
+    conn.send({ t: 'joined', code: room.code, id: conn.id, host: room.host.id, players: roster(room) });
     for (const c of room.members.values()) if (c !== conn) c.send({ t: 'peer', id: conn.id, name: conn.name, players: roster(room) });
   } else if (m.t === 'started') {
     if (conn.room && conn.room.host === conn) conn.room.started = !!m.v;
@@ -144,7 +156,10 @@ function onClose(conn) {
   if (!room) return;
   conn.room = null;
   room.members.delete(conn.id);
+  // se guarda su sitio 15 minutos por si vuelve (se le corta la conexión, recarga la página…)
+  if (conn.token && room.gone) { room.gone.set(conn.token, { id: conn.id, name: conn.name, at: Date.now() }); for (const [k, v] of room.gone) if (Date.now() - v.at > 15 * 60000) room.gone.delete(k); }
   if (room.members.size === 0) {
+    // nadie dentro: se cierra (si todos se han ido no hay partida a la que volver)
     rooms.delete(room.code);
     console.log(`sala ${room.code} cerrada (${rooms.size} activas)`);
   } else if (room.host === conn) {

@@ -17,6 +17,8 @@
   VX.Settings.apply();
   const game = new VX.Game();
   VX.game = game; // accesible desde la consola para depurar
+  VX.onLimb = (body) => game.noteLimb(body);   // objetivos: brazos y piernas arrancados
+  if (new URLSearchParams(location.search).get('test') === '1') setTimeout(() => { VX.Menus.hideAll(); VX.SelfTest.run(game); }, 1500);   // modo de pruebas
   VX.Menus.init(game);
   VX.Touch.init(game);
 
@@ -36,32 +38,63 @@
   window.addEventListener('focus', back);
   window.addEventListener('pagehide', away);
 
-  // Calidad automática: si los FPS caen de forma sostenida, baja un escalón (y vuelve a subir si sobra)
-  const LEVELS = ['baja', 'media', 'alta'];
-  const AQ = { t: 0, frames: 0, low: 0, high: 0, level: null };
+  // Calidad automática por escalones finos: si los FPS caen, se quita primero lo que menos se nota
+  // (oclusión, resplandor, polvo, niebla, sombras de antorchas…) y sólo al final se baja la
+  // resolución y el nivel de calidad. Si sobra margen durante un rato, se devuelve paso a paso.
+  const STEPS = [
+    { label: 'completa' },
+    { label: 'sin oclusión ambiental', ssao: 0 },
+    { label: 'sin resplandor', bloom: 0 },
+    { label: 'sin polvo ni niebla baja', dust: 0, gf: 0 },
+    { label: 'menos partículas', part: 0.65 },
+    { label: 'resolución 90 %', scale: 0.9 },
+    { label: 'sin sombras de antorchas', torch: 0 },
+    { label: 'resolución 80 %', scale: 0.8 },
+    { label: 'sin sombras', shadows: 0 },
+    { label: 'calidad media', q: 'media' },
+    { label: 'calidad media · 85 %', q: 'media', scale: 0.85 },
+    { label: 'calidad baja', q: 'baja' },
+  ];
+  const AQ = { t: 0, frames: 0, low: 0, high: 0, step: 0 };
+  // lo que dice el escalón actual, sobre los ajustes que ha elegido el jugador
+  function applyStep(n) {
+    const S = VX.Settings.data, R = VX.Renderer;
+    const has = (k) => STEPS.slice(1, n + 1).some((s) => s[k] !== undefined);
+    const last = (k, d) => { let v = d; for (let i = 1; i <= n; i++) if (STEPS[i][k] !== undefined) v = STEPS[i][k]; return v; };
+    const order = ['baja', 'media', 'alta'];
+    const q = order[Math.min(order.indexOf(S.quality), order.indexOf(last('q', S.quality)))];
+    VX.AQoff = { dust: has('dust'), gf: has('gf'), torch: has('torch') };
+    R.setQuality(q, S.shadows && !has('shadows'));
+    R.setPost(S.bloom && !has('bloom') && q !== 'baja', S.ssao && !has('ssao') && q === 'alta');
+    if (VX.Q) VX.Q.particles *= has('part') ? 0.65 : 1;
+    const sc = last('scale', 1);
+    if (sc < 1) { R.renderScale *= sc; R.resize(); }
+  }
   function autoQuality(realDt) {
     const S = VX.Settings.data;
     if (!S.autoQuality || game.state !== 'playing') { AQ.t = 0; AQ.frames = 0; return; }
-    const cap = LEVELS.indexOf(S.quality);
-    if (AQ.level === null || AQ.level > cap) AQ.level = cap;
     AQ.t += realDt; AQ.frames++;
-    if (AQ.t < 2) return;
+    if (AQ.t < 1.5) return;
     const fps = AQ.frames / AQ.t;
     AQ.t = 0; AQ.frames = 0;
-    const tgt = S.fpsCap || 60;   // con límite de FPS, "ir bien" es llegar a ese límite
-    if (fps < tgt * 0.7) { AQ.low++; AQ.high = 0; } else if (fps > tgt * 0.96) { AQ.high++; AQ.low = 0; } else { AQ.low = 0; AQ.high = 0; }
-    if (AQ.low >= 2 && AQ.level > 0) {
-      AQ.level--; AQ.low = 0;
-      VX.Renderer.setQuality(LEVELS[AQ.level], S.shadows);
-      VX.Renderer.setPost(S.bloom && AQ.level > 0, S.ssao && AQ.level > 1);
-      game.hud.toast(`Calidad automática: ${LEVELS[AQ.level]} (${Math.round(fps)} FPS)`);
-    } else if (AQ.high >= 8 && AQ.level < cap) {
-      AQ.level++; AQ.high = 0;
-      VX.Renderer.setQuality(LEVELS[AQ.level], S.shadows);
-      VX.Renderer.setPost(S.bloom && AQ.level > 0, S.ssao && AQ.level > 1);
+    const tgt = S.batterySaver ? 30 : S.fpsCap || 60;   // con límite de FPS, "ir bien" es llegar a ese límite
+    if (fps < tgt * 0.8) { AQ.low++; AQ.high = 0; } else if (fps > tgt * 0.96) { AQ.high++; AQ.low = 0; } else { AQ.low = 0; AQ.high = 0; }
+    if (AQ.low >= 2 && AQ.step < STEPS.length - 1) {
+      // muy por debajo: salta dos escalones de golpe
+      AQ.step = Math.min(STEPS.length - 1, AQ.step + (fps < tgt * 0.5 ? 2 : 1)); AQ.low = 0;
+      applyStep(AQ.step);
+      game.hud.toast(`Calidad automática: ${STEPS[AQ.step].label} (${Math.round(fps)} FPS)`);
+    } else if (AQ.high >= 6 && AQ.step > 0) {
+      AQ.step--; AQ.high = 0;
+      applyStep(AQ.step);
     }
   }
-  VX.resetAutoQuality = () => { AQ.level = null; };
+  VX.resetAutoQuality = () => { AQ.step = 0; VX.AQoff = null; };
+  // con poca batería y sin cargar, se sugiere (una vez) el modo de ahorro
+  if (navigator.getBattery) navigator.getBattery().then((b) => {
+    const check = () => { if (!VX.Settings.data.batterySaver && !b.charging && b.level <= 0.2 && !VX.saverHinted) { VX.saverHinted = true; game.hud.toast('Batería baja: activa «Ahorro de batería» en Ajustes → Gráficos'); } };
+    b.addEventListener('levelchange', check); b.addEventListener('chargingchange', check); check();
+  }).catch(() => {});
 
   // Instalable (PWA): service worker y botón «Instalar» en el menú
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
@@ -84,7 +117,10 @@
   let last = performance.now();
   function loop(now) {
     // límite de FPS (30 o 60): se salta los refrescos de pantalla que sobran
-    const cap = VX.Settings.data.fpsCap;
+    // ahorro de batería: 30 FPS. En los menús (título, pausa, ajustes…) también 30: no hace falta más y así
+    // la tarjeta gráfica no va a tope (con FPS sin límite podía zumbar o acelerar el ventilador al cargar)
+    const menu = game.state !== 'playing' && game.state !== 'dying';
+    const cap = VX.Settings.data.batterySaver || menu ? 30 : VX.Settings.data.fpsCap;
     if (cap && now - last < 1000 / cap - 2) { requestAnimationFrame(loop); return; }
     const realDt = (now - last) / 1000;
     const dt = Math.min(0.05, realDt);

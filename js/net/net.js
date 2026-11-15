@@ -94,6 +94,8 @@
         ws.onclose = () => {
           const was = this.state;
           this.state = 'off';
+          // en plena partida se intenta volver solo (mismo código y mismo número de jugador)
+          if (was === 'open' && this.code && VX.Coop.active && !this.leaving) { this.reconnect(); return; }
           if (was === 'open' && this.code) this.lobby({ t: 'closed', msg: 'Se ha perdido la conexión con el servidor' });
           this.reset();
         };
@@ -102,7 +104,7 @@
           let m;
           try { m = JSON.parse(ev.data); } catch (e) { return; }
           if (m.t === 'msg') { const h = this.handlers[m.d && m.d.k]; if (h) h(m.d, m.from); return; }
-          if (m.t === 'created' || m.t === 'joined') { this.id = m.id; this.code = m.code; this.role = m.id === 0 ? 'host' : 'client'; }
+          if (m.t === 'created' || m.t === 'joined') { this.id = m.id; this.code = m.code; this.role = m.id === (m.host ?? 0) ? 'host' : 'client'; this.remember(); }
           if (m.t === 'host') this.role = m.id === this.id ? 'host' : 'client';   // el anfitrión se ha ido
           if (m.players) this.players = m.players;
           this.lobby(m);
@@ -112,8 +114,47 @@
 
     lobby(m) { if (this.onLobby) this.onLobby(m); },
 
-    async create(name) { await this.connect(); this.raw({ t: 'create', name }); },
-    async join(code, name) { await this.connect(); this.raw({ t: 'join', code, name }); },
+    // cada pestaña lleva una ficha propia: con ella el servidor te devuelve tu sitio si vuelves
+    token() {
+      if (!this.tok) { try { this.tok = sessionStorage.getItem('boxel.tok'); } catch (e) { /* nada */ } }
+      if (!this.tok) { this.tok = Math.random().toString(36).slice(2) + Date.now().toString(36); try { sessionStorage.setItem('boxel.tok', this.tok); } catch (e) { /* nada */ } }
+      return this.tok;
+    },
+    // la última sala, para el botón «Volver a la partida» (aunque se cierre la pestaña)
+    remember() {
+      this.lastName = this.lastName || (this.players.find((p) => p.id === this.id) || {}).name;
+      try { localStorage.setItem('boxel.lastRoom', JSON.stringify({ code: this.code, token: this.token(), name: this.lastName || 'Jugador', at: Date.now() })); } catch (e) { /* nada */ }
+    },
+    lastRoom() {
+      try { const r = JSON.parse(localStorage.getItem('boxel.lastRoom') || 'null'); return r && Date.now() - r.at < 15 * 60000 ? r : null; } catch (e) { return null; }
+    },
+    forget() { try { localStorage.removeItem('boxel.lastRoom'); } catch (e) { /* nada */ } },
+    async create(name) { this.lastName = name; this.leaving = false; await this.connect(); this.raw({ t: 'create', name, token: this.token() }); },
+    async join(code, name, token) {
+      this.lastName = name; this.leaving = false;
+      if (token) { this.tok = token; try { sessionStorage.setItem('boxel.tok', token); } catch (e) { /* nada */ } }
+      await this.connect(); this.raw({ t: 'join', code, name, token: this.token() });
+    },
+    // se ha cortado en plena partida: reintenta cada 3 s durante 2 minutos (la partida sigue en local)
+    reconnect() {
+      const code = this.code, players = this.players, id = this.id;
+      this.reconnecting = true;
+      VX.game && VX.game.hud.banner('CONEXIÓN PERDIDA', 'Reconectando con tus compañeros…', 3);
+      const t0 = Date.now();
+      const tryIt = async () => {
+        if (!this.reconnecting) return;
+        try {
+          this.ws = null;
+          await this.connect();
+          this.code = code; this.players = players; this.id = id;
+          this.raw({ t: 'join', code, name: this.lastName || 'Jugador', token: this.token() });
+        } catch (e) {
+          if (Date.now() - t0 < 120000) setTimeout(tryIt, 3000);
+          else { this.reconnecting = false; this.code = code; this.lobby({ t: 'closed', msg: 'No se ha podido volver a conectar' }); this.reset(); }
+        }
+      };
+      setTimeout(tryIt, 1000);
+    },
     setStarted(v) { this.raw({ t: 'started', v }); },
 
     raw(o) {
@@ -128,6 +169,8 @@
 
     leave() {
       const ws = this.ws;
+      this.leaving = true; this.reconnecting = false;
+      this.forget();
       this.reset();
       this.state = 'off';
       if (ws) { ws.onclose = null; try { ws.close(); } catch (e) { /* nada */ } }

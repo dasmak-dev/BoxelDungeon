@@ -160,7 +160,8 @@
       if (this.mods.tacReload && this.slot.ammo <= 0) this.reloadT *= 0.6;     // recarga táctica
       if (this.mods.belt && this.slot.ammo <= 0) { this.reloadT = st.reload * 1.4; VX.game && VX.game.hud.toast('¡Recalentada!'); }
       this.reloadDur = this.reloadT;
-      VX.Audio.reload();
+      this.magKills = 0;   // misión «con un solo cargador»
+      this.rlCue = -1;   // los sonidos de la recarga los pone la animación, pieza a pieza (js/core/sfx.js)
     }
 
     // Retroceso real: cada disparo sube la mira (y la desvía un poco a un lado).

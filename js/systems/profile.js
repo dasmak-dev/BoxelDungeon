@@ -3,7 +3,7 @@
 (function () {
   const KEY = 'boxel_profile_v1';
   const WEAPON_IDS = () => ['knife', ...VX.Weapons.GUNS];
-  const WS0 = () => ({ kills: 0, heads: 0, bosses: 0, elites: 0, floor: 0 });
+  const WS0 = () => ({ kills: 0, heads: 0, bosses: 0, elites: 0, floor: 0, scoped: 0, long: 0, longHead: 0, close: 0, air: 0, multi: 0, limbs: 0, burn: 0, magKills: 0 });
   const DEF = () => ({
     v: 2, kills: 0, headshots: 0, bosses: 0, bestFloor: 0, knifeKills: 0, runs: 0,
     unlocked: [], skinSel: {}, wstats: {},
@@ -23,6 +23,8 @@
     { id: 'pulso', name: 'Pulso firme', desc: '-12% de retroceso en todas las armas', max: 4, cost: (l) => 35 + l * 30 },
     { id: 'punteria', name: 'Puntería', desc: '-10% de dispersión de las balas', max: 3, cost: (l) => 40 + l * 35 },
     { id: 'segunda', name: 'Segunda oportunidad', desc: 'Una vez por partida, revives con media vida', max: 1, cost: () => 250 },
+    { id: 'doble', name: 'Doble salto', desc: 'Puedes volver a saltar una vez en el aire', max: 1, cost: () => 220 },
+    { id: 'objetivos', name: 'Objetivos de partida', desc: 'Cada partida trae 3 objetivos que dan esencia (nivel 2: 4 objetivos y +25 % de esencia). También se desbloquea venciendo a tu primer jefe o en el Relicario', max: 2, cost: (l) => 120 + l * 180 },
   ];
 
   // La tienda del vendedor (0.45): mejoras permanentes que se compran con esencia
@@ -60,6 +62,15 @@
     elites: (n, w) => `Mata ${n} zombis élite con ${w}`,
     floor: (n, w) => `Llega al piso ${n} llevando ${w}`,
     allSkins: (n, w) => `Consigue los ${n} camuflajes de ${w}`,
+    scoped: (n, w) => `Mata ${n} zombis apuntando con la mirilla de ${w}`,
+    long: (n, w) => `Mata ${n} zombis a más de 20 m con ${w}`,
+    longHead: (n, w) => `Revienta ${n} cabezas a más de 18 m con ${w}`,
+    close: (n, w) => `Mata ${n} zombis a quemarropa (a menos de 2,5 m) con ${w}`,
+    air: (n, w) => `Mata ${n} zombis en el aire (saltando) con ${w}`,
+    multi: (n, w) => `Mata a 2 o más de un solo disparo, ${n} veces, con ${w}`,
+    limbs: (n, w) => `Arranca ${n} brazos, piernas o cabezas con ${w}`,
+    burn: (n, w) => `Mata ${n} zombis que estén ardiendo con ${w}`,
+    magKills: (n, w) => `Mata ${n} zombis con un solo cargador de ${w}`,
   };
 
   const Profile = {
@@ -171,7 +182,7 @@
       }
       if (VX.Weapons && VX.Weapons.SKINS) for (const w in this.data.wstats) {
         if (!VX.Weapons.DEFS[w]) continue;
-        for (const sk of VX.Weapons.SKINS) {
+        for (const sk of VX.Weapons.skinsFor(w)) {
           if (!sk.cond || sk.ultimate || this.isUnlocked(w, sk.id)) continue;
           const v = this.statValue(sk, w);
           if (v <= 0) continue;
@@ -207,7 +218,7 @@
       if (VX.Weapons && VX.Weapons.PISTOLS) this.checkPistols(game);
       const list = onlyWeapon ? [onlyWeapon] : WEAPON_IDS();
       for (const w of list) {
-        for (const s of VX.Weapons.SKINS) {
+        for (const s of VX.Weapons.skinsFor(w)) {
           if (!s.cond || this.isUnlocked(w, s.id)) continue;
           if (this.statValue(s, w) >= s.cond.n) {
             this.data.unlocked.push(w + ':' + s.id);
@@ -292,7 +303,17 @@
       if (!c || typeof c !== 'object') return true;
       return (this.data.upUnlocks || []).includes(u.id) || this.upValue(c) >= c.n;
     },
+    // objetivos de partida: nivel 0 = bloqueados; 1 = desbloqueados (Santuario, primer jefe o Relicario); 2 = mejorados
+    objLevel() { return Math.max(this.data.perks.objetivos || 0, this.data.objUnlocked ? 1 : 0); },
+    unlockObjectives(game, how) {
+      if (this.objLevel() > 0) return false;
+      this.data.objUnlocked = true; this.dirty = true; this.save();
+      if (game && game.hud) { game.hud.banner('¡OBJETIVOS DE PARTIDA!', `${how}: desde la próxima partida, cada una trae 3 objetivos que dan esencia`, 4); VX.Audio.upgrade && VX.Audio.upgrade(); }
+      return true;
+    },
     checkUps(game) {
+      // el reto que desbloquea los objetivos de partida: vencer a tu primer jefe
+      if (!this.data.objUnlocked && !(this.data.perks.objetivos > 0) && (this.data.bosses || 0) >= 1) this.unlockObjectives(game, 'Has vencido a tu primer jefe');
       if (!VX.Upgrades) return;
       this.data.upUnlocks = this.data.upUnlocks || [];
       for (const u of VX.Upgrades.list) {

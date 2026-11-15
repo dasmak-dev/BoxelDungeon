@@ -124,6 +124,13 @@
       const zone = this.zoneNow();
       this.bossSoon = this.bossEligible(game.floor + 2) && this.roomsSinceBoss >= 12;
       const lateralBoss = exits.some((s, i) => types[i] === 'boss' && (s === 'xp' || s === 'xn'));
+      // puerta dorada (piso 2 en adelante): una salida lateral se cierra con llave de oro y detrás
+      // hay una sala del tesoro o un vendedor raro
+      let goldSide = null;
+      if (game.mode === 'dungeon' && !this.secret && room.type !== 'boss' && game.floor >= 2 && exits.length >= 2 && Math.random() < 0.15) {
+        const cand = exits.filter((s, i) => (s === 'xp' || s === 'xn') && types[i] !== 'boss' && types[i] !== 'shop' && types[i] !== 'save');
+        if (cand.length) { goldSide = M.choice(cand); types[exits.indexOf(goldSide)] = 'reward'; }
+      }
       exits.forEach((side, i) => {
         const t = types[i];
         const ent = VX.Room.OPP[side];
@@ -135,10 +142,18 @@
         n.rid = (room.rid || 'S') + '.' + side;
         if (pushBoss && t === 'normal') n.bossNext = true;
         if (t === 'boss') n.bossKind = this.secret ? 'guardian' : this.finalPending ? 'corazon' : VX.ZONES[zone].boss;
-        if (recipes) recipes.push({ side, t, ex: nexits, z: nz, lb: lateralBoss ? 1 : 0, seed, bn: n.bossNext ? 1 : 0, bk: n.bossKind || null, ev: n.event || null, tn: n.template && n.template.name });
+        if (side === goldSide) this.goldDoor(room, side, n, Math.random() < 0.5 ? 'hoard' : 'rare');
+        if (recipes) recipes.push({ gv: n.goldVault || null, side, t, ex: nexits, z: nz, lb: lateralBoss ? 1 : 0, seed, bn: n.bossNext ? 1 : 0, bk: n.bossKind || null, ev: n.event || null, tn: n.template && n.template.name });
         if (game.mapReveal > 0) this.planFor(game, n);
       });
       if (recipes) VX.Coop.sendNeighbors(game, room, recipes);
+    }
+
+    // cierra esa puerta con llave de oro (la sala de detrás es un tesoro o un vendedor raro)
+    goldDoor(room, side, n, kind) {
+      n.goldVault = kind;
+      room.doors[side].goldLock = true;
+      room.setDoor(side, true);
     }
 
     // Decide ya los tipos de sala que habrá tras las puertas de 'n' (lo que muestra el mapa)
@@ -304,6 +319,7 @@
         }
         case 'reward': {
           const f = room.features.find((x) => x.kind === 'reward');
+          if (room.goldVault && f) { this.fillGoldVault(game, room, f); break; }
           // evento: cofre misterioso (a veces es un mímico)
           if (game.floor >= 3 && Math.random() < 0.25) {
             game.pickups.addItem({ kind: 'chest', mimic: Math.random() < 0.4, price: 0, x: f.x, y: f.y, z: f.z, title: 'Cofre misterioso', desc: 'Puede guardar una mejora rara… o morder', action: 'Abrir', color: [0.95, 0.7, 0.25], shape: 'chest' });
@@ -320,6 +336,26 @@
           game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: f.x, y: f.y, z: f.z, title: up.name + tag, desc: up.desc, color: up.color, shape: up.shape });
           break;
         }
+      }
+    }
+
+    // tras una puerta dorada: montón de tesoro o un vendedor con género raro (más barato)
+    fillGoldVault(game, room, f) {
+      const PK = game.pickups;
+      if (room.goldVault === 'hoard') {
+        PK.dropGold(f.x, f.y + 0.6, f.z, M.randInt(45, 70));
+        PK.dropHeart(f.x + 0.8, f.y + 0.5, f.z, 40);
+        const up = VX.Upgrades.random(1, game, [], 'rare')[0];
+        if (up) PK.addItem({ kind: 'upgrade', up, price: 0, x: f.x, y: f.y, z: f.z, title: up.name + ' ★ RARA', desc: up.desc, color: up.color, shape: up.shape });
+        const ty = VX.Throw.randomType(game.weapon);
+        if (ty) PK.addItem({ ...VX.Throw.item(ty, 2, 0), x: f.x - 1.2, y: f.y, z: f.z });
+      } else {
+        const ups = VX.Upgrades.random(2, game, [], 'rare');
+        const price = Math.round(VX.Upgrades.price(game) * 1.1);
+        ups.forEach((up, i) => { const it = PK.addItem({ kind: 'upgrade', up, price, x: f.x + (i ? 1.4 : -1.4), y: f.y, z: f.z, title: up.name + ' ★ RARA', desc: up.desc + ' (vendedor raro)', color: up.color, shape: up.shape, onTake: (g) => g.stats.purchases++ }); it.shopRoom = room; it.basePrice = price; });
+        const notOwned = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));
+        if (notOwned.length) { const id = M.choice(notOwned), d = VX.Weapons.DEFS[id]; const it = PK.addItem({ kind: 'weapon', weapon: id, price: Math.round(d.price * 0.6), x: f.x, y: f.y, z: f.z, title: d.name + ' · REBAJA', desc: 'Del vendedor raro, a mitad de precio', color: [1, 0.85, 0.5], shape: 'star' }); it.shopRoom = room; it.basePrice = it.price; }
+        else { const up = VX.Upgrades.random(1, game, [], 'rare')[0]; if (up) PK.addItem({ kind: 'upgrade', up, price: 0, x: f.x, y: f.y, z: f.z, title: up.name + ' ★ REGALO', desc: up.desc, color: up.color, shape: up.shape }); }
       }
     }
 
@@ -360,7 +396,13 @@
           // reto opcional de la sala
           if (room.event !== 'ambush' && game.floor >= 1 && Math.random() < 0.32) {
             const type = M.choice(['nohit', 'time', 'knife']);
-            game.startChallenge(type, Math.round(22 + n * 4 + room.pendingWaves * 14));
+            // tiempo ajustado (0.51): según la vida que hay que quitar y lo grande que es la sala,
+            // con poco margen (antes sobraba casi la mitad del tiempo y siempre se superaba)
+            const hpSum = game.enemies.filter((e) => !e.dead).reduce((a, e) => a + Math.min(e.maxHp || 60, 400), 0);
+            const dps = 55 + game.floor * 6;   // lo que un jugador normal quita por segundo en ese piso
+            const travel = Math.sqrt(room.walkArea ? room.walkArea() : 400) * 0.35;
+            const limit = 5 + hpSum / dps + travel + room.pendingWaves * (7 + (room.waveSize || 3) * 1.6);
+            game.startChallenge(type, Math.max(10, Math.round(limit)));
           }
           break;
         }

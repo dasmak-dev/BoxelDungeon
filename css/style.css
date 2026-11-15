@@ -423,7 +423,10 @@ body.touch, body.touch #game { touch-action: none; overscroll-behavior: none; -w
 #touchUI .tbtn { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0;
   border-radius: 50%; border: 2px solid rgba(242, 234, 216, 0.45); background: rgba(10, 8, 14, 0.38); color: rgba(242, 234, 216, 0.9);
   font: inherit; font-size: 10px; letter-spacing: 1px; box-shadow: none; text-shadow: 1px 1px 0 #000; -webkit-tap-highlight-color: transparent; }
-#touchUI .tbtn.down { background: rgba(242, 234, 216, 0.35); transform: scale(0.94); }
+#touchUI .tbtn, #touchUI .tpad { transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(var(--s, 1)); }
+#touchUI .ttop .tbtn { transform: none; }
+#touchUI .tbtn.down { background: rgba(242, 234, 216, 0.35); transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(calc(var(--s, 1) * 0.94)); }
+#touchUI > * { opacity: var(--ta, 1); }
 #touchUI .tbtn.lit { border-color: #ffd23f; color: #ffd23f; box-shadow: 0 0 12px rgba(255, 210, 63, 0.5); }
 #touchUI .tbtn.hidden { display: none; }
 /* cruceta */
@@ -650,3 +653,87 @@ body.padOn #touchUI { display: none !important; }
 
 /* ajustes del mando: misma rejilla que las teclas */
 .padBinds { display: contents; }
+
+/* barra del jefe: marcas de las fases y color según la fase */
+#bossBar .bar { position: relative; }
+#bossBar .bossMark { position: absolute; top: -3px; bottom: -3px; width: 2px; background: rgba(255, 255, 255, 0.75); box-shadow: 0 0 4px #000; }
+#bossPhase { font-size: 11px; letter-spacing: 2px; text-align: center; margin-top: 3px; opacity: 0.85; }
+#bossBar[data-phase="1"] #bossFill { background: linear-gradient(90deg, #ff7a1a, #ffb03a); }
+#bossBar[data-phase="2"] #bossFill { background: linear-gradient(90deg, #ff2a2a, #ff6a3a); animation: bossPulse 0.6s ease-in-out infinite alternate; }
+#bossBar[data-phase="1"] #bossPhase { color: #ffb03a; }
+#bossBar[data-phase="2"] #bossPhase { color: #ff5a4a; }
+@keyframes bossPulse { from { filter: brightness(1); } to { filter: brightness(1.45); } }
+
+/* objetivos de la partida */
+.objList { font-size: 12px; line-height: 1.5; }
+#objPanel { position: absolute; top: 120px; left: 18px; max-width: 340px; padding: 8px 12px; background: rgba(10, 8, 14, 0.72); border-left: 3px solid #c9a24a; pointer-events: none; transition: opacity 0.4s; }
+#objPanel.hidden { display: block; opacity: 0; }
+#pauseObj { max-width: 560px; margin: 8px auto; text-align: left; }
+.objList .objT { color: #c9a24a; letter-spacing: 2px; font-size: 11px; margin-bottom: 3px; }
+.objList .obj { display: flex; justify-content: space-between; gap: 14px; }
+.objList .obj b { color: #d6b3ff; white-space: nowrap; font-weight: normal; }
+.objList .obj.done { color: #7be07b; }
+.objList .obj.done b { color: #7be07b; }
+
+/* colocar los controles táctiles */
+#touchEdit { position: fixed; inset: 0; z-index: 60; background: rgba(20, 16, 24, 0.82); }
+#touchEdit #touchUI { display: block; position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
+#touchEdit #touchUI .tbtn, #touchEdit #touchUI .tpad { cursor: grab; outline: 1px dashed rgba(255, 255, 255, 0.35); }
+#touchEdit #touchUI .teOn { outline: 2px solid #ffd23f !important; box-shadow: 0 0 14px rgba(255, 210, 63, 0.6); }
+#touchEdit .teBar { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; max-width: 92vw; padding: 8px 12px; background: rgba(0, 0, 0, 0.7); border: 1px solid #555; font-size: 12px; }
+#touchEdit .teSel { color: #ffd23f; min-width: 120px; }
+
+/* pantalla de fin de partida: tarjetas y momentos */
+.sCards { display: grid; grid-template-columns: repeat(4, minmax(80px, 1fr)); gap: 8px; margin: 6px auto 8px; max-width: 560px; }
+.sCard { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); padding: 6px 4px; text-align: center; }
+.sCard b { display: block; font-size: 20px; color: #f2ead8; }
+.sCard span { font-size: 10px; letter-spacing: 1px; opacity: 0.7; text-transform: uppercase; }
+.sCard.ess b { color: #c99bff; }
+.sScore { font-size: 13px; margin-bottom: 6px; }
+#deathInfo .dMom { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+#deathInfo .dMom b { color: #ffd23f; font-weight: normal; }
+#deathInfo .dWk { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+#deathInfo .dWk span { font-size: 10px; padding: 1px 5px; background: rgba(255, 255, 255, 0.08); }
+@media (max-width: 600px) { .sCards { grid-template-columns: repeat(2, 1fr); } }
+
+/* tutorial */
+#tutBox { position: absolute; bottom: 24%; left: 50%; transform: translateX(-50%); z-index: 6; min-width: 260px; max-width: 460px; padding: 10px 16px; background: rgba(10, 8, 14, 0.82); border: 2px solid #ffd23f; text-align: center; pointer-events: auto; }
+#tutBox.hidden { display: none; }
+#tutBox .tutN { font-size: 10px; letter-spacing: 2px; color: #ffd23f; opacity: 0.85; }
+#tutBox .tutT { font-size: 20px; margin: 2px 0 4px; }
+#tutBox .tutD { font-size: 13px; opacity: 0.9; }
+#tutBox .tutSkip { margin-top: 8px; font-size: 10px; padding: 3px 10px; }
+.padWhich { font-size: 12px; opacity: 0.85; }
+
+/* modo de pruebas */
+#testReport { position: fixed; inset: 5% 8%; z-index: 80; padding: 14px 18px; background: rgba(10, 8, 14, 0.95); border: 2px solid #ffd23f; display: flex; flex-direction: column; gap: 8px; }
+#testReport.hidden { display: none; }
+#testReport h3 { margin: 0; color: #ffd23f; letter-spacing: 2px; }
+#testReport .trOut { flex: 1; overflow: auto; margin: 0; font-size: 11px; line-height: 1.4; white-space: pre-wrap; background: rgba(0, 0, 0, 0.4); padding: 8px; }
+
+/* Santuario (0.50): pestañas y tarjetas en cuadrícula, sin scroll largo */
+#sanctuary { overflow-y: auto; justify-content: flex-start; padding-top: 3vh; }
+.sancHead { display: flex; align-items: baseline; gap: 24px; justify-content: center; }
+#essenceTotal { display: flex; align-items: baseline; gap: 8px; padding: 4px 14px; border: 1px solid #6a3fa0; background: rgba(106, 63, 160, 0.2); }
+#essenceTotal span { font-size: 11px; letter-spacing: 3px; opacity: 0.8; }
+#essenceTotal b { font-size: 26px; color: #c99bff; }
+.sancTabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0 4px; }
+.sancTab { position: relative; background: #2b2630; box-shadow: 0 3px 0 #120f14; }
+.sancTab.on { background: #6a3fa0; box-shadow: 0 3px 0 #2c1745; }
+.sancTab i { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; border-radius: 9px; background: #7be07b; color: #111; font-size: 11px; font-style: normal; line-height: 18px; padding: 0 4px; }
+#sanctuary .sancNote { max-width: none; text-align: center; margin: 2px 0 10px; }
+.sancGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; width: min(1100px, 94vw); margin: 0 auto 10px; }
+.sancCard { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 10px 12px; min-height: 96px; font-size: 13px; background: #24202a; box-shadow: 0 3px 0 #120f14; border: 1px solid rgba(255, 255, 255, 0.06); }
+.sancCard b { font-size: 13px; letter-spacing: 1px; }
+.sancCard small { font-size: 11px; opacity: 0.75; line-height: 1.35; flex: 1; text-transform: none; letter-spacing: 0; }
+.sancCard .pips { color: #c99bff; letter-spacing: 2px; font-size: 11px; }
+.sancCard em { font-style: normal; font-size: 12px; align-self: flex-end; }
+.sancCard em.ok { color: #c99bff; } .sancCard em.no { color: #8a7a8a; } .sancCard em.done { color: #7be07b; }
+.sancCard.can { border-color: rgba(201, 155, 255, 0.55); }
+.sancCard.can:hover { background: #2e2836; }
+.sancCard.on { background: #4a2d70; border-color: #c99bff; }
+.sancCard.done:disabled { opacity: 0.8; }
+.sancCard:disabled { cursor: default; }
+.sancFoot { align-items: center; gap: 22px; }
+.sancOnly { font-size: 12px; opacity: 0.85; display: flex; align-items: center; gap: 6px; }
+.sancEmpty { opacity: 0.7; }

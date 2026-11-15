@@ -171,7 +171,9 @@
       this.player.yaw = 0;
       this.player.pitch = 0;
       this.hud.refreshUpgrades(this);
+      VX.Objectives.start(this, save && save.objectives);
       this.state = 'playing';
+      if (!save) VX.Tutorial.start(this); else VX.Tutorial.box(false);
       VX.Menus.hideAll();
       this.hud.show(true);
       VX.Input.lock();
@@ -181,6 +183,7 @@
 
     // ---------------- Modo Horda ----------------
     startHorde(mapId, opts = {}) {
+      this.objectives = null; this.obj = null; VX.Objectives.render(this, false); VX.Tutorial.s = null; VX.Tutorial.box(false);
       this.escaped = false;
       // una partida normal (no cooperativa) cierra cualquier sala abierta
       if (!opts.rng && VX.Coop.active) { VX.Coop.stop(); VX.Net.leave(); }
@@ -312,6 +315,9 @@
       this.essenceGain = Math.round(this.floor * 0.8 + this.stats.bosses * 8 + this.stats.kills / 20);
       VX.Profile.add('essence', this.essenceGain);
       this.runResult = VX.Profile.submitRun(this);
+      this.coopTable = VX.Coop.active ? VX.Coop.table(this, true) : '';   // quién hizo qué (mazmorra en cooperativo)
+      const cr = this.currentRoom;
+      this.deathWhere = cr ? { type: cr.type, zone: cr.zone || 0, floor: this.floor } : null;
       // roguelite: al morir se pierde la partida guardada (la esencia sí se queda)
       VX.Save.clear();
       this.failChallenge(true);
@@ -391,10 +397,18 @@
         if (!d || !d.closed || !d.neighbor) continue;
         const w = cr.doorWorld(s);
         const dist = Math.hypot(P.x - w.x, P.z - w.z);
-        if (dist < best) { best = dist; this.doorFocus = { side: s, type: d.type }; }
+        if (dist < best) { best = dist; this.doorFocus = { side: s, type: d.type, gold: !!d.goldLock, vault: d.neighbor.goldVault }; }
       }
       if (this.doorFocus && !this.pickups.focus && VX.Input.wasPressed(VX.Settings.key('use'))) {
         const s = this.doorFocus.side, d = cr.doors[s];
+        if (d.goldLock) {
+          this.keys = this.keys || { wood: 0, silver: 0, gold: 0 };
+          if (!(this.keys.gold > 0)) { VX.Audio.deny(); this.hud.toast('Puerta dorada: necesitas una llave de oro'); return; }
+          this.keys.gold--; this.hud.setKeys && this.hud.setKeys(this.keys);
+          VX.Objectives.keyUsed(this);
+          d.goldLock = false;
+          this.hud.banner(d.neighbor.goldVault === 'hoard' ? 'SALA DEL TESORO' : 'VENDEDOR RARO', d.neighbor.goldVault === 'hoard' ? 'La llave de oro abre un montón de botín' : 'Género raro y un arma a mitad de precio', 2.5);
+        }
         if (VX.Coop.active) VX.Net.send({ k: 'door', rid: cr.rid, s }, VX.Coop.isHost ? undefined : 'all');   // los compañeros también la ven abrirse
         this.spawner.prepare(this, d.neighbor);
         cr.setDoor(s, false);
@@ -412,6 +426,7 @@
       if (!cr || cr.rid !== rid) return;
       const d = cr.doors[s];
       if (!d || !d.closed || !d.neighbor) return;
+      d.goldLock = false;   // un compañero la abrió con su llave de oro
       this.spawner.prepare(this, d.neighbor);
       cr.setDoor(s, false);
       this.doorAnims.push({ room: cr, side: s, t: 0, dur: 1.0 });
@@ -539,6 +554,7 @@
       this.pickups.gold = this.pickups.gold.filter((g) => r.contains(g.x, g.z));
       this.npcs = this.npcs.filter((n) => r.contains(n.body.x, n.body.z));
       this.setupVault(r);
+      VX.Objectives.roomEntered(this);
       if (r.vault && !r.vault.open && this.keys && (this.keys.wood || this.keys.silver || this.keys.gold)) this.hud.toast('Hay una cerradura dorada en esta sala: ábrela con tu llave');
       this.enemies = [];
       this.gibs = this.gibs.filter((g) => r.contains(g.x, g.z));
@@ -584,10 +600,12 @@
     clearRoom(r, silent) {
       if (r.cleared && VX.Coop.isClient) return;
       r.cleared = true;
+      VX.Objectives.roomCleared(this, r);
       if (VX.Coop.isHost && this.mode === 'dungeon') VX.Net.send({ k: 'clear', rid: r.rid, s: silent ? 1 : 0 });
       // las salidas quedan desbloqueadas pero cerradas: se abren al acercarte
       if (!silent) {
         VX.Audio.door();
+        if (r.type === 'normal' || r.type === 'boss') setTimeout(() => VX.Music.sting(r.type === 'boss' ? 'boss' : 'clear'), r.type === 'boss' ? 300 : 150);
         // calidad de vida: el oro que quede en el suelo vuela hacia ti
         for (const g of this.pickups.gold) { g.homing = true; g.delay = Math.min(g.delay, 0.3); }
         if (this.player.regenRoom) this.player.heal(this.player.regenRoom);
@@ -964,7 +982,7 @@
 
     // ---------------- Retos de sala ----------------
     startChallenge(type, timeLimit) {
-      const reward = 20 + this.floor * 3 + (type === 'knife' ? 15 : 0);
+      const reward = 20 + this.floor * 3 + (type === 'knife' ? 15 : type === 'time' ? 15 : 0);
       const label = { nohit: 'SIN RECIBIR DAÑO', time: `EN ${timeLimit} SEGUNDOS`, knife: 'SÓLO CUCHILLO' }[type];
       this.challenge = { type, limit: timeLimit, t: 0, reward, label, shots: this.stats.shots, failed: false };
       this.hud.banner('RETO: ' + label, `Opcional · +${reward} de oro si lo consigues`, 3);
@@ -1000,7 +1018,21 @@
 
     onPlayerHurt() { if (this.challenge && this.challenge.type === 'nohit') this.failChallenge(false, 'Te han dado'); }
 
+    // un enemigo pierde un brazo, una pierna o la cabeza (lo llama VoxelBody.detach)
+    noteLimb(body) {
+      if (VX.Coop.isClient && !this.localAct) return;
+      const e = this.enemies.find((q) => q.body === body) || this.corpses.find((c) => c.body === body);
+      if (e) { VX.Objectives.limb(this); if (e.lastW) VX.Profile.addW(e.lastW, 'limbs', 1, this); }
+    }
+
     onKill(z) {
+      VX.Objectives.kill(this, z);
+      // resumen de la partida: muertes por arma y la mejor racha (muertes seguidas en poco tiempo)
+      const S = this.stats, w = z && z.lastW || this.dmgWeapon || (this.dmgSource === 'knife' ? 'knife' : null);
+      if (w) { S.wKills = S.wKills || {}; S.wKills[w] = (S.wKills[w] || 0) + 1; }
+      this.multiN = this.time - (this.lastKillT || -9) < 1.5 ? (this.multiN || 1) + 1 : 1;
+      this.lastKillT = this.time;
+      S.bestMulti = Math.max(S.bestMulti || 0, this.multiN);
       if (this.challenge && this.challenge.type === 'knife' && this.dmgSource === 'gun') this.failChallenge(false, 'Ese no fue a cuchillo');
       if (this.mode === 'horde') VX.HordeMode.onKill(this, z);
     }
@@ -1457,6 +1489,7 @@
       const tier = ['gold', 'silver', 'wood'].find((t) => this.keys[t] > 0);   // usa la mejor que tengas
       if (!tier) { VX.Audio.deny(); this.hud.toast('Necesitas una llave (de madera, de plata o de oro)'); return; }
       this.keys[tier]--; this.hud.setKeys && this.hud.setKeys(this.keys);
+      VX.Objectives.keyUsed(this);
       v.tier = tier;
       it.taken = true; v.open = true;
       // la puerta se abre: se viene abajo con un golpe y astillas
@@ -1484,6 +1517,7 @@
       }
       if (Math.hypot(P.x - sc.x, P.z - sc.z) < 1.6) {
         sc.found = true;
+        VX.Music.sting('secret');
         if (sc.stairs) {
           this.hud.banner('UNA ESCALERA…', 'Baja hacia algo que no debería estar aquí', 3.5);
           VX.Audio.phase && VX.Audio.phase();
@@ -1550,6 +1584,7 @@
         P.x = (idx % 2 ? 1 : -1) * Math.ceil(idx / 2) * 0.9;
         VX.Coop.remoteEnter = true;
         try { VX.Coop.roomEntered(this, first); } finally { VX.Coop.remoteEnter = false; }
+        const pt = VX.Coop.path; if (pt && pt.length && pt[pt.length - 1].rid === first.rid) pt[pt.length - 1].seed = go.seed;
       }
       this.stats.secretBiome = (this.stats.secretBiome || 0) + 1;
       this.hud.banner(VX.ZONES[5].name, VX.ZONES[5].sub, 4);
@@ -1567,6 +1602,8 @@
       this.addScorch(e.x, e.z, R * 0.9);   // hollín permanente
       const reach = R + 0.8;
       this.dmgWeapon = e.weapon || null;
+      this.inBlast = true;   // las muertes de esta explosión cuentan como «con explosiones» (objetivos)
+      setTimeout(() => { this.inBlast = false; }, 0);
       for (const list of [this.enemies, this.corpses, this.npcHit()]) for (const en of list.slice()) {
         if (en.dead) continue;
         const d = Math.hypot(en.body.cx - e.x, en.body.cy - e.y, en.body.cz - e.z);
@@ -1640,7 +1677,7 @@
     }
     setGroundFog(R, cam) {
       const cr = this.currentRoom;
-      if (!cr || this.state === 'title' || this.mode === 'horde' || VX.Settings.data.groundFog === false) { R.gf = null; return; }
+      if (!cr || this.state === 'title' || this.mode === 'horde' || VX.Settings.data.groundFog === false || (VX.AQoff && VX.AQoff.gf)) { R.gf = null; return; }
       // la sala actual y las de al lado con la puerta abierta: así la niebla ya está ahí antes de entrar
       const rooms = [];
       for (const r of [cr, ...Object.values(cr.doors).filter((d) => d.neighbor && !d.closed).map((d) => d.neighbor)]) {
@@ -2006,8 +2043,17 @@
       if (this.state === 'dying' || this.state === 'dead') return 'death';
       const r = this.currentRoom;
       if (!r) return 'explore';
-      if (this.boss && !this.boss.dead) return 'boss';
-      if (this.enemies.some((e) => !e.dead)) return 'combat';
+      const Mu = VX.Music;
+      if (this.boss && !this.boss.dead) {
+        const b = this.boss, ph = Math.max(b.phase || 0, b.hp < b.maxHp * 0.33 ? 2 : b.hp < b.maxHp * 0.66 ? 1 : 0);
+        if (Mu.bossPhase !== ph) { Mu.bossPhase = ph; if (Mu.mode === 'boss') Mu.bpm = 140 * (1 + ph * 0.06); }   // cada fase, la música aprieta
+        return (b.T && b.T.id === 'corazon') || r.finalBoss ? 'final' : 'boss';
+      }
+      Mu.bossPhase = 0;
+      const alive = this.enemies.filter((e) => !e.dead).length;
+      Mu.intensity = alive;
+      if (alive) return this.mode === 'horde' ? 'horde' : 'combat';
+      if (this.mode === 'dungeon' && (this.zone === 5 || this.spawner.secret)) return 'void';
       if (r.type === 'shop' || (this.mode === 'horde' && VX.HordeMode.merchant)) return 'shop';
       if (r.type === 'save') return 'save';
       return 'explore';
@@ -2017,6 +2063,8 @@
     update(dt) {
       // parón de impacto: el tiempo casi se detiene un instante al recibir un golpe
       if (this.hitStop > 0) { this.hitStop -= dt; dt *= 0.12; }
+      // cámara lenta un instante (cambio de fase de un jefe); en cooperativo no, para no desincronizar
+      if (this.slowMo > 0) { this.slowMo -= dt; if (!VX.Coop.active) dt *= 0.3; }
       this.frame++;
       this.time += dt;
       this.frameDt = dt;
@@ -2052,6 +2100,8 @@
         try { this.weapon.update(dt, this); } finally { this.localAct = false; }
         if (this.mode === 'horde') { if (VX.Coop.isClient) VX.HordeMode.clientUpdate(this, dt); else VX.HordeMode.update(this, dt); }
         else this.roomLogic();
+        VX.Objectives.update(this, dt);
+        VX.Tutorial.update(this, dt);
         this.updateChallenge(dt);
         // latido con poca vida
         const hr = P.hp / P.maxHp;
@@ -2503,7 +2553,7 @@
           b.box(s.x + Math.cos(a) * s.r, (s.y || 0) + hgt / 2, s.z + Math.sin(a) * s.r, 0.16, hgt, 0.16, 1, 0.45, 0.1, 0.8);
         }
       }
-      if (VX.Settings.data.dust && P.flashlight && this.state !== 'title') this.renderDust(b, cam);
+      if (VX.Settings.data.dust && !(VX.AQoff && VX.AQoff.dust) && P.flashlight && this.state !== 'title') this.renderDust(b, cam);
       b.upload();
 
       // ---- linterna (sombras) ----
@@ -2531,7 +2581,7 @@
       // Sombras de las luces de la sala (calidad alta): hasta 4 antorchas o lámparas, elegidas entre
       // las que alumbran lo que tienes delante (no sólo la más cercana). Esas luces pasan a ser las 0..3.
       for (const T of R.tsh) T.on = false;
-      if (R.quality === 'alta' && VX.Settings.data.torchShadows && this.state !== 'title') {
+      if (R.quality === 'alta' && VX.Settings.data.torchShadows && !(VX.AQoff && VX.AQoff.torch) && this.state !== 'title') {
         const cand = [];
         for (const l of lights) {
           if (!l.torch && !l.feat) continue;

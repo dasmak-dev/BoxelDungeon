@@ -29,6 +29,7 @@
     aimAssist: true,     // la mira se frena y se pega un poco a los enemigos (sólo táctil)
     vibrate: true,       // vibración del móvil al disparar, recibir daño y con las explosiones
     fpsCap: 0,           // 0 = sin límite, 60 o 30
+    batterySaver: false, // 30 FPS y menos resolución (móvil con poca batería)
     uiScale: 1,          // tamaño de la interfaz de juego (HUD)
     brightness: 1,       // brillo (aclara las sombras sin quemar las luces); en el móvil empieza en 1,35
     colorblind: false,   // modo para daltónicos: símbolos además de colores (llaves, mapa…)

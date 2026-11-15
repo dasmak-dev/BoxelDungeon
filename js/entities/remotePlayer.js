@@ -81,6 +81,7 @@
         if (s.a === 1) this.actDur = +s.as || 1.5;
       }
       if (s.fl !== undefined) this.fl = !!s.fl;
+      if (s.dt !== undefined) this.downLeft = s.dt;   // segundos que le quedan en el suelo
       if (!this.seen) { this.x = this.tx; this.y = this.ty; this.z = this.tz; this.yaw = this.tyaw; this.pitch = this.tpitch; this.seen = true; }
       this.lastMsg = performance.now();
     }
@@ -202,7 +203,7 @@
       if (!p || !p.q) return;
       const W = VX.Weapons, id = W.DEFS[this.weapon] ? this.weapon : 'pistol';
       const form = id === 'knife' ? (this.forms.knife || 'cuchillo') : id === 'pistol' ? (this.forms.pistol || null) : null;
-      const sk = this.skins[id] && W.SKINS.some((x) => x.id === this.skins[id]) ? this.skins[id] : 'default';
+      const sk = this.skins[id] && W.findSkin(this.skins[id]) ? this.skins[id] : 'default';
       const model = W.coloredModel(id, sk, form);
       const s = this.body.scale || 1, v = 0.05 * s;
       M.qRot(p.q, 0, -14.5 * v, 0.6 * v, tmp);
