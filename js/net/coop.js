@@ -229,9 +229,19 @@
     },
 
     // ---------------- estado propio (invitado → anfitrión) ----------------
+    // lo que está haciendo con las manos: 0 nada · 1 recargar · 2 golpe cuerpo a cuerpo · 3 lanzar · 4 cambiar de arma · 5 inspeccionar
+    actState(game) {
+      const W = game.weapon;
+      if (W.throwCd > 0.35) return [3, r2(1 - (W.throwCd - 0.35) / 0.35), 0];
+      if (W.swingT > 0) return [2, r2(1 - W.swingT / (W.swingDur || 0.4)), W.swingType || (W.swingSide > 0 ? 'r' : 'l')];
+      if (W.reloading) return [1, r2(1 - W.reloadT / (W.reloadDur || 1)), r2(W.reloadDur || 1)];
+      if (W.switchT > 0) return [4, 0, 0];
+      if (W.inspectT > 0) return [5, r2(1 - W.inspectT / 2.6), 0];
+      return [0, 0, 0];
+    },
     meState(game) {
-      const P = game.player;
-      return { k: 'me', x: r2(P.x), y: r2(P.y), z: r2(P.z), yaw: r3(P.yaw), p: r3(P.pitch), vx: r2(P.vx), vz: r2(P.vz), hp: Math.round(P.hp), mh: P.maxHp, dn: this.down ? 1 : 0, dd: this.deadWait ? 1 : 0, w: game.weapon.slot.id };
+      const P = game.player, ac = this.actState(game);
+      return { k: 'me', x: r2(P.x), y: r2(P.y), z: r2(P.z), yaw: r3(P.yaw), p: r3(P.pitch), vx: r2(P.vx), vz: r2(P.vz), hp: Math.round(P.hp), mh: P.maxHp, dn: this.down ? 1 : 0, dd: this.deadWait ? 1 : 0, w: game.weapon.slot.id, a: ac[0], ak: ac[1], as: ac[2], fl: P.flashlight ? 1 : 0 };
     },
     onMe(game, d, from) {
       if (!this.isHost) return;
@@ -247,8 +257,9 @@
     // ---------------- foto del anfitrión ----------------
     snapshot(game) {
       const P = game.player, H = VX.HordeMode;
-      const pl = [[VX.Net.id, r2(P.x), r2(P.y), r2(P.z), r3(P.yaw), r3(P.pitch), Math.round(P.hp), P.maxHp, (this.down ? 1 : 0) | (this.deadWait ? 2 : 0), game.weapon.slot.id]];
-      for (const r of this.remotes.values()) if (r.seen) pl.push([r.id, r2(r.tx), r2(r.ty), r2(r.tz), r3(r.tyaw), r3(r.tpitch), Math.round(r.hp), r.maxHp, (r.down ? 1 : 0) | (r.dead ? 2 : 0), r.weapon]);
+      const ac = this.actState(game);
+      const pl = [[VX.Net.id, r2(P.x), r2(P.y), r2(P.z), r3(P.yaw), r3(P.pitch), Math.round(P.hp), P.maxHp, (this.down ? 1 : 0) | (this.deadWait ? 2 : 0) | (P.flashlight ? 4 : 0), game.weapon.slot.id, ac[0], ac[1], ac[2]]];
+      for (const r of this.remotes.values()) if (r.seen) pl.push([r.id, r2(r.tx), r2(r.ty), r2(r.tz), r3(r.tyaw), r3(r.tpitch), Math.round(r.hp), r.maxHp, (r.down ? 1 : 0) | (r.dead ? 2 : 0) | (r.fl ? 4 : 0), r.weapon, r.act || 0, r2(r.actK || 0), r.actS || 0]);
       const en = [];
       for (const e of game.enemies) {
         if (e.dead && e !== game.boss) continue;
@@ -293,7 +304,7 @@
           r = new VX.RemotePlayer(p[0], q ? q.name : 'Jugador', Math.max(0, this.order.indexOf(p[0])));
           this.remotes.set(p[0], r);
         }
-        r.setState({ x: p[1], y: p[2], z: p[3], yaw: p[4], p: p[5], hp: p[6], mh: p[7], dn: p[8] & 1, dd: p[8] & 2, w: p[9] });
+        r.setState({ x: p[1], y: p[2], z: p[3], yaw: p[4], p: p[5], hp: p[6], mh: p[7], dn: p[8] & 1, dd: p[8] & 2, fl: p[8] & 4 ? 1 : 0, w: p[9], a: p[10], ak: p[11], as: p[12] });
       }
       // zombis y jefes
       const seen = new Set();
@@ -786,6 +797,9 @@
 
     // ---------------- mazmorra cooperativa ----------------
     // ejecuta fn con un azar con semilla (para que una sala salga igual en todos los equipos)
+    // mazmorra en cooperativo: cuántos sois (el anfitrión ajusta la dificultad con esto)
+    partySize() { return this.active ? 1 + [...this.remotes.values()].filter((r) => r.seen).length : 1; },
+    dungeonK() { const g = VX.game; return this.isHost && g && g.mode === 'dungeon' ? this.partySize() - 1 : 0; },
     withTemplate(tpl, fn) {
       const Pool = VX.RoomPool, pick0 = Pool.pick;
       if (tpl) Pool.pick = () => tpl;

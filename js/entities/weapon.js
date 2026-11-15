@@ -159,6 +159,7 @@
       this.reloadT = st.reload;
       if (this.mods.tacReload && this.slot.ammo <= 0) this.reloadT *= 0.6;     // recarga táctica
       if (this.mods.belt && this.slot.ammo <= 0) { this.reloadT = st.reload * 1.4; VX.game && VX.game.hud.toast('¡Recalentada!'); }
+      this.reloadDur = this.reloadT;
       VX.Audio.reload();
     }
 

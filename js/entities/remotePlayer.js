@@ -73,7 +73,14 @@
       if (s.hp !== undefined) this.hp = s.hp;
       if (s.mh !== undefined) this.maxHp = s.mh;
       this.down = !!s.dn; this.dead = !!s.dd;
-      if (s.w) this.weapon = s.w;
+      if (s.w && s.w !== this.weapon) { this.weapon = s.w; this.switchK = 0; }
+      // lo que hace con las manos (llega con su progreso; aquí se sigue animando entre mensajes)
+      if (s.a !== undefined) {
+        if (s.a !== this.act || (s.ak || 0) + 0.25 < (this.actK || 0)) { this.act = s.a; this.actK = s.ak || 0; this.actS = s.as; }
+        else this.actK = Math.max(this.actK || 0, s.ak || 0);
+        if (s.a === 1) this.actDur = +s.as || 1.5;
+      }
+      if (s.fl !== undefined) this.fl = !!s.fl;
       if (!this.seen) { this.x = this.tx; this.y = this.ty; this.z = this.tz; this.yaw = this.tyaw; this.pitch = this.tpitch; this.seen = true; }
       this.lastMsg = performance.now();
     }
@@ -91,6 +98,11 @@
       this.pitch += (this.tpitch - this.pitch) * k;
       this.invuln = Math.max(0, this.invuln - dt);
       this.shotT = Math.max(0, this.shotT - dt);
+      if (this.act) {
+        const dur = this.act === 1 ? (this.actDur || 1.5) : this.act === 2 ? 0.45 : this.act === 3 ? 0.35 : this.act === 5 ? 2.6 : 0.3;
+        this.actK = Math.min(1, (this.actK || 0) + dt / dur);
+      }
+      this.switchK = Math.min(1, (this.switchK ?? 1) + dt / 0.3);
       const spd = Math.hypot(this.x - ox, this.z - oz) / Math.max(dt, 1e-4);
       this.animate(dt, spd);
     }
@@ -130,6 +142,49 @@
         }
         P_.torso.ax = 0.05; P_.torso.az = sw * 0.06;
         P_.head.ax = -this.pitch * 0.6; P_.head.az = 0;
+        this.gunTilt = 0;
+        const k = this.actK || 0, A = this.act || 0;
+        if (A === 1) {
+          // recarga: baja el arma, la mano izquierda va al cinturón a por el cargador y vuelve
+          const dip = Math.sin(Math.min(1, k) * Math.PI);
+          P_.armR.ax = aim + 0.38 * dip; P_.armR.az = 0.25 + 0.15 * dip;
+          const out = k < 0.5 ? k / 0.5 : 1 - (k - 0.5) / 0.5;
+          P_.armL.ax = M.lerp(aim + 0.1, -0.2, out); P_.armL.az = M.lerp(0.55, -0.15, out);
+          P_.head.ax += 0.35 * dip;
+          this.gunTilt = 0.6 * dip;
+        } else if (A === 2) {
+          // golpe cuerpo a cuerpo: tajo de lado a lado, estocada o mazazo de arriba abajo
+          const ty = this.actS || 'r';
+          if (ty === 'smash' || ty === 'overhead' || ty === 'mchop' || ty === 'kdown') {
+            const up = k < 0.4 ? k / 0.4 : 1, down = k > 0.4 ? (k - 0.4) / 0.6 : 0;
+            P_.armR.ax = -0.8 - up * 2.2 + down * 2.6; P_.armR.az = 0.1;
+            P_.armL.ax = -0.8 - up * 2 + down * 2.4; P_.armL.az = 0.3;
+            P_.torso.ax = 0.05 - up * 0.15 + down * 0.4;
+          } else if (ty === 'stab' || ty === 'dstab' || ty === 'blunge' || ty === 'kspin') {
+            const back = k < 0.35 ? k / 0.35 : 1, thr = k > 0.35 ? Math.sin((k - 0.35) / 0.65 * Math.PI) : 0;
+            P_.armR.ax = -1.2 + back * 0.5 - thr * 0.7; P_.armR.az = 0.15;
+            P_.torso.ax = 0.05 + thr * 0.25;
+          } else {
+            const side = ty === 'l' || ty === 'sweep' ? -1 : 1, e = Math.min(1, k * 1.6);
+            P_.armR.ax = -1.5 - Math.sin(e * Math.PI) * 0.4; P_.armR.az = side * (0.9 - e * 1.8);
+            P_.torso.az = side * (0.25 - e * 0.5);
+          }
+        } else if (A === 3) {
+          // lanzar: brazo atrás por encima del hombro y fuera
+          P_.armR.ax = k < 0.4 ? -2.2 - k * 1.5 : -2.8 + (k - 0.4) / 0.6 * 2.3; P_.armR.az = 0.2;
+          P_.armL.ax = -1.3; P_.armL.az = -0.2;
+          P_.torso.az = k < 0.4 ? 0.2 : 0.2 - (k - 0.4) * 0.8;
+        } else if (A === 4 || this.switchK < 1) {
+          // cambiando de arma: baja los brazos y vuelve a subirlos
+          const d = A === 4 ? 1 : Math.sin(this.switchK * Math.PI);
+          P_.armR.ax += 0.9 * d; P_.armL.ax += 1.1 * d;
+        } else if (A === 5) {
+          // inspecciona el arma: la gira delante de la cara
+          P_.armR.ax = -1.4; P_.armR.az = 0.3 + Math.sin(k * Math.PI * 2) * 0.35;
+          P_.armL.ax = -0.9; P_.armL.az = 0.4;
+          P_.head.ax = 0.25;
+          this.gunTilt = Math.sin(k * Math.PI * 2) * 0.9;
+        }
         b.yOff = Math.abs(sw) * 0.03;
       }
       b.computeWorld();
@@ -153,7 +208,8 @@
       M.qRot(p.q, 0, -14.5 * v, 0.6 * v, tmp);
       const hx = p.wp[0] + tmp[0], hy = p.wp[1] + tmp[1], hz = p.wp[2] + tmp[2];
       // el cañón (-z del modelo) apunta a lo largo del brazo
-      const q = M.qMul(M.qMul(p.q, M.qX(-Math.PI / 2)), M.qZ(Math.PI));
+      let q = M.qMul(M.qMul(p.q, M.qX(-Math.PI / 2)), M.qZ(Math.PI));
+      if (this.gunTilt) q = M.qMul(q, M.qZ(this.gunTilt));   // inclinada al recargar o al inspeccionarla
       const melee = W.DEFS[id].melee, g = (melee ? 0.016 : 0.0125) * s;
       for (const vx of model) {
         if (vx.tag === 'hand' || vx.tag === 'wrist' || vx.tag === 'sleeve') continue;

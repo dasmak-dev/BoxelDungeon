@@ -158,8 +158,9 @@
     enemyCount(room, f) {
       const area = room.walkArea ? room.walkArea() : 400;
       const dens = (1 / 170) * (1 + f * 0.07);
-      const cap = Math.min(12, 3 + Math.floor(f * 0.45));
-      return M.clamp(Math.round(area * dens * M.rand(0.85, 1.15)), 2, cap);
+      const ck = VX.Coop.dungeonK();   // mazmorra en cooperativo: más enemigos por sala (+45 % por compañero)
+      const cap = Math.min(12, 3 + Math.floor(f * 0.45)) + ck * 4;
+      return M.clamp(Math.round(area * dens * M.rand(0.85, 1.15) * (1 + 0.45 * ck)), 2 + ck, cap);
     }
 
     difficulty(f) {

@@ -128,9 +128,12 @@
       const eliteK = this.elite ? 1.7 : 1;
       const greed = VX.game && VX.game.weapon && VX.game.weapon.mods.greed ? 1.25 : 1;
       this.maxHp = this.hp = T.hp * (1 + f * 0.15) * eliteK * greed * (this.champion ? 3.5 : 1);
+      // mazmorra en cooperativo: más duros cuantos más seáis (+35 % de vida y +12 % de daño por compañero)
+      const ck = VX.Coop.dungeonK();
+      if (ck) { this.maxHp = this.hp = this.hp * (1 + 0.35 * ck); this.coopDmgK = 1 + 0.12 * ck; }
       if (this.champion) this.name = 'Campeón: ' + T.name;
       this.baseSpeed = Math.min(T.speed * (1 + f * 0.03), T.speed * 1.7) * M.rand(0.9, 1.1) * (this.elite ? 1.2 : 1);
-      this.dmg = Math.round(T.dmg * (1 + f * 0.08) * (this.elite ? 1.3 : 1) * (this.champion ? 1.25 : 1));
+      this.dmg = Math.round(T.dmg * (1 + f * 0.08) * (this.elite ? 1.3 : 1) * (this.champion ? 1.25 : 1) * (this.coopDmgK || 1));
       this.cdBase = Math.max(0.55, 1.15 - f * 0.025);
       this.gold = this.elite ? [T.gold[0] * 2, T.gold[1] * 2] : T.gold;
       this.reach = T.reach;

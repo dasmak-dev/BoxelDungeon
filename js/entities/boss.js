@@ -49,6 +49,8 @@
       P_.legL.noBreak = P_.legR.noBreak = P_.head.noBreak = P_.torso.noBreak = true;
       this.x = x; this.z = z; this.y = 0; this.vy = 0;
       this.maxHp = this.hp = T.hp * (1 + bossNum * 0.6) * (1 + floor * 0.04);
+      const ck = VX.Coop.dungeonK();   // mazmorra en cooperativo: +70 % de vida por compañero
+      if (ck) this.maxHp = this.hp = this.hp * (1 + 0.7 * ck);
       this.speed = T.speed;
       this.dmg = Math.round(T.dmg * (1 + bossNum * 0.2));
       this.bulletDmg = Math.round(9 + bossNum * 3 + floor * 0.3);

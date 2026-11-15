@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.47.0] — 2026-11-15
+
+### Añadido
+- **Cooperativo (mazmorra y Horda): se ve lo que hacen tus compañeros con las manos**:
+  - **Recargar**: bajan el arma inclinada y la mano libre va al cinturón a por el cargador.
+  - **Cuchillo y armas cuerpo a cuerpo**: tajos de lado a lado, estocadas y mazazos de arriba abajo, según el golpe que den de verdad.
+  - **Lanzar** granadas y objetos: brazo atrás por encima del hombro y fuera.
+  - **Cambiar de arma**: bajan los brazos y vuelven a subirlos con el arma nueva.
+  - **Inspeccionar el arma**: la giran delante de la cara.
+  - Siguen viéndose el arma que llevan (con su skin), los disparos y el retroceso.
+
+### Cambiado
+- **Mazmorra en cooperativo más difícil** cuantos más seáis (por cada compañero): +45 % de enemigos por sala (con más tope), +35 % de vida y +12 % de daño de los enemigos y +70 % de vida de los jefes.
+
 ## [0.46.1] — 2026-11-15
 
 ### Corregido
