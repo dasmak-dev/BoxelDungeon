@@ -25,10 +25,12 @@
     ssao: true,          // oclusión ambiental (rincones más oscuros; calidad alta)
     touchMode: 'auto',   // controles táctiles: auto | on | off
     touchSens: 1.0,      // sensibilidad al apuntar con el dedo
+    padSens: 1.0,        // sensibilidad del stick derecho del mando
     aimAssist: true,     // la mira se frena y se pega un poco a los enemigos (sólo táctil)
     vibrate: true,       // vibración del móvil al disparar, recibir daño y con las explosiones
     fpsCap: 0,           // 0 = sin límite, 60 o 30
     uiScale: 1,          // tamaño de la interfaz de juego (HUD)
+    brightness: 1,       // brillo (aclara las sombras sin quemar las luces); en el móvil empieza en 1,35
     colorblind: false,   // modo para daltónicos: símbolos además de colores (llaves, mapa…)
     keys: {   // teclas configurables (todas salvo 1·2·3, la rueda, las flechas y Esc)
       fwd: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', run: 'ShiftLeft', dash: 'KeyC',
@@ -55,6 +57,8 @@
         // en el móvil, la primera vez (y una vez para quien ya jugaba antes de la 0.40) se pone el
         // preajuste de móvil: así va fluido sin tener que tocar nada
         if (this.isMobile() && !s.mobilePreset) { Object.assign(this.data, PRESETS.movil); this.data.mobilePreset = 1; this.save(); }
+        // 0.46: en el móvil se veía muy oscuro: se sube el brillo una vez (luego se puede ajustar)
+        if (this.isMobile() && !s.mobileBright) { this.data.brightness = 1.45; this.data.mobileBright = 1; this.save(); }
       } catch (e) { this.data = { ...DEFAULTS }; }
       return this.data;
     },
@@ -63,7 +67,7 @@
       try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (e) {}
     },
 
-    reset() { this.data = { ...DEFAULTS, keys: { ...KEY_DEFAULTS } }; if (this.isMobile()) Object.assign(this.data, PRESETS.movil, { mobilePreset: 1 }); this.save(); this.apply(); },
+    reset() { this.data = { ...DEFAULTS, keys: { ...KEY_DEFAULTS } }; if (this.isMobile()) Object.assign(this.data, PRESETS.movil, { mobilePreset: 1, brightness: 1.45, mobileBright: 1 }); this.save(); this.apply(); },
     PRESETS,
     preset(name) { Object.assign(this.data, PRESETS[name]); this.save(); this.apply(); },
     // ¿móvil o tableta? (pantalla táctil sin ratón, o lo dice el navegador)
@@ -108,6 +112,7 @@
       if (VX.Audio) { if (VX.Audio.setMaster) VX.Audio.setMaster(d.master ?? 1); VX.Audio.setVolume(d.sfx); if (VX.Audio.setBusVolumes) VX.Audio.setBusVolumes(d.ambVol ?? 1, d.enemyVol ?? 1); }
       if (VX.Music) VX.Music.setVolume(d.music);
       if (VX.Input) { VX.Input.sensitivity = 0.0022 * d.sensitivity; VX.Input.invertY = d.invertY; }
+      if (VX.Renderer) VX.Renderer.brightness = d.brightness || 1;
       if (VX.Renderer && VX.Renderer.gl) {
         VX.Renderer.fov = d.fov * Math.PI / 180;
         VX.Renderer.setQuality(d.quality, d.shadows);

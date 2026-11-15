@@ -3,6 +3,26 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.46.0] — 2026-11-15
+
+### Añadido
+- **Mazmorra en cooperativo** (hasta 4): en la barra del cooperativo (pantalla de la Horda) el anfitrión tiene el botón **MAZMORRA EN COOPERATIVO**. Bajáis juntos: el anfitrión genera las salas y manda a los demás la «receta» (todos ven exactamente la misma sala); cuando uno cruza una puerta, entráis todos y los que se quedaron atrás aparecen junto a la entrada. Los zombis, jefes y oleadas los dirige el anfitrión; el oro, las mejoras, la tienda y el vendedor son de cada uno. Si caes, un compañero te levanta; si mueres, vuelves en la siguiente sala; si caéis todos, se acaba. (Las escaleras secretas no se pueden bajar en cooperativo.)
+- **Soporte de mando** (Xbox, PlayStation, Switch Pro…) en PC y en el móvil: stick izquierdo analógico para moverse (L3 correr), derecho para apuntar con ayuda al apuntado, RT disparar, LT mirilla, A saltar, B esquivar, X usar/recargar (según haya algo delante), Y cambiar de arma, RB cuchillo, LB lanzar, cruceta para linterna, objeto y armas, Start pausa y Select mapa. Vibra con los disparos, los golpes y las explosiones. En los menús se navega con la cruceta o el stick (A aceptar, B volver). Con el mando no hace falta capturar el ratón y se ocultan los controles táctiles. Nueva opción: sensibilidad del mando.
+- **Ajuste de brillo** (Ajustes → Interfaz): aclara las sombras sin quemar las luces.
+
+### Cambiado
+- **La hidra, rediseñada**: ahora es el **Coloso jorobado**, una planta carnívora de unos 3 m con el tronco lleno de púas, raíces por patas, brazos-liana con garras y una flor enorme colgando por delante (anillo de ojos al fondo de la garganta, dos filas de dientes, babas). Paleta carne o morada según el bioma. Mecánicas nuevas:
+  - **La flor es el punto débil** (x2,5) y, **cuando abre la boca para morder, x4**.
+  - **Las heridas brotan**: el daño al cuerpo se acumula como savia; al pasar del umbral la herida burbujea y, si no la quemas en ~1,5 s, brota otra hidra de ahí.
+  - **El fuego y los explosivos cauterizan**: mientras arde no se regenera ni brota.
+  - **Córtale la cabeza y le salen dos**: si la matas sin fuego ni explosivos, del cuello brotan dos flores (bicéfala); hay que reventar las dos.
+  - **Dos brotes que se tocan se funden en una Hidra madre** (más vida y más daño).
+  - **Se come los cadáveres** si estás lejos: se cura y echa un brote.
+  - **Mordisco en embestida**: abre la flor, se echa atrás y se lanza; si te pilla, te sujeta un momento.
+  - **Escupitajo de savia**: deja un charco que frena y quema.
+  - **Recompensa**: matarla cauterizada o sin brotes vivos da oro extra y, a veces, un **Corazón de hidra** (verde) que regenera vida unos segundos.
+- **En el móvil se veía muy oscuro**: el brillo sube al 145 % en móviles (una vez; se puede ajustar).
+
 ## [0.45.0] — 2026-11-15
 
 ### Añadido

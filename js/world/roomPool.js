@@ -1138,7 +1138,7 @@
       r.features.push({ kind: 'vendor', x: v.x, z: v.z });
       // pedestales de metal en fila delante del mostrador; con «Más altares» (Santuario) sale
       // una segunda fila delante
-      const PR = VX.Profile, extra = PR ? PR.shopUp('altars') : 0;
+      const PR = VX.forceShopUps ? { shopUp: (id) => VX.forceShopUps[id] || 0 } : VX.Profile, extra = PR ? PR.shopUp('altars') : 0;
       const spots = [[-5, back - 9], [-1, back - 9], [3, back - 9]];
       for (let i = 0; i < extra; i++) spots.push([[-1, -5, 3][i], back - 13]);
       spots.forEach(([da, b], i) => {

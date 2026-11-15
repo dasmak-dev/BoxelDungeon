@@ -16,6 +16,8 @@
       $('coopCreate').addEventListener('click', () => this.create());
       $('coopJoin').addEventListener('click', () => this.join());
       $('coopLeave').addEventListener('click', () => this.leave());
+      // la partida normal (mazmorra) también en cooperativo: la empieza el anfitrión
+      $('coopDungeon').addEventListener('click', () => { if (!VX.Net.isHost) return; VX.Audio.click(); $('hordeMaps').innerHTML = '<p class="hordeIntro">Preparando la mazmorra para todos…</p>'; setTimeout(() => VX.Coop.hostStart('dungeon'), 30); });
       $('coopCfg').addEventListener('click', () => {
         $('coopServer').classList.toggle('hidden');
         $('coopServerUrl').value = VX.Net.serverUrl();
@@ -99,6 +101,7 @@
 
     inRoom() { return !!VX.Net.code; },
 
+
     // estado de la barra y de los botones de los mapas
     refresh() {
       const N = VX.Net, inRoom = this.inRoom();
@@ -108,8 +111,9 @@
         $('coopRoomCode').textContent = N.code;
         const cols = VX.RemotePlayer.COLORS;
         $('coopRoster').innerHTML = N.players.map((p, i) => `<b style="color:rgb(${cols[i % 4].map((v) => Math.round(v * 255)).join(',')})">${p.id === 0 ? '★ ' : ''}${p.name}${p.id === N.id ? ' (tú)' : ''}</b>`).join('');
-        $('coopHint').textContent = N.isHost ? `${N.players.length}/4 · elige mapa para empezar` : 'Esperando al anfitrión…';
+        $('coopHint').textContent = N.isHost ? `${N.players.length}/4 · elige un mapa de Horda o la mazmorra` : 'Esperando al anfitrión…';
       }
+      $('coopDungeon').classList.toggle('hidden', !(inRoom && N.isHost));
       for (const card of document.querySelectorAll('#hordeMaps .hmap[data-map]')) {
         const btn = card.querySelector('.hplay');
         card.classList.toggle('waiting', inRoom && !N.isHost);

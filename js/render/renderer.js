@@ -131,7 +131,7 @@
     R.prog = program(gl, VX.Shaders.vertex, VX.Shaders.fragment);
     const names = ['u_proj', 'u_view', 'u_lights', 'u_lightCols', 'u_numLights', 'u_spotPos', 'u_spotDir', 'u_spotCol',
       'u_spotCone', 'u_shadowMat', 'u_shadowMap', 'u_shadowOn', 'u_shadowTexel', 'u_ambient', 'u_camPos',
-      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_edge', 'u_tsMat', 'u_tsMap0', 'u_tsMap1', 'u_tsMap2', 'u_tsMap3', 'u_tsOn', 'u_glass', 'u_clipY', 'u_water', 'u_reflTex', 'u_res', 'u_time', 'u_gf', 'u_gfCol', 'u_gfHoles', 'u_gfRect'];
+      'u_fogColor', 'u_fogNear', 'u_fogFar', 'u_gamma', 'u_edge', 'u_tsMat', 'u_tsMap0', 'u_tsMap1', 'u_tsMap2', 'u_tsMap3', 'u_tsOn', 'u_glass', 'u_clipY', 'u_water', 'u_reflTex', 'u_res', 'u_time', 'u_gf', 'u_gfCol', 'u_gfHoles', 'u_gfRect'];
     for (const n of names) R.U[n] = gl.getUniformLocation(R.prog, n);
     gl.useProgram(R.prog); gl.uniform1i(R.U.u_reflTex, 2);   // unidad propia (la 0 y la 1 son de sombras)
     R.dprog = program(gl, VX.Shaders.depthVertex, VX.Shaders.depthFragment);
@@ -296,6 +296,7 @@
     gl.uniform3f(U.u_fogColor, f[0], f[1], f[2]);
     gl.uniform1f(U.u_fogNear, R.fogNear || 8);
     gl.uniform1f(U.u_fogFar, R.fogFar || 36);
+    gl.uniform1f(U.u_gamma, 1 / (R.brightness || 1));
     gl.uniform1f(U.u_edge, 0.02);
     gl.uniform1f(U.u_clipY, tgt && tgt.clipY != null ? tgt.clipY : -1e9);
     gl.uniform1f(U.u_water, 0);

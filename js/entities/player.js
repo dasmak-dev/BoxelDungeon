@@ -54,6 +54,9 @@
       if (I.isDown(KS.key('back')) || I.isDown('ArrowDown')) fz -= 1;
       if (I.isDown(KS.key('left')) || I.isDown('ArrowLeft')) fx -= 1;
       if (I.isDown(KS.key('right')) || I.isDown('ArrowRight')) fx += 1;
+      const pm = I.padMove;   // stick del mando: analógico
+      if (pm) { fx = pm.x; fz = pm.y; }
+      const padMag = pm ? Math.min(1, Math.hypot(pm.x, pm.y) * 1.15) : 1;
       const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
       // adelante = (sy, cy); derecha = (-cy, sy)
       let wx = sy * fz - cy * fx, wz = cy * fz + sy * fx;
@@ -67,7 +70,10 @@
       this.slowT = Math.max(0, (this.slowT || 0) - dt);   // aturdido (grito del chillón) o en ácido
       if (this.adrenT > 0) { this.adrenT -= dt; if (this.adrenT <= 0) this.adrenN = 0; }
       if (this.lungeT > 0) this.lungeT -= dt;
-      const spd = this.speed * (this.adrenT > 0 ? 1 + 0.15 * (this.adrenN || 1) : 1) * coopK * (this.slowT > 0 ? 0.55 : 1) * (sprint && fz > 0 && !game.weapon.scoped && coopK === 1 ? 1.45 : 1) * (wet ? 0.62 : 1) * (1 - (game.weapon.scopeK || 0) * 0.45);
+      if (this.grabT > 0) this.grabT -= dt;          // la hidra te tiene sujeto
+      if (this.regenT > 0) { this.regenT -= dt; this.heal(4 * dt, true); }   // corazón de hidra
+      const sapSlow = game.inSap ? 0.55 : 1;
+      const spd = this.speed * padMag * (this.grabT > 0 ? 0.25 : 1) * sapSlow * (this.adrenT > 0 ? 1 + 0.15 * (this.adrenN || 1) : 1) * coopK * (this.slowT > 0 ? 0.55 : 1) * (sprint && fz > 0 && !game.weapon.scoped && coopK === 1 ? 1.45 : 1) * (wet ? 0.62 : 1) * (1 - (game.weapon.scopeK || 0) * 0.45);
       if (wet && Math.hypot(this.vx, this.vz) > 1 && Math.random() < 0.3) game.particles.spawn(this.x + M.rand(-0.3, 0.3), 0.12, this.z + M.rand(-0.3, 0.3), M.rand(-0.6, 0.6), M.rand(0.8, 1.6), M.rand(-0.6, 0.6), 0.45, 0.55, 0.6, 0.03, 0.6);
       const accel = this.onGround ? 14 : 4;
       if (!(this.dashT > 0)) {
@@ -237,7 +243,7 @@
           return;
         }
         // cooperativo: caes al suelo y un compañero te puede levantar
-        if (VX.Coop.active && game.mode === 'horde') { VX.Coop.goDown(game); return; }
+        if (VX.Coop.active) { VX.Coop.goDown(game); return; }
         this.hp = 0; this.dead = true; game.gameOver();
       }
     }

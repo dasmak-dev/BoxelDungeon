@@ -63,11 +63,13 @@
       $('setVibrate').addEventListener('change', (e) => { S.set('vibrate', e.target.checked); if (e.target.checked) VX.Haptics.buzz(60, true); });
       $('setFpsCap').addEventListener('change', (e) => S.set('fpsCap', +e.target.value));
       bindRange('setTouchSens', 'touchSens', (v) => v.toFixed(2) + 'x', 'touchSensVal');
+      bindRange('setPadSens', 'padSens', (v) => v.toFixed(2) + 'x', 'padSensVal');
       $('setShadows').addEventListener('change', (e) => S.set('shadows', e.target.checked));
       $('setInvert').addEventListener('change', (e) => S.set('invertY', e.target.checked));
       $('setFps').addEventListener('change', (e) => S.set('showFps', e.target.checked));
       $('setColorblind').addEventListener('change', (e) => { S.set('colorblind', e.target.checked); if (VX.game && VX.game.hud) VX.game.hud.setKeys(VX.game.keys); });
       bindRange('setUiScale', 'uiScale', pct, 'uiScaleVal');
+      bindRange('setBright', 'brightness', pct, 'brightVal');
       $('setAutoRun').addEventListener('change', (e) => S.set('autoRun', e.target.checked));
       $('setHurtFx').addEventListener('change', (e) => S.set('hurtFx', e.target.checked));
       $('setTorchShadows').addEventListener('change', (e) => S.set('torchShadows', e.target.checked));
@@ -151,11 +153,13 @@
       $('setQuality').value = d.quality;
       $('setTouch').value = d.touchMode || 'auto';
       $('setAimAssist').checked = d.aimAssist !== false; $('setVibrate').checked = d.vibrate !== false; $('setFpsCap').value = String(d.fpsCap || 0);
+      $('setPadSens').value = d.padSens || 1; $('padSensVal').textContent = (d.padSens || 1).toFixed(2) + 'x';
       $('setTouchSens').value = d.touchSens || 1; $('touchSensVal').textContent = (d.touchSens || 1).toFixed(2) + 'x';
       $('setShadows').checked = d.shadows;
       $('setInvert').checked = d.invertY;
       $('setFps').checked = d.showFps;
       $('setColorblind').checked = !!d.colorblind;
+      $('setBright').value = d.brightness || 1; $('brightVal').textContent = Math.round((d.brightness || 1) * 100) + '%';
       $('setUiScale').value = d.uiScale || 1; $('uiScaleVal').textContent = Math.round((d.uiScale || 1) * 100) + '%';
       $('setAutoRun').checked = d.autoRun;
       $('setHurtFx').checked = d.hurtFx;

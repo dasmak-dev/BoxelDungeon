@@ -205,6 +205,9 @@
         <option value="on">Siempre</option>
         <option value="off">Nunca</option>
       </select>
+      <label>Sensibilidad del mando <span id="padSensVal"></span></label>
+      <input type="range" id="setPadSens" min="0.4" max="2.5" step="0.05">
+      <p class="padHelp"><b>Mando</b> (Xbox, PlayStation, Switch Pro… en PC y móvil): stick izq. moverse (L3 correr) · stick der. apuntar · RT disparar · LT mirilla · A saltar · B esquivar · X usar / recargar · Y cambiar de arma · RB cuchillo · LB lanzar · cruceta: ↑ linterna, ↓ objeto, ← → armas · Start pausa · Select mapa. En los menús: cruceta o stick para moverte, A aceptar, B volver.</p>
       <label>Sensibilidad táctil <span id="touchSensVal"></span></label>
       <input type="range" id="setTouchSens" min="0.3" max="3" step="0.05">
       <label>Apuntado asistido (táctil)</label>
@@ -252,6 +255,8 @@
       <button class="small keyBind" data-action="throwNext"></button>
     </div>
     <div class="settingsGrid setPane hidden" data-pane="ui">
+      <label>Brillo <span id="brightVal"></span></label>
+      <input type="range" id="setBright" min="0.8" max="1.8" step="0.05">
       <label>Tamaño de la interfaz <span id="uiScaleVal"></span></label>
       <input type="range" id="setUiScale" min="0.7" max="1.5" step="0.05">
       <label>Modo para daltónicos (símbolos además de colores)</label>
@@ -308,6 +313,7 @@
         <b class="coopTitle">SALA <span id="coopRoomCode" class="coopCode"></span></b>
         <span id="coopRoster" class="coopRoster"></span>
         <span id="coopHint" class="coopHint"></span>
+        <button id="coopDungeon" class="small hidden">MAZMORRA EN COOPERATIVO</button>
         <button id="coopLeave" class="small secondary">SALIR</button>
       </div>
       <div id="coopServer" class="coopRow hidden">
@@ -341,6 +347,7 @@
   <script src="js/core/namespace.js"></script>
   <script src="js/core/math.js"></script>
   <script src="js/core/input.js"></script>
+  <script src="js/core/gamepad.js"></script>
   <script src="js/core/audio.js"></script>
   <script src="js/core/music.js"></script>
   <script src="js/core/settings.js"></script>

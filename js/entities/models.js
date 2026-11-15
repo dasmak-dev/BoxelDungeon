@@ -714,6 +714,273 @@
     return { parts, height: 2.1, width: 0.9, v, depth: 0.5 };
   }
 
+  // ---- Hidra 0.46: propuestas de modelo nuevo (n1..n4) ----
+  // Todas tienen cabeza con mandíbula aparte ('jaw', para abrir la boca) y cuello ('neck').
+  // n1 serpiente: cuerpo de reptil a cuatro patas, cola y cuello largo en S con cabeza de serpiente.
+  // n2 racimo: barriga sobre dos patas gruesas con tres cuellos (el del centro, la cabeza principal).
+  // n3 bocazas II: la boca vertical del pecho de antes + cuello de serpiente, cola y espinazo que brilla.
+  // n4 bulbo: tronco vegetal con raíces, lianas por brazos y una cabeza-capullo que se abre en pétalos con dientes.
+  function hydraNew(S, cfg) {
+    const v = S.length >= 3 ? 0.066 : 0.055, parts = [];
+    const h3 = (i, j, k, s) => M.hash3(i + s * 13, j + s * 7, k + s * 3);
+    const PALS = {
+      carne: { sk: [0.62, 0.28, 0.26], eye: [1, 0.9, 0.25, 1], gl: [1, 0.55, 0.15, 0.9], gum: [0.8, 0.12, 0.12], mouth: [0.22, 0.02, 0.02], belly: [0.82, 0.55, 0.45] },
+      morado: { sk: [0.38, 0.26, 0.46], eye: [0.4, 1, 0.95, 1], gl: [0.4, 0.95, 1, 0.9], gum: [0.75, 0.2, 0.5], mouth: [0.18, 0.02, 0.12], belly: [0.62, 0.5, 0.66] },
+    };
+    const PL = PALS[cfg.hpal] || PALS.carne;
+    const SK = PL.sk, SKD = [SK[0] * 0.55, SK[1] * 0.58, SK[2] * 0.58], EYE = PL.eye, GL = PL.gl, GUM = PL.gum, MOUTH = PL.mouth, BELLY = PL.belly;
+    const TOOTH = [0.93, 0.9, 0.78], BONE = [0.86, 0.84, 0.74], DK = [0.05, 0.03, 0.04];
+    const skin = (i, j, k, s = 2) => (h3(i >> 1, j >> 1, k >> 1, s) < 0.22 ? SKD : SK);
+    const P = (name, pivot, dims, min, fn, attach, shape, parent) => { const p = makePart(name, pivot, dims, min, v, fn, attach, shape); if (parent) p.parent = parent; parts.push(p); return p; };
+    const ell = (i, j, k, [w, h, d], sx = 1, sy = 1, sz = 1) => Math.hypot((i - (w - 1) / 2) / (w / 2) * sx, (j - (h - 1) / 2) / (h / 2) * sy, (k - (d - 1) / 2) / (d / 2) * sz) <= 1.02;
+    // cabeza de serpiente con mandíbula aparte (k hacia delante)
+    const snakeHead = (parent, px, py, pz, w = 7, len = 10, big = false) => {
+      P('head', [px, py, pz], [w, 5, len], [-w / 2, 0, -2], (i, j, k, [W, H, D]) => {
+        if (j === 3 && (i === 0 || i === W - 1) && k === D - 4) return EYE;              // ojos a los lados
+        if (j === 4 && (i === 1 || i === W - 2) && k === D - 4) return DK;               // ceja
+        if (j === 0 && k > 1) return (i === 0 || i === W - 1) && k % 2 ? TOOTH : MOUTH;  // dientes de arriba
+        if (j === H - 1 && i === Math.floor(W / 2) && k % 2 === 0) return GL;           // cresta que brilla
+        return skin(i, j, k, 5);
+      }, 'bottom', (i, j, k, [W, H, D]) => {
+        const t = k / (D - 1);   // se estrecha hacia el morro
+        const hw = (W / 2) * (1 - t * 0.35);
+        return Math.abs(i - (W - 1) / 2) <= hw && j <= H - 1 - Math.round(t * 1.5);
+      }, parent);
+      P('jaw', [px, py, pz], [w - 1, 2, len - 1], [-(w - 1) / 2, -2, -1.5], (i, j, k, [W, H, D]) => {
+        if (j === H - 1 && (i === 0 || i === W - 1) && k % 2 === 1) return TOOTH;
+        if (j === H - 1) return k > 1 ? GUM : SK;
+        return j === 0 ? BELLY : skin(i, j, k, 6);
+      }, null, (i, j, k, [W, H, D]) => Math.abs(i - (W - 1) / 2) <= (W / 2) * (1 - k / (D - 1) * 0.4), 'head');
+      if (big) P('tongue', [px, py - 1, pz + 1], [2, 1, len - 4], [-1, 0, 0], () => [GUM[0] * 0.7, GUM[1] * 0.55, GUM[2] * 0.55], null, (i, j, k) => true, 'jaw');
+      // cuernos hacia atrás y gola de púas
+      P('horns', [px, py + 4, pz], [w + 2, 3, 4], [-(w + 2) / 2, 0, -4], () => BONE, null, (i, j, k, [W, H, D]) => (i <= 1 || i >= W - 2) && k <= 3 - j, 'head');
+    };
+    // cuello en S: de (0,0) sube «h» vóxeles y se adelanta «fw»
+    const sNeck = (name, parent, px, py, pz, h, fw, r = 2.5) => {
+      const d = fw + Math.ceil(r * 2) + 1;
+      P(name, [px, py, pz], [Math.ceil(r * 2), h, d], [-r, 0, -r], (i, j, k, [W, H, D]) => {
+        if (k <= 1 && j % 3 === 0) return GL;          // nódulos que brillan en la nuca
+        if (k >= D - 3 && (j + i) % 2 === 0) return BELLY;
+        return skin(i, j, k, 4);
+      }, 'bottom', (i, j, k, [W, H, D]) => {
+        const t = j / (H - 1), c = r + fw * (0.5 - 0.5 * Math.cos(Math.PI * t));   // curva suave hacia delante
+        return Math.hypot(i - (W - 1) / 2, k - c) <= r * (1 - t * 0.2) + 0.2;
+      }, parent);
+    };
+    const sideNeck = (name, parent, px, py, pz, h, sd, out, r = 1.9) => {
+      const w = out + Math.ceil(r * 2) + 1;
+      P(name, [px, py, pz], [w, h, Math.ceil(r * 2)], [sd < 0 ? -(w - r) : -r, 0, -r], (i, j, k, [W, H, D]) => (k === 0 && j % 3 === 0 ? GL : k === D - 1 && j % 2 ? BELLY : skin(i, j, k, 4)), 'bottom',
+        (i, j, k, [W, H, D]) => { const t = j / (H - 1), o = out * Math.sin(t * Math.PI * 0.5), c = sd < 0 ? W - 1 - r - o : r + o; return Math.hypot(i - c, k - (D - 1) / 2) <= r + 0.2; }, parent);
+      return [px + sd * out, py + h];
+    };
+    const tail = (parent, py, pz, len, r = 3) => {
+      P('tail', [0, py, pz], [r * 2, r * 2, len], [-r, -r, -len], (i, j, k, [W, H, D]) => (j === H - 1 && k % 3 === 0 ? GL : j <= 1 ? BELLY : skin(i, j, k, 8)), null,
+        (i, j, k, [W, H, D]) => { const t = 1 - k / (D - 1), rr = r * (0.25 + 0.75 * (1 - t)); return Math.hypot(i - (W - 1) / 2, j - (H - 1) / 2 - t * 1.5) <= rr; }, parent).sway = 0.35;
+    };
+    const legFn = (i, j, k, [w, h, d]) => (j <= 1 ? (k === d - 1 && i % 2 === 0 ? BONE : SKD) : skin(i, j, k));
+
+    if (S === 'n1') {
+      // SERPIENTE: reptil grande a cuatro patas
+      P('legL', [-5, 9, -6], [4, 9, 5], [-2, -9, -2.5], legFn, 'top');
+      P('legR', [5, 9, -6], [4, 9, 5], [-2, -9, -2.5], legFn, 'top');
+      P('torso', [0, 7, 0], [13, 11, 20], [-6.5, 0, -10], (i, j, k, [w, h, d]) => {
+        if (j === h - 1 && i === Math.floor(w / 2) && k % 3 === 0) return GL;           // espinazo
+        if ((i === 2 || i === w - 3) && j > h - 4 && k % 4 === 1) return BONE;          // escamas óseas
+        if (j <= 2) return BELLY;
+        return skin(i, j, k);
+      }, 'bottom', (i, j, k, dm) => ell(i, j, k, dm, 1, 1.05, 1));
+      P('armL', [-5.5, 10, 7], [4, 10, 5], [-2, -10, -2.5], legFn, 'top', null, 'torso');
+      P('armR', [5.5, 10, 7], [4, 10, 5], [-2, -10, -2.5], legFn, 'top', null, 'torso');
+      tail('torso', 10, -9, 16);
+      P('spines', [0, 17, 0], [2, 5, 18], [-1, 0, -9], () => BONE, null, (i, j, k) => k % 4 === 1 && j <= 4 - Math.abs(k - 9) / 3, 'torso');
+      sNeck('neck', 'torso', 0, 14, 7, 18, 6, 2.6);
+      snakeHead('neck', 0, 31, 12, 8, 11, true);
+      return { parts, height: 2.0, width: 0.8, v, depth: 1.6 };
+    }
+    if (S === 'n2') {
+      // RACIMO: barriga hinchada sobre dos patas gruesas y tres cuellos
+      P('legL', [-3.5, 12, 0], [5, 12, 6], [-2.5, -12, -3], legFn, 'top');
+      P('legR', [3.5, 12, 0], [5, 12, 6], [-2.5, -12, -3], legFn, 'top');
+      P('torso', [0, 11, 0], [15, 15, 12], [-7.5, 0, -6], (i, j, k, [w, h, d]) => {
+        const r = h3(i, j, k, 9);
+        if (r < 0.05) return GL;
+        if (k === d - 1 && j < 7) return BELLY;
+        if (Math.sin(i * 0.9 + j * 0.4) > 0.92) return SKD;   // venas
+        return skin(i, j, k);
+      }, 'bottom', (i, j, k, dm) => ell(i, j, k, dm));
+      sNeck('neck', 'torso', 0, 24, 1, 8, 3, 2.6);
+      snakeHead('neck', 0, 31, 5, 8, 9, true);
+      // los cuellos de los lados hacen de brazos; cada uno con su cabeza pequeña (headL / headR)
+      for (const sd of [-1, 1]) {
+        const nm = sd < 0 ? 'armL' : 'armR';
+        const [hx, hy] = sideNeck(nm, 'torso', sd * 6, 21, 0, 13, sd, 5);
+        P(sd < 0 ? 'headL' : 'headR', [hx, hy, 0], [5, 4, 7], [-2.5, 0, -2], (i, j, k, [W, H, D]) => {
+          if (j === 2 && (i === 0 || i === W - 1) && k === D - 3) return EYE;
+          if (j === 0 && k > 1) return (i === 0 || i === W - 1) && k % 2 ? TOOTH : MOUTH;
+          return skin(i, j, k, 7);
+        }, 'bottom', (i, j, k, [W, H, D]) => Math.abs(i - (W - 1) / 2) <= (W / 2) * (1 - k / (D - 1) * 0.35), nm);
+      }
+      return { parts, height: 2.25, width: 1.0, v, depth: 0.8 };
+    }
+    if (S === 'n3') {
+      // BOCAZAS II: la boca vertical del pecho + cuello de serpiente y cola
+      const base = hydraShape('boca3', { ...cfg, hpal: cfg.hpal });
+      for (const p of base.parts) if (p.name !== 'head') parts.push(p);
+      sNeck('neck', 'torso', 0, 33, -1, 10, 4, 2.4);
+      snakeHead('neck', 0, 43, 4, 7, 9, false);
+      tail('torso', 18, -4, 14, 3);
+      P('spines', [0, 20, -4.5], [2, 14, 3], [-1, 0, -2], () => GL, null, (i, j, k) => j % 3 === 0 && k >= 1, 'torso');
+      return { parts, height: 2.6, width: 0.9, v, depth: 0.9 };
+    }
+    if (S.length >= 3 && S.startsWith('n4')) {
+      // ===== BULBO, versiones grandes (≈3 m) y más terribles =====
+      // n4a colosal · n4b jorobada (rafflesia) · n4c madre (tres flores y vainas de semillas) · n4d espina negra
+      const VR = S[2];
+      const dark = /d$/.test(S) || S === 'n4cd';
+      const SKX = dark ? [SK[0] * 0.45, SK[1] * 0.4, SK[2] * 0.45] : SK, SKXD = [SKX[0] * 0.6, SKX[1] * 0.6, SKX[2] * 0.6];
+      const GLX = dark ? [1, 0.2, 0.1, 0.95] : GL, EYEX = dark ? [1, 0.25, 0.1, 1] : EYE;
+      const BARK = [SKX[0] * 0.7, SKX[1] * 0.62, SKX[2] * 0.55];
+      const sk2 = (i, j, k, sd = 2) => (h3(i >> 1, j >> 1, k >> 1, sd) < 0.25 ? SKXD : SKX);
+      const thorny = (i, j, k, w, h, d, base, amt) => base(i, j, k) || (amt > 0 && h3(i, j, k, 21) < amt && base(i + (i < w / 2 ? 1 : -1), j, k + (k < d / 2 ? 1 : -1)) && !base(i + (i < w / 2 ? -1 : 1), j, k));
+      // flor abierta hacia delante (eje k): trompeta honda de pétalos con puntas, anillos de dientes
+      // en el borde y ojos al fondo de la garganta
+      const flower = (name, parent, px, py, pz, R, D, o = {}) => {
+        const W = R * 2 + 1, nP = o.petals || 5;
+        const outF = (k, a) => { const t = k / (D - 1); return 1.8 + Math.pow(t, 1.5) * (R - 1.8) * (k > 2 ? 0.8 + 0.2 * Math.cos(a * nP) : 1); };
+        const isRing = (k) => k === D - 1 || (o.rows > 1 && k === D - 4);
+        const toothAt = (a) => (Math.round((a + 3.2) * (o.teeth || 9) / 3.2) & 1) === 0;
+        P(name, [px, py, pz], [W, W, D], [-W / 2, -W / 2, -1], (i, j, k, [w, h, d]) => {
+          const c = (w - 1) / 2, rr = Math.hypot(i - c, j - c), a = Math.atan2(j - c, i - c), out = outF(k, a);
+          if (k <= 1) {   // garganta
+            if (o.eyes > 1) { for (let e = 0; e < o.eyes; e++) { const ea = e / o.eyes * 6.28; if (Math.hypot(i - c - Math.cos(ea) * 1.6, j - c - Math.sin(ea) * 1.6) < 0.8) return EYEX; } return rr < 0.9 ? EYEX : MOUTH; }
+            return rr < 1.6 ? (o.slit && Math.abs(i - c) < 0.6 ? DK : EYEX) : MOUTH;
+          }
+          if (isRing(k) && rr < out - 1.1) return toothAt(a) ? [0.9, 0.86, 0.7] : GUM;                                   // los dientes del anillo
+          if (rr < out - 0.9) return k > d - 4 ? GUM : [GUM[0] * 0.55, GUM[1] * 0.45, GUM[2] * 0.45];   // carne por dentro
+          if (k >= d - 2 && Math.cos(a * nP) > 0.8) return o.boneTips ? BONE : GLX;         // puntas de los pétalos
+          if (Math.abs(Math.sin(a * nP)) < 0.12) return GLX;                                // vena de cada pétalo
+          return k % 3 === 0 ? [SKX[0] * 0.85, SKX[1] * 0.8, SKX[2] * 0.8] : SKX;
+        }, 'bottom', (i, j, k, [w, h, d]) => {
+          const c = (w - 1) / 2, rr = Math.hypot(i - c, j - c), a = Math.atan2(j - c, i - c), out = outF(k, a);
+          if (k <= 1) return rr <= out;
+          const inner = out - 1.6 - (isRing(k) && toothAt(a) ? 1.1 : 0);   // los dientes apuntan hacia dentro
+          return rr <= out && rr >= inner;
+        }, parent);
+        P(name === 'head' ? 'jaw' : name + 'J', [px, py - R + 1, pz], [5, 2, 3], [-2.5, -2, 0], () => GUM, null, () => true, name);
+        // babas colgando del borde
+        if (o.drool) for (const x of [-R * 0.4, R * 0.35]) P(name + 'drool' + x, [px + x, py - R * 0.7, pz + D - 2], [1, 5, 1], [-0.5, -5, 0], (i, j) => (j === 0 ? [0.7, 0.85, 0.35, 0.5] : [0.45, 0.55, 0.3]), 'top', null, name).sway = 0.6;
+      };
+      const roots = (sp) => {
+        for (const sd of [-1, 1]) P(sd < 0 ? 'legL' : 'legR', [sd * 4, 12, 0], [8 + sp, 12, 9 + sp], [-(8 + sp) / 2, -12, -(9 + sp) / 2], (i, j, k) => (j <= 1 ? BARK : sk2(i, j, k, 11)), 'top',
+          (i, j, k, [w, h, d]) => {
+            const ci = (w - 1) / 2, ck = (d - 1) / 2;
+            if (j >= 3) return Math.hypot(i - ci, k - ck) <= 2.6 + (h - j) * 0.04;
+            // raíces que se abren por el suelo
+            for (let r = 0; r < 4; r++) { const a = r * 1.6 + sd, L = (j <= 1 ? 1 : 0.6) * (w / 2); for (let t = 0; t <= L; t += 0.5) if (Math.hypot(i - ci - Math.cos(a) * t, k - ck - Math.sin(a) * t) < 0.8 + (j === 0 ? 0.3 : 0)) return true; }
+            return Math.hypot(i - ci, k - ck) <= 2.6;
+          });
+      };
+      const vineArm = (sd, len, hook) => P(sd < 0 ? 'armL' : 'armR', [sd * 8.5, 30, 0], [6, len, 5], [-3, -len, -2.5], (i, j, k) => (j <= 3 ? (j === 0 || (i + k) % 2 ? BONE : GUM) : (h3(i, j, k, 31) < 0.04 ? BONE : sk2(i, j, k, 12))), 'top',
+        (i, j, k, [w, h, d]) => {
+          const cx = 2.5 + Math.sin(j * 0.45 + sd) * 1.2, ck = 2;
+          if (j <= 3) return hook ? (Math.hypot(i - cx, k - ck) <= 1.6 || (j <= 1 && (i === 0 || i === w - 1 || k === d - 1))) : Math.hypot(i - cx, k - ck) <= 2.2;
+          return Math.hypot(i - cx, k - ck) <= 1.3 || (h3(i, j, k, 33) < 0.05 && Math.hypot(i - cx, k - ck) <= 2.3);   // espinas
+        }, 'torso');
+      const trunk = (w, h, d, amtThorn, ribs) => {
+        const base = (a, b, c, dm) => { const t = b / (dm[1] - 1), rr = 1 - Math.abs(t - 0.4) * 0.5; return ell(a, b, c, dm, 1 / rr, 0.95, 1 / rr); };
+        P('torso', [0, 12, 0], [w, h, d], [-w / 2, 0, -d / 2], (i, j, k, dm) => {
+          if (!base(i, j, k, dm)) return BONE;                                                     // púas
+          if (ribs && k >= dm[2] - 2 && j > 4 && j < dm[1] - 3 && j % 3 === 0) return BONE;        // costillas de espina
+          if ((i * 3 + k + j * 2) % 13 === 0) return GLX;
+          return (i + k) % 5 === 0 ? BARK : sk2(i, j, k);
+        }, 'bottom', (i, j, k, dm) => {
+          if (base(i, j, k, dm)) return true;
+          // púa: un vóxel fuera de la superficie, en puntos sueltos
+          if (h3(i >> 1, j >> 1, k >> 1, 21) > amtThorn) return false;
+          const c = [(dm[0] - 1) / 2, (dm[1] - 1) / 2, (dm[2] - 1) / 2];
+          const di = Math.sign(c[0] - i), dk = Math.sign(c[2] - k);
+          return base(i + di, j, k + dk, dm) && !base(i + di * 2, j, k + dk * 2, dm) === false;
+        });
+      };
+      // cada versión es una mezcla de rasgos: tronco (t), raíces (r), brazos (arm), cuello (nk), flor (fl),
+      // vainas de semillas (pods), flores laterales (side)
+      const PODS = [[-5, 8, 6], [5, 12, 6], [0, 15, 7], [-4, 16, -6], [6, 5, -5]];
+      const CFG = {
+        a: { r: 3, t: [17, 18, 14, 0.06, false], arm: [24, true], nk: [29, 1, 6, 3, 3], fl: [41, 4, 10, 13, { petals: 6, rows: 2, lobe: 0.5, boneTips: true, drool: true }], h: 3.1 },
+        b: { r: 1, t: [16, 16, 15, 0.03, true], arm: [27, true], nk: [24, 3, 7, 7, 3], fl: [30, 12, 12, 12, { petals: 7, rows: 2, lobe: 0.35, eyes: 6, drool: true }], h: 2.8 },
+        c: { r: 2, t: [15, 20, 13, 0.02, false], arm: [20, false], nk: [31, 0, 8, 3, 2.6], fl: [44, 3, 9, 12, { petals: 5, rows: 1, lobe: 0.45 }], pods: 5, side: [30, 12, 5], h: 3.3 },
+        d: { r: 2, t: [16, 18, 13, 0.1, true], arm: [24, true], nk: [29, 1, 7, 4, 2.8], fl: [42, 5, 10, 13, { petals: 8, rows: 2, lobe: 0.55, boneTips: true, slit: true }], h: 3.1, dark: true },
+        // ---- mezclas ----
+        // AB «Coloso jorobado»: el tronco enorme con púas de A, encorvado como B; la flor gigante cuelga delante con el anillo de ojos
+        ab: { r: 3, t: [18, 17, 16, 0.06, true], arm: [28, true], nk: [25, 3, 7, 8, 3.2], fl: [31, 13, 12, 13, { petals: 7, rows: 2, lobe: 0.45, eyes: 6, boneTips: true, drool: true }], h: 2.9 },
+        // AB bicéfala: le han cortado la cabeza y le han salido dos
+        ab2: { r: 3, t: [18, 17, 16, 0.06, true], arm: [28, true], twin: [24, 9, 6, 9, 10], fl: [0, 0, 0, 0, { petals: 7, rows: 2, lobe: 0.45, eyes: 6, boneTips: true, drool: true }], h: 2.9 },
+        // AC «Gran madre»: el tronco colosal de A lleno de vainas, flor principal con dos filas de dientes y dos flores laterales
+        ac: { r: 3, t: [18, 19, 14, 0.05, false], arm: [24, true], nk: [31, 1, 7, 3, 3], fl: [43, 4, 10, 13, { petals: 6, rows: 2, lobe: 0.5, boneTips: true, drool: true }], pods: 5, side: [31, 13, 6], h: 3.3 },
+        // BC «Madre jorobada»: encorvada, flor colgando con el anillo de ojos, flores laterales y vainas
+        bc: { r: 2, t: [16, 17, 15, 0.03, true], arm: [27, false], nk: [25, 3, 7, 7, 3], fl: [31, 12, 11, 12, { petals: 7, rows: 2, lobe: 0.4, eyes: 6, drool: true }], pods: 4, side: [27, 11, 5], h: 2.9 },
+        // CD «Madre de espinas»: la madre de C pero oscura y cubierta de púas, flores con pupila de rendija
+        cd: { r: 2, t: [16, 20, 13, 0.09, true], arm: [22, true], nk: [31, 1, 8, 3, 2.8], fl: [44, 3, 10, 13, { petals: 8, rows: 2, lobe: 0.55, boneTips: true, slit: true }], pods: 5, side: [30, 12, 5], h: 3.3, dark: true },
+      };
+      const C = CFG[S.slice(2)] || CFG.a;
+      roots(C.r); trunk(...C.t);
+      vineArm(-1, C.arm[0], C.arm[1]); vineArm(1, C.arm[0], C.arm[1]);
+      if (C.pods) for (const [x, y, z] of PODS.slice(0, C.pods))
+        P('pod' + x + '_' + y, [x, 12 + y, z], [4, 5, 4], [-2, -2, -2], (i, j, k) => (h3(i, j, k, 41) < 0.5 ? GLX : [GLX[0] * 0.7, GLX[1] * 0.7, GLX[2] * 0.6, 0.5]), null, (i, j, k, dm) => ell(i, j, k, dm), 'torso');
+      if (C.twin) {
+        // dos cuellos que salen de los hombros, cada uno con su flor
+        const [ny, nh, out, R, D] = C.twin;
+        for (const sd of [-1, 1]) {
+          const nm = sd < 0 ? 'neck' : 'neck2';
+          const [hx, hy] = sideNeck(nm, 'torso', sd * 5, ny, 3, nh, sd, out, 2.4);
+          flower(sd < 0 ? 'head' : 'head2', nm, hx, hy + R - 2, 5, R, D, C.fl[4]);
+        }
+      } else {
+        sNeck('neck', 'torso', 0, ...C.nk);
+        flower('head', 'neck', 0, ...C.fl);
+      }
+      if (C.side) for (const sd of [-1, 1]) {
+        const nm = sd < 0 ? 'stalkL' : 'stalkR';
+        const [hx, hy] = sideNeck(nm, 'torso', sd * 6, C.side[0], 0, C.side[1], sd, 6, 1.6);
+        flower(sd < 0 ? 'headL' : 'headR', nm, hx, hy + 4, 1, C.side[2], C.side[2] + 3, { petals: 5, rows: 1, lobe: 0.4, slit: C.fl[4].slit, boneTips: C.fl[4].boneTips });
+      }
+      return { parts, height: C.h, width: 1.6, v, depth: 1.2 };
+    }
+    // n4 BULBO: planta carnívora con patas de raíz
+    const BARK = [SK[0] * 0.75, SK[1] * 0.7, SK[2] * 0.62], LEAF = [SK[0] * 0.6 + 0.12, SK[1] * 0.8 + 0.12, SK[2] * 0.5];
+    const rootFn = (i, j, k) => (j <= 1 ? BARK : skin(i, j, k, 11));
+    P('legL', [-3.5, 11, 0], [6, 11, 7], [-3, -11, -3.5], rootFn, 'top', (i, j, k, [w, h, d]) => j <= 2 ? (i + k) % 2 === 0 || Math.hypot(i - 2.5, k - 3) < 1.8 : Math.hypot(i - 2.5, k - 3) <= 2.2);
+    P('legR', [3.5, 11, 0], [6, 11, 7], [-3, -11, -3.5], rootFn, 'top', (i, j, k, [w, h, d]) => j <= 2 ? (i + k) % 2 === 1 || Math.hypot(i - 2.5, k - 3) < 1.8 : Math.hypot(i - 2.5, k - 3) <= 2.2);
+    P('torso', [0, 11, 0], [13, 16, 11], [-6.5, 0, -5.5], (i, j, k, [w, h, d]) => {
+      if ((i * 3 + k) % 7 === 0 && j % 2 === 0) return GL;   // vetas que brillan
+      if ((i + k) % 4 === 0) return BARK;
+      return skin(i, j, k);
+    }, 'bottom', (i, j, k, [w, h, d]) => { const t = j / (h - 1), rr = 1 - Math.abs(t - 0.45) * 0.55; return ell(i, j, k, [w, h, d], 1 / rr, 0.95, 1 / rr); });
+    // hojas que salen del tronco
+    for (const sd of [-1, 1]) P(sd < 0 ? 'leafL' : 'leafR', [sd * 6, 18, 0], [9, 3, 7], [sd < 0 ? -9 : 0, -2, -3.5], (i, j) => (j === 1 ? LEAF : [LEAF[0] * 0.7, LEAF[1] * 0.7, LEAF[2] * 0.7]), null,
+      (i, j, k, [w, h, d]) => { const t = sd < 0 ? (w - 1 - i) / (w - 1) : i / (w - 1); const yj = h - 1 - Math.round(t * t * 2.5); return j === yj && Math.abs(k - 3) <= 3.4 * Math.sin(Math.PI * Math.max(0.08, t * 0.95)); }, 'torso');
+    // lianas por brazos, con un capullo pequeño en la punta
+    for (const sd of [-1, 1]) P(sd < 0 ? 'armL' : 'armR', [sd * 7.5, 25, 0], [4, 20, 4], [-2, -20, -2], (i, j, k, [w, h, d]) => (j <= 3 ? (j === 1 && k === d - 1 ? TOOTH : GUM) : skin(i, j, k, 12)), 'top',
+      (i, j, k, [w, h, d]) => j <= 3 ? Math.hypot(i - 1.5, k - 1.5) <= 2 : Math.hypot(i - 1.5 - Math.sin(j * 0.5) * 0.8, k - 1.5) <= 1.1, 'torso');
+    sNeck('neck', 'torso', 0, 27, 0, 7, 2, 2.2);
+    // cabeza-flor: una trompeta de pétalos abierta hacia delante, con un anillo de dientes en el borde
+    // y un ojo enorme al fondo de la garganta
+    P('head', [0, 31, 2], [15, 15, 9], [-7.5, -3, -2], (i, j, k, [w, h, d]) => {
+      const ci = (w - 1) / 2, cj = (h - 1) / 2, rr = Math.hypot(i - ci, j - cj), out = 2.2 + k * 0.62;
+      if (k <= 1 && rr < 1.8) return EYE;                                  // el ojo, al fondo
+      if (rr < out - 1.3) return k >= d - 2 ? TOOTH : GUM;                 // por dentro: carne y dientes en el borde
+      if (k === d - 1 || (k === d - 2 && h3(i, j, k, 3) < 0.4)) return GL; // borde de los pétalos que brilla
+      return (Math.floor(Math.atan2(j - cj, i - ci) * 5 / Math.PI) & 1) ? SK : [SK[0] * 1.12, SK[1] * 1.05, SK[2] * 1.05];
+    }, 'bottom', (i, j, k, [w, h, d]) => {
+      const ci = (w - 1) / 2, cj = (h - 1) / 2, rr = Math.hypot(i - ci, j - cj), a = Math.atan2(j - cj, i - ci);
+      const out = 2.2 + k * 0.62 + (k > 3 ? Math.max(0, Math.cos(a * 5)) * (k - 3) * 0.35 : 0);   // cinco pétalos que se abren
+      const inner = k <= 1 ? -1 : out - 1.4;
+      return rr <= out && rr >= inner;
+    }, 'neck');
+    P('jaw', [0, 31, 2], [5, 2, 4], [-2.5, -5, -1], () => GUM, null, () => true, 'head');
+    return { parts, height: 2.4, width: 1.0, v, depth: 0.7 };
+  }
+
   function hydra(cfg) {
     const S = cfg.hstyle || VX.HYDRA_STYLE || 'actual';
     const v = cfg.v;
@@ -721,6 +988,7 @@
     const SK = cfg.skin, SKD = [SK[0] * 0.65, SK[1] * 0.65, SK[2] * 0.65], SKL = [SK[0] * 1.2, SK[1] * 1.15, SK[2] * 1.1];
     const h3 = (i, j, k, s) => M.hash3(i + s * 13, j + s * 7, k + s * 3);
     if (S === 'bestia' || S === 'masa' || S.startsWith('boca')) return hydraShape(S, cfg);
+    if (/^n\d[a-d]{0,2}\d?$/.test(S)) return hydraNew(S, cfg);
     let c2 = { ...cfg };
     if (S === 'tentaculos') c2 = { ...cfg, arm: [3, 32, 3], head: [10, 9, 9], headFwd: 2, claws: false };
     if (S === 'brotes') c2 = { ...cfg, pustules: false };

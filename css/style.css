@@ -631,3 +631,8 @@ body.cb #prompt .cmpUp { color: #6fb6ff; } body.cb #prompt .cmpDn { color: #ffb3
 
 .presetRow { display: flex; gap: 8px; }
 .presetRow button { flex: 1; }
+
+/* mando: sin controles táctiles y con un foco visible en los menús */
+body.padOn #touchUI { display: none !important; }
+.padFocus { outline: 3px solid #ffd76a !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(255, 215, 106, 0.25) !important; }
+.padHelp { grid-column: 1 / -1; font-size: 13px; line-height: 1.6; opacity: 0.85; text-align: left; }

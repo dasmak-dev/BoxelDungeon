@@ -101,6 +101,10 @@
     populateNeighbors(game, room) {
       const exits = room.exits;
       if (!exits.length) return;
+      // mazmorra cooperativa: las salas nuevas las genera el anfitrión y manda la «receta» a los demás
+      const coop = VX.Coop.active && game.mode === 'dungeon';
+      if (coop && VX.Coop.isClient) { VX.Coop.applyNeighbors(game, room); return; }
+      const recipes = coop ? [] : null;
       let types;
       if (room.type === 'boss') types = exits.map((_, i) => (i === 0 ? (this.shopBan > 0 ? 'reward' : 'shop') : i === 1 && this.roomsSinceSave >= 3 ? 'save' : 'reward'));
       else if (room.plannedTypes && room.plannedTypes.length === exits.length) types = room.plannedTypes.slice();   // ya decididos (mapa)
@@ -124,11 +128,16 @@
         const t = types[i];
         const ent = VX.Room.OPP[side];
         const nexits = this.planExits(ent, t, t === 'boss');
-        const n = game.world.addNeighbor(room, side, t, nexits, t === 'boss' && this.finalPending && !this.secret ? 5 : zone, { lateralBoss });
+        const nz = t === 'boss' && this.finalPending && !this.secret ? 5 : zone;
+        const seed = (Math.random() * 2147483647) | 0;
+        const n = VX.Coop.seeded(seed, () => game.world.addNeighbor(room, side, t, nexits, nz, { lateralBoss }));
+        n.rid = (room.rid || 'S') + '.' + side;
         if (pushBoss && t === 'normal') n.bossNext = true;
         if (t === 'boss') n.bossKind = this.secret ? 'guardian' : this.finalPending ? 'corazon' : VX.ZONES[zone].boss;
+        if (recipes) recipes.push({ side, t, ex: nexits, z: nz, lb: lateralBoss ? 1 : 0, seed, bn: n.bossNext ? 1 : 0, bk: n.bossKind || null, ev: n.event || null });
         if (game.mapReveal > 0) this.planFor(game, n);
       });
+      if (recipes) VX.Coop.sendNeighbors(game, room, recipes);
     }
 
     // Decide ya los tipos de sala que habrá tras las puertas de 'n' (lo que muestra el mapa)
@@ -311,6 +320,7 @@
     }
 
     onEnter(game, room) {
+      const client = VX.Coop.isClient && game.mode === 'dungeon';   // cooperativo: los enemigos los pone el anfitrión
       this.roomsSinceSave = room.type === 'save' ? 0 : (this.roomsSinceSave || 0) + 1;
       this.roomsSinceMap = room.type === 'map' ? 0 : (this.roomsSinceMap || 99) + 1;
       if (this.shopBan > 0) this.shopBan--;
@@ -318,7 +328,7 @@
       if (this.history.length > 6) this.history.shift();
       if (room.type === 'boss') this.roomsSinceBoss = 0;
       else { this.roomsSinceBoss++; if (this.secret && room.type === 'normal') this.secret.rooms--; }
-      switch (room.type) {
+      switch (client && (room.type === 'normal' || room.type === 'boss') ? 'none' : room.type) {
         case 'normal': {
           const D = this.difficulty(game.floor);
           const n = this.enemyCount(room, game.floor);

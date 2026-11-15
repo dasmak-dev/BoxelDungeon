@@ -104,6 +104,8 @@
 
     // ---------------- Partidas ----------------
     newGame() { this.startRun(null); }
+    // mazmorra cooperativa: misma semilla para la primera sala; el resto lo manda el anfitrión
+    startCoopDungeon(seed, rng) { this.startRun(null, { coop: true, seed, rng }); }
 
     continueGame() {
       const data = VX.Save.peek();
@@ -111,8 +113,8 @@
       this.startRun(data);
     }
 
-    startRun(save) {
-      if (VX.Coop.active || VX.Net.code) { VX.Coop.stop(); VX.Net.leave(); }
+    startRun(save, opts = {}) {
+      if (!opts.coop && (VX.Coop.active || VX.Net.code)) { VX.Coop.stop(); VX.Net.leave(); }
       this.mode = 'dungeon';
       this.ambientMul = 1;
       { const hp = document.getElementById('hordePerks'); if (hp) hp.innerHTML = ''; }
@@ -141,7 +143,10 @@
         VX.Save.clear();
       } else {
         this.floor = 0;
-        first = this.world.addStart('start', 0, this.spawner.planExits('zn', 'start', false).concat().slice(0, 3));
+        const rnd0 = Math.random;
+        if (opts.rng) Math.random = opts.rng;   // cooperativo: la primera sala sale igual en todos
+        try { first = this.world.addStart('start', 0, this.spawner.planExits('zn', 'start', false).concat().slice(0, 3)); } finally { Math.random = rnd0; }
+        first.rid = 'S';
         this.applyPerks();
       }
       this.player.dashCdBase = VX.Profile.dashCooldown();
@@ -261,7 +266,7 @@
 
     // Guardar y salir (suspender): sólo se puede reanudar una vez y se borra al morir
     saveAndQuit() {
-      if (this.mode === 'horde') { this.abandonRun(); return; }
+      if (this.mode === 'horde' || VX.Coop.active) { this.abandonRun(); return; }
       const r = this.currentRoom, Sp = this.spawner;
       const snap = { floor: this.floor, bossPending: !!(r.cleared && r.bossNext), zone: this.zone,
         spawner: Sp.snapshot() };
@@ -408,6 +413,8 @@
         const n = cr.doors[s].neighbor;
         if (n && !cr.doors[s].closed && n.insideDeep(P.x, P.z)) { this.enterRoom(n); return; }
       }
+      // cooperativo (invitado): los zombis, las oleadas y cuándo se despeja la sala los decide el anfitrión
+      if (VX.Coop.isClient) return;
       if (cr.ambushAt) {
         // silencio tenso: el ambiente y la música se apagan justo antes de que salten
         if (!cr.ducked) { cr.ducked = true; VX.Audio.duck && VX.Audio.duck(Math.max(0.6, cr.ambushAt - this.time + 0.15)); }
@@ -479,6 +486,7 @@
       VX.Horde.reset();
       this.hud.roomT = 0;
       this.spawner.onEnter(this, r);
+      if (VX.Coop.active) VX.Coop.roomEntered(this, r);
       if (r.template && r.template.event && r.type === 'normal') { this.hud.banner(r.template.name.toUpperCase(), r.template.sub, 3.2); VX.Audio.roar && VX.Audio.roar(); }
       // las salas siguientes se generan ya, detrás de puertas cerradas
       this.spawner.populateNeighbors(this, r);
@@ -498,7 +506,9 @@
     }
 
     clearRoom(r, silent) {
+      if (r.cleared && VX.Coop.isClient) return;
       r.cleared = true;
+      if (VX.Coop.isHost && this.mode === 'dungeon') VX.Net.send({ k: 'clear', rid: r.rid, s: silent ? 1 : 0 });
       // las salidas quedan desbloqueadas pero cerradas: se abren al acercarte
       if (!silent) {
         VX.Audio.door();
@@ -1430,6 +1440,7 @@
     // Bajar por la escalera secreta: todo se desvanece y empiezas en el Vacío
     enterSecret() {
       if (this.spawner.secret) return;
+      if (VX.Coop.active) { this.hud.toast('Las escaleras secretas no se pueden bajar en cooperativo'); return; }
       VX.Audio.door(); VX.Audio.phase && VX.Audio.phase();
       const floor = this.floor + 1;
       this.world.keepOnly([]);
@@ -2028,6 +2039,7 @@
       if (this.gibs.length > gMax) this.gibs.splice(0, this.gibs.length - gMax);
 
       this.updateProjectiles(dt);
+      this.updateSap(dt);
       this.bullets.update(dt, this);
       this.updateSpikes(dt);
       if (this.currentRoom) for (const p of this.currentRoom.props) if (p.lit > 0 || p.burning > 0) p.update(dt, this);
@@ -2174,6 +2186,7 @@
             // el saco revienta y salen crías
             for (let k = 0; k < 2; k++) this.spawner.spawnZombieNear(this, p.x, p.z, 1.2, p.spawn);
           }
+          if (p.sap) (this.sapPuddles || (this.sapPuddles = [])).push({ x: p.x, z: p.z, y: this.world.groundAt(p.x, p.z), t: 7, seed: Math.random() * 9 });
           if (p.acid) {
             VX.Audio.flesh();
             // el ácido corroe los objetos que alcanza
@@ -2182,6 +2195,30 @@
         }
       }
       this.projectiles = this.projectiles.filter((p) => !p.dead);
+    }
+
+    // charcos de savia de la hidra: frenan y queman un poco
+    updateSap(dt) {
+      const L = this.sapPuddles; this.inSap = false;
+      if (!L || !L.length) return;
+      const P = this.player;
+      for (const s of L) {
+        s.t -= dt;
+        if (Math.hypot(P.x - s.x, P.z - s.z) < 1.1 && P.y - s.y < 0.3) this.inSap = true;
+        if (Math.random() < dt * 3) this.particles.spawn(s.x + M.rand(-0.6, 0.6), s.y + 0.05, s.z + M.rand(-0.6, 0.6), 0, M.rand(0.2, 0.6), 0, 0.5, 0.95, 0.25, 0.03, 0.6, 1, 1);
+      }
+      if (this.inSap && this.state === 'playing') { this.dmgSrc = 'La savia de la hidra'; P.damage(3 * dt, undefined, undefined, this, true); this.dmgSrc = null; }
+      this.sapPuddles = L.filter((s) => s.t > 0);
+    }
+    renderSap(b) {
+      if (!this.sapPuddles) return;
+      for (const s of this.sapPuddles) {
+        const k = Math.min(1, s.t / 1.5);
+        for (let i = 0; i < 7; i++) {
+          const a = i * 0.9 + s.seed, r = i ? 0.55 : 0;
+          b.box(s.x + Math.cos(a) * r, s.y + 0.02, s.z + Math.sin(a) * r, 0.75 * k, 0.03, 0.75 * k, 0.35, 0.75, 0.2, 0.45);
+        }
+      }
     }
 
     updateShockwaves(dt) {
@@ -2327,6 +2364,7 @@
       this.pickups.render(b);
       this.weapon.renderTracers(b);
       this.renderBlasts(b);
+      this.renderSap(b);
       this.renderGas();
       this.bullets.render(b, this.time);
       this.world.renderTorches(b, this.time, vis);

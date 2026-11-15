@@ -208,8 +208,8 @@
     }
 
     // Corazón pequeño (cura al recogerlo)
-    dropHeart(x, y, z, amount = 10) {
-      this.gold.push({ x, y, z, vx: M.rand(-1.5, 1.5), vy: M.rand(3, 5), vz: M.rand(-1.5, 1.5), t: 0, value: 0, heal: amount, delay: 0.5 });
+    dropHeart(x, y, z, amount = 10, regen = false) {
+      this.gold.push({ x, y, z, vx: M.rand(-1.5, 1.5), vy: M.rand(3, 5), vz: M.rand(-1.5, 1.5), t: 0, value: 0, heal: amount, delay: 0.5, regen });
     }
 
     // item: { kind:'upgrade'|'heal', up?, price, x,y,z, title, desc, color, shape }
@@ -253,6 +253,7 @@
         }
         if (g.delay <= 0 && d < 0.7) {
           this.gold.splice(i, 1);
+          if (g.regen) { game.player.heal(g.heal); game.player.regenT = 8; VX.Audio.orb(); game.hud.toast('Corazón de hidra: regeneras vida unos segundos'); continue; }
           if (g.heal) { game.player.heal(g.heal); VX.Audio.orb(); game.hud.toast(`+${g.heal} de vida`); continue; }
           if (g.ammo) {
             if (game.weapon.addAmmo(g.ammo)) { VX.Audio.reload(); game.hud.toast('+munición'); }
@@ -435,7 +436,7 @@
           const s = 0.035, by = g.y + 0.05 + Math.sin(g.t * 3) * 0.03;
           for (const [a, b] of [[-1, 1], [1, 1], [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [-1, -1], [0, -1], [1, -1], [0, -2]]) {
             M.qRot(q, a * s, b * s, 0, tmp);
-            batch.rbox(g.x + tmp[0], by + tmp[1], g.z + tmp[2], s, s, s, q, 1, 0.15, 0.2, 0.8);
+            if (g.regen) batch.rbox(g.x + tmp[0], by + tmp[1], g.z + tmp[2], s, s, s, q, 0.45, 1, 0.3, 0.9); else batch.rbox(g.x + tmp[0], by + tmp[1], g.z + tmp[2], s, s, s, q, 1, 0.15, 0.2, 0.8);
           }
           continue;
         }

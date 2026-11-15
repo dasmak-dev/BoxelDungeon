@@ -91,11 +91,13 @@
     last = now;
     if (realDt < 1) autoQuality(realDt);
     try {
+      VX.Pad.poll(dt, game);
       game.update(dt);
       VX.Touch.update(game, dt);
       game.render();
     } catch (e) { console.error(e); }
     VX.Input.endFrame();
+    VX.Pad.endFrame();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

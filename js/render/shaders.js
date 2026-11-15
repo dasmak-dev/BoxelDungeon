@@ -96,6 +96,8 @@ uniform vec4 u_gfRect[2];        // rectángulo de cada sala (x0, z0, x1, z1): l
 uniform vec4 u_gfHoles[8];       // huecos que abren el jugador, los disparos y las explosiones: x, z, radio, fuerza
 
 out vec4 o_color;
+uniform float u_gamma;   // ajuste de brillo (exponente; <1 aclara las sombras)
+vec3 lift(vec3 c) { return pow(max(c, vec3(0.0)), vec3(u_gamma)); }
 
 float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -287,7 +289,7 @@ void main() {
     col += vec3(0.04, 0.05, 0.06) * pow(max(rip.x * rip.y, 0.0), 3.0);
     col = applyGroundFog(col, v_world, 0.0);
     float fog = smoothstep(u_fogNear, u_fogFar, v_depth);
-    o_color = vec4(mix(col, u_fogColor, fog), 1.0);
+    o_color = vec4(lift(mix(col, u_fogColor, fog)), 1.0);
     return;
   }
 
@@ -321,7 +323,7 @@ void main() {
     vec3 cc = (wc * (2.51 * wc + 0.03)) / (wc * (2.43 * wc + 0.59) + 0.14);
     cc = pow(clamp(cc, 0.0, 1.0), vec3(1.0 / 2.2));
     float fog0 = smoothstep(u_fogNear, u_fogFar, v_depth);
-    o_color = vec4(mix(cc, u_fogColor, fog0), 1.0);
+    o_color = vec4(lift(mix(cc, u_fogColor, fog0)), 1.0);
     return;
   }
 
@@ -389,10 +391,10 @@ void main() {
     // cristal: casi transparente de frente, más reflejo en ángulo y con los brillos
     float ndv = max(dot(n, V), 0.0);
     float a = 0.12 + pow(1.0 - ndv, 3.0) * 0.55 + clamp(dot(spec, vec3(0.3, 0.5, 0.2)) * 0.6, 0.0, 0.5);
-    o_color = vec4(col + vec3(0.015, 0.02, 0.03), clamp(a, 0.0, 0.85));
+    o_color = vec4(lift(col + vec3(0.015, 0.02, 0.03)), clamp(a, 0.0, 0.85));
     return;
   }
-  o_color = vec4(col, 1.0);
+  o_color = vec4(lift(col), 1.0);
 }`,
 
   depthVertex: `#version 300 es

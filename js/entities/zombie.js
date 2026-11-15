@@ -37,7 +37,7 @@
     revenant: { name: 'Renacido', hp: 80, speed: 2.0, dmg: 13, gold: [0, 0], reach: 1.15, lean: 0.18, revenant: true },
     revpile: { name: 'Restos del renacido', hp: 40, speed: 0, dmg: 0, gold: [0, 0], reach: 0, lean: 0, pile: true },
     // hidra: todo lo que le rompes le vuelve a crecer y de cada trozo arrancado brota otra; sólo muere por la cabeza
-    hydra: { name: 'Hidra', hp: 75, speed: 1.55, dmg: 12, gold: [6, 9], reach: 1.05, lean: 0.1, hydra: true },
+    hydra: { name: 'Hidra', hp: 150, speed: 1.45, dmg: 14, gold: [8, 12], reach: 1.7, lean: 0.06, hydra: true },
     hydrabud: { name: 'Brote de hidra', hp: 28, speed: 0, dmg: 0, gold: [0, 0], reach: 0, lean: 0, pile: true, grows: 'hydra' },
   };
 
@@ -88,6 +88,10 @@
     return [0, 2, 4].includes(zone) ? 'carne' : 'morado';
   }
 
+  // partes que cuentan como «cabeza» de la hidra (la flor, sus babas y, en la bicéfala, la segunda flor)
+  const game_time = () => (VX.game ? VX.game.time : 0);
+  const HEADS = (p) => /^head2?$/.test(p.name) || (p.parent && /^head2?$/.test(p.parent)) || /^head2?drool/.test(p.name);
+
   class Zombie {
     constructor(kind, x, z, floor, opts = {}) {
       const T = TYPES[kind];
@@ -98,7 +102,7 @@
       this.champion = !!opts.champion;
       const cfg = VX.Models.zombieConfigs[kind];
       const hpal = T.hydra || T.grows ? hydraPal(x, z) : null;   // la hidra (y sus brotes) cambian de color según el bioma
-      let model = T.knight ? VX.Models.knight(cfg) : T.hydra ? VX.Models.hydra({ ...cfg, hstyle: 'boca3', hpal }) : T.pile ? VX.Models.pile(T.grows ? { ...cfg, flesh: 'hydra-' + hpal } : cfg) : T.fly ? VX.Models.crow(cfg) : T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
+      let model = T.knight ? VX.Models.knight(cfg) : T.hydra ? VX.Models.hydra({ ...cfg, hstyle: VX.HYDRA_STYLE || (opts.twin ? 'n4ab2' : 'n4ab'), hpal: VX.HYDRA_PAL || hpal }) : T.pile ? VX.Models.pile(T.grows ? { ...cfg, flesh: 'hydra-' + hpal } : cfg) : T.fly ? VX.Models.crow(cfg) : T.quad ? VX.Models.quadruped(cfg) : VX.Models.humanoid(cfg);
       if (T.shield) model = VX.Models.addShield(model, cfg);
       if (cfg.tool) model = VX.Models.addTool(model, cfg);
       // el arquero lleva además una espada corta envainada para cuando lo acorralan
@@ -176,9 +180,11 @@
       if (T.knight) { this.swordOut = true; this.regenQ = []; this.coreHp = this.hp; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.body.byName.torso) this.body.byName.torso.noBreak = true; }
       if (T.hydra && !opts.gen && VX.game && VX.game.hud && !VX.game.hydraWarned) {   // la primera vez, que se sepa qué es
         VX.game.hydraWarned = true;
-        VX.game.hud.banner('¡UNA HIDRA!', 'Le vuelve a crecer todo: sólo muere si le revientas la cabeza', 3);
+        VX.game.hud.banner('¡UNA HIDRA!', 'Revienta la flor (dentro de la boca abierta, x4). El fuego cauteriza sus heridas', 3.5);
       }
-      if (T.hydra) { this.regenQ = []; this.gen = opts.gen || 0; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.gen) this.spawnT = 0.3; }   // orig: lo que vuelve a crecer   // orig: lo que hay que reconstruir; el torso no se parte (lleva el corazón)
+      if (T.hydra) { this.sap = 0; this.woundQ = []; this.mouthOpen = 0; this.biteCd = M.rand(2, 4); this.hspitCd = M.rand(3, 6); this.eatCd = 2; this.twin = !!opts.twin; this.mother = !!opts.mother;
+        if (opts.mother) { this.maxHp = this.hp = this.hp * 1.8; this.dmg = Math.round(this.dmg * 1.3); for (const p of this.body.parts) for (const v of p.vox) if (v.e > 0.5) { v.r = Math.min(1, v.r * 1.2); } }
+        this.regenQ = []; this.gen = opts.gen || 0; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.gen) this.spawnT = 0.3; }   // orig: lo que vuelve a crecer   // orig: lo que hay que reconstruir; el torso no se parte (lleva el corazón)
       if (T.pile) { this.spawnT = 0; this.gen = opts.gen || 1; this.pileT = 8; this.pileMax = 8; this.maxHp = this.hp = 65 + this.gen * 22; this.body.hitPad = 0.05; }
       if (T.grows) { this.pileT = this.pileMax = 3.5; this.maxHp = this.hp = 28; this.body.hitPad = 0.06; }   // brote de hidra: poco tiempo para romperlo   // vida fija (no crece con el nivel) y algo de margen al apuntar
       // un renacido que vuelve: más grande, más rápido, más duro y con los ojos en llamas
@@ -261,6 +267,7 @@
       }
 
       if (this.T.knight || this.T.hydra) this.knightRegen(dt, game);
+      if (this.T.hydra) { this.mouthOpen = Math.max(0, this.mouthOpen - dt); this.twinGrowT = Math.max(0, (this.twinGrowT || 0) - dt); this.updateWounds(dt, game); }
       // hielo, veneno y descarga (munición especial)
       if (this.chillT > 0) { this.chillT -= dt; b.flash = Math.max(b.flash, 0.12); if (Math.random() < 0.12) game.particles.spawn(this.x + M.rand(-0.3, 0.3), this.y + M.rand(0.3, 1.6), this.z + M.rand(-0.3, 0.3), 0, M.rand(-0.3, 0.2), 0, 0.75, 0.93, 1, 0.022, 0.6, 0.7, 1); }
       if (this.stunT > 0) this.stunT -= dt;
@@ -355,13 +362,14 @@
       } else if (this.state === 'chargeWind') {
         want = 0;
         if (Math.random() < 0.4) game.particles.spawn(this.x + M.rand(-0.4, 0.4), this.y + 0.05, this.z + M.rand(-0.4, 0.4), M.rand(-1, 1), M.rand(0.5, 2), M.rand(-1, 1), 0.3, 0.27, 0.25, 0.06, 0.6);
-        if (this.stateT <= 0) { this.state = 'charge'; this.stateT = 1.25; this.chargeHit = false; VX.Audio.dash(); }
+        if (this.stateT <= 0) { this.state = 'charge'; this.stateT = this.T.hydra ? 0.45 : 1.25; this.chargeHit = false; VX.Audio.dash(); if (this.T.hydra) this.mouthOpen = 0.6; }
       } else if (this.state === 'charge') {
-        gx = this.chargeX; gz = this.chargeZ; want = 1; spdOverride = 7 + Math.min(3, game.floor * 0.1);
+        gx = this.chargeX; gz = this.chargeZ; want = 1; spdOverride = this.T.hydra ? 8.5 : 7 + Math.min(3, game.floor * 0.1);
         if (!this.chargeHit && dist < 1.25 && Math.abs(P.y - this.y) < 1.2) {
           this.chargeHit = true;
-          P.damage(this.dmg * 1.3, this.x, this.z, game);
-          P.knock(this.chargeX * 9, this.chargeZ * 9, 4);
+          P.damage(this.dmg * (this.T.hydra ? 1.5 : 1.3), this.x, this.z, game);
+          if (this.T.hydra) { P.grabT = 1.1; game.hud.toast('¡Te ha atrapado!'); }   // mordisco: te sujeta y te frena
+          else P.knock(this.chargeX * 9, this.chargeZ * 9, 4);
           VX.Audio.punch(); game.shake(0.6);
         }
         if (this.stateT <= 0) { this.state = 'chase'; this.chargeCd = M.rand(4.5, 7.5); }
@@ -404,6 +412,14 @@
               if (dist < lo) { gx = -toX * 1.4 + tx * 0.35; gz = -toZ * 1.4 + tz * 0.35; want = 1.1; }   // retrocede de espaldas, mirándote
               else { gx = tx + toX * (dist - (lo + hi) / 2) * 0.15; gz = tz + toZ * (dist - (lo + hi) / 2) * 0.15; want = 0.35; }
             }
+            break;
+          }
+          case 'hydra': {
+            const r = this.hydraBrain(dt, game, dist, toX, toZ);
+            if (r) { gx = r.gx; gz = r.gz; want = r.want; break; }
+            if (this.state === 'chargeWind') { want = 0; break; }
+            this.approachRing(game, dist, toX, toZ, stopDist);
+            gx = this.gx; gz = this.gz; want = this.want;
             break;
           }
           case 'exploder': {
@@ -583,7 +599,7 @@
         this.windup -= dt;
         if (this.windup <= 0) {
           if (this.raising) { this.raising = false; this.attackCd = 0.5; this.windup = 0; return; }
-          if (this.spitting) this.spit(game);
+          if (this.spitting) { if (this.T.hydra) this.hydraSpit(game); else this.spit(game); }
           else if (dist < this.attackReach + 0.45 && Math.abs(P.y - this.y) < 1.2) {
             let dmg = this.dmg;
             if (this.biter) { dmg *= this.T.quad ? 1 : 0.8; VX.Audio.bite(); }
@@ -853,6 +869,23 @@
       P_.torso.ax = mix(S.torso, C.torso) + fl.x; P_.torso.az = mix(S.torsoZ, C.torsoZ) + fl.z;
       P_.head.ax = mix(S.head, C.head) + fl.x * 1.4; P_.head.az = mix(S.headZ, C.headZ) + fl.z * 1.2;
       if (P_.shield) { P_.shield.ax = -0.05 + fl.x * 0.5; P_.shield.az = Math.sin(this.walkT) * 0.04; }
+      if (T.hydra) {
+        // la hidra: brazos-liana colgando que se balancean, cuello que se mece y se echa atrás antes de morder
+        const t = this.walkT, open = this.mouthOpen > 0 ? 1 : 0;
+        if (this.windup <= 0 && this.climbing <= 0) { P_.armL.ax = mix(-0.25 + Math.sin(t) * 0.3, C.armL); P_.armR.ax = mix(-0.25 - Math.sin(t) * 0.3, C.armR); P_.armL.az = -0.18; P_.armR.az = 0.18; }
+        const wind = this.state === 'chargeWind' ? 1 : 0, lunge = this.state === 'charge' ? 1 : 0;
+        for (const nm of ['neck', 'neck2']) {
+          const N = P_[nm]; if (!N) continue;
+          N.ax = Math.sin(t * 0.6 + (nm === 'neck2' ? 1.7 : 0)) * 0.09 - wind * 0.45 + lunge * 0.55 + (this.eating ? 0.7 : 0) + fl.x;
+          N.az = Math.sin(t * 0.4 + (nm === 'neck2' ? 2 : 0)) * 0.08;
+        }
+        for (const nm of ['head', 'head2']) {
+          const H = P_[nm]; if (!H) continue;
+          H.ax = -open * 0.25 + Math.sin(t * 1.3) * 0.05 + (open ? Math.sin(game_time() * 40) * 0.03 : 0);
+          H.az = Math.sin(t * 0.7 + (nm === 'head2' ? 1 : 0)) * 0.1;
+        }
+        S.pitch = 0.05;
+      }
       this.animExtras(dt, k);
       b.pitch = mix(S.pitch, C.pitch);
       if (this.spawnT <= 0) b.yOff = mix(S.yOff, C.yOff);
@@ -1177,7 +1210,8 @@
         b.flash = 1;
         const resH = this.knightCarve(() => b.afterCarve(b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, dh[0], 0.6, dh[2], 20), game.gibs, dh[0] * 3, 2, dh[2] * 3), game);
         this.kx += dh[0] * 5; this.kz += dh[2] * 5;
-        return this.hydraAfter(resH, dh, game);
+        if (!game.visualOnly) this.burn = Math.max(this.burn || 0, 1.5);   // la explosión cauteriza
+        return this.hydraAfter(resH, dh, game, true);
       }
       if (!game.visualOnly) this.hp -= dmg;
       b.flash = 1;
@@ -1283,6 +1317,15 @@
       if (this.T.explode) game.queueExplosion({ x: this.x, y: this.y + 0.8, z: this.z, R: 2.6, dmg: 42 + game.floor * 2, selfK: 1, delay: 0.25 });
       else if (game.weapon.mods.corpseBlast) game.queueExplosion({ x: this.x, y: this.y + 0.7, z: this.z, R: game.weapon.mods.bigCorpse ? 2.8 : 1.7, dmg: game.weapon.mods.bigCorpse ? 70 : 40, selfK: 0, delay: 0.3 });
       if (game.weapon.mods.burnHeal && this.burn > 0) game.player.heal(5);
+      // hidra limpia: quemada o sin brotes vivos -> oro extra y, a veces, su corazón (regenera vida)
+      if (this.T.hydra && !(game.noReward || (VX.Coop.isClient && !game.localAct))) {
+        const buds = game.enemies.some((e) => !e.dead && e !== this && (e.T.grows || e.T.hydra));
+        if (this.cauterized || !buds) {
+          game.pickups.dropGold(this.x, this.y + 1, this.z, M.randInt(6, 10));
+          if (Math.random() < (this.cauterized ? 0.6 : 0.35)) game.pickups.dropHeart(this.x, this.y + 1.2, this.z, 10, true);
+          game.hud.toast(this.cauterized ? '¡Hidra cauterizada! Botín extra' : '¡Hidra sin brotes! Botín extra');
+        }
+      }
       // pirómano: los que mueren quemados devuelven combustible
       if (game.weapon.mods.pyro && this.burn > 0) { const fl = game.weapon.slots.find((x) => x.id === 'flamer'); if (fl) fl.ammo = Math.min(game.weapon.magFor('flamer'), fl.ammo + Math.ceil(game.weapon.magFor('flamer') * 0.1)); }
       // adrenalina: cada muerte acelera un poco (hasta 3 veces)
@@ -1344,11 +1387,12 @@
     knightRegen(dt, game) {
       const b = this.body;
       if (this.dead || !b) return;
-      if (this.T.hydra && !game.visualOnly && !VX.Coop.isClient) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.2 * dt);   // la vida también vuelve
+      if (this.T.hydra && this.burn > 0) return;   // el fuego cauteriza: mientras arde no se regenera
+      if (this.T.hydra && !game.visualOnly && !VX.Coop.isClient) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.12 * dt);   // la vida también vuelve
       // las partes arrancadas vuelven a crecer desde la articulación (primero el padre, luego lo que cuelga)
       for (const p of b.parts) {
         if (!p.detached || p.weak) continue;
-        if (this.T.hydra && (p.name === 'head' || p.parent === 'head')) continue;   // la cabeza de la hidra no vuelve
+        if (this.T.hydra && HEADS(p)) continue;   // la cabeza de la hidra no vuelve
         const par = p.parent && b.byName[p.parent];
         if (par && par.detached) continue;
         if (!p.regrowT) { p.regrowT = this.T.hydra ? M.rand(2.5, 3.5) : M.rand(4, 5.5); continue; }
@@ -1419,45 +1463,98 @@
     // Se le puede arrancar todo (piernas, brazos, medio cuerpo) y le vuelve a crecer; de cada trozo
     // arrancado brota otra hidra si no rompes el brote a tiempo. Sólo muere si le revientas la cabeza.
     hydraHit(hit, dmg, ray, game, opts) {
-      const b = this.body, dir = [ray.dx, ray.dy, ray.dz], pn = hit.part.name;
-      const head = pn === 'head' || hit.part.parent === 'head';
-      if (!game.visualOnly) this.hp -= dmg * (head ? 2.5 : 0.6);
+      const b = this.body, dir = [ray.dx, ray.dy, ray.dz];
+      const head = HEADS(hit.part);
+      // la flor es el punto débil; con la boca abierta, mucho más (x4)
+      const open = head && this.mouthOpen > 0;
+      if (!game.visualOnly) this.hp -= dmg * (head ? (open ? 4 : 2.5) : 0.6);
+      if (open) { game.hud.hitmarker && game.hud.hitmarker(true); for (let i = 0; i < 6; i++) game.particles.spawn(hit.vox.wx, hit.vox.wy, hit.vox.wz, M.rand(-2, 2), M.rand(1, 3), M.rand(-2, 2), 1, 0.9, 0.3, 0.03, 0.5, 1, 1); }
       b.flash = 0.8;
       const res = this.knightCarve(() => b.afterCarve(b.cutFor(hit, dmg, ray, opts, game.weapon.destruction, game.particles), game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5), game);
       const ex = hit.vox.wx, ey = hit.vox.wy, ez = hit.vox.wz;
       game.particles.blood(ex, ey, ez, -dir[0] * 0.5, 0.3, -dir[2] * 0.5, 5);
-      for (let i = 0; i < 3; i++) game.particles.spawn(ex, ey, ez, -dir[0] + M.rand(-0.6, 0.6), M.rand(0, 1.2), -dir[2] + M.rand(-0.6, 0.6), 0.5, 0.9, 0.25, 0.022, 0.5, 0.6);   // savia verde
+      for (let i = 0; i < 3; i++) game.particles.spawn(ex, ey, ez, -dir[0] + M.rand(-0.6, 0.6), M.rand(0, 1.2), -dir[2] + M.rand(-0.6, 0.6), 0.5, 0.9, 0.25, 0.022, 0.5, 0.6);   // savia
       VX.Audio.flesh();
-      this.kx += dir[0] * (0.6 + dmg / 40); this.kz += dir[2] * (0.6 + dmg / 40);
-      if (game.weapon.mods.fire && !(opts && opts.slash) && !game.visualOnly) this.burn = 3;
-      return this.hydraAfter(res, dir, game);
+      this.kx += dir[0] * (0.4 + dmg / 60); this.kz += dir[2] * (0.4 + dmg / 60);
+      const fireHit = (game.weapon.def && game.weapon.def.flame && game.dmgSource === 'gun') || (game.weapon.mods.fire && !(opts && opts.slash)) || (game.weapon.mods.magnesium && game.weapon.stats().pellets > 1);
+      if (fireHit && !game.visualOnly) this.burn = Math.max(this.burn || 0, 3);
+      // heridas que brotan: el daño al cuerpo se acumula como savia; al pasar del umbral, la herida
+      // burbujea y, si no la quemas a tiempo, brota otra hidra de ahí
+      if (!head && !game.visualOnly && !(this.burn > 0)) this.addSap(dmg, ex, ey, ez, game);
+      return this.hydraAfter(res, dir, game, fireHit);
     }
-    hydraAfter(res, dir, game) {
-      const b = this.body, h = b.byName.head;
+    addSap(dmg, x, y, z, game) {
+      this.sap = (this.sap || 0) + dmg;
+      const th = this.maxHp * 0.35;
+      if (this.sap < th || VX.Coop.isClient) return;
+      this.sap -= th;
+      if (this.woundQ.length < 3) this.woundQ.push({ x, y, z, t: 1.4, dx: x - this.x, dz: z - this.z, dy: y - this.y });
+      if (!game.sapHint) { game.sapHint = true; game.hud.toast('¡La herida burbujea! Quémala o va a brotar otra hidra'); }
+    }
+    hydraAfter(res, dir, game, caut) {
+      const b = this.body;
       // lo que pierde la cabeza no vuelve a crecer
-      if (this.regenQ) this.regenQ = this.regenQ.filter((r) => !(r.p.name === 'head' || r.p.parent === 'head'));
-      if (h && (h.detached || res.head === 'detached' || res.head === 'severed' || b.broken('head', 0.5))) {
+      if (this.regenQ) this.regenQ = this.regenQ.filter((r) => !HEADS(r.p));
+      const gone = (n) => { if (this.twinGrowT > 0) return false; const h = b.byName[n]; return !h || h.detached || res[n] === 'detached' || res[n] === 'severed' || b.broken(n, 0.5); };
+      const headsDown = this.twin ? gone('head') && gone('head2') : gone('head');
+      if (this.twin && !game.visualOnly) for (const n of ['head', 'head2']) { const h = b.byName[n]; if (h && !h.detached && gone(n)) { b.detach(n, game.gibs, dir[0] * 3, 2.5, dir[2] * 3); game.hud.toast('¡Una cabeza menos! Queda otra'); } }
+      if (headsDown) {
         if (game.visualOnly) return false;
-        if (!h.detached) b.detach('head', game.gibs, dir[0] * 3, 2.5, dir[2] * 3);
+        for (const n of ['head', 'head2']) { const h = b.byName[n]; if (h && !h.detached) b.detach(n, game.gibs, dir[0] * 3, 2.5, dir[2] * 3); }
         game.stats.headshots++;
         VX.Profile.add('headshots', 1, game);
         VX.Profile.addW(this.lastW, 'heads', 1, game);
-        this.allowDie = true; this.hp = 0; this.regenQ = [];
+        // corta una cabeza y salen dos: si no la has quemado ni volado, del cuello brotan dos
+        const burnt = caut || this.burn > 0 || game.dmgSource === 'blast';
+        if (!this.twin && !burnt && !this.gen && !VX.Coop.isClient) { this.becomeTwin(game, dir); return false; }
+        this.cauterized = burnt;
+        this.allowDie = true; this.hp = 0; this.regenQ = []; this.woundQ = [];
         this.die(dir, game);
         return true;
       }
       if (game.visualOnly) return false;
       const was = new Set(b.parts.filter((p) => p.detached).map((p) => p.name));
       this.knightAfter(res, dir, game);
-      // de cada trozo arrancado puede brotar otra
-      const cut = b.parts.filter((p) => p.detached && !was.has(p.name) && p.name !== 'head' && p.parent !== 'head' && p.total > 6);
-      if (res.torso === 'halved') {
-        cut.push(b.byName.torso);
-        if (!this.crawling) { this.crawling = true; this.rising = false; this.fallT = FALL_TIME; this.windup = 0; }
-      }
-      for (const p of cut) this.sprout(game, p, dir);
-      if (!this.hydraHint && game.hud) { this.hydraHint = true; game.hud.toast('Le vuelve a crecer todo y los trozos brotan: ¡revienta la cabeza!'); }
+      // de cada brazo arrancado también puede brotar otra (si no está ardiendo)
+      const cut = b.parts.filter((p) => p.detached && !was.has(p.name) && !HEADS(p) && /^(arm|leg)/.test(p.name) && p.total > 6);
+      if (!(this.burn > 0) && !caut) for (const p of cut) this.sprout(game, p, dir);
+      if (!this.hydraHint && game.hud) { this.hydraHint = true; game.hud.toast('Le vuelve a crecer todo: dispara dentro de la flor cuando abra la boca'); }
       return false;
+    }
+    // la cabeza cortada se convierte en dos
+    becomeTwin(game, dir) {
+      const old = this.body;
+      const twin = new Zombie('hydra', this.x, this.z, game.floor, { y: this.y, twin: true, mother: this.mother });
+      const b = twin.body;
+      b.yaw = old.yaw; b.x = this.x; b.y = this.y; b.z = this.z;
+      // las cabezas nuevas crecen desde el cuello
+      this.regenQ = [];
+      for (const p of b.parts) {
+        if (!/^(neck2?|head2?)/.test(p.name) && !(p.parent && /^(neck2?|head2?)/.test(p.parent))) continue;
+        for (const v of p.vox) if (v.alive) { v.alive = false; p.alive--; this.regenQ.push({ p, v, t: 0.1 + Math.min(1.5, Math.max(0, v.y + 0.5) * 0.45) + Math.random() * 0.25 }); }
+        VX.updateExposure(p);
+      }
+      for (const p of b.parts) for (const v of p.vox) v.orig = v.alive || this.regenQ.some((r) => r.v === v);
+      this.body = b; this.twin = true; this.twinGrowT = 2.2;
+      this.hp = this.maxHp * 0.7;
+      b.computeWorld();
+      game.shake(0.3); VX.Audio.roar();
+      for (let i = 0; i < 30; i++) game.particles.spawn(this.x, this.y + 2.3, this.z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), 0.5, 0.9, 0.25, 0.04, 0.8, 0.6);
+      game.hud.banner('¡LE SALEN DOS CABEZAS!', 'Córtale la cabeza con fuego o explosivos… o rómpele las dos', 2.6);
+    }
+    // heridas que burbujean y brotan (si no se queman antes)
+    updateWounds(dt, game) {
+      if (!this.woundQ.length) return;
+      for (const w of this.woundQ) {
+        w.t -= dt;
+        const cy = Math.cos(this.body.yaw), sy = Math.sin(this.body.yaw);
+        const x = this.x + w.dx, y = this.y + w.dy, z = this.z + w.dz;
+        if (Math.random() < 0.6) game.particles.spawn(x + M.rand(-0.1, 0.1), y, z + M.rand(-0.1, 0.1), M.rand(-0.5, 0.5), M.rand(0.5, 1.5), M.rand(-0.5, 0.5), 0.55, 1, 0.3, M.rand(0.03, 0.06), 0.5, 1, 1);
+        void cy; void sy;
+        if (this.burn > 0) { w.t = -99; for (let i = 0; i < 8; i++) game.particles.spawn(x, y, z, M.rand(-1, 1), M.rand(1, 2), M.rand(-1, 1), 0.2, 0.2, 0.2, 0.05, 0.8, 0); continue; }   // cauterizada
+        if (w.t <= 0) { w.t = -99; this.sprout(game, { wp: [x, y, z] }, [w.dx, 0, w.dz]); VX.Audio.flesh(); }
+      }
+      this.woundQ = this.woundQ.filter((w) => w.t > -50);
     }
     sprout(game, p, dir) {
       if (VX.Coop.isClient || (this.gen || 0) >= 2) return;
@@ -1473,6 +1570,56 @@
       bud.body.yaw = Math.random() * 6.28; bud.body.computeWorld();
       game.enemies.push(bud);
       for (let i = 0; i < 10; i++) game.particles.spawn(x, bud.y + 0.2, z, M.rand(-1.5, 1.5), M.rand(1, 3), M.rand(-1.5, 1.5), 0.5, 0.9, 0.25, 0.03, 0.7, 0.6);
+    }
+    // conducta propia de la hidra: mordisco en embestida, escupitajo de savia y comer cadáveres
+    hydraBrain(dt, game, dist, toX, toZ) {
+      const P = game.player;
+      this.biteCd -= dt; this.hspitCd -= dt; this.eatCd -= dt;
+      if (this.eating) {
+        // comiendo un cadáver: se cura y echa un brote
+        this.eatT -= dt; this.mouthOpen = 0.3;
+        if (Math.random() < 0.4) game.particles.blood(this.eating.body.x, this.y + 0.3, this.eating.body.z, M.rand(-1, 1), 1.5, M.rand(-1, 1), 2);
+        if (this.eatT <= 0) {
+          const c = this.eating; this.eating = null;
+          c.life = Math.min(c.life, 0.2);
+          this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.35);
+          this.sprout(game, { wp: [c.body.x, this.y, c.body.z] }, [0, 0, 0]);
+          VX.Audio.bite && VX.Audio.bite();
+          this.eatCd = 8;
+        }
+        return { gx: 0, gz: 0, want: 0 };
+      }
+      // ¿un cadáver cerca y tú lejos? va a comérselo
+      if (this.eatCd <= 0 && dist > 5 && game.corpses.length && !VX.Coop.isClient) {
+        let best = null, bd = 7;
+        for (const c of game.corpses) { if (!c.body || c.life < 3) continue; const d = Math.hypot(c.body.x - this.x, c.body.z - this.z); if (d < bd) { bd = d; best = c; } }
+        if (best) {
+          if (bd < 1.4) { this.eating = best; this.eatT = 1.6; if (!game.eatHint) { game.eatHint = true; game.hud.toast('¡La hidra se está comiendo un cadáver!'); } return { gx: 0, gz: 0, want: 0 }; }
+          const l = bd || 1;
+          return { gx: (best.body.x - this.x) / l, gz: (best.body.z - this.z) / l, want: 1.1 };
+        }
+        this.eatCd = 1;
+      }
+      // mordisco en embestida: abre la flor (punto débil x4), se echa atrás y se lanza
+      if (this.los && dist > 2.2 && dist < 5.5 && this.biteCd <= 0 && Math.abs(P.y - this.y) < 1.2) {
+        this.state = 'chargeWind'; this.stateT = 0.75; this.chargeX = toX; this.chargeZ = toZ; this.mouthOpen = 1.3;
+        this.biteCd = M.rand(4, 6.5); VX.Audio.roar(); game.shake(0.12);
+        return null;
+      }
+      // escupitajo de savia a distancia (deja un charco que frena)
+      if (this.los && dist > 6 && dist < 14 && this.hspitCd <= 0 && this.windup <= 0) {
+        this.windup = 0.7; this.windTotal = 0.7; this.spitting = true; this.mouthOpen = 0.9; this.hspitCd = M.rand(4, 7);
+      }
+      return null;
+    }
+    hydraSpit(game) {
+      const P = game.player, h = this.body.byName.head && !this.body.byName.head.detached ? this.body.byName.head : this.body.byName.head2;
+      const sx = h && h.wp ? h.wp[0] : this.x, sy = h && h.wp ? h.wp[1] : this.y + 2.4, sz = h && h.wp ? h.wp[2] : this.z;
+      const tx = P.x + P.vx * 0.4, tz = P.z + P.vz * 0.4;
+      const d = Math.hypot(tx - sx, tz - sz), T = 0.5 + d * 0.05;
+      game.projectiles.push({ x: sx, y: sy, z: sz, vx: (tx - sx) / T, vy: (P.y + 0.5 - sy + 0.5 * 18 * T * T) / T, vz: (tz - sz) / T,
+        dmg: this.dmg * 0.7, life: 3, rot: 0, col: [0.55, 0.95, 0.25], glow: 0.8, blastR: 0.4, blockDmg: 15, acid: true, size: 0.08, sap: true, src: 'Un escupitajo de la hidra' });
+      VX.Audio.bite && VX.Audio.bite();
     }
 
     // ---------------- Restos del renacido ----------------
@@ -1491,6 +1638,18 @@
     }
     updatePile(dt, game) {
       this.pileT -= dt;
+      // dos brotes que se tocan se funden en una hidra madre
+      if (this.T.grows && !VX.Coop.isClient && !game.visualOnly) for (const o of game.enemies) {
+        if (o === this || o.dead || !o.T.grows || Math.hypot(o.x - this.x, o.z - this.z) > 1.4) continue;
+        this.dead = o.dead = true;
+        const x = (this.x + o.x) / 2, z = (this.z + o.z) / 2;
+        const m = new Zombie('hydra', x, z, game.floor, { y: game.world.groundAt(x, z), gen: Math.max(this.gen || 1, o.gen || 1), mother: true });
+        game.enemies.push(m);
+        game.shake(0.3); VX.Audio.roar();
+        for (let i = 0; i < 30; i++) game.particles.spawn(x, m.y + 0.5, z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), 0.5, 0.9, 0.25, 0.05, 0.9, 0.6);
+        game.hud.banner('¡HIDRA MADRE!', 'Dos brotes se han fundido: más grande, más fuerte', 2.5);
+        return;
+      }
       this.pileVisual(dt, game);
       if (this.pileT <= 0 && !game.visualOnly) {
         // ¡se levanta otra vez! (en el cooperativo, los demás quitan sus restos sin «destrozarlos»)

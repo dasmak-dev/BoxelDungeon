@@ -224,12 +224,13 @@
     // Apuntado asistido: con el dedo apuntar es más difícil que con el ratón. Si la mira pasa
     // cerca de un enemigo, el giro se frena (más fácil quedarse encima) y la mira se arrastra un
     // poco hacia él, sólo mientras mueves el dedo o disparas (nunca apunta sola).
-    assist(game, dt) {
+    assist(game, dt, padLooking) {
       this.friction = 1;
       const S = VX.Settings.data;
       if (S.aimAssist === false || !dt) return;
       let looking = false;
       for (const s of this.touches.values()) if (s.role === 'look' || s.act === 'fire' || s.act === 'aim') looking = true;
+      if (padLooking) looking = true;
       const firing = I.mouseDown;
       if (!looking && !firing) { this.lookMoved = false; return; }
       const P = game.player, W = game.weapon, st = W.stats();
@@ -292,6 +293,7 @@
   const Haptics = {
     last: 0,
     buzz(ms, force) {
+      if (VX.Pad && VX.Pad.active) { if (VX.Settings.data.vibrate !== false) VX.Pad.rumble(Array.isArray(ms) ? ms.reduce((a, b) => a + b, 0) : ms, (Array.isArray(ms) ? 300 : ms) > 120); return; }
       if (!force && (!Touch.on || VX.Settings.data.vibrate === false)) return;
       if (!navigator.vibrate) return;
       const now = performance.now();
