@@ -89,7 +89,7 @@
         if (this.dashCd <= 0) { this.dashStock++; this.dashCd = this.dashStock < this.dashMax ? cdFull : 0; }
       }
       this.dashGap -= dt;
-      const rifle = game.weapon.slot && game.weapon.slot.id === 'rifle';   // con el rifle, el clic derecho apunta
+      const rifle = game.weapon.slot && (game.weapon.slot.id === 'rifle' || game.weapon.slot.id === 'dual');   // con el rifle, el clic derecho apunta (y con las pistolas dobles dispara la izquierda)
       if ((I.wasPressed(KS.key('dash')) || (I.rightClicked && !rifle)) && !VX.Coop.down && !VX.Coop.deadWait && this.dashStock > 0 && this.dashGap <= 0 && this.dashT <= 0) {
         if (this.dashStock === this.dashMax) this.dashCd = cdFull;
         this.dashStock--; this.dashGap = 0.22;

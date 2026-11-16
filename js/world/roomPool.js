@@ -1160,9 +1160,16 @@
         const k = cands.findIndex(([a, b]) => free(a, b));
         if (k < 0) break;
         const [a, b] = cands.splice(k, 1)[0];
+        const c = lcenter(r, F, a, b, a + 1, b + 1);
+        if (what === 'keys') {
+          // la máquina de chicles va en el suelo; un bloque invisible hace de cuerpo (no se atraviesa)
+          lbox(r, F, a, b, a + 1, b + 1, 0, 2, T.BARRIER, true);
+          r.features.push({ kind: 'shopSpecial', what, x: c.x, z: c.z, y: 0 });
+          r.features.push({ kind: 'light', x: c.x, y: 2.2, z: c.z, r: 3, c: col });
+          continue;
+        }
         lbox(r, F, a, b, a + 1, b + 1, 0, 0, T.METAL, true);
         lbox(r, F, a, b, a + 1, b + 1, 1, 1, T.GOLDB, true);
-        const c = lcenter(r, F, a, b, a + 1, b + 1);
         r.features.push({ kind: 'shopSpecial', what, x: c.x, z: c.z, y: 1.0 });
         r.features.push({ kind: 'light', x: c.x, y: 2.2, z: c.z, r: 3, c: col });
       }
@@ -1206,9 +1213,13 @@
     name: 'Fuente de almas', w: [28, 32], d: [26, 30],
     build(r) {
       const cx = r.w / 2, cz = Math.floor(r.d / 2);
-      r.box(cx - 2, 0, cz - 2, cx + 1, 0, cz + 1, BL().STONE, true);
-      r.box(cx - 1, 1, cz - 1, cx, 3, cz, BL().CRYSTAL, true);
-      r.features.push({ kind: 'saveAltar', x: r.centerX(), z: r.uZ(cz), y: 2.0 });
+      // (0.58.2) altar escalonado con el cristal bien plantado y cristales pequeños alrededor;
+      // el cristal de descanso se apoya en el escalón (antes flotaba por encima del bloque)
+      r.box(cx - 3, 0, cz - 3, cx + 2, 0, cz + 2, BL().STONE, true);
+      r.box(cx - 2, 1, cz - 2, cx + 1, 1, cz + 1, BL().STONE, true);
+      r.box(cx - 1, 2, cz - 1, cx, 4, cz, BL().CRYSTAL, true);
+      r.box(cx - 2, 2, cz + 1, cx - 2, 2, cz + 1, BL().CRYSTAL, true); r.box(cx + 1, 2, cz - 2, cx + 1, 3, cz - 2, BL().CRYSTAL, true);
+      r.features.push({ kind: 'saveAltar', x: r.centerX(), z: r.uZ(cz - 2) + 0.25, y: 1.0 });
       // pila de ofrendas: oro a cambio de esencia
       r.box(cx - 7, 0, cz - 1, cx - 6, 1, cz, BL().STONE, true);
       r.features.push({ kind: 'offering', x: r.uX(cx - 6), z: r.uZ(cz), y: 1.0 });
@@ -1225,11 +1236,32 @@
     name: 'Sala del cartógrafo', w: [28, 32], d: [26, 30],
     build(r) {
       const cx = r.w / 2, cz = Math.floor(r.d / 2);
+      // (0.57) alfombra, mesa grande con cuatro cristales que proyectan el holograma de la mazmorra
+      r.queue('carpet', r.centerX(), r.uZ(cz) - 0.5, { rot: 0, margin: 2 });
       r.box(cx - 3, 0, cz - 2, cx + 2, 1, cz + 1, BL().PLANK, true);          // mesa grande
+      r.box(cx - 3, 0, cz - 2, cx - 3, 0, cz - 2, BL().WOOD, true); r.box(cx + 2, 0, cz - 2, cx + 2, 0, cz - 2, BL().WOOD, true);
+      r.box(cx - 3, 0, cz + 1, cx - 3, 0, cz + 1, BL().WOOD, true); r.box(cx + 2, 0, cz + 1, cx + 2, 0, cz + 1, BL().WOOD, true);
       r.features.push({ kind: 'mapTable', x: r.centerX(), z: r.uZ(cz), y: 1.15 });
       r.features.push({ kind: 'light', x: r.centerX(), y: 2.2, z: r.uZ(cz), r: 9, c: [1.1, 0.85, 0.5] });
-      for (const [x, z] of [[4, 5], [r.w - 6, 5]]) { r.box(x, 0, z, x + 1, 5, z + 4, BL().PLANK); }   // estanterías de rollos
+      r.features.push({ kind: 'light', x: r.centerX(), y: 2.8, z: r.uZ(cz), r: 6, c: [0.3, 0.75, 1.2] });
+      for (const [dx, dz] of [[-4.5, 0], [3.5, 0], [-1, -3.4], [0, 2.6]]) r.queue('chair', r.uX(cx + dx), r.uZ(cz + dz), { rot: dz < -1 ? 0 : dz > 1 ? 2 : dx < 0 ? 1 : 3 });
+      // estanterías llenas de rollos en las paredes laterales (sin tapar la puerta del centro)
+      for (let uz = 5; uz < r.d - 5; uz += 3) {
+        if (Math.abs(uz - cz) < 5) continue;
+        r.queue('shelf', r.uX(3) + 0.25, r.uZ(uz), { rot: 3 });
+        r.queue('shelf', r.uX(r.w - 4) - 0.25, r.uZ(uz), { rot: 1 });
+      }
+      // mapas colgados al fondo: pergamino con marco de madera y rutas pintadas
+      for (const x0 of [4, r.w - 11]) {
+        const z = r.d - 3;
+        r.box(x0 - 1, 1, z, x0 + 7, 1, z, BL().PLANK, true); r.box(x0 - 1, 6, z, x0 + 7, 6, z, BL().PLANK, true);
+        r.box(x0 - 1, 2, z, x0 - 1, 5, z, BL().PLANK, true); r.box(x0 + 7, 2, z, x0 + 7, 5, z, BL().PLANK, true);
+        r.box(x0, 2, z, x0 + 6, 5, z, BL().HAY, true);
+        r.box(x0 + 1, 4, z, x0 + 3, 4, z, BL().CLOTH, true); r.box(x0 + 3, 3, z, x0 + 3, 3, z, BL().CLOTH, true); r.box(x0 + 4, 2, z, x0 + 5, 2, z, BL().CLOTH, true);
+      }
       for (const [x, z] of [[5, r.d - 7], [r.w - 7, r.d - 7]]) pillar(r, x, z, 2, r.h - 2);
+      for (const [x, z] of [[6, 5], [r.w - 7, 5], [cx - 6, r.d - 5], [cx + 5, r.d - 5]]) r.queue('candles', r.uX(x), r.uZ(z), {});
+      r.queue('table', r.uX(5), r.uZ(r.d - 10), {}); r.queue('flasks', r.uX(5), r.uZ(r.d - 10), {});
     },
   }];
 

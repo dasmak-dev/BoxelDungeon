@@ -6,6 +6,21 @@
   const ctx = () => A.ctx;
   const ok = () => A.ctx && A.enabled !== false && A.noiseBuf;
   const rnd = (a, b) => a + Math.random() * (b - a);
+  const BOOST = 7;   // (0.59.1) la recarga se oía muy floja: más ganancia por pieza…
+  // …y todo pasa por un compresor con ganancia de compensación, para que suene gorda sin saturar
+  let bus = null;
+  function busOut(pan) {
+    const c = ctx();
+    if (!bus || bus.ctx !== c) {
+      const comp = c.createDynamicsCompressor();
+      comp.threshold.value = -24; comp.knee.value = 8; comp.ratio.value = 6; comp.attack.value = 0.002; comp.release.value = 0.12;
+      const mk = c.createGain(); mk.gain.value = 3.4;
+      const dst = A.sfx; if (!dst) return null;   // directo al bus de efectos (nunca a uno posicional)
+      comp.connect(mk); mk.connect(dst);
+      bus = { ctx: c, in: comp };
+    }
+    return bus.in;
+  }
 
   // ---------- piezas sueltas ----------
   // ruido filtrado con ataque suave opcional y barrido del filtro (f → f2)
@@ -18,9 +33,9 @@
     if (f2) fl.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
     const g = c.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + att);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, Math.min(2, vol * BOOST)), t + att);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    const dst = A._out(pan); if (!dst) return;
+    const dst = busOut(pan); if (!dst) return;
     s.connect(fl); fl.connect(g); g.connect(dst);
     if (A.voice && !A.voice(s)) return;
     s.start(t, Math.random() * 0.6); s.stop(t + dur + 0.03);
@@ -33,9 +48,9 @@
     if (f2) o.frequency.exponentialRampToValueAtTime(Math.max(10, f2), t + dur);
     const g = c.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + att);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, Math.min(2, vol * BOOST)), t + att);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    const dst = A._out(pan); if (!dst) return;
+    const dst = busOut(pan); if (!dst) return;
     o.connect(g); g.connect(dst);
     if (A.voice && !A.voice(o)) return;
     o.start(t); o.stop(t + dur + 0.03);
@@ -72,20 +87,22 @@
 
   // ---------- recargas: cada arma, pieza a pieza ----------
   // [momento de la animación (0-1), sonido]. Los momentos coinciden con gunAnim.js
+  // golpe grave de «cuerpo» del arma: lo que hace que una recarga suene contundente
+  const slam = (vol = 0.3, delay = 0, f = 95) => { os(f, 0.12, 'sine', vol, f * 0.55, delay); nz(0.07, vol * 0.8, 600, 'lowpass', delay, 1, undefined, 160); };
   const R = {
-    magOut: () => { click(0.12, 0, undefined, 2600); slide(0.06, 0.012, undefined, 0.09, 1700, 900); rounds(0.03, 0.03); },
+    magOut: () => { click(0.18, 0, undefined, 2600); slide(0.09, 0.012, undefined, 0.09, 1700, 900); rounds(0.05, 0.03); },
     magDrop: () => { thunk(0.07, 0.28, 0.4, 110); knock(0.05, 0.28, 0.4, 700, 3, 0.05); rounds(0.025, 0.29, 0.4, 2); thunk(0.03, 0.39, 0.45, 130); },
-    magIn: () => { slide(0.05, 0, undefined, 0.06, 900, 1500); rounds(0.03, 0.02, undefined, 2); clack(0.24, 0.055, undefined, 750, 140); },
+    magIn: () => { slide(0.07, 0, undefined, 0.06, 900, 1500); rounds(0.05, 0.02, undefined, 2); clack(0.34, 0.055, undefined, 750, 140); slam(0.22, 0.055, 110); },
     slideBack: () => { tick(0.08, 0); slide(0.08, 0.004, undefined, 0.07, 1200, 2400); knock(0.05, 0.07, undefined, 1300, 4, 0.03); },
     slideFwd: () => { slide(0.07, 0, undefined, 0.035, 2400, 1500); clack(0.2, 0.033, undefined, 1100, 190); },
-    boltUp: () => { click(0.1, 0, undefined, 1800); metal(1700, 0.04, 0.005, undefined, 0.1); },
-    boltBack: () => { slide(0.18, 0, undefined, 0.1, 900, 1700); brass(0.04, 0.08, 0.5); },
-    boltFwd: () => { slide(0.09, 0, undefined, 0.06, 1700, 1000); clack(0.16, 0.055, undefined, 950, 200); },
-    boltDown: () => { click(0.14, 0, undefined, 2000); metal(1500, 0.035, 0.005, undefined, 0.12); },
-    cylOpen: () => { click(0.1, 0, undefined, 2600); metal(2600, 0.04, 0.01, undefined, 0.14); },
-    ejectRod: () => { slide(0.06, 0, undefined, 0.05, 1500, 2500); for (let i = 0; i < 6; i++) brass(0.03, 0.12 + i * 0.035 + Math.random() * 0.03, rnd(-0.3, 0.6)); },
-    speedIn: () => { slide(0.05, 0, undefined, 0.06, 1100, 1800); rounds(0.035, 0.03, undefined, 4); click(0.12, 0.06, undefined, 2900); },
-    cylClose: () => { thunk(0.14, 0, undefined, 260); click(0.12, 0.01); for (let i = 0; i < 3; i++) click(0.04, 0.05 + i * 0.03, undefined, 4200); },
+    boltUp: () => { click(0.18, 0, undefined, 1800); metal(1700, 0.08, 0.005, undefined, 0.1); },
+    boltBack: () => { slide(0.26, 0, undefined, 0.1, 900, 1700); knock(0.18, 0.09, undefined, 900, 3, 0.05); brass(0.06, 0.08, 0.5); },
+    boltFwd: () => { slide(0.14, 0, undefined, 0.06, 1700, 1000); clack(0.36, 0.055, undefined, 950, 200); slam(0.3, 0.055, 120); },
+    boltDown: () => { click(0.22, 0, undefined, 2000); metal(1500, 0.07, 0.005, undefined, 0.12); slam(0.14, 0.004, 150); },
+    cylOpen: () => { click(0.2, 0, undefined, 2600); metal(2200, 0.08, 0.01, undefined, 0.14); slam(0.16, 0.01, 140); },
+    ejectRod: () => { slide(0.12, 0, undefined, 0.05, 1500, 2500); knock(0.14, 0.05, undefined, 1100, 4, 0.04); for (let i = 0; i < 6; i++) brass(0.05, 0.12 + i * 0.035 + Math.random() * 0.03, rnd(-0.3, 0.6)); },
+    speedIn: () => { slide(0.09, 0, undefined, 0.06, 1100, 1800); rounds(0.06, 0.03, undefined, 4); click(0.2, 0.06, undefined, 2900); knock(0.16, 0.06, undefined, 800, 3, 0.05); },
+    cylClose: () => { thunk(0.32, 0, undefined, 200); slam(0.38, 0, 100); clack(0.3, 0.004, undefined, 850, 160); for (let i = 0; i < 3; i++) click(0.08, 0.06 + i * 0.03, undefined, 4200); },
     breakOpen: () => { click(0.2, 0, undefined, 1500); os(220, 0.12, 'sawtooth', 0.02, 160, 0.01); metal(800, 0.05, 0.02, undefined, 0.2); },
     shellIn: () => { nz(0.05, 0.06, 1800, 'lowpass', 0, 1); thunk(0.1, 0.035, undefined, 300); },
     shellsOut: () => { nz(0.03, 0.08, 1300, 'bandpass', 0, 2); nz(0.03, 0.07, 1100, 'bandpass', 0.02, 2); thunk(0.04, 0.38, 0.4, 420); thunk(0.04, 0.45, 0.5, 380); },
@@ -140,6 +157,12 @@
         return [[0.04, 'valveOff'], [0.12, 'tankOut'], [0.64, 'tankIn'], [0.75, 'valveOn']];
       case 'raygun':
         return [[0.08, 'cellOut'], [0.62, 'cellIn'], [0.72, 'chargeUp']];
+      case 'dual':
+        return [[0.08, 'magOut'], [0.14, 'magDrop'], [0.5, 'magIn'], [0.62, 'magIn'], [0.77, 'slideBack'], [0.86, 'slideFwd']];
+      case 'nailgun':
+        return [[0.08, 'magOut'], [0.62, 'magIn'], [0.78, 'valveOn']];
+      case 'harpoon':
+        return [[0.3, 'boltLay'], [0.84, 'boltClick']];
     }
     return null;
   }

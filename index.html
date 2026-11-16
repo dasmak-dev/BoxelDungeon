@@ -99,6 +99,7 @@
         <div><b data-key="knife">V</b> cuchillazo rápido</div>
         <div><b data-key="throw">T</b> lanzar granada / molotov / señuelo (<b data-key="throwNext">B</b> cambia)</div>
         <div><b data-key="dash">C</b> / <b>CLIC DCHO</b> esquivar</div>
+        <div><b data-key="kick">X</b> patada · <b data-key="throwGun">Z</b> lanzar el arma</div>
       </div>
       <div id="versionTag"></div>
       <p id="audioHint" class="hint">Haz clic en cualquier parte para activar la música</p>
@@ -288,6 +289,10 @@
       <button class="small keyBind" data-action="throw"></button>
       <label>Tecla: cambiar objeto a lanzar</label>
       <button class="small keyBind" data-action="throwNext"></button>
+      <label>Tecla: patada</label>
+      <button class="small keyBind" data-action="kick"></button>
+      <label>Tecla: lanzar el arma que llevas</label>
+      <button class="small keyBind" data-action="throwGun"></button>
     </div>
     <div class="settingsGrid setPane hidden" data-pane="pad">
       <div class="setSec">Clic (o A) en una acción y pulsa el botón nuevo del mando · Start cancela</div>
@@ -470,6 +475,7 @@
   <script src="js/ui/armory.js"></script>
   <script src="js/ui/sanctuary.js"></script>
   <script src="js/ui/codex.js"></script>
+  <script src="js/ui/cartography.js"></script>
 
   <!-- Arranque -->
   <script src="js/game.js"></script>

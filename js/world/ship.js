@@ -32,7 +32,7 @@
       if (S.t <= 0) {
         S.on = !S.on;
         S.t = S.on ? 35 + S.rng() * 20 : 60 + S.rng() * 50;
-        if (S.on) { game.hud.banner('¡TEMPORAL!', 'Las olas barren la cubierta: ponte a cubierto en los camarotes o en el castillo', 3.5); VX.Audio.thunder(0.1); }
+        if (S.on) { game.hud.banner('¡TEMPORAL!', '¡Ponte a cubierto!', 3.5); VX.Audio.thunder(0.1); }
         else game.hud.toast('La tormenta amaina…');
       }
       S.k += ((S.on ? 1 : 0) - S.k) * Math.min(1, dt * 0.35);

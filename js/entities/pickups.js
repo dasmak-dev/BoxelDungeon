@@ -276,85 +276,189 @@
           const gnd = game.world.groundAt(it.x, it.z);
           if (it.y <= gnd) { it.y = gnd; if (it.vy < -3) { it.vy *= -0.3; } else { it.fall = false; it.vy = 0; } }
         }
-        if (it.spinT > 0) this.spinTick(it, dt, game);
+        // (0.59) un arma que ya llevas no se ofrece: se cambia por otra que no tengas (o se esconde)
+        if (it.kind === 'weapon' && !it.droppedGun && game.weapon.has(it.weapon)) {
+          const alt = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id) && !this.items.some((o) => o !== it && !o.taken && o.kind === 'weapon' && o.weapon === id));
+          if (alt.length) {
+            const id = M.choice(alt), D = VX.Weapons.DEFS[id], old = VX.Weapons.DEFS[it.weapon];
+            if (it.price > 0) { it.price = Math.max(1, Math.round(it.price * D.price / Math.max(1, old.price))); it.basePrice = it.price; }
+            it.weapon = id; it.title = D.name; it.desc = VX.weaponDesc(id); it.hiddenOwned = false;
+          } else it.hiddenOwned = true;
+        } else if (it.hiddenOwned && !game.weapon.has(it.weapon)) it.hiddenOwned = false;
+        if (it.hiddenOwned) continue;
+        if (it.kind === 'keyAltar' && (it.spinT > 0 || (it.candyQ && it.candyQ.length) || (it.candies && it.candies.length) || it.flap > 0)) this.spinTick(it, dt, game);
         const d = Math.hypot(it.x - P.x, it.z - P.z);
         if (d < best) { best = d; this.focus = it; }
       }
       if (this.focus && VX.Input.wasPressed(VX.Settings.key('use'))) this.interact(this.focus, game);
+      // (0.57) en la Horda, el arma lanzada que no recoges desaparece a los 90 s
+      if (game.mode === 'horde') for (const i of this.items) if (i.droppedGun && !i.taken && game.time - i.born > 90) { i.taken = true; game.hud.toast('Has perdido: ' + VX.Weapons.DEFS[i.weapon].name); }
       this.items = VX.M.compact(this.items, (i) => !i.taken);
     }
 
-    // ---- Relicario de las llaves (tienda): una tómbola que se paga con llaves ----
+    // ---- Máquina de chicles (tienda, 0.57): se paga con llaves ----
+    // Metes la llave, la manivela gira, los chicles se agitan en el globo y van saliendo caramelos por la
+    // trampilla: 1 con una llave de madera, 2-3 con una de plata y 3-5 con una de oro. Cada caramelo bota en
+    // el suelo, revienta y suelta UN premio (su color dice qué es: oro, vida, mejora, rara, arma, esencia...).
     spinKeys(it, game) {
-      if (it.spinT > 0) return;
+      if (it.spinT > 0 || (it.candyQ && it.candyQ.length)) return;
       const K = game.keys = game.keys || { wood: 0, silver: 0, gold: 0 };
       const tier = ['gold', 'silver', 'wood'].find((t) => K[t] > 0);   // la mejor que tengas
-      if (!tier) { VX.Audio.deny(); game.hud.toast('Necesitas una llave: las sueltan algunos zombis y salen de vasijas y cajas'); return; }
+      if (!tier) { VX.Audio.deny(); game.hud.toast('Necesitas una llave'); return; }
       K[tier]--; game.hud.setKeys && game.hud.setKeys(K);
       VX.Objectives.keyUsed(game);
-      it.spinT = 1.9; it.spinTier = tier; it.tick = 0;
+      it.spinT = 1.4; it.spinTier = tier; it.tick = 0; it.crank = it.crank || 0;
+      const n = tier === 'wood' ? 1 : tier === 'silver' ? M.randInt(2, 3) : M.randInt(3, 5);
+      it.candyQ = []; for (let k = 0; k < n; k++) it.candyQ.push(this.rollCandy(tier, game));
+      it.candies = it.candies || [];
+      it.ejectT = 0;
       VX.Audio.door && VX.Audio.door();
-      game.hud.toast('Llave ' + VX.KEY_TIERS[tier].name + ' dentro… ¡gira!');
+      game.hud.toast(`Llave ${VX.KEY_TIERS[tier].name} dentro… ¡${n} caramelo${n > 1 ? 's' : ''}!`);
+      // premio especial: los objetivos de partida, si aún no los tienes (más fácil cuanto mejor la llave)
+      if (VX.Profile.objLevel() === 0 && Math.random() < ({ wood: 0.04, silver: 0.12, gold: 0.3 }[tier] || 0)) it.candyQ[0] = { kind: 'obj', col: [1, 1, 1] };
+      VX.Profile.add('keyAltar', 1, game);
+    }
+    // qué trae cada caramelo (y de qué color es)
+    rollCandy(tier, game) {
+      const r = Math.random();
+      const T = {
+        wood: [[0.42, 'gold'], [0.62, 'heart'], [0.76, 'throw'], [0.97, 'up'], [1, 'rare']],
+        silver: [[0.28, 'gold'], [0.38, 'heart'], [0.72, 'up'], [0.86, 'rare'], [0.94, 'ess'], [1, 'gun']],
+        gold: [[0.15, 'gold'], [0.4, 'up'], [0.75, 'rare'], [0.85, 'ess'], [0.95, 'gun'], [1, 'jackpot']],
+      }[tier];
+      const kind = T.find(([p]) => r < p)[1];
+      const COL = { gold: [1, 0.82, 0.15], heart: [1, 0.2, 0.25], throw: [0.3, 0.9, 0.3], up: [0.3, 0.55, 1], rare: [0.75, 0.35, 1], ess: [0.3, 0.95, 1], gun: [1, 0.55, 0.1], jackpot: [1, 1, 1] };
+      return { kind, col: COL[kind], tier };
     }
     spinTick(it, dt, game) {
-      it.spinT -= dt;
-      it.t += dt * 9 * Math.min(1, it.spinT + 0.3);   // gira rápido y va frenando
-      it.tick -= dt;
-      if (it.tick <= 0 && it.spinT > 0) {
-        it.tick = 0.06 + (1.9 - it.spinT) * 0.09;
-        it.cyc = ((it.cyc || 0) + 1) % 3;
-        it.color3 = ['wood', 'silver', 'gold'][it.cyc];
-        VX.Audio.click();
+      // la manivela gira y los chicles se agitan
+      if (it.spinT > 0) {
+        it.spinT -= dt;
+        it.crank = (it.crank || 0) + dt * 7 * Math.min(1, it.spinT + 0.4);
+        it.tick -= dt;
+        if (it.tick <= 0) { it.tick = 0.11; VX.Audio.click(); }
+        if (it.spinT <= 0) { it.spinT = 0; it.ejectT = 0.1; }
       }
-      if (it.spinT <= 0) { it.spinT = 0; it.color3 = it.spinTier; this.keyPrize(it, game); setTimeout(() => { it.color3 = 'gold'; }, 1200); }
+      // salen los caramelos de uno en uno por la trampilla
+      if (!it.spinT && it.candyQ && it.candyQ.length) {
+        it.ejectT -= dt;
+        if (it.ejectT <= 0) {
+          it.ejectT = 0.42;
+          const c = it.candyQ.shift(), f = it.face || 0, fx = Math.sin(f), fz = Math.cos(f), side = M.rand(-0.6, 0.6);
+          c.x = it.x + fx * 0.32; c.z = it.z + fz * 0.32; c.y = it.y + 0.5;
+          c.vx = fx * M.rand(1.6, 2.4) + fz * side; c.vz = fz * M.rand(1.6, 2.4) - fx * side; c.vy = M.rand(2, 3); c.t = 0; c.b = 0;
+          it.candies.push(c);
+          it.flap = 1;
+          if (VX.Audio._tone) { VX.Audio._tone(900 + it.candies.length * 120, 0.08, 'square', 0.05, 1400); }
+        }
+      }
+      if (it.flap > 0) it.flap = Math.max(0, it.flap - dt * 4);
+      // vuelan, botan y revientan dando su premio
+      if (it.candies && it.candies.length) {
+        for (const c of it.candies) {
+          c.t += dt; c.vy -= 12 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt;
+          const g = game.world.groundAt(c.x, c.z);
+          if (c.y < g + 0.05) { c.y = g + 0.05; if (c.b < 2) { c.vy = Math.abs(c.vy) * 0.45; c.vx *= 0.6; c.vz *= 0.6; c.b++; VX.Audio._tone && VX.Audio._tone(1300, 0.04, 'sine', 0.04, 900); } else { c.vy = 0; c.vx *= 0.8; c.vz *= 0.8; } }
+          if (c.t > 1.35 && !c.done) { c.done = true; this.candyPrize(c, game); }
+        }
+        it.candies = it.candies.filter((c) => !c.done);
+      }
     }
-    keyPrize(it, game) {
-      const tier = it.spinTier, r = Math.random(), P = game.player;
-      // los premios salen delante del relicario, hacia ti
-      let dx = P.x - it.x, dz = P.z - it.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
-      const at = (k = 0) => ({ x: it.x + dx * 0.9 + dz * k * 0.6, y: it.y, z: it.z + dz * 0.9 - dx * k * 0.6 });
+    // el caramelo revienta: su premio
+    candyPrize(c, game) {
+      const P = game.player, at = (k = 0) => ({ x: c.x + k * 0.5, y: c.y, z: c.z });
       const up = (kind, k) => { const u = VX.Upgrades.random(1, game, [], kind)[0]; if (u) this.addItem({ kind: 'upgrade', up: u, price: 0, ...at(k), title: u.name + (u.rare ? ' ★ RARA' : ''), desc: u.desc, color: u.color, shape: u.shape }); return !!u; };
-      const gold = (n) => { const a = at(); this.dropGold(a.x, a.y + 0.4, a.z, n); };
-      const thr = (n, k) => { const ty = VX.Throw && VX.Throw.randomType(game.weapon); if (ty) this.addItem({ ...VX.Throw.item(ty, n, 0), ...at(k) }); return !!ty; };
+      const gold = (n) => this.dropGold(c.x, c.y + 0.3, c.z, n);
+      const thr = (n) => { const ty = VX.Throw && VX.Throw.randomType(game.weapon); if (ty) this.addItem({ ...VX.Throw.item(ty, n, 0), ...at() }); return !!ty; };
       const ess = (n) => { VX.Profile.add('essence', n); VX.Profile.save(); game.essenceBanked = (game.essenceBanked || 0) + n; };
-      const gun = (k) => {
+      const gun = () => {
         const list = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));
         if (!list.length) return false;
         const id = M.choice(list), d = VX.Weapons.DEFS[id];
-        this.addItem({ kind: 'weapon', weapon: id, price: 0, ...at(k), title: d.name, desc: 'Gratis, del relicario', color: [1, 0.85, 0.5], shape: 'star' });
+        this.addItem({ kind: 'weapon', weapon: id, price: 0, ...at(), title: d.name, desc: 'Gratis', color: [1, 0.85, 0.5], shape: 'star' });
         return true;
       };
-      let title, sub, big = false;
-      // premio especial: los objetivos de partida, si aún no los tienes (más fácil cuanto mejor la llave)
-      if (VX.Profile.objLevel() === 0 && Math.random() < ({ wood: 0.04, silver: 0.12, gold: 0.3 }[tier] || 0)) {
-        VX.Profile.unlockObjectives(null);
-        title = '¡OBJETIVOS DE PARTIDA!'; sub = 'Desde la próxima partida, cada una trae objetivos que dan esencia'; big = true;
-      } else if (tier === 'wood') {
-        if (r < 0.4) { gold(M.randInt(12, 20)); title = 'MONEDAS'; sub = 'Un puñado de oro'; }
-        else if (r < 0.62) { this.dropHeart(at().x, it.y + 0.4, at().z, 25); title = 'UN CORAZÓN'; sub = '+25 de vida'; }
-        else if (r < 0.8 && thr(2)) { title = 'EXPLOSIVOS'; sub = 'Dos para lanzar'; }
-        else if (r < 0.96) { up('normal'); title = 'UNA MEJORA'; sub = 'Cógela del suelo'; }
-        else { up('rare'); title = '¡PREMIO GORDO!'; sub = 'Una mejora rara con una llave de madera'; big = true; }
-      } else if (tier === 'silver') {
-        if (r < 0.25) { gold(M.randInt(25, 40)); title = 'MUCHO ORO'; sub = 'Una buena bolsa'; }
-        else if (r < 0.6) { up('normal'); gold(8); title = 'UNA MEJORA'; sub = 'Y algo de oro'; }
-        else if (r < 0.78) { up('rare'); title = 'MEJORA RARA'; sub = '★'; big = true; }
-        else if (r < 0.9) { ess(6); title = '+6 DE ESENCIA'; sub = 'Ya es tuya aunque caigas'; }
-        else if (gun()) { title = '¡UN ARMA!'; sub = 'Gratis'; big = true; }
-        else { up('rare'); title = 'MEJORA RARA'; sub = '★'; big = true; }
-      } else {
-        if (r < 0.45) { up('rare'); title = 'MEJORA RARA'; sub = '★'; big = true; }
-        else if (r < 0.65) { up('normal', -1); up('normal', 1); gold(20); title = 'DOS MEJORAS'; sub = 'Y oro'; }
-        else if (r < 0.8 && gun(-1)) { up('normal', 1); title = '¡UN ARMA!'; sub = 'Y una mejora'; big = true; }
-        else if (r < 0.92) { ess(15); gold(15); title = '+15 DE ESENCIA'; sub = 'Para siempre, y algo de oro'; }
-        else { up('rare', -1); up('normal', 1); gold(50); P.heal(P.maxHp); title = '¡¡PREMIO GORDO!!'; sub = 'Mejora rara, mejora, 50 de oro y vida al máximo'; big = true; }
+      let txt = '', big = false;
+      switch (c.kind) {
+        case 'obj': VX.Profile.unlockObjectives(null); txt = '¡OBJETIVOS DE PARTIDA desbloqueados!'; big = true; break;
+        case 'gold': { const n = c.tier === 'wood' ? M.randInt(10, 18) : c.tier === 'silver' ? M.randInt(18, 28) : M.randInt(28, 40); gold(n); txt = `${n} de oro`; break; }
+        case 'heart': this.dropHeart(c.x, c.y + 0.3, c.z, 25); txt = 'Un corazón'; break;
+        case 'throw': if (thr(2)) txt = 'Explosivos'; else { gold(12); txt = 'Oro'; } break;
+        case 'up': up('normal'); txt = 'Una mejora'; break;
+        case 'rare': up('rare'); txt = '★ ¡Mejora rara!'; big = true; break;
+        case 'ess': { const n = c.tier === 'gold' ? 10 : 5; ess(n); txt = `+${n} de esencia`; break; }
+        case 'gun': if (gun()) { txt = '¡Un arma!'; big = true; } else { up('rare'); txt = '★ ¡Mejora rara!'; big = true; } break;
+        case 'jackpot': up('rare', -0.6); up('normal', 0.6); gold(40); P.heal(P.maxHp); txt = '¡¡PREMIO GORDO!! Rara, mejora, oro y vida'; big = true; break;
       }
-      game.hud.banner(title, 'Relicario (llave ' + VX.KEY_TIERS[tier].name + '): ' + sub, big ? 3.2 : 2.2);
-      big ? (VX.Audio.upgrade ? VX.Audio.upgrade() : VX.Audio.reward()) : VX.Audio.reward();
-      if (big) game.shake(0.2);
-      const c = VX.KEY_TIERS[tier].col;
-      for (let i = 0; i < (big ? 60 : 25); i++) game.particles.spawn(it.x, it.y + 0.4, it.z, M.rand(-2, 2), M.rand(1.5, 5), M.rand(-2, 2), c[0], c[1], c[2], 0.04, M.rand(0.6, 1.4), 1, 1);
-      VX.Profile.add('keyAltar', 1, game);
+      game.hud.toast('Caramelo: ' + txt);
+      if (big) { VX.Audio.upgrade ? VX.Audio.upgrade() : VX.Audio.reward(); game.shake(0.15); } else VX.Audio.reward();
+      for (let i = 0; i < (big ? 40 : 18); i++) game.particles.spawn(c.x, c.y + 0.1, c.z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), c.col[0], c.col[1], c.col[2], 0.035, M.rand(0.5, 1.1), 1, 1);
+    }
+    // dibujo de la máquina de chicles (de pie en el suelo, mirando a it.face)
+    renderGumball(batch, it) {
+      const f = it.face || 0, cf = Math.cos(f), sf = Math.sin(f), q = M.qY(f);
+      const W = (lx, ly, lz) => [it.x + lx * cf + lz * sf, it.y + ly, it.z - lx * sf + lz * cf];   // local → mundo (z local = hacia delante)
+      const box = (lx, ly, lz, sx, sy, sz, r, g, b, e = 0) => { const p = W(lx, ly, lz); batch.rbox(p[0], p[1], p[2], sx, sy, sz, q, r, g, b, e); };
+      const RED = [0.72, 0.08, 0.07], RED2 = [0.5, 0.05, 0.05], CHR = [0.78, 0.8, 0.84];
+      // pie y columna
+      box(0, 0.05, 0, 0.56, 0.1, 0.56, ...RED2);
+      box(0, 0.14, 0, 0.46, 0.08, 0.46, ...RED);
+      box(0, 0.45, 0, 0.2, 0.55, 0.2, ...RED);
+      for (const yy of [0.25, 0.65]) box(0, yy, 0, 0.23, 0.03, 0.23, ...CHR, 0.05);
+      // cuerpo con el mecanismo
+      box(0, 0.88, 0, 0.5, 0.32, 0.5, ...RED);
+      box(0, 1.05, 0, 0.54, 0.04, 0.54, ...CHR, 0.05);
+      box(0, 0.88, 0.251, 0.24, 0.24, 0.02, ...CHR, 0.08);                     // placa de la ranura
+      box(0, 0.94, 0.262, 0.1, 0.025, 0.01, 0.05, 0.05, 0.05);                  // ranura de la llave
+      const kc = VX.KEY_TIERS[it.spinT > 0 ? it.spinTier : 'gold'].col;
+      box(0, 0.94, 0.266, 0.06, 0.012, 0.01, kc[0], kc[1], kc[2], it.spinT > 0 ? 0.9 : 0.3);   // luz de la ranura
+      // manivela: eje y brazo que gira
+      box(0, 0.84, 0.29, 0.06, 0.06, 0.06, ...CHR, 0.1);
+      const a = it.crank || 0;
+      for (let k = 1; k <= 3; k++) box(Math.sin(a) * 0.035 * k, 0.84 + Math.cos(a) * 0.035 * k, 0.31, 0.035, 0.035, 0.03, ...CHR, 0.1);
+      box(Math.sin(a) * 0.14, 0.84 + Math.cos(a) * 0.14, 0.33, 0.05, 0.05, 0.06, 0.15, 0.15, 0.15);   // pomo
+      // salida con la trampilla
+      box(0, 0.76, 0.252, 0.14, 0.09, 0.02, 0.05, 0.04, 0.04);
+      box(0, 0.8 - (it.flap || 0) * 0.04, 0.27 + (it.flap || 0) * 0.04, 0.13, 0.015, 0.06, ...CHR, 0.05);
+      // (0.59) globo de cristal en vóxeles: una cáscara de cristal teñida con el color de los chicles
+      // que tiene detrás (así se «ven» dentro sin puntos sueltos), con un brillo arriba a la izquierda
+      const GY = 1.32, GR = 0.3, V = 0.06;
+      if (!it.shell) {
+        const C = [[1, 0.2, 0.25], [1, 0.82, 0.15], [0.3, 0.55, 1], [0.3, 0.9, 0.3], [0.75, 0.35, 1], [1, 0.55, 0.1], [0.95, 0.95, 0.95]];
+        it.shell = [];
+        const n = Math.ceil(GR / V);
+        for (let ix = -n; ix <= n; ix++) for (let iy = -n; iy <= n; iy++) for (let iz = -n; iz <= n; iz++) {
+          const x = ix * V, y = iy * V, z = iz * V, d = Math.hypot(x, y, z);
+          if (d > GR || d < GR - V * 1.05 || y < -GR * 0.75) continue;
+          // chicle «detrás» del cristal: color al azar estable por celda, más lleno abajo
+          const fill = y < GR * 0.35;
+          const ball = fill && ((ix * 7 + iy * 13 + iz * 5) & 3) !== 0 ? C[Math.abs(ix * 3 + iy * 5 + iz * 11) % C.length] : null;
+          const hl = (x < -0.08 && y > 0.12 && z > 0.05 && ((ix + iy) & 1)) ? 1 : 0;   // brillo del cristal
+          it.shell.push({ x, y, z, ball, hl, k: ix * 31 + iy * 17 + iz });
+        }
+      }
+      const spin = it.spinT > 0 ? Math.floor((it.t || 0) * 14) : 0;
+      const C2 = [[1, 0.2, 0.25], [1, 0.82, 0.15], [0.3, 0.55, 1], [0.3, 0.9, 0.3], [0.75, 0.35, 1], [1, 0.55, 0.1], [0.95, 0.95, 0.95]];
+      const G = [0.72, 0.86, 0.95];
+      for (const v of it.shell) {
+        let c = v.ball;
+        if (c && spin) c = C2[(Math.abs(v.k) + spin) % C2.length];   // al girar, los chicles se revuelven
+        let r, g, b, e;
+        if (v.hl) { r = 0.8; g = 0.88; b = 0.95; e = 0.2; }
+        else if (c) { r = c[0] * 0.62 + 0.04; g = c[1] * 0.62 + 0.05; b = c[2] * 0.62 + 0.07; e = 0.04; }
+        else { r = 0.28; g = 0.36; b = 0.44; e = 0.05; }
+        box(v.x, GY + v.y, v.z, V, V, V, r, g, b, e);
+      }
+      box(0, GY - GR * 0.75, 0, 0.5, 0.04, 0.5, ...CHR, 0.05);   // aro de la base del globo
+      // tapa
+      box(0, GY + GR + 0.01, 0, 0.3, 0.06, 0.3, ...RED);
+      box(0, GY + GR + 0.07, 0, 0.1, 0.05, 0.1, ...CHR, 0.08);
+      // los caramelos que van saliendo
+      for (const c of it.candies || []) {
+        const s = 0.085, gl = 0.35 + Math.sin(c.t * 14) * 0.2;
+        batch.box(c.x, c.y + s / 2, c.z, s, s, s, c.col[0], c.col[1], c.col[2], gl);
+        batch.box(c.x - 0.015, c.y + s * 0.8, c.z - 0.015, 0.025, 0.025, 0.025, 1, 1, 1, 0.6);
+      }
     }
 
     interact(it, game) {
@@ -458,15 +562,29 @@
         VX.Profile.save();
         game.essenceBanked = (game.essenceBanked || 0) + it.essence;
         VX.Audio.reward();
-        game.hud.banner('OFRENDA ACEPTADA', `+${it.essence} de esencia (ya es tuya aunque caigas)`, 3);
+        game.hud.banner('OFRENDA ACEPTADA', `+${it.essence} de esencia`, 3);
         if (it.again) { it.taken = false; it.price = Math.round(it.price * 1.5); it.basePrice = it.price; }   // altar de las almas: se repite, más caro
       } else if (it.kind === 'weapon') {
         const r = game.weapon.giveWeapon(it.weapon);
         const name = VX.Weapons.DEFS[it.weapon].name;
+        if (it.slotData) {   // (0.57) el arma que lanzaste: vuelve con su munición y su nivel
+          const sl = game.weapon.slots.find((x) => x.id === it.weapon);
+          if (sl) { const keep = r === 'refill'; Object.assign(sl, it.slotData); if (keep) { sl.ammo = game.weapon.magFor(it.weapon); } }
+          VX.Audio.reload();
+          if (r === 'added' || r === 'refill') { game.hud.toast(name + ' recuperada'); if (it.onTake) it.onTake(game); return; }
+        }
         VX.Audio.upgrade();
         if (r === 'refill') game.hud.banner(name.toUpperCase(), 'Cargador lleno');
-        else if (r === 'added') game.hud.banner('NUEVA ARMA: ' + name.toUpperCase(), 'Cambia de arma con 1·2·3, la rueda o Q');
+        else if (r === 'added') game.hud.banner('NUEVA ARMA: ' + name.toUpperCase(), '');
         else game.hud.banner('NUEVA ARMA: ' + name.toUpperCase(), `Sustituye a: ${VX.Weapons.DEFS[r].name}`);
+        if (it.onTake) it.onTake(game);
+      } else if (it.kind === 'gunUp') {
+        const W = game.weapon, sl = W.slots.find((x) => x.id === it.weapon);
+        if (!sl || (sl.lvl || 1) >= it.toLvl) { game.stats.gold += it.price; it.taken = false; VX.Audio.deny(); game.hud.toast(sl ? 'Esa arma ya tiene ese nivel' : 'No llevas esa arma'); return; }
+        sl.lvl = it.toLvl;
+        sl.ammo = W.magFor(sl.id);
+        VX.Audio.upgrade(); VX.Audio.buy(); VX.Audio.reload();
+        game.hud.banner(VX.Weapons.DEFS[sl.id].name.toUpperCase() + ' ' + (sl.lvl === 3 ? 'III' : 'II'), sl.lvl === 3 ? 'Nivel máximo' : 'Más daño y cargador', 2.5);
         if (it.onTake) it.onTake(game);
       } else if (it.kind === 'throw') {
         VX.Throw.give(game, it.type, it.n || 1);
@@ -532,8 +650,10 @@
       }
       // Objetos flotantes
       for (const it of this.items) {
-        if (it.kind === 'weapon') { this.renderWeapon(batch, it); continue; }
+        if (it.hiddenOwned) continue;
+        if (it.kind === 'weapon' || it.kind === 'gunUp') { this.renderWeapon(batch, it); continue; }
         if (it.kind === 'supply') { this.renderSupply(batch, it); continue; }
+        if (it.kind === 'keyAltar') { this.renderGumball(batch, it); continue; }
         if (it.kind === 'secretChest' || it.kind === 'perk' || it.kind === 'lockdoor') continue;   // se ve el propio cofre / la máquina / la reja
         if (it.kind === 'stairs') {
           // foso con escalones de piedra que bajan hacia la pared y se pierden en la oscuridad
@@ -564,7 +684,7 @@
           // objeto en 3D: gira despacio y flota; en la tienda, quieto sobre el mostrador
           // tamaño según el objeto (las mejoras y las llaves, algo más pequeñas)
           const vs = (it.kind === 'chest' || it.kind === 'rest' ? 0.034 : it.kind === 'upgrade' || it.kind === 'offering' ? 0.03 : it.kind === 'key' ? 0.028 : it.kind === 'keyAltar' ? 0.045 : 0.032), q = M.qY(it.t * 1.1);
-          const by = it.fall ? it.y + 0.05 : it.y + 0.36 + Math.sin(it.t * 2.2) * 0.05;
+          const by = it.fall ? it.y + 0.05 : it.kind === 'rest' || it.kind === 'offering' ? it.y + 0.12 + Math.sin(it.t * 1.5) * 0.015 : it.y + 0.36 + Math.sin(it.t * 2.2) * 0.05;   // (0.58.2) el cristal y la ofrenda, apoyados
           for (const o of mdl) {
             M.qRot(q, o[0] * vs, o[1] * vs, o[2] * vs, tmp);
             batch.rbox(it.x + tmp[0], by + tmp[1], it.z + tmp[2], vs, vs, vs, q, o[3], o[4], o[5], Math.max(o[6], 0.12));

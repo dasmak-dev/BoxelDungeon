@@ -43,35 +43,60 @@
     crossbow: {
       shake: 0.08, art: 'la ballesta', name: 'Ballesta', damage: 140, fireRate: 1.2, range: 60, mag: 1, reload: 1.05, spread: 0.0015,
       pellets: 1, pierce: 4, destruction: 0.4, auto: false, recoil: 0.03, recoilPat: { up: 0.03, side: 0.006 }, kick: 0.05, sound: 0.4,
-      bolt: true, desc: 'Silenciosa; el virote atraviesa a 5 zombis',
+      bolt: true, desc: 'Silenciosa; atraviesa a 5',
       price: 95, vm: { x: 0.15, y: -0.15, z: -0.33, g: 0.0082 }, muzzle: [-0.5, 7, -42],
     },
     dbarrel: {
       shake: 0.5, art: 'la recortada', name: 'Recortada', damage: 13, fireRate: 5, range: 13, mag: 2, reload: 1.8, spread: 0.16,
       pellets: 12, pierce: 0, destruction: 1.7, auto: false, recoil: 0.11, recoilPat: { up: 0.14, side: 0.03 }, kick: 0.12, sound: 2.6,
-      desc: 'Dos disparos brutales seguidos y a recargar',
+      desc: 'Dos tiros brutales',
       price: 90, vm: { x: 0.15, y: -0.14, z: -0.27, g: 0.0078 }, muzzle: [-0.5, 5, -23],
     },
     lmg: {
       shake: 0.09, art: 'la ametralladora', name: 'Ametralladora', damage: 19, fireRate: 13, range: 36, mag: 80, reload: 3.6, spread: 0.042,
       pellets: 1, pierce: 1, destruction: 1.05, auto: true, recoil: 0.014, recoilPat: { up: 0.017, side: 0.011 }, kick: 0.025, sound: 1.1,
-      desc: 'Cinta de 80 balas; tarda en recargar',
+      desc: '80 balas, recarga lenta',
       price: 150, vm: { x: 0.16, y: -0.16, z: -0.31, g: 0.0079 }, muzzle: [-0.5, 3.5, -60],
     },
     flamer: {
       shake: 0.03, art: 'el lanzallamas', name: 'Lanzallamas', damage: 7, fireRate: 16, range: 9, mag: 90, reload: 2.8, spread: 0.07,
       pellets: 1, pierce: 3, destruction: 0.15, auto: true, recoil: 0.002, recoilPat: { up: 0.002, side: 0.002 }, kick: 0.01, sound: 0.5,
-      flame: true, desc: 'Corto alcance; prende fuego a todo lo que toca',
+      flame: true, desc: 'Quema todo de cerca',
       price: 140, vm: { x: 0.16, y: -0.16, z: -0.31, g: 0.0081 }, muzzle: [-0.5, 4, -47],
     },
     raygun: {
       shake: 0.15, art: 'el desintegrador', name: 'Desintegrador', damage: 75, fireRate: 3.2, range: 50, mag: 14, reload: 1.9, spread: 0.003,
       pellets: 1, pierce: 8, destruction: 2.4, auto: false, recoil: 0.03, recoilPat: { up: 0.035, side: 0.006 }, kick: 0.05, sound: 1.4,
-      ray: true, desc: 'Rayo que atraviesa filas enteras y abre boquetes',
+      ray: true, desc: 'Rayo que lo atraviesa todo',
       price: 200, vm: { x: 0.14, y: -0.13, z: -0.29, g: 0.0086 }, muzzle: [-0.5, 5.5, -34],
     },
+    // ---- (0.57) nuevas ----
+    dual: {
+      shake: 0.1, art: 'las pistolas dobles', name: 'Pistolas dobles', damage: 20, fireRate: 8, range: 28, mag: 24, reload: 2.3, spread: 0.022,
+      pellets: 1, pierce: 0, destruction: 0.9, auto: false, recoil: 0.02, recoilPat: { up: 0.03, side: 0.014 }, kick: 0.03, sound: 1,
+      dual: true, desc: 'Una en cada clic',
+      price: 85, vm: { x: 0.15, y: -0.13, z: -0.27, g: 0.0092 }, muzzle: [-0.5, 5.5, -27],
+    },
+    nailgun: {
+      shake: 0.06, art: 'la clavadora', name: 'Clavadora', damage: 15, fireRate: 9, range: 26, mag: 40, reload: 2.0, spread: 0.022,
+      pellets: 1, pierce: 0, destruction: 0.5, auto: true, recoil: 0.01, recoilPat: { up: 0.011, side: 0.006 }, kick: 0.02, sound: 0.6,
+      nail: true, desc: 'Frena y clava a la pared',
+      price: 95, vm: { x: 0.15, y: -0.14, z: -0.3, g: 0.0072 }, muzzle: [-0.5, 3, -34],
+    },
+    harpoon: {
+      shake: 0.22, art: 'el arpón', name: 'Arpón', damage: 95, fireRate: 1, range: 32, mag: 1, reload: 1.35, spread: 0.002,
+      pellets: 1, pierce: 2, destruction: 0.6, auto: false, recoil: 0.05, recoilPat: { up: 0.05, side: 0.01 }, kick: 0.06, sound: 0.8,
+      harpoon: true, desc: 'Atraviesa, atrae y clava',
+      price: 110, vm: { x: 0.15, y: -0.15, z: -0.31, g: 0.0082 }, muzzle: [-0.5, 6, -52],
+    },
+    // (0.59) katana: cuerpo a cuerpo de hueco propio; cortes limpios que parten en dos, floja contra armaduras
+    katana: {
+      art: 'la katana', name: 'Katana', melee: true, katana: true, damage: 78, fireRate: 1.75, reach: 2.5,
+      desc: 'Corta en dos; floja contra armaduras',
+      price: 120, vm: { x: 0.14, y: -0.115, z: -0.27, g: 0.0092 },
+    },
   };
-  const GUNS = ['pistol', 'smg', 'shotgun', 'rifle', 'launcher', 'hammer', 'crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun'];
+  const GUNS = ['pistol', 'smg', 'shotgun', 'rifle', 'launcher', 'hammer', 'crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun', 'dual', 'nailgun', 'harpoon', 'katana'];
 
   // ---------------- Skins ----------------
   // Paletas por "etiqueta" de vóxel: main, dark, grip, steel, accent, blade. e = emisivo
@@ -122,6 +147,10 @@
       pal: { main: [0.08, 0.06, 0.07], dark: [0.04, 0.03, 0.03], grip: [0.15, 0.06, 0.04], steel: [1, 0.4, 0.05, 0.9], accent: [1, 0.7, 0.15, 1], blade: [1, 0.35, 0.05, 0.8] } }],
     raygun: [{ id: 'desintegrador', name: 'Desintegrador', special: true, cond: { stat: 'multi', n: 30 },
       pal: { main: [0.82, 0.84, 0.9], dark: [0.4, 0.42, 0.5], grip: [0.18, 0.12, 0.25], steel: [0.75, 0.35, 1, 0.8], accent: [0.85, 0.5, 1, 1], blade: [0.8, 0.82, 0.9] } }],
+    katana: [{ id: 'sakura', name: 'Sakura', special: true, cond: { stat: 'kills', n: 60 },
+      pal: { blade: [0.95, 0.72, 0.8], steel: [1, 0.88, 0.92, 0.4], dark: [0.18, 0.08, 0.12], grip: [0.55, 0.15, 0.3], accent: [1, 0.55, 0.75, 0.8] } },
+      { id: 'oni', name: 'Oni', special: true, cond: { stat: 'heads', n: 40 },
+      pal: { blade: [0.12, 0.1, 0.11], steel: [1, 0.2, 0.1, 0.9], dark: [0.05, 0.03, 0.03], grip: [0.6, 0.06, 0.05], accent: [1, 0.35, 0.1, 1] } }],
     knife: [{ id: 'sombra', name: 'Sombra', special: true, cond: { stat: 'air', n: 20 },
       pal: { main: [0.06, 0.06, 0.08], dark: [0.03, 0.03, 0.04], grip: [0.1, 0.08, 0.12], steel: [0.55, 0.2, 0.9, 0.7], accent: [0.7, 0.3, 1, 1], blade: [0.18, 0.15, 0.25] } }],
   };
@@ -533,14 +562,14 @@
   const PISTOLS = [
     { id: 'pistola', name: 'Pistola', desc: 'Equilibrada: precisa y rápida' },
     { id: 'deagle', name: 'Desert Eagle', cond: { stat: 'headshots', n: 75 }, txt: 'Revienta 75 cabezas',
-      desc: 'Calibre .50: mucho daño y atraviesa, pero dispara despacio y retrocede mucho',
+      desc: 'Mucho daño, lenta',
       vm: { x: 0.14, y: -0.115, z: -0.29, g: 0.0068 },   // modelo grande: a menos escala para que no tape media pantalla
       stats: { name: 'Desert Eagle', damage: 58, fireRate: 2.6, mag: 7, reload: 1.7, spread: 0.007, pierce: 1, destruction: 1.5, recoil: 0.06, recoilPat: { up: 0.09, side: 0.02 }, kick: 0.075, shake: 0.26, sound: 1.9, sfx: 'deagle', muzzle: [-0.5, 6.5, -36] } },
     { id: 'revolver', name: 'Revólver', cond: { stat: 'bosses', n: 2 }, txt: 'Remata a 2 jefes',
-      desc: 'Seis balas que derriban: daño alto, muy preciso, recarga lenta',
+      desc: 'Seis balas, mucho daño',
       stats: { name: 'Revólver', damage: 46, fireRate: 3.1, mag: 6, reload: 2.1, spread: 0.004, pierce: 1, destruction: 1.25, recoil: 0.045, recoilPat: { up: 0.07, side: 0.012 }, kick: 0.06, shake: 0.2, sound: 1.6, sfx: 'revolver', muzzle: [-0.5, 6, -35] } },
     { id: 'auto', name: 'Pistola automática', cond: { stat: 'kills', n: 400 }, txt: 'Mata 400 zombis',
-      desc: 'Ráfaga continua con cargador largo: poco daño por bala, mucha cadencia',
+      desc: 'Automática, mucha cadencia',
       stats: { name: 'Pistola automática', damage: 13, fireRate: 15, mag: 22, reload: 1.5, spread: 0.03, auto: true, recoil: 0.014, recoilPat: { up: 0.016, side: 0.012 }, kick: 0.025, shake: 0.06, sound: 0.75, sfx: 'auto', muzzle: [-0.5, 5.5, -31] } },
   ];
   const PISTOL_MODELS = {
@@ -658,7 +687,7 @@
     { id: 'machete', name: 'Machete', cond: { stat: 'knifeElites', n: 8 }, txt: 'Mata 8 élites o campeones con el cuchillo' },
     { id: 'bayoneta', name: 'Bayoneta', cond: { stat: 'knifeBosses', n: 1 }, txt: 'Remata a un jefe con el cuchillo' },
     { id: 'mariposa', name: 'Navaja mariposa', cond: { stat: 'knifeKills', n: 150 }, txt: 'Mata 150 zombis con el cuchillo' },
-    { id: 'katana', name: 'Katana', cond: { stat: 'knifeKills', n: 300 }, txt: 'Mata 300 zombis con el cuchillo', desc: 'Más alcance: desenvaina en un tajo ancho y corta de arriba abajo' },
+    { id: 'katana', name: 'Katana', cond: { stat: 'knifeKills', n: 300 }, txt: 'Mata 300 zombis con el cuchillo', desc: 'Más alcance, tajo ancho' },
   ];
   const KNIFE_MODELS = {
     // cuchillo de combate: hoja con punta de clip, filo brillante, acanaladura y sierra en el lomo;
@@ -802,8 +831,63 @@
     },
   };
 
+  // (0.57) pistolas dobles: la pistola de servicio en cada mano (la izquierda, en espejo, 30 vóxeles a la izquierda)
+  MODELS.dual = () => {
+    const R = MODELS.pistol('pistola');
+    const L = R.map((v) => ({ ...v, x: -v.x - 1 - 30, side: 'L' }));
+    return R.concat(L);
+  };
+  // (0.57) clavadora neumática: cuerpo industrial amarillo, nariz de contacto, tira de clavos inclinada,
+  // manómetro, racor del aire y la manguera que cuelga
+  MODELS.nailgun = () => {
+    const { vox, add } = builder();
+    add(-3, 2, 1, 8, -22, 2, 'main', (x, y, z) => !((x === -3 || x === 2) && (y === 1 || y === 8)));          // cuerpo
+    add(-3, -3, 5, 6, -20, -4, 'accent'); add(2, 2, 5, 6, -20, -4, 'accent');                                   // franjas
+    add(-2, 1, 2, 7, -29, -23, 'dark', (x, y) => !((x === -2 || x === 1) && (y === 2 || y === 7)));           // cabezal
+    add(-1, 0, 2, 4, -33, -30, 'steel'); add(-2, 1, 1, 1, -33, -32, 'steel');                                   // nariz de contacto
+    add(-1, 0, -1, 1, -30, -7, 'dark');                                                                        // guía de la tira
+    for (let z = -28; z <= -9; z += 2) add(-1, 0, -3, -2, z, z, 'steel');                                       // clavos en tira
+    add(-2, 1, -4, -4, -29, -8, 'dark', (x, y, z) => (z & 3) !== 0);                                            // muelle del cargador
+    add(-1, 0, 9, 10, -8, -4, 'steel'); add(-1, -1, 10, 10, -6, -6, 'accent');                                   // manómetro
+    for (let k = 0; k <= 11; k++) {
+      const zo = Math.round(k * 0.3);
+      add(-2, 1, -k, -k, -3 + zo, 2 + zo, k > 10 ? 'dark' : 'grip');
+      if (k >= 2 && k <= 9 && (k & 1)) { add(-3, -3, -k, -k, -2 + zo, 1 + zo, 'dark'); add(2, 2, -k, -k, -2 + zo, 1 + zo, 'dark'); }   // goma
+    }
+    add(-1, 0, -2, 0, -7, -5, 'accent');                                                                        // gatillo
+    add(-1, 0, -3, -3, -9, -3, 'dark');                                                                         // guardamonte
+    add(-1, 0, -12, -11, 5, 7, 'steel');                                                                        // racor
+    for (let k = 0; k < 6; k++) add(-1, 0, -13 - k, -13 - k, 6 + Math.round(k * 0.5), 6 + Math.round(k * 0.5), 'dark');   // manguera
+    return dedupe(vox);
+  };
+  // (0.57) arpón submarino: tubo con gomas, carrete de cuerda, empuñadura y el arpón con lengüetas encima
+  MODELS.harpoon = () => {
+    const { vox, add, part } = builder();
+    add(-2, 1, 1, 4, -40, -6, 'main', (x, y, z) => !((x === -2 || x === 1) && (y === 1 || y === 4)));          // tubo
+    add(-3, 2, 0, 5, -42, -40, 'dark', (x, y) => !((x === -3 || x === 2) && (y === 0 || y === 5)));           // cabeza
+    for (const z of [-30, -20]) add(-3, 2, 1, 4, z, z, 'steel', (x, y) => !((x === -3 || x === 2) && (y === 1 || y === 4)));   // abrazaderas
+    for (const x of [-3, 2]) for (let z = -39; z <= -12; z++) add(x, x, 5, 5, z, z, 'accent');                  // gomas
+    add(-3, 2, 5, 6, -12, -11, 'accent');                                                                      // puente de las gomas
+    add(-3, 2, -4, 0, -24, -16, 'dark', (x, y, z) => !((x === -3 || x === 2) && (y === -4 || y === 0)));     // carrete
+    add(-1, 0, -3, -1, -23, -17, 'accent');                                                                    // cuerda enrollada
+    add(-2, 1, 1, 4, -6, 6, 'grip', (x, y, z) => !((x === -2 || x === 1) && (y === 1 || y === 4)));           // culata
+    for (let k = 0; k <= 10; k++) { const zo = Math.round(k * 0.3); add(-2, 1, -k, -k, -4 + zo, 0 + zo, k > 9 ? 'dark' : 'grip'); }
+    add(-1, 0, -2, 0, -7, -6, 'steel'); add(-1, 0, -3, -3, -9, -3, 'dark');                                       // gatillo y guardamonte
+    part('bolt');
+    add(-1, 0, 6, 6, -48, -6, 'steel');                                                                        // vástago
+    add(-1, 0, 5, 7, -51, -49, 'steel', (x, y, z) => !(z === -51 && y !== 6)); add(-1, 0, 6, 6, -53, -52, 'steel');   // punta
+    add(-2, -2, 7, 7, -48, -46, 'steel'); add(1, 1, 7, 7, -48, -46, 'steel');                                   // lengüetas
+    part(null);
+    return dedupe(vox);
+  };
+
+  MODELS.katana = () => KNIFE_MODELS.katana();
   void 0;
   const DEFAULT_PAL = {
+    katana: { blade: [0.78, 0.8, 0.84], steel: [0.95, 0.96, 1], dark: [0.12, 0.1, 0.1], grip: [0.14, 0.12, 0.2], accent: [0.85, 0.65, 0.25] },
+    dual: { main: [0.36, 0.36, 0.39], dark: [0.2, 0.2, 0.22], grip: [0.24, 0.17, 0.12], steel: [0.7, 0.71, 0.75], accent: [0.9, 0.4, 0.1] },
+    nailgun: { main: [0.86, 0.62, 0.1], dark: [0.15, 0.15, 0.16], grip: [0.12, 0.12, 0.13], steel: [0.68, 0.7, 0.74], accent: [0.9, 0.22, 0.1] },
+    harpoon: { main: [0.18, 0.32, 0.36], dark: [0.1, 0.12, 0.14], grip: [0.35, 0.24, 0.14], steel: [0.72, 0.74, 0.78], accent: [0.95, 0.55, 0.12] },
     knife: { blade: [0.75, 0.77, 0.8], steel: [0.95, 0.96, 1], dark: [0.2, 0.2, 0.22], grip: [0.3, 0.2, 0.12], accent: [0.6, 0.6, 0.62] },
     hammer: { main: [0.24, 0.25, 0.27], steel: [0.66, 0.67, 0.7], dark: [0.07, 0.07, 0.08], grip: [0.09, 0.09, 0.1], accent: [0.92, 0.66, 0.08], hand: [0.62, 0.48, 0.24], wrist: [0.5, 0.38, 0.2] },
     pistol: { main: [0.36, 0.36, 0.39], dark: [0.2, 0.2, 0.22], grip: [0.24, 0.17, 0.12], steel: [0.7, 0.71, 0.75], accent: [0.9, 0.4, 0.1] },
@@ -837,6 +921,7 @@
     lmg: { name: 'Sangre de guerra', c1: [0.12, 0.12, 0.13], c2: [0.45, 0.04, 0.04], glow: [1, 0.15, 0.1], speed: 1.2 },
     flamer: { name: 'Llamarada', c1: [0.45, 0.12, 0.02], c2: [0.95, 0.6, 0.1], glow: [1, 0.9, 0.4], speed: 1.6 },
     raygun: { name: 'Plasma', c1: [0.85, 0.92, 0.95], c2: [0.1, 0.55, 0.6], glow: [1, 0.3, 0.9], speed: 1.4 },
+    katana: { name: 'Luna sangrienta', c1: [0.08, 0.02, 0.04], c2: [0.5, 0.05, 0.12], glow: [1, 0.25, 0.35], speed: 0.9 },
     knife: { name: 'Hoja maldita', c1: [0.04, 0.03, 0.03], c2: [0.4, 0.03, 0.04], glow: [1, 0.12, 0.08], speed: 1 },
   };
   // color animado de un vóxel con skin definitiva en el instante t
@@ -1014,12 +1099,12 @@
       if (ATT_PAL[v.tag]) c = ATT_PAL[v.tag];
       // las balas que asoman por arriba del cargador van aparte: el cargador que se tira sale vacío
       const prt = v.part === 'mag' && (v.tag === 'brass' || v.tag === 'lead' || v.tag === 'shell') ? 'magr' : v.part;
-      const o = { x: v.x, y: v.y, z: v.z, tag: v.tag, part: prt, slide: v.slide, pump: v.pump, r: c[0] + v.h, g: c[1] + v.h, b: c[2] + v.h, e: c[3] || 0, h: v.h };
+      const o = { x: v.x, y: v.y, z: v.z, tag: v.tag, part: prt, slide: v.slide, pump: v.pump, side: v.side, r: c[0] + v.h, g: c[1] + v.h, b: c[2] + v.h, e: c[3] || 0, h: v.h };
       // skin definitiva: el cuerpo lleva el camuflaje animado (an 1) y los detalles brillan (an 2)
       if (U && !AMMO_PAL[v.tag] && !ATT_PAL[v.tag]) {
         // 1 camuflaje (cuerpo, culata, empuñadura) · 2 detalles que laten (pocos y pequeños) · 3 metal con brillo que pasa
         const bigAccent = id === 'flamer' || id === 'hammer';   // en estas el «acento» es una pieza grande
-        o.an = v.tag === 'main' || v.tag === 'dark' || v.tag === 'grip' || (id === 'knife' && v.tag === 'blade') || (bigAccent && v.tag === 'accent') ? 1
+        o.an = v.tag === 'main' || v.tag === 'dark' || v.tag === 'grip' || ((id === 'knife' || id === 'katana') && v.tag === 'blade') || (bigAccent && v.tag === 'accent') ? 1
           : v.tag === 'accent' || (id === 'raygun' && v.tag === 'blade') ? 2 : v.tag === 'steel' || v.tag === 'blade' ? 3 : 0;
         if (o.an === 1 && (v.tag === 'grip' || v.tag === 'dark')) o.dk = 0.6;
         if (o.an) { const cc = ultColor(o, U, 0, [0, 0, 0, 0]); o.r = cc[0]; o.g = cc[1]; o.b = cc[2]; o.e = cc[3]; }
@@ -1043,7 +1128,8 @@
     DEFS.pistol.form = f.id;
   }
   DEFS.smg.sfx = 'smg'; DEFS.shotgun.sfx = 'shotgun'; DEFS.rifle.sfx = 'rifle'; DEFS.launcher.sfx = 'launcher';
-  for (const id of ['crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun']) DEFS[id].sfx = id;
+  for (const id of ['crossbow', 'dbarrel', 'lmg', 'flamer', 'raygun', 'nailgun', 'harpoon']) DEFS[id].sfx = id;
+  DEFS.dual.sfx = 'pistol';
 
   VX.Weapons = { DEFS, GUNS, SKINS, SPECIAL, skinsFor, findSkin, MODELS, KNIVES, PISTOLS, ULT, ultColor, coloredModel, applyPistolForm, skinLabel, skinPal, ATTACH, attFits };
 })();

@@ -10,13 +10,13 @@
     { t: 'Mira a tu alrededor', d: () => touch() ? 'Arrastra el dedo por la pantalla' : 'Mueve el ratón' + (VX.Pad && VX.Pad.active ? ' / stick derecho' : ''), ok: (g, s) => s.look > 2.2 },
     { t: 'Dispara', d: () => touch() ? 'Botón rojo grande' : 'Clic izquierdo' + pad('fire'), ok: (g, s) => g.stats.shots > s.shots0 },
     { t: 'Recarga', d: () => touch() ? 'Botón R' : K('reload') + pad('reload'), ok: (g, s) => s.reload || g.weapon.reloading },
-    { t: 'Esquiva', d: () => (touch() ? 'Botón ESQUIVA' : K('dash') + pad('dash')) + ' — mientras esquivas no te hacen daño', ok: (g, s) => s.dash },
-    { t: 'Cuchillazo rápido', d: () => (touch() ? 'Botón CUCHILLO' : K('knife') + pad('knife')) + ' — no gasta balas', ok: (g, s) => s.knife },
-    { t: 'Lanza una granada', d: () => (touch() ? 'Botón LANZAR' : K('throw') + pad('throw')) + ' — te dejamos una de regalo', ok: (g, s) => s.toss, enter: (g) => VX.Throw.give(g, 'frag', 1, true) },
+    { t: 'Esquiva', d: () => (touch() ? 'Botón ESQUIVA' : K('dash') + pad('dash')) + ' — eres invulnerable', ok: (g, s) => s.dash },
+    { t: 'Cuchillazo rápido', d: () => (touch() ? 'Botón CUCHILLO' : K('knife') + pad('knife')) + '', ok: (g, s) => s.knife },
+    { t: 'Lanza una granada', d: () => (touch() ? 'Botón LANZAR' : K('throw') + pad('throw')) + '', ok: (g, s) => s.toss, enter: (g) => VX.Throw.give(g, 'frag', 1, true) },
     { t: 'Coge la llave', d: () => `Acércate y pulsa ${touch() ? 'USAR' : K('use') + pad('use')}`, ok: (g) => (g.keys.wood || 0) + (g.keys.silver || 0) + (g.keys.gold || 0) > 0,
       enter: (g) => { const P = g.player; g.dropKey('wood', P.x + Math.sin(P.yaw) * 2.2, P.y + 1.2, P.z + Math.cos(P.yaw) * 2.2); } },
-    { t: 'Las llaves', d: () => 'Abren las cerraduras doradas de las paredes, las puertas doradas y el Relicario del vendedor', ok: (g, s) => s.t > 6 },
-    { t: '¡Listo!', d: () => 'Acércate a una puerta y ábrela. Mata a todos para que se abran las salidas. ¡Suerte!', ok: (g, s) => s.t > 5 },
+    { t: 'Las llaves', d: () => 'Abren cerraduras y la máquina de chicles', ok: (g, s) => s.t > 6 },
+    { t: '¡Listo!', d: () => 'Abre una puerta y limpia la sala', ok: (g, s) => s.t > 5 },
   ];
 
   const Tutorial = {
@@ -43,7 +43,7 @@
       this.s = null; this.box(false);
       VX.Profile.data.tutorialDone = true; VX.Profile.save();
     },
-    skip(game) { this.finish(game); game.hud.toast('Tutorial saltado (puedes repetirlo en Ajustes → Perfil)'); },
+    skip(game) { this.finish(game); game.hud.toast('Tutorial saltado'); },
     update(game, dt) {
       const s = this.s;
       if (!s || game.state !== 'playing' || game.mode !== 'dungeon') return;

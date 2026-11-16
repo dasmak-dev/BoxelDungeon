@@ -18,9 +18,9 @@
     climber: { name: 'Trepador', hp: 50, speed: 2.6, dmg: 9, gold: [3, 4], reach: 1.0, lean: 0.35, climb: true, dodge: true },
     dog: { name: 'Perro zombi', hp: 40, speed: 5.0, dmg: 9, gold: [2, 3], reach: 1.15, lean: 0, quad: true, dodge: true },
     // de bioma
-    archer: { name: 'Esqueleto arquero', hp: 45, speed: 1.7, dmg: 12, gold: [3, 5], reach: 1.0, lean: 0.05, ranged: true, arrow: true },
+    archer: { name: 'Esqueleto arquero', bones: true, hp: 65, speed: 1.7, dmg: 12, gold: [3, 5], reach: 1.0, lean: 0.05, ranged: true, arrow: true },
     necro: { name: 'Nigromante', hp: 95, speed: 1.35, dmg: 10, gold: [6, 10], reach: 1.0, lean: 0.1, ranged: true, necro: true },
-    skeleton: { name: 'Esqueleto', hp: 55, speed: 2.1, dmg: 11, gold: [2, 4], reach: 1.05, lean: 0.05, reassemble: true },
+    skeleton: { name: 'Esqueleto', hp: 85, speed: 2.1, dmg: 11, gold: [2, 4], reach: 1.05, lean: 0.05, reassemble: true, bones: true },
     ember: { name: 'Ígneo', hp: 85, speed: 1.6, dmg: 13, gold: [3, 5], reach: 1.05, lean: 0.1, fireImmune: true, trail: true },
     miner: { name: 'Minero', hp: 100, speed: 1.5, dmg: 16, gold: [3, 5], reach: 1.3, lean: 0.12, tool: true, lamp: true },
     sporeling: { name: 'Esporado', hp: 60, speed: 1.9, dmg: 9, gold: [2, 4], reach: 1.0, lean: 0.2, sporeBurst: true },
@@ -127,9 +127,12 @@
       this.body.x = x; this.body.z = z; this.body.y = this.y;
       // ---- dificultad según el piso ----
       const f = floor;
+      this.lvl = f;
       const eliteK = this.elite ? 1.7 : 1;
       const greed = VX.game && VX.game.weapon && VX.game.weapon.mods.greed ? 1.25 : 1;
-      this.maxHp = this.hp = T.hp * (1 + f * 0.15) * eliteK * greed * (this.champion ? 3.5 : 1);
+      // (0.56) un poco más duros de base (+15 %) y +12 % por piso (antes +15 %, pero casi nunca llegaba a contar:
+      // morían antes por destrozos; ahora los destrozos que matan de golpe dependen de la vida que les queda)
+      this.maxHp = this.hp = T.hp * 1.15 * (1 + f * 0.12) * eliteK * greed * (this.champion ? 3.5 : 1);
       // mazmorra en cooperativo: más duros cuantos más seáis (+35 % de vida y +12 % de daño por compañero)
       const ck = VX.Coop.dungeonK();
       if (ck) { this.maxHp = this.hp = this.hp * (1 + 0.35 * ck); this.coopDmgK = 1 + 0.12 * ck; }
@@ -185,7 +188,7 @@
       if (T.knight) { this.swordOut = true; this.regenQ = []; this.coreHp = this.hp; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.body.byName.torso) this.body.byName.torso.noBreak = true; }
       if (T.hydra && !opts.gen && VX.game && VX.game.hud && !VX.game.hydraWarned) {   // la primera vez, que se sepa qué es
         VX.game.hydraWarned = true;
-        VX.game.hud.banner('¡UNA HIDRA!', 'Revienta la flor (dentro de la boca abierta, x4). El fuego cauteriza sus heridas', 3.5);
+        VX.game.hud.banner('¡UNA HIDRA!', 'Dispara a la flor de su boca', 3.5);
       }
       if (T.hydra) { this.sap = 0; this.woundQ = []; this.mouthOpen = 0; this.biteCd = M.rand(2, 4); this.hspitCd = M.rand(3, 6); this.eatCd = 2; this.twin = !!opts.twin; this.mother = !!opts.mother;
         if (opts.mother) { this.maxHp = this.hp = this.hp * 1.8; this.dmg = Math.round(this.dmg * 1.3); for (const p of this.body.parts) for (const v of p.vox) if (v.e > 0.5) { v.r = Math.min(1, v.r * 1.2); } }
@@ -1162,6 +1165,11 @@
     hit(hit, dmg, ray, game, opts) {
       if (VX.Codex && VX.Codex.bonus && game.dmgSource) dmg *= VX.Codex.bonus(this.kind);   // conocer al enemigo (bestiario)
       if (this.dead) return false;
+      // (0.59) la katana resbala en las armaduras (caballeros, antidisturbios, escudos, cascos)
+      if (opts && opts.katana && !game.weapon.mods.kArmor && (this.T.knight || this.T.riot || this.T.shield || (hit.part && hit.part.armor))) {
+        dmg *= 0.4;
+        if (!game.visualOnly) { game.particles.sparks(hit.vox.wx, hit.vox.wy, hit.vox.wz, -ray.dx, 0.4, -ray.dz, 8); VX.Audio.wall(); }
+      }
       if (game.dmgWeapon) this.lastW = game.dmgWeapon;
       if (game.localAct && !game.visualOnly) VX.Coop.noteHit && VX.Coop.noteHit(this, dmg, game);   // daño hecho y asistencias (cooperativo)
       // cooperativo: el invitado avisa al anfitrión de sus impactos; el anfitrión enseña los suyos a los demás
@@ -1203,7 +1211,7 @@
           game.particles.sparks(hit.vox.wx, hit.vox.wy, hit.vox.wz, -dir[0], 0.3, -dir[2], 7);
           VX.Audio.wall();
           this.kx += dir[0] * 0.5; this.kz += dir[2] * 0.5;
-          if (!this.riotHint && game.hud) { this.riotHint = true; game.hud.toast('Blindado por delante: dale en las piernas, por la espalda o con explosivos'); }
+          if (!this.riotHint && game.hud) { this.riotHint = true; game.hud.toast('Blindado: dale por detrás o en las piernas'); }
           if (this.hp <= 0 && !game.visualOnly) { this.die(dir, game); return true; }
           return false;
         }
@@ -1243,7 +1251,7 @@
         // la explosión le arranca placas que vuelven a su sitio; sólo le hace daño si le pilla el corazón
         // todo lo que arranca la explosión vuelve a su sitio; sólo muere si le destroza el corazón
         const dxk = v.wx - x, dzk = v.wz - z, lk = Math.hypot(dxk, dzk) || 1;
-        const resB = this.knightCarve(() => b.afterCarve(b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, 0, 0.6, 0, 20), game.gibs, dxk / lk * 3, 2, dzk / lk * 3), game, true);
+        const resB = this.knightCarve(() => b.afterCarve(b.carveSphere(v.wx, v.wy, v.wz, this.carveR(dmg), game.particles, 0, 0.6, 0, 20), game.gibs, dxk / lk * 3, 2, dzk / lk * 3), game, true);
         if (this.knightAfter(resB, [dxk / lk, 0.3, dzk / lk], game)) return true;
         const core = b.byName.core;
         if (core && !game.visualOnly && core.alive / core.total < 0.3) { this.allowDie = true; this.hp = 0; this.die([0, 1, 0], game); return true; }
@@ -1264,7 +1272,7 @@
         const dxh = v.wx - x, dzh = v.wz - z, lh = Math.hypot(dxh, dzh) || 1, dh = [dxh / lh, 0.3, dzh / lh];
         if (!game.visualOnly) this.hp -= dmg * 0.6;
         b.flash = 1;
-        const resH = this.knightCarve(() => b.afterCarve(b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, dh[0], 0.6, dh[2], 20), game.gibs, dh[0] * 3, 2, dh[2] * 3), game);
+        const resH = this.knightCarve(() => b.afterCarve(b.carveSphere(v.wx, v.wy, v.wz, this.carveR(dmg), game.particles, dh[0], 0.6, dh[2], 20), game.gibs, dh[0] * 3, 2, dh[2] * 3), game);
         this.kx += dh[0] * 5; this.kz += dh[2] * 5;
         if (!game.visualOnly) this.burn = Math.max(this.burn || 0, 1.5);   // la explosión cauteriza
         return this.hydraAfter(resH, dh, game, true);
@@ -1273,19 +1281,36 @@
       b.flash = 1;
       const dx = v.wx - x, dz = v.wz - z, l = Math.hypot(dx, dz) || 1;
       const dir = [dx / l, 0.3, dz / l];
-      const removed = b.carveSphere(v.wx, v.wy, v.wz, 0.18 + dmg / 280, game.particles, dir[0], 0.6, dir[2], 20);
+      const removed = b.carveSphere(v.wx, v.wy, v.wz, this.carveR(dmg), game.particles, dir[0], 0.6, dir[2], 20);
       this.kx += dir[0] * 6; this.kz += dir[2] * 6;
       this.fl.vx += 8;
       if (game.visualOnly) { b.afterCarve(removed, game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5); return false; }
       return this.afterDamage(removed, dir, game);
     }
 
+    // (0.56) tamaño del trozo que arranca un impacto: según el daño comparado con la vida total del zombi.
+    // Antes era fijo (sólo según el daño) y los zombis morían por destrozos (cabeza o torso rotos) con los
+    // mismos disparos en el piso 1 que en el 40: la vida extra de los pisos altos no llegaba a contar.
+    // Al principio el agujero es como antes; más adelante, con más vida, cada bala arranca menos.
+    // Los huesos de los esqueletos se astillan menos (son finos y con pocos vóxeles).
+    carveR(dmg) {
+      const k = Math.sqrt(Math.min(1, dmg / Math.max(1, this.maxHp || 1)));
+      let r = Math.min(0.18 + dmg / 280, 0.07 + 0.36 * k);
+      if (this.T.bones) r *= 0.6;
+      return r;
+    }
+
     afterDamage(removed, dir, game, pn = '') {
       const b = this.body;
+      // el torso sólo se parte en dos si le queda menos de la mitad de la vida (los esqueletos, nunca)
+      if (b.byName.torso) b.byName.torso.noBreak = !!this.T.bones || this.hp > this.maxHp * 0.5;
+      if (this.T.bones && b.byName.head) b.byName.head.noBreak = true;   // cráneo hueco: cuenta lo que queda, no si se ha cortado
       const res = b.afterCarve(removed, game.gibs, dir[0] * 2.5, 1.5, dir[2] * 2.5);
       if (Object.keys(res).length) VX.Audio.snap();
       if (res.torso === 'halved') { game.hud.toast('¡PARTIDO EN DOS!'); this.hp = 0; }
-      if (b.broken('head', 0.55)) {
+      // cráneo roto = muerte. «Roto» = le queda menos de esta parte: en el piso 1, el 55 % (45 % destrozado);
+      // en los pisos altos hay que destrozar más, hasta el 70 % en el piso 40. Los cráneos de hueso, algo más duros
+      if (b.broken('head', Math.max(0.3, (this.T.bones ? 0.5 : 0.55) - (this.lvl || 0) * 0.0065))) {
         if (!b.byName.head.detached) b.detach('head', game.gibs, dir[0] * 3, 2.5, dir[2] * 3);
         game.stats.headshots++;
         VX.Profile.add('headshots', 1, game);
@@ -1308,7 +1333,7 @@
         this.armsLost = (b.broken('armL', 0.4) ? 1 : 0) + (b.broken('armR', 0.4) ? 1 : 0);
         if (this.armsLost >= 2 && !this.biter) { this.biter = true; if (!this.spitting) this.windup = 0; }
       }
-      if (b.ratio('torso') < 0.4) this.hp = 0;
+      if (b.ratio('torso') < (this.T.bones ? 0.22 : 0.4) && (this.T.bones || this.hp < this.maxHp * 0.6)) this.hp = 0;   // torso destrozado (con poca vida)
       if (this.hp <= 0) { this.die(dir, game); return true; }
       return false;
     }
@@ -1427,7 +1452,7 @@
       if (b.byName.core && b.byName.core.detached) { this.allowDie = true; this.hp = 0; this.die(dir, game); return true; }
       if (res.head === 'detached' || res.head === 'severed' || (b.byName.head && !b.byName.head.detached && b.broken('head', 0.45))) {
         if (!b.byName.head.detached) b.detach('head', game.gibs, dir[0] * 3, 2.5, dir[2] * 3);
-        if (game.hud && !this.headHint) { this.headHint = true; game.hud.toast('¡Decapitado!… y sigue andando: la cabeza le volverá a salir'); }
+        if (game.hud && !this.headHint) { this.headHint = true; game.hud.toast('¡Decapitado! Pero sigue andando'); }
       }
       const legGone = b.broken('legL', 0.55) || b.broken('legR', 0.55);
       if (legGone && !this.crawling) {
@@ -1435,7 +1460,7 @@
         if (b.byName.legR && !b.byName.legR.detached && b.broken('legR', 0.55)) b.detach('legR', game.gibs, dir[0] * 2, 1.5, dir[2] * 2);
         this.crawling = true; this.rising = false;
         this.fallT = FALL_TIME; this.windup = 0;
-        game.hud && game.hud.toast('¡Pierna arrancada! Se arrastra… hasta que le vuelva a crecer');
+        game.hud && game.hud.toast('¡Pierna arrancada!');
       }
       for (const a of ['armL', 'armR']) if (b.byName[a] && !b.byName[a].detached && b.broken(a, 0.4)) b.detach(a, game.gibs, dir[0] * 2, 1.5, dir[2] * 2);
       this.armsLost = (b.broken('armL', 0.4) ? 1 : 0) + (b.broken('armR', 0.4) ? 1 : 0);
@@ -1514,7 +1539,7 @@
       VX.Audio.wall();
       b.flash = 0.25;
       this.kx += dir[0] * 0.3; this.kz += dir[2] * 0.3;
-      if (!this.knightHint && game.hud) { this.knightHint = true; game.hud.toast('La armadura se le vuelve a unir: ¡dale en el corazón que brilla en el pecho!'); }
+      if (!this.knightHint && game.hud) { this.knightHint = true; game.hud.toast('¡Dale en el corazón brillante!'); }
       return false;
     }
 
@@ -1548,7 +1573,7 @@
       if (this.sap < th || VX.Coop.isClient) return;
       this.sap -= th;
       if (this.woundQ.length < 3) this.woundQ.push({ x, y, z, t: 1.4, dx: x - this.x, dz: z - this.z, dy: y - this.y });
-      if (!game.sapHint) { game.sapHint = true; game.hud.toast('¡La herida burbujea! Quémala o va a brotar otra hidra'); }
+      if (!game.sapHint) { game.sapHint = true; game.hud.toast('¡Quema la herida!'); }
     }
     hydraAfter(res, dir, game, caut) {
       const b = this.body;
@@ -1578,7 +1603,7 @@
       // de cada brazo arrancado también puede brotar otra (si no está ardiendo)
       const cut = b.parts.filter((p) => p.detached && !was.has(p.name) && !HEADS(p) && /^(arm|leg)/.test(p.name) && p.total > 6);
       if (!(this.burn > 0) && !caut) for (const p of cut) this.sprout(game, p, dir);
-      if (!this.hydraHint && game.hud) { this.hydraHint = true; game.hud.toast('Le vuelve a crecer todo: dispara dentro de la flor cuando abra la boca'); }
+      if (!this.hydraHint && game.hud) { this.hydraHint = true; game.hud.toast('Dispara a la flor cuando abra la boca'); }
       return false;
     }
     // la cabeza cortada se convierte en dos
@@ -1600,7 +1625,7 @@
       b.computeWorld();
       game.shake(0.3); VX.Audio.roar();
       for (let i = 0; i < 30; i++) game.particles.spawn(this.x, this.y + 2.3, this.z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), 0.5, 0.9, 0.25, 0.04, 0.8, 0.6);
-      game.hud.banner('¡LE SALEN DOS CABEZAS!', 'Córtale la cabeza con fuego o explosivos… o rómpele las dos', 2.6);
+      game.hud.banner('¡LE SALEN DOS CABEZAS!', 'Usa fuego o explosivos', 2.6);
     }
     // heridas que burbujean y brotan (si no se queman antes)
     updateWounds(dt, game) {
@@ -1707,7 +1732,7 @@
         game.enemies.push(m);
         game.shake(0.3); VX.Audio.roar();
         for (let i = 0; i < 30; i++) game.particles.spawn(x, m.y + 0.5, z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), 0.5, 0.9, 0.25, 0.05, 0.9, 0.6);
-        game.hud.banner('¡HIDRA MADRE!', 'Dos brotes se han fundido: más grande, más fuerte', 2.5);
+        game.hud.banner('¡HIDRA MADRE!', 'Más grande y más fuerte', 2.5);
         return;
       }
       this.pileVisual(dt, game);
@@ -1720,8 +1745,8 @@
         game.enemies.push(z);
         for (let i = 0; i < 24; i++) game.particles.spawn(this.x, this.y + 0.3, this.z, M.rand(-3, 3), M.rand(1, 5), M.rand(-3, 3), 0.55, 0.08, 0.08, M.rand(0.03, 0.06), M.rand(0.5, 1.2));
         VX.Audio.at(this.x, this.y + 1, this.z, () => { VX.Audio.roar(); }, 6);
-        if (this.T.grows) game.hud.toast('¡Ha brotado otra hidra! Rompe los brotes antes de que crezcan');
-        else game.hud.banner('¡HA VUELTO A LEVANTARSE!', this.gen >= 2 ? 'Cada vez más fuerte: destroza sus restos' : 'Más fuerte que antes', 2.4);
+        if (this.T.grows) game.hud.toast('¡Otra hidra! Rompe los brotes');
+        else game.hud.banner('¡HA VUELTO A LEVANTARSE!', this.gen >= 2 ? 'Destroza sus restos' : 'Más fuerte', 2.4);
       }
     }
     pileHit(hit, dmg, ray, game, opts) {
@@ -1788,9 +1813,11 @@
         game.pickups.addItem({ ...VX.Throw.item(t, 1, 0), x: this.x, y: gy + 0.3, z: this.z });
       }
       // llaves al azar (sólo en la mazmorra): pocas, más de los élites y del campeón
-      if (game.mode !== 'horde' && !this.T.pile && game.dropKey && Math.random() < (this.champion ? 0.3 : this.elite ? 0.1 : this.T.boss ? 0.5 : 0.022)) {
+      if (game.mode !== 'horde' && !this.T.pile && game.dropKey && Math.random() < (this.champion ? 0.5 : this.elite ? 0.25 : this.T.boss ? 0.6 : 0.055)) {   // (0.57: antes 2,2 % y casi no se veían)
         game.dropKey(game.rollKeyTier(this.champion || this.T.boss ? 0.8 : this.elite ? 0.4 : 0), this.x, this.y + 1.1, this.z);
       }
+      // (0.57) llave marcada por el cartógrafo: la suelta el último enemigo de la sala
+      { const cr = game.currentRoom; if (game.mode === 'dungeon' && cr && cr.fc && cr.fc.key && !cr.fcKeyDone && !(cr.pendingWaves > 0) && !game.enemies.some((o) => o !== this && !o.dead && !o.isCorpse)) { cr.fcKeyDone = true; game.dropKey(game.rollKeyTier(0.3), this.x, this.y + 1.1, this.z); game.hud.toast('La llave que marcó el cartógrafo'); } }
       game.stats.kills++;
       VX.Profile.add('kills', 1, game);
       if (game.dmgSource === 'knife') { VX.Profile.add('knifeKills', 1, game); if (this.elite || this.champion) VX.Profile.add('knifeElites', 1, game); }

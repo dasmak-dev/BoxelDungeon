@@ -20,7 +20,7 @@
     ['use', 'Usar (si no hay nada: recargar)', B.X], ['reload', 'Recargar', -1], ['next', 'Arma siguiente', B.Y], ['next2', 'Arma siguiente (2º botón)', B.RIGHT],
     ['prev', 'Arma anterior', B.LEFT], ['knife', 'Cuchillazo', B.RB], ['knife2', 'Cuchillazo (2º botón)', B.R3], ['throw', 'Lanzar objeto', B.LB],
     ['throwNext', 'Cambiar objeto a lanzar', B.DOWN], ['flashlight', 'Linterna', B.UP], ['sprint', 'Correr (pulsar)', B.L3], ['map', 'Mapa / llamar la oleada', B.SELECT],
-    ['inspect', 'Inspeccionar el arma', -1],
+    ['inspect', 'Inspeccionar el arma', -1], ['kick', 'Patada', -1], ['throwGun', 'Lanzar el arma', -1],
   ];
   const DEF = {}; for (const [a, , b] of ACTIONS) DEF[a] = b;
 
@@ -144,6 +144,8 @@
       else if (this.held[K('use')] && !on('use')) this.key(K('use'), false);
       if (tapA('reload')) this.tap(K('reload'));
       if (tapA('inspect')) this.tap(K('inspect'));
+      if (tapA('kick')) this.tap(K('kick'));
+      if (tapA('throwGun')) this.tap(K('throwGun'));
       if (tapA('next') || tapA('next2')) I.wheel += 1;
       this.key(K('knife'), on('knife') || on('knife2'));
       this.key(K('throw'), on('throw'));

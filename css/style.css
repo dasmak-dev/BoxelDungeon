@@ -279,40 +279,41 @@ body.touch #throwSlots { font-size: 8px; }
 
 /* ---------- Mapa (tecla M) ---------- */
 #mapOverlay {
-  position: absolute; left: 50%; top: 14%; transform: translateX(-50%);
-  min-width: 420px; max-width: 80vw; padding: 18px 24px;
-  background: rgba(10, 8, 12, 0.88); border: 2px solid #5b4a33; border-radius: 6px;
-  color: #e6dcc8; font-family: inherit; text-align: center; pointer-events: none;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(1040px, 96vw); max-height: 94vh; overflow: hidden; padding: 14px 18px;
+  background: rgba(10, 8, 12, 0.92); border: 2px solid #5b4a33; border-radius: 6px;
+  color: #e6dcc8; font-family: inherit; text-align: left; pointer-events: none;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
 }
-#mapOverlay h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: 2px; color: #ffd23f; }
-#mapOverlay h3 { margin: 14px 0 6px; font-size: 14px; color: #c8b896; }
-#mapOverlay .msub { font-size: 12px; opacity: 0.8; margin-bottom: 10px; }
-#mapOverlay .mrow { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px; }
-#mapOverlay .mstep { display: inline-block; border-bottom: 3px solid; padding: 2px 3px; }
-#mapOverlay .mchip { font-size: 20px; text-shadow: 0 0 6px currentColor; }
-#mapOverlay .mcur { outline: 2px solid #fff; border-radius: 3px; padding: 0 2px; }
+#mapOverlay img.cico { image-rendering: pixelated; vertical-align: -3px; margin-right: 2px; }
+#mapOverlay h2 { margin: 0 0 2px; font-size: 19px; letter-spacing: 2px; color: #f0d79a; }
+#mapOverlay h2 img.cico { vertical-align: -4px; }
+#mapOverlay h3 { margin: 10px 0 5px; font-size: 12px; letter-spacing: 2px; color: #c8b896; text-transform: uppercase; border-bottom: 1px solid #3a2f22; padding-bottom: 2px; }
+#mapOverlay .msub { font-size: 12px; opacity: 0.85; margin-bottom: 8px; }
+#mapOverlay .mcols { display: flex; gap: 14px; align-items: flex-start; }
+#mapOverlay .mleft canvas { width: min(640px, 58vw); height: auto; display: block; border-radius: 4px; }
+#mapOverlay .mright { flex: 1; min-width: 250px; font-size: 12px; line-height: 1.45; max-height: 74vh; overflow: hidden; }
+#mapOverlay .mcard { display: flex; gap: 8px; align-items: flex-start; background: rgba(40, 32, 24, 0.7); border: 1px solid #4a3c2a; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }
+#mapOverlay .mcard > img.cico { flex: none; margin-top: 2px; }
+#mapOverlay .mcard.mcur { border-color: #8a7a5a; }
+#mapOverlay .mcard.mbest { border-color: #ffd23f; box-shadow: 0 0 10px rgba(255, 210, 63, 0.35); }
+#mapOverlay .mroute { color: #ffd23f; font-weight: bold; font-size: 11px; }
+#mapOverlay .mroutel { color: #ffe08a; margin-top: 4px; }
+#mapOverlay .mname { color: #f0d79a; }
+#mapOverlay .mtags { margin-top: 2px; }
+#mapOverlay .mtag { display: inline-block; padding: 0 5px; margin: 1px 3px 1px 0; border: 1px solid #5a4a32; border-radius: 3px; font-size: 11px; }
+#mapOverlay .mfc { margin-top: 3px; }
+#mapOverlay .mline { margin: 3px 0; }
+#mapOverlay .mnext { margin-top: 3px; opacity: 0.95; }
+#mapOverlay .mnbest img { outline: 2px solid #ffd23f; border-radius: 2px; }
+#mapOverlay .mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+#mapOverlay .mstep { display: inline-block; padding: 1px; }
+#mapOverlay .mcurs { outline: 2px solid #fff; border-radius: 3px; }
 #mapOverlay .mlink { opacity: 0.4; }
-#mapOverlay .mexits { display: flex; gap: 18px; justify-content: center; }
-#mapOverlay .mexit { background: rgba(255, 255, 255, 0.05); padding: 8px 12px; border-radius: 4px; font-size: 13px; }
-#mapOverlay .msecret { color: #c79bff; margin-top: 4px; }
-#mapOverlay .mnext { margin-top: 4px; opacity: 0.9; }
-#mapOverlay .mhint { margin-top: 12px; font-size: 11px; opacity: 0.6; }
-#mapOverlay { top: 8%; max-width: 92vw; max-height: 86vh; overflow: hidden; }
-#mapOverlay .mcols { display: flex; gap: 22px; align-items: flex-start; text-align: left; }
-#mapOverlay .mleft { flex: 0 0 auto; }
-#mapOverlay canvas { display: block; border: 1px solid #3a3026; border-radius: 4px; image-rendering: pixelated; width: min(340px, 40vh); height: min(340px, 40vh); }
-#mapOverlay .mlegend { display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: 340px; font-size: 10px; opacity: 0.8; margin-top: 6px; }
-#mapOverlay .mlegend i { display: inline-block; width: 8px; height: 8px; margin-right: 3px; border-radius: 2px; }
-#mapOverlay .mright { flex: 1 1 auto; min-width: 280px; }
-#mapOverlay .mroom { font-size: 14px; line-height: 1.5; }
-#mapOverlay .mline { font-size: 12px; margin-top: 6px; }
-#mapOverlay .mtags { font-size: 11px; opacity: 0.85; }
-#mapOverlay .mname { font-size: 12px; margin-top: 3px; color: #e8d9b0; }
-#mapOverlay .mexits { flex-direction: column; gap: 6px; }
+#mapOverlay .msecret { color: #c79bff; }
+#mapOverlay .mhint { margin-top: 8px; font-size: 11px; opacity: 0.6; text-align: center; }
 #mapOverlay .mkey { display: inline-block; width: 7px; height: 11px; border-radius: 3px 3px 1px 1px; vertical-align: middle; margin-right: 2px; }
 #mapOverlay .mkey.k-wood { background: #94613a; } #mapOverlay .mkey.k-silver { background: #c8ccd6; } #mapOverlay .mkey.k-gold { background: #f0c040; }
-#mapOverlay .mrow { justify-content: flex-start; }
 
 /* ---------- Modo Horda ---------- */
 .menuList button.horde { border-color: #c9762a; }

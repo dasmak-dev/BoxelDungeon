@@ -130,7 +130,7 @@
         }
       }
       game.hud.toast(this.isHost ? `Partida cooperativa · ${N.players.length} jugadores` : 'Conectado: el anfitrión dirige la partida');
-      if (mapId === 'dungeon') game.hud.banner('MAZMORRA EN COOPERATIVO', 'Bajáis juntos: cuando uno cruza una puerta, entráis todos', 3.5);
+      if (mapId === 'dungeon') game.hud.banner('MAZMORRA EN COOPERATIVO', 'Cuando uno cruza, entráis todos', 3.5);
       this.renderTags(true);
     },
 
@@ -178,7 +178,7 @@
       this.snapT = 0; this.overT = 0;
       // mazmorra: la sala sigue (los zombis ya son míos); si ya no queda ninguno, se despeja sola
       if (game.mode === 'dungeon' && game.currentRoom) { const cr = game.currentRoom; cr.pendingWaves = cr.pendingWaves || 0; if (this.vote) this.vote.t = Math.min(this.vote.t, 20); }
-      game.hud.banner('ERES EL ANFITRIÓN', 'El anfitrión se ha ido: la partida sigue y ahora la diriges tú', 3.5);
+      game.hud.banner('ERES EL ANFITRIÓN', 'El anfitrión se ha ido', 3.5);
     },
 
     // ---------------- cada fotograma ----------------
@@ -731,7 +731,7 @@
       this.downT = this.downMax = Math.max(12, DOWN_TIME - (this.downsHere - 1) * 8);   // cada caída en la misma sala, menos tiempo para levantarte
       P.vx = P.vz = 0;
       this.cnt.dn++;
-      game.hud.banner('¡HAS CAÍDO!', `Un compañero puede levantarte manteniendo ${VX.Settings.keyName(VX.Settings.key('use'))} a tu lado`, 3);
+      game.hud.banner('¡HAS CAÍDO!', `Espera a que te levanten`, 3);
       VX.Audio.hurt(1);
       VX.Net.send({ k: 'chat', m: `${this.myName()} ha caído: ¡levántalo!` }, this.isHost ? undefined : 'all');
     },
@@ -749,7 +749,7 @@
       this.wound = (this.wound || 0) + cut; P.maxHp -= cut;
       P.hp = Math.round(P.maxHp * 0.4);
       P.invuln = 2;
-      game.hud.toast('Herido: -10 % de vida máxima hasta la siguiente sala');
+      game.hud.toast('Herido: -10 % de vida máxima');
       P.eyeOffset = 0;
       game.hud.banner('¡TE HAN LEVANTADO!', '', 2);
       VX.Audio.phase && VX.Audio.phase();

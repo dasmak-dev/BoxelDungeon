@@ -220,6 +220,10 @@
         noise(0.09, 0.5, 2600 * j, 'lowpass'); tone(170 * j, 0.06, 'square', 0.09, 70); tone(68, 0.14, 'sine', 0.32, 36); noise(0.3, 0.08, 600, 'lowpass', 0.02); return;
       case 'flamer':   // soplido de la llama
         noise(0.16, 0.13, 700 + Math.random() * 300, 'lowpass', 0, 0.6); noise(0.12, 0.05, 2800, 'bandpass', 0, 1.5); return;
+      case 'nailgun':   // soplido neumático y golpe metálico del clavo
+        noise(0.06, 0.32, 3200 * j, 'bandpass', 0, 2); tone(900 * j, 0.03, 'square', 0.06, 500); noise(0.09, 0.1, 6000, 'highpass', 0.01); return;
+      case 'harpoon':   // chasquido de las gomas y zumbido del arpón
+        tone(140 * j, 0.25, 'sawtooth', 0.12, 70); noise(0.08, 0.4, 1800, 'bandpass', 0, 1.2); tone(420, 0.18, 'triangle', 0.08, 180); return;
       case 'raygun':   // zumbido eléctrico que cae
         tone(1500 * j, 0.2, 'sawtooth', 0.11, 260); tone(760, 0.22, 'square', 0.05, 140); noise(0.12, 0.16, 4200, 'highpass'); tone(90, 0.18, 'sine', 0.25, 50); return;
       case 'launcher':   // "tunk" hueco y siseo del proyectil

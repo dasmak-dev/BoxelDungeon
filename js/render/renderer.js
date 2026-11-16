@@ -269,7 +269,7 @@
     if (c) partCaches.delete(c);
     const ps = body.parts, nCh = Math.ceil(ps.length / PARTS);
     c = body.gpu = { b: [], sig, used: R.frameN };
-    const s = body.scale, sz = body.v * 1.002 / s;
+    const sz = body.v * 1.002;   // (0.59) el tamaño ya lleva la escala (antes se dividía y los campeones salían con huecos)
     for (let ch = 0; ch < nCh; ch++) {
       let n = 0;
       for (let i = ch * PARTS; i < Math.min(ps.length, (ch + 1) * PARTS); i++) { const p = ps[i]; if (!p.detached && p.alive) n += p.alive; }

@@ -3,6 +3,79 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.59.1] — 2026-11-16
+
+- Recarga mucho más fuerte y contundente (sobre todo revólver y rifle): más volumen, golpe grave al encajar el tambor, el cargador y el cerrojo, y compresor propio.
+
+## [0.59.0] — 2026-11-16
+
+- **Katana** (nueva, 160 de esencia): cortes limpios que parten en dos; floja contra armaduras. Mejoras propias (Filo templado, Iaido, Hoja larga, Corte del viento, Acero de Masamune, Tajo doble) y skins Sakura, Oni y Luna sangrienta.
+- Las tiendas nunca ofrecen un arma que ya llevas: se cambia por otra desbloqueada.
+- Máquina de chicles con cúpula de vóxeles.
+- Holograma del cartógrafo más pequeño y sin pisar al pergamino.
+- Arreglo: los campeones y élites se veían con los vóxeles separados.
+- Las jaulas cuelgan de una cadena hasta el techo real y caen si la cortas.
+
+## [0.58.2] — 2026-11-16
+
+- Carteles, avisos y tutorial mucho más cortos.
+- Fuente de almas: altar escalonado con el cristal bien plantado; el cristal de descanso y la ofrenda ya no flotan en el aire.
+- La recarga de las armas suena bastante más fuerte.
+
+## [0.58.1] — 2026-11-16
+
+- Textos de los objetos mucho más cortos: llaves, cofres, máquina de chicles, tienda, mejoras, armas, accesorios y arrojables.
+
+## [0.58.0] — 2026-11-16
+
+### Cartógrafo
+- **Mapa nuevo (M)**: maqueta isométrica de vóxeles con la forma real de tu sala y de las de detrás de cada puerta, figuritas de enemigos (las élites en dorado) y de ti, y pasillos de luz entre salas. Con el mapa estudiado salen también las salas siguientes como maquetas de alambre con su icono.
+- **Iconos de pixel art** nuevos para cada tipo de sala, enemigos, élites, llaves, cofres, mejoras raras, maldiciones, armas, emboscadas, grietas, oscuridad, niebla y peligros.
+- **Panel de la derecha** rehecho: tu sala, oro y llaves, a cuántas salas está el jefe y una ficha por puerta con lo que hay detrás.
+- **Previsión real** (se cumple al entrar): cuántos enemigos y élites, si hay emboscada, qué premio hay en las salas de recompensa (cofre, mejora rara o maldición) y si el vendedor trae arma.
+- **Llave marcada**: en algunas salas el cartógrafo marca una llave, que suelta el último enemigo.
+- **Ruta recomendada**: el cartógrafo señala en dorado la mejor puerta y lo que conviene después, según tu vida, tu oro y lo que hay.
+- **Sala del cartógrafo** redecorada: alfombra, sillas, estanterías de rollos, mapas colgados, velas y un **holograma** de la mazmorra que flota sobre la mesa (azul al entrar; con los colores de cada sala al estudiar el mapa).
+
+## [0.57.0] — 2026-11-16
+
+### Armas
+- **Pistolas dobles** (nueva, 100 de esencia en el Arsenal): clic izquierdo dispara la derecha, clic derecho la izquierda; con los dos a la vez se alternan. Menos precisión y recarga más lenta.
+- **Clavadora** (nueva, 140): ráfagas de clavos que frenan al zombi; si hay pared detrás, lo deja clavado un momento.
+- **Arpón** (nuevo, 170): atraviesa a 3 zombis, tira de ellos hacia ti con la cuerda y los clava a la pared si hay una detrás.
+- **Niveles de arma I → II → III**: el vendedor a veces ofrece mejorar un arma (más daño, cargador y recarga más rápida). II lleva bandas de acero pulido y III detalles dorados; el nivel se ve en la barra de armas.
+- **Lanzar el arma** [Z]: vuela girando, golpea fuerte, aturde y empuja. Queda en el suelo con su munición y su nivel; si sales de la sala sin recogerla (o pasan 90 s en la Horda), la pierdes.
+- El vendedor sólo trae un arma el **40 %** de las veces (una de tus desbloqueadas que no lleves).
+- **Patada** [X]: empuja y aturde a lo que tengas delante; la tercera seguida pega el doble. Si acierta, el siguiente disparo hace **×2** de daño.
+
+### Mercader y llaves
+- El relicario es ahora una **máquina de chicles**: metes la llave, gira la manivela y suelta bolas (madera 1, plata 2-3, oro 3-5); cada una da un premio (oro, mejora, arma, arrojable…).
+- Los enemigos sueltan llaves bastante más a menudo.
+
+### Horda
+- Algo menos de enemigos por ronda, pero más variedad de tipos en cada una.
+- **Rondas especiales** (raras): sólo cuervos, sólo explosivos, caballeros con corredores, ratas, huesos, hinchados…
+
+## [0.56.0] — 2026-11-16
+
+### Cambiado
+- **Los enemigos se endurecen de verdad según avanzas.** La vida ya crecía con el piso, pero casi nunca contaba: los zombis morían antes por destrozos (cabeza o torso rotos) y hacían falta los mismos disparos en el piso 1 que en el 40. Ahora:
+  - **El torso solo se parte en dos si le queda menos de la mitad de la vida.** Antes, cuatro balas a la altura del pecho lo cortaban de lado a lado (tiene 25 cm de fondo) con casi toda la vida. Lo mismo para morir con el torso destrozado.
+  - **El trozo que arranca cada bala depende del daño frente a la vida total.** Al principio se ve igual que antes; en pisos altos, con más vida, cada bala arranca menos.
+  - **El cráneo aguanta más en pisos altos:** del 45 % destrozado en el piso 1 al 70 % en el piso 40. El tiro a la cabeza sigue matando de golpe.
+  - **Curva de vida:** +15 % de base para todos y +12 % por piso, antes +15 %.
+
+  Disparos de pistola sin mejoras (pecho / cabeza), piso 1 → piso 40:
+  - zombi: 3,8 / 1,8 → 8 / 2,3;
+  - corredor: 3 / 1,3 → 6,5 / 2;
+  - escudero: 13 / 3 → 24 / 3,2.
+- **Esqueletos (y arqueros) mucho más resistentes.** Antes una bala casi en cualquier sitio los mataba: su columna mide 1 o 2 vóxeles y cualquier impacto la cortaba y los «partía en dos», y el cráneo hueco se «separaba» del cuello con un solo tiro. Ahora:
+  - su torso y su cráneo no se parten, solo cuenta cuánto queda;
+  - sus huesos se astillan menos con cada impacto;
+  - tienen más vida: el esqueleto pasa de 55 a 85 y el arquero de 45 a 65.
+
+  Disparos de pistola, piso 1 → piso 40: pecho de 1 a 5 → 12; cabeza de 1 a 2 → 5.
+
 ## [0.55.0] — 2026-11-16
 
 ### Añadido

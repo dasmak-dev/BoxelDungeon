@@ -159,63 +159,70 @@
       const el = document.getElementById('mapOverlay');
       if (!el) return;
       if (!force && !el.classList.contains('hidden')) { el.classList.add('hidden'); this.mapOpen = false; return; }
-      const T = VX.ROOM_TYPES, Z = VX.ZONES;
-      const ICON = { normal: '☠', reward: '★', shop: '$', save: '✦', boss: '◆', start: '▶', map: '✎' };
-      const rgb = (c) => c.map((v) => Math.round(Math.min(1, v) * 255)).join(',');
-      const chip = (type, extra = '') => `<span class="mchip ${extra}" style="color:rgb(${rgb((T[type] || T.normal).color)})" title="${(T[type] || {}).label || type}">${ICON[type] || '?'}</span>`;
+      // (0.57) maqueta isométrica a la izquierda; a la derecha, la sala, las puertas con su previsión y la ruta
+      const C = VX.Carto, T = VX.ROOM_TYPES, Z = VX.ZONES, I = (n, px, t) => C.icon(n, px, t);
       const r = game.currentRoom, zn = Z[game.zone || 0];
-      const reveal = game.mapReveal > 0;
+      const reveal = C.studied(game);
+      const rt = C.route(game);
+      this.mapRoute = rt;
       const HZ = { lava: 'lava', acid: 'ácido', spikes: 'púas', spores: 'esporas', void: 'vacío', water: 'agua' };
-      const roomTags = (n) => {
+      const tags = (n) => {
         const t = [];
-        if (n.dark) t.push('a oscuras');
-        if (n.gfog) t.push(n.gfog.thick ? 'niebla espesa' : 'niebla');
-        const hz = [...new Set((n.spikes || []).map((s) => HZ[s.kind]).filter(Boolean))];
-        if (hz.length) t.push(hz.join(', '));
-        if (n.vault) t.push(`<span class="mkey k-gold"></span> cerradura`);
-        if (n.secret) t.push(`<span class="msecret">${n.secret.stairs ? '✦ grieta con escalera' : '✦ grieta secreta'}</span>`);
-        return t.join(' · ');
+        if (n.dark) t.push(I('dark', 14) + 'a oscuras');
+        if (n.gfog) t.push(I('fog', 14) + (n.gfog.thick ? 'niebla espesa' : 'niebla'));
+        const hz = [...new Set((n.spikes || []).map((x) => HZ[x.kind]).filter(Boolean))];
+        if (hz.length) t.push(I('hazard', 14) + hz.join(', '));
+        if (n.vault) t.push(I('lock', 14) + 'cerradura');
+        if (n.secret) t.push(`<span class="msecret">${I('secret', 14)}${n.secret.stairs ? 'grieta con escalera' : 'grieta secreta'}</span>`);
+        return t.map((x) => `<span class="mtag">${x}</span>`).join('');
       };
-      let h = `<h2>MAPA · ${game.floor === 0 ? 'Entrada' : 'Piso ' + game.floor} · ${zn.name}</h2>`;
-      h += `<div class="msub">${reveal ? `Mapa del cartógrafo estudiado: ves dos salas por delante y lo que esconden (${game.mapReveal} salas más)` : 'Busca la Sala del cartógrafo (✎) para ver qué hay más allá'}</div>`;
-      h += '<div class="mcols"><div class="mleft"><canvas id="mapCanvas" width="340" height="340"></canvas>';
-      h += '<div class="mlegend"><span><i style="background:#e8e2d0"></i>tú</span><span><i style="background:#ff4a3a"></i>enemigos</span><span><i style="background:#ffd23f"></i>objetos</span><span><i style="background:#c75a1e"></i>lava</span><span><i style="background:#5fc84a"></i>ácido</span><span><i style="background:#2c5a78"></i>agua</span><span><i style="background:#8a3fe0"></i>vacío/esporas</span><span><i style="background:#888"></i>púas</span></div></div>';
-      // ---- columna derecha: la sala y el piso ----
-      const alive = game.enemies.filter((e) => !e.dead).length;
+      let h = `<div class="mtitle"><h2>${I('map', 22)} MAPA · ${game.floor === 0 ? 'Entrada' : 'Piso ' + game.floor} · ${zn.name}</h2>`;
+      h += `<div class="msub">${reveal ? `Mapa del cartógrafo: ves las salas de detrás de cada puerta, lo que esconden y las siguientes <b>(${game.mapReveal} salas más)</b>` : 'Busca la Sala del cartógrafo para ver qué hay más allá de las puertas'}</div></div>`;
+      h += '<div class="mcols"><div class="mleft"><canvas id="mapCanvas" width="640" height="470"></canvas></div>';
+      // ---- panel derecho ----
+      const alive = game.enemies.filter((e) => !e.dead), el2 = alive.filter((e) => e.elite || e.champion).length;
       h += '<div class="mright">';
-      h += `<div class="mroom"><b>${r.name || ''}</b> ${chip(r.type)}<br><span class="mtags">${roomTags(r) || '&nbsp;'}</span><br>${alive ? `<span style="color:#ff6a5a">${alive} enemigo${alive > 1 ? 's' : ''} en la sala</span>` : r.cleared ? '<span style="color:#7fd07f">Sala despejada</span>' : ''}</div>`;
+      h += `<div class="mcard mcur">${I(r.type, 26)}<div><b>${r.name || ''}</b><div class="mtags">${tags(r)}</div>`;
+      h += alive.length ? `<div class="mfc">${I('enemy', 14)} <span style="color:#ff6a5a">${alive.length} enemigo${alive.length > 1 ? 's' : ''}</span>${el2 ? ` · ${I('elite', 14)} ${el2} élite${el2 > 1 ? 's' : ''}` : ''}</div>` : r.cleared ? '<div class="mfc" style="color:#7fd07f">Sala despejada</div>' : '';
+      h += '</div></div>';
       const k = game.keys || {};
       const keys = ['wood', 'silver', 'gold'].filter((c) => k[c]).map((c) => `<span class="mkey k-${c}"></span>${k[c] > 1 ? '×' + k[c] : ''}`).join(' ');
-      if (keys) h += `<div class="mline">Llaves: ${keys}</div>`;
-      const sp = game.spawner;
-      if (sp && sp.secret) h += `<div class="mline" style="color:#c79bff">Vacío: ${sp.secret.rooms > 0 ? sp.secret.rooms + ' salas hasta el guardián' : 'el guardián espera'}</div>`;
-      else if (sp && sp.bossSoon) h += '<div class="mline" style="color:#ff8a5a">◆ La guarida del jefe está cerca</div>';
-      else if (game.floor < 10) h += `<div class="mline">Primer jefe a partir del piso 10</div>`;
-      // puertas de la sala actual
+      h += `<div class="mline">${I('shop', 14)} ${game.stats.gold || 0} de oro${keys ? ' · Llaves: ' + keys : ''}</div>`;
+      const bi = C.bossInfo(game);
+      h += `<div class="mline" style="color:${bi.n <= 2 ? '#ff8a5a' : bi.n <= 3 ? '#ffb07a' : '#b9ad92'}">${I('boss', 14)} Jefe: ${bi.txt}</div>`;
+      // puertas
       const dirs = { zp: [0, 1], zn: [0, -1], xp: [1, 0], xn: [-1, 0] };
       const f = dirs[VX.Room.OPP[r.entrance || 'zn']], right = [-f[1], f[0]];
-      const label = (s) => { const v = dirs[s]; return v[0] === f[0] && v[1] === f[1] ? 'Al frente' : v[0] === right[0] && v[1] === right[1] ? 'Derecha' : 'Izquierda'; };
-      h += '<h3>Puertas</h3><div class="mexits">';
-      for (const s of r.exits || []) {
-        const d = r.doors[s];
-        if (!d || !d.type) continue;
-        const n = d.neighbor;
-        h += `<div class="mexit"><b>${label(s)}</b> ${chip(d.type)} ${(T[d.type] || {}).label || ''}`;
+      const label = (sd) => { const v = dirs[sd]; return v[0] === f[0] && v[1] === f[1] ? 'Al frente' : v[0] === right[0] && v[1] === right[1] ? 'Derecha' : 'Izquierda'; };
+      const ord = { Izquierda: 0, 'Al frente': 1, Derecha: 2 };
+      const nbs = C.neighbors(game).sort((a, b) => ord[label(a.side)] - ord[label(b.side)]);
+      h += '<h3>Puertas</h3>';
+      for (const nb of nbs) {
+        const n = nb.room, best = rt && rt.side === nb.side;
+        h += `<div class="mcard mdoor${best ? ' mbest' : ''}">${I(nb.type, 26)}<div><b>${label(nb.side)}</b> · ${(T[nb.type] || {}).label || ''}${nb.door.goldLock ? ' ' + I('lock', 14, 'Puerta dorada') : ''}${best ? ` <span class="mroute">${I('route', 14)} RUTA</span>` : ''}`;
         if (reveal && n) {
           h += `<div class="mname">${n.name || ''}</div>`;
-          const tg = roomTags(n);
+          const tg = tags(n);
           if (tg) h += `<div class="mtags">${tg}</div>`;
-          if (n.plannedTypes) h += `<div class="mnext">y después: ${n.plannedTypes.map((t) => chip(t)).join(' ')}</div>`;
-        }
-        h += '</div>';
+          const fc = n.fc;
+          if (fc) {
+            const bits = [];
+            if (fc.n) bits.push(`${I('enemy', 14)} ${fc.n} enemigos`);
+            if (fc.elites) bits.push(`${I('elite', 14)} ${fc.elites} élite${fc.elites > 1 ? 's' : ''}`);
+            if (fc.ambush) bits.push(`${I('ambush', 14)} <span style="color:#ff9a3a">¡emboscada!</span>`);
+            if (fc.key) bits.push(`${I('key', 14)} <span style="color:#ffd23f">llave marcada</span>`);
+            if (fc.reward) bits.push({ chest: `${I('chest', 14)} cofre misterioso`, rare: `${I('rare', 14)} <span style="color:#c79bff">mejora rara</span>`, curse: `${I('curse', 14)} <span style="color:#d070d0">maldición</span>`, normal: `${I('reward', 14)} mejora` }[fc.reward]);
+            if (fc.gun != null && nb.type === 'shop') bits.push(fc.gun ? `${I('gun', 14)} <span style="color:#9fe08a">vende un arma</span>` : `${I('nogun', 14)} sin armas`);
+            if (bits.length) h += `<div class="mfc">${bits.join(' · ')}</div>`;
+          }
+          if (n.plannedTypes) h += `<div class="mnext">después: ${n.plannedTypes.map((t, i) => `<span class="${best && rt.nextSide === n.exits[i] ? 'mnbest' : ''}">${I(t, 18, (T[t] || {}).label)}</span>`).join(' ')}</div>`;
+        } else if (!reveal) h += '<div class="mfc" style="opacity:.6">¿Qué habrá detrás?</div>';
+        h += '</div></div>';
       }
-      h += '</div>';
-      // camino recorrido
-      const path = (game.mapPath || []).slice(-14);
-      h += '<h3>Recorrido</h3><div class="mrow">' + path.map((p, i) => {
-        const zc = Z[p.zone].fog.map((v) => Math.round(Math.min(1, v * 12) * 255)).join(',');
-        return `<span class="mstep" style="border-color:rgb(${zc})">${chip(p.type, i === path.length - 1 ? 'mcur' : '')}</span>`;
-      }).join('<span class="mlink">›</span>') + '</div>';
+      if (rt) h += `<div class="mline mroutel">${I('route', 16)} El cartógrafo recomienda: <b>${label(rt.side).toLowerCase()}</b>${rt.next ? ' y luego ' + I(rt.next, 16) + ' ' + ((T[rt.next] || {}).label || '').toLowerCase() : ''}</div>`;
+      // recorrido
+      const path = (game.mapPath || []).slice(-12);
+      h += '<h3>Recorrido</h3><div class="mrow">' + path.map((p, i) => `<span class="mstep${i === path.length - 1 ? ' mcurs' : ''}">${I(p.type, 16)}</span>`).join('<span class="mlink">›</span>') + '</div>';
       h += '</div></div><div class="mhint">' + VX.Settings.tag('map') + ' cerrar</div>';
       el.innerHTML = h;
       el.classList.remove('hidden');
@@ -223,71 +230,11 @@
       this.drawRoomMap(game);
     },
 
-    // Planta de la sala actual (se redibuja mientras el mapa está abierto)
+    // Maqueta isométrica (se redibuja mientras el mapa está abierto)
     drawRoomMap(game) {
-      const cv = document.getElementById('mapCanvas'), r = game.currentRoom;
-      if (!cv || !r || !r.hmap) return;
-      const ctx = cv.getContext('2d'), W = r.W, D = r.D, S = VX.S;
-      if (!this._mapImg || this._mapRoom !== r || this._mapVer !== r.mapVersion) {
-        // fondo: suelo, obstáculos y muros (sólo cambia si se rompe algo)
-        const img = ctx.createImageData(W, D), walk = r.getWalk(), hm = r.hmap;
-        for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
-          const i = z * W + x, o = i * 4, m = Math.min(x, z, W - 1 - x, D - 1 - z);
-          let c;
-          if (m < 4 && hm[i] > 0) c = [26, 22, 20];
-          else if (walk[i]) { const k = Math.min(1, hm[i] / 10); c = [70 + k * 50, 62 + k * 44, 54 + k * 36]; }
-          else if (hm[i] > 0) c = [140, 128, 112];
-          else c = [52, 46, 42];
-          img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
-        }
-        const HC = { lava: [199, 90, 30], acid: [95, 200, 74], water: [44, 90, 120], void: [138, 63, 224], spores: [138, 63, 224], spikes: [136, 136, 136] };
-        for (const sp of r.spikes || []) {
-          const c = HC[sp.kind] || [136, 136, 136];
-          for (let z = sp.uz0 * 2; z < (sp.uz1 + 1) * 2; z++) for (let x = sp.ux0 * 2; x < (sp.ux1 + 1) * 2; x++) {
-            if (x < 0 || z < 0 || x >= W || z >= D) continue;
-            const o = (z * W + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2];
-          }
-        }
-        const off = document.createElement('canvas'); off.width = W; off.height = D;
-        off.getContext('2d').putImageData(img, 0, 0);
-        this._mapImg = off; this._mapRoom = r; this._mapVer = r.mapVersion;
-      }
-      const sc = Math.min(cv.width / W, cv.height / D), ox = (cv.width - W * sc) / 2, oz = (cv.height - D * sc) / 2;
-      // orientado según la entrada: la puerta por la que entraste queda abajo
-      const rot = { zn: 0, zp: Math.PI, xn: -Math.PI / 2, xp: Math.PI / 2 }[r.entrance || 'zn'] || 0;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = '#0c0a0d'; ctx.fillRect(0, 0, cv.width, cv.height);
-      ctx.translate(cv.width / 2, cv.height / 2); ctx.rotate(rot); ctx.scale(1, -1); ctx.translate(-cv.width / 2, -cv.height / 2);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(this._mapImg, ox, oz, W * sc, D * sc);
-      const P2 = (wx, wz) => [ox + (wx / S - r.ox) * sc, oz + (wz / S - r.oz) * sc];
-      const dot = (wx, wz, rad, col) => { const [x, y] = P2(wx, wz); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill(); };
-      // modo para daltónicos: los enemigos son cruces y los objetos rombos (no sólo rojo y amarillo)
-      const cb = VX.Settings.data.colorblind;
-      const cross = (wx, wz, rad, col) => { const [x, y] = P2(wx, wz); ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, rad * 0.7); ctx.beginPath(); ctx.moveTo(x - rad, y - rad); ctx.lineTo(x + rad, y + rad); ctx.moveTo(x + rad, y - rad); ctx.lineTo(x - rad, y + rad); ctx.stroke(); };
-      const diamond = (wx, wz, rad, col) => { const [x, y] = P2(wx, wz); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, y - rad); ctx.lineTo(x + rad, y); ctx.lineTo(x, y + rad); ctx.lineTo(x - rad, y); ctx.closePath(); ctx.fill(); };
-      // antorchas
-      for (const t of r.torches || []) if (t.alive) dot(t.x, t.z, 2.2, '#ff9a3a');
-      // reja y grieta
-      if (r.vault && !r.vault.open) { const c = { red: '#e3392c', blue: '#4f7dff', gold: '#f0c040' }[r.vault.color]; const [x, y] = P2(r.vault.x, r.vault.z); ctx.fillStyle = c; ctx.fillRect(x - 5, y - 5, 10, 10); if (cb) { ctx.save(); ctx.translate(x, y); ctx.scale(1, -1); ctx.fillStyle = '#000'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText({ red: '▲', blue: '■', gold: '✚' }[r.vault.color], 0, 1); ctx.restore(); } }
-      if (r.secret && (r.secret.found || game.mapReveal > 0)) { const [x, y] = P2(r.secret.x, r.secret.z); ctx.strokeStyle = '#c79bff'; ctx.lineWidth = 2; ctx.strokeRect(x - 6, y - 6, 12, 12); }
-      // puertas: color del tipo de sala que hay detrás
-      for (const s in r.doors) {
-        const d = r.doors[s], w = r.doorWorld(s), [x, y] = P2(w.x, w.z);
-        const c = d.type && VX.ROOM_TYPES[d.type] ? VX.ROOM_TYPES[d.type].color : [0.6, 0.6, 0.6];
-        ctx.fillStyle = s === r.entrance ? '#555' : `rgb(${c.map((v) => Math.round(Math.min(1, v) * 255)).join(',')})`;
-        ctx.fillRect(x - 7, y - 7, 14, 14);
-      }
-      // objetos que se pueden coger/usar
-      for (const it of game.pickups.items) if (!it.taken && r.contains(it.x, it.z) && it.kind !== 'lockdoor') (cb ? diamond : dot)(it.x, it.z, cb ? 4.2 : 3.2, '#ffd23f');
-      // enemigos
-      for (const e of game.enemies) if (!e.dead) (cb ? cross : dot)(e.x, e.z, e.isBoss ? 6 : cb ? 3.5 : 3, '#ff4a3a');
-      // tú: flecha hacia donde miras
-      const P = game.player, [px, py] = P2(P.x, P.z);
-      ctx.save(); ctx.translate(px, py); ctx.rotate(-Math.atan2(Math.sin(P.yaw), Math.cos(P.yaw)));
-      ctx.fillStyle = '#e8e2d0'; ctx.beginPath(); ctx.moveTo(0, 7); ctx.lineTo(-5, -5); ctx.lineTo(0, -2); ctx.lineTo(5, -5); ctx.closePath(); ctx.fill();
-      ctx.restore();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const cv = document.getElementById('mapCanvas');
+      if (!cv || !game.currentRoom || !game.currentRoom.grid) return;
+      VX.Carto.drawIso(cv, game, this.mapRoute);
     },
 
     refreshUpgrades(game) {
@@ -302,7 +249,7 @@
 
     update(dt, game) {
       const P = game.player, W = game.weapon, el = this.el;
-      if (this.mapOpen) { this.mapT = (this.mapT || 0) - dt; if (this.mapT <= 0) { this.mapT = 0.12; this.drawRoomMap(game); } }
+      if (this.mapOpen) { this.mapT = (this.mapT || 0) - dt; if (this.mapT <= 0) { this.mapT = 0.1; this.drawRoomMap(game); } }
       const r = game.currentRoom;
       if (game.mode === 'horde') {
         el.floor.textContent = VX.HordeMode.hudTop(game);
@@ -321,10 +268,10 @@
       const melee = W.def.melee;
       el.ammo.innerHTML = melee ? `<small>${W.name.toUpperCase()}</small>` : W.reloading ? `<small>RECARGANDO</small>` :
         W.limited ? `${W.ammo} <small style="${(W.slot.reserve || 0) <= 0 ? 'color:#ff5a4a' : ''}">/ ${W.slot.reserve || 0}</small>` : `${W.ammo} <small>/ ${W.magSize}</small>`;
-      const sk = W.slots.map((s) => s.id).join('|') + W.cur;
+      const sk = W.slots.map((s) => s.id + (s.lvl || 1)).join('|') + W.cur + (W.kickBuff > 0 ? 'k' : '');
       if (sk !== this.slotKey) {
         this.slotKey = sk;
-        el.slots.innerHTML = W.slots.map((s, i) => `<span class="${i === W.cur ? 'on' : ''}">${i + 1} ${VX.Weapons.DEFS[s.id].name.toUpperCase()}</span>`).join('');
+        el.slots.innerHTML = W.slots.map((s, i) => `<span class="${i === W.cur ? 'on' : ''}">${i + 1} ${VX.Weapons.DEFS[s.id].name.toUpperCase()}${(s.lvl || 1) > 1 ? ' <b style="color:' + (s.lvl === 3 ? '#ffc94a' : '#b9c6dc') + '">' + ['', '', 'II', 'III'][s.lvl] + '</b>' : ''}</span>`).join('') + (W.kickBuff > 0 ? ' <span style="color:#ffb347">PATADA: ×2</span>' : '');
       }
       // objetos arrojables: cuántos de cada uno y cuál se lanza
       const tk = VX.Throw.ORDER.map((t) => W.throws[t] || 0).join(',') + W.throwSel + VX.Settings.key('throw') + ((VX.Profile.data.gear || []).length);

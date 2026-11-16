@@ -162,7 +162,18 @@
       vacio: { crate: 'crystal', bigcrate: 'statue', sack: 'rubble', barrel: 'urn', straw: 'rubble' } }[Z.id];
     if (SWAP && r.type === 'normal') for (const q of r.pending) if (SWAP[q.type] && P().DEFS[SWAP[q.type]]) { q.type = SWAP[q.type]; q.stack = 1; if (q.opts) { delete q.opts.onTop; } }
     for (const q of r.pending) {
-      if (q.at) { P().placeAt(r, q.type, q.x, q.at.y, q.z, q.at.rot || 0, q.at.v || 0); continue; }
+      if (q.at) {
+        const pr = P().placeAt(r, q.type, q.x, q.at.y, q.z, q.at.rot || 0, q.at.v || 0);
+        // (0.59) lo que cuelga (jaulas) llega hasta el techo de verdad: en las bóvedas, una cadena más larga
+        if (pr && P().DEFS[q.type] && P().DEFS[q.type].anchor === 'top' && r.ceilY) {
+          const pv = PV(), top = pr.oy + pr.h * pv, ceil = r.ceilY(pr.cx, pr.cz), len = ceil - top;
+          if (len > 0.05) {
+            const ch = P().placeBeam(r, pr.cx - pv / 2, top, pr.cz - pv / 2, pv, len, pv, 'top', [0.22, 0.21, 0.23], 'metal');
+            if (ch) ch.hangs = pr;
+          }
+        }
+        continue;
+      }
       const key = q.x.toFixed(2) + ',' + q.z.toFixed(2);
       if (q.opts && q.opts.onTop) {
         const base = lastAt[key];

@@ -43,6 +43,15 @@
     gigantes: { name: 'GIGANTES', sub: 'Pocos, pero enormes', kinds: ['brute', 'brute', 'shielder'], count: 0.5 },
     oro: { name: 'FIEBRE DEL ORO', sub: 'Cada zombi suelta el doble de oro' },
   };
+  // rondas especiales (0.57): raras (≈12 % de las oleadas desde la 4, nunca con jefe ni con evento), de un tipo o una pareja
+  const SPECIALS = {
+    cuervos: { name: 'BANDADA', sub: 'Sólo cuervos: mira al cielo', kinds: ['crow'], count: 1.2 },
+    explosivos: { name: '¡TODO EXPLOTA!', sub: 'Sólo zombis explosivos: no los dejes acercarse', kinds: ['exploder'], count: 0.75 },
+    caballeros: { name: 'CARGA DE CABALLERÍA', sub: 'Caballeros negros y corredores, mitad y mitad', kinds: ['knight', 'runner'], count: 0.5 },
+    ratas: { name: 'PLAGA', sub: 'Un mar de ratas gigantes', kinds: ['rat'], count: 2 },
+    huesos: { name: 'LEGIÓN DE HUESOS', sub: 'Esqueletos y arqueros', kinds: ['skeleton', 'skeleton', 'archer'], count: 0.8 },
+    hinchados: { name: 'MAREA PODRIDA', sub: 'Gordos hinchados y escupidores', kinds: ['bloater', 'spitter'], count: 0.55 },
+  };
   const EVAC_FROM = 20, EVAC_TIME = 90;   // desde qué oleada se puede pedir la evacuación y cuánto tarda el helicóptero
   const ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 
@@ -72,7 +81,7 @@
       }
       this.updatePerkHud();
       game.floor = 1;
-      game.hud.banner(map.name.toUpperCase(), `Prepárate: la primera oleada llega en ${Math.round(this.timer)} s  ·  ${VX.Settings.tag('wave')} llamarla ya`, 4);
+      game.hud.banner(map.name.toUpperCase(), `Oleada en ${Math.round(this.timer)} s · ${VX.Settings.tag('wave')} ya`, 4);
     },
 
     // nivel de dificultad (equivale al «piso» de la mazmorra)
@@ -81,7 +90,8 @@
     levelFor(n) { return Math.round(1 + n * 0.85); },
     totalFor(n) {
       const players = VX.Coop && VX.Coop.active ? 1 + VX.Coop.remotes.size : 1;
-      return Math.round((5 + n * 2.2 + Math.pow(n, 1.3)) * (1 + 0.4 * (players - 1)));
+      // (0.57) un 22 % menos que antes, pero con más variedad en cada oleada
+      return Math.round((5 + n * 2.2 + Math.pow(n, 1.3)) * 0.78 * (1 + 0.4 * (players - 1)));
     },
     maxAlive(n) { return Math.min(6 + n, 20); },
 
@@ -179,11 +189,31 @@
         this.startEvent(game, M.choice(ids));
         if (this.event.count) this.total = Math.max(4, Math.round(this.total * this.event.count));
       }
+      // la mezcla de esta oleada: 3-5 tipos de los ya desbloqueados (además de los zombis normales)
+      {
+        const pool = ['runner', 'dog', 'spitter'];
+        if (n >= 3) pool.push('brute', 'exploder', 'shielder', 'skeleton');
+        if (n >= 4) pool.push('climber', 'crow', 'archer');
+        if (n >= 5) pool.push('bloater', 'screamer', 'rat');
+        if (n >= 6) pool.push('riot', 'sporeling', 'miner');
+        const k = Math.min(pool.length, n < 3 ? 2 : n < 6 ? 3 : n < 12 ? 4 : 5), mix = [];
+        while (mix.length < k) { const c = M.choice(pool); if (!mix.includes(c)) mix.push(c); }
+        this.mix = mix;
+      }
+      // ronda especial (rara)
+      this.special = null;
+      if (n >= 4 && !this.bossWave && !this.event && Math.random() < 0.2) {   // (0,2 de las que no tienen evento: ≈12 % en total)
+        const id = M.choice(Object.keys(SPECIALS).filter((k) => k !== this.lastSpecial));
+        this.special = SPECIALS[id]; this.lastSpecial = id;
+        this.total = Math.max(5, Math.round(this.total * this.special.count));
+        this.eliteWave = false; this.championAt = -1;
+      }
       let sub = `${this.total} zombis se acercan`;
+      if (this.special) sub = `${this.special.sub} · ${this.total} enemigos`;
       if (this.event) sub = `${this.event.name} · ${this.event.sub} · ${this.total} zombis`;
       if (this.bossWave) sub += ' · ¡y un jefe!';
       else if (this.eliteWave) sub += ' · ¡con un campeón!';
-      game.hud.banner(this.event ? `OLEADA ${n}: ${this.event.name}` : `OLEADA ${n}`, sub, 3.6);
+      game.hud.banner(this.special ? `RONDA ESPECIAL: ${this.special.name}` : this.event ? `OLEADA ${n}: ${this.event.name}` : `OLEADA ${n}`, sub, this.special ? 4.5 : 3.6);
       VX.Audio.roar(); game.shake(0.3);
       if (this.bossWave) {
         const sp = this.pickSpawn(game, 22, 50) || { x: 0, z: 0 };
@@ -291,12 +321,12 @@
       VX.Audio.door();
       if (merchant) {
         const sp = this.spawnMerchant(game);
-        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Ha llegado el vendedor (${sp ? sp.name : 'en el mapa'}). Se irá en cuanto empiece la oleada ${n + 1}`, 4.5);
+        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Vendedor en ${sp ? sp.name : 'el mapa'}`, 4.5);
       } else if (special) {
         this.spawnChoice(game);
-        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Elige UNA de las tres mejoras que han aparecido a tu alrededor`, 4.5);
+        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Elige una mejora`, 4.5);
       } else {
-        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Siguiente oleada en ${this.timer} s  ·  ${VX.Settings.tag('wave')} llamarla ya`, 3.5);
+        game.hud.banner(`OLEADA ${n} SUPERADA`, `+${bonus} de oro · Siguiente en ${this.timer} s`, 3.5);
       }
     },
 
@@ -324,20 +354,13 @@
       const f = game.floor;
       const champion = this.spawned === this.championAt;
       let kind = game.spawner.pickKind(f, this.room.zone || 6);
-      // variedad: a menudo sale uno de los tipos especiales ya desbloqueados por la oleada
-      if (Math.random() < 0.4) {
-        const w = this.wave;
-        const pool = ['runner', 'dog', 'spitter'];
-        if (w >= 3) pool.push('brute', 'exploder', 'shielder');
-        if (w >= 4) pool.push('climber', 'crow');
-        if (w >= 5) pool.push('bloater', 'screamer');
-        if (w >= 6) pool.push('riot', 'archer');
-        kind = M.choice(pool);
-      }
+      // variedad: más de la mitad son de la mezcla de esta oleada (cada oleada trae los suyos)
+      if (this.mix && Math.random() < 0.6) kind = M.choice(this.mix);
       // caballero negro y renacido: desde la oleada 3, pocos (≈3 % y 4 % de cada zombi)
       if (this.wave >= 3 && !champion) { const r = Math.random(); if (r < 0.03) kind = 'knight'; else if (r < 0.07) kind = 'revenant'; else if (this.wave >= 5 && r < 0.1) kind = 'hydra'; }   // hidra desde la oleada 5 (≈3 %)
       else if (kind === 'knight' || kind === 'revenant' || kind === 'hydra') kind = 'walker';
       if (this.event && this.event.kinds && Math.random() < 0.75) kind = M.choice(this.event.kinds);
+      if (this.special) kind = this.special.kinds[this.spawned % this.special.kinds.length];   // ronda especial: sólo esos
       if (champion && ['rat', 'exploder', 'mimic', 'archer', 'necro', 'crow', 'screamer', 'revenant', 'knight', 'hydra'].includes(kind)) kind = 'walker';
       const elite = !champion && Math.random() < game.spawner.difficulty(f).elite;
       let z;
@@ -483,7 +506,7 @@
         if (!game.world.boxCollides(cx - 0.3, gy + 0.1, cz - 0.3, cx + 0.3, gy + 1.2, cz + 0.3)) { x = cx; z = cz; break; }
       }
       this.evacOffer = game.pickups.addItem({ kind: 'evac', price: 0, x, y: game.world.groundAt(x, z) + 0.3, z,
-        title: 'Radio de rescate', desc: `Pide el helicóptero: aguanta ${EVAC_TIME} s y subid todos para escapar`, action: 'Llamar', color: [0.35, 1, 0.45], shape: 'star' });
+        title: 'Radio de rescate', desc: `Pide el helicóptero y escapa`, action: 'Llamar', color: [0.35, 1, 0.45], shape: 'star' });
       game.hud.toast(n === EVAC_FROM ? '¡Hay una radio de rescate! Ya podéis pedir la evacuación (o seguir aguantando)' : 'Nueva radio de rescate disponible');
     },
 
@@ -529,7 +552,7 @@
       this.spawnT = 2;
       this.total = this.spawned + 9999;
       this.evac = { x, z, y: game.world.groundAt(x, z), boardT: 0, rotor: 0, beepT: 0 };
-      game.hud.banner('¡EVACUACIÓN!', `El helicóptero llega en ${EVAC_TIME} s · aguanta y subid todos a la zona de aterrizaje`, 4.5);
+      game.hud.banner('¡EVACUACIÓN!', `Aguanta ${EVAC_TIME} s y sube al helicóptero`, 4.5);
       VX.Audio.roar(); game.shake(0.3);
     },
 

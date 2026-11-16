@@ -155,7 +155,7 @@
     // Modelo simplificado para lejos: cada grupo de 2×2×2 vóxeles de la superficie se dibuja como
     // uno solo, el doble de grande (se recalcula sólo cuando la pieza pierde vóxeles)
     renderCoarse(batch) {
-      const sz = this.v * this.scale * 2.0, f = this.flash, s = this.scale;
+      const sz = this.v * 2.0, f = this.flash, s = this.scale;   // (0.59) v ya lleva la escala
       for (const p of this.parts) {
         if (p.detached || p.hidden) continue;
         if (!p.coarse || p._coarseAlive !== p.alive) {
@@ -294,6 +294,8 @@
       if (opts && opts.blunt) return this.carveSphere(hit.vox.wx, hit.vox.wy, hit.vox.wz, this.v * 3.4, particles, ray.dx, ray.dy, ray.dz);
       if (opts && opts.slash) {
         const a = opts.slash;
+        // (0.59) la katana: corte largo, fino y profundo (parte en dos)
+        if (opts.katana) return this.carveSlash(hit.vox.wx, hit.vox.wy, hit.vox.wz, a[0], a[1], a[2], ray.dx, ray.dy, ray.dz, 0.6, this.v * 1.05, 0.7, particles);
         return this.carveSlash(hit.vox.wx, hit.vox.wy, hit.vox.wz, a[0], a[1], a[2], ray.dx, ray.dy, ray.dz, 0.22, this.v * 1.4, 0.16, particles);
       }
       const radius = this.v * (radiusK + dmg / 30) * destruction;

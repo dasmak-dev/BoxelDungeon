@@ -10,7 +10,7 @@
   const TYPES = {
     frag: { name: 'Granada', short: 'GRANADA', max: 4, desc: 'Rebota y explota a los 2 segundos', color: [0.45, 0.55, 0.3], shape: 'grenade', price: 14, unlock: { stat: 'bestFloor', n: 3, txt: 'Llega al piso 3' } },
     molotov: { name: 'Cóctel molotov', short: 'MOLOTOV', max: 4, desc: 'Se rompe y deja un charco de fuego', color: [1, 0.5, 0.15], shape: 'bottle', price: 12, unlock: { stat: 'secrets', n: 2, txt: 'Descubre 2 cámaras secretas' } },
-    decoy: { name: 'Señuelo', short: 'SEÑUELO', max: 3, desc: 'Pita y atrae a los zombis cercanos; luego revienta', color: [1, 0.25, 0.2], shape: 'decoy', price: 12, unlock: { stat: 'vaults', n: 3, txt: 'Abre 3 puertas con llave' } },
+    decoy: { name: 'Señuelo', short: 'SEÑUELO', max: 3, desc: 'Atrae a los zombis y revienta', color: [1, 0.25, 0.2], shape: 'decoy', price: 12, unlock: { stat: 'vaults', n: 3, txt: 'Abre 3 puertas con llave' } },
   };
   const ORDER = ['frag', 'molotov', 'decoy'];
 
@@ -61,7 +61,7 @@
       if (game.state !== 'playing' || P.hp <= 0 || W.throwCd > 0 || W.swingT > 0) return;
       let t = W.throwSel;
       if (!(W.throws[t] > 0)) t = ORDER.find((k) => W.throws[k] > 0);
-      if (!t) { VX.Audio.empty(); game.hud.toast(ORDER.some((k) => this.unlocked(k)) ? 'No te quedan objetos para lanzar: búscalos por los pisos' : 'Aún no has desbloqueado nada para lanzar (Armería → Equipo)'); return; }
+      if (!t) { VX.Audio.empty(); game.hud.toast(ORDER.some((k) => this.unlocked(k)) ? 'No te quedan' : 'Nada desbloqueado'); return; }
       W.throwSel = t;
       W.throws[t]--;
       W.throwCd = 0.7;
@@ -95,6 +95,30 @@
         if (hit) { g.dead = true; this.shatter(game, g); }
         return;
       }
+      // (0.57) arma lanzada: golpea a lo que pille por el camino y luego cae al suelo como objeto
+      if (g.type === 'gun' && !g.rest && Math.hypot(g.vx, g.vz) > 3) {
+        const dx = nx - g.x, dy = ny - g.y, dz = nz - g.z, L = Math.hypot(dx, dy, dz) || 1;
+        for (const e of game.enemies) {
+          if (e.dead || g.hitSet.includes(e) || (e.spawnT && e.spawnT > 0.5)) continue;
+          const h = e.body.rayHit(g.x, g.y, g.z, dx / L, dy / L, dz / L, L + 0.35);
+          if (!h) continue;
+          g.hitSet.push(e);
+          game.dmgSource = 'throw'; game.dmgWeapon = g.id;
+          const killed = e.hit(h, g.dmg * (W.mods && W.mods.meleeDmg ? 1.3 : 1), { ox: g.x, oy: g.y, oz: g.z, dx: dx / L, dy: dy / L, dz: dz / L }, game, {});
+          game.dmgSource = null;
+          if (!killed && !e.dead) {
+            if (!e.isBoss) { e.stunT = Math.max(e.stunT || 0, 1.6 * g.heavy); e.kx = (e.kx || 0) + dx / L * 5 * g.heavy; e.kz = (e.kz || 0) + dz / L * 5 * g.heavy; }
+            else e.stunT = Math.max(e.stunT || 0, 0.4);
+          }
+          game.hud.hitmarker(killed);
+          VX.Audio.at(g.x, g.y, g.z, () => VX.Audio.slam ? VX.Audio.slam() : VX.Audio.wall());
+          game.shake(0.12);
+          for (let i = 0; i < 8; i++) game.particles.spawn(g.x, g.y, g.z, M.rand(-2, 2), M.rand(0.5, 3), M.rand(-2, 2), 1, 0.9, 0.6, 0.025, 0.35, 1, 1);
+          // rebota hacia atrás tras el golpe
+          g.vx *= -0.25; g.vz *= -0.25; g.vy = Math.max(g.vy, 2.5);
+          return;
+        }
+      }
       // granada y señuelo rebotan
       if (!g.rest) {
         if (Wd.isSolidAt(nx, g.y, g.z)) { g.vx *= -0.45; } else g.x = nx;
@@ -105,6 +129,17 @@
           else g.vy = 0;
           if (Math.abs(g.vy) < 0.8 && Math.hypot(g.vx, g.vz) < 0.6) { g.rest = true; g.vx = g.vz = g.vy = 0; g.y = gr; }
         } else g.y = ny;
+      }
+      if (g.type === 'gun') {
+        if (g.rest || g.life <= 0) {
+          g.dead = true;
+          const gy = Wd.groundAt(g.x, g.z);
+          const D = VX.Weapons.DEFS[g.id];
+          game.pickups.addItem({ kind: 'weapon', weapon: g.id, price: 0, slotData: g.slotData, droppedGun: true, born: game.time, x: g.x, y: gy + 0.1, z: g.z,
+            title: D.name + ' (la tuya)', desc: 'Recógela antes de salir', color: [1, 0.85, 0.5], shape: 'star' });
+          VX.Audio.at(g.x, gy, g.z, () => VX.Audio.click());
+        }
+        return;
       }
       if (g.type === 'frag') {
         if (Math.random() < 0.5) game.particles.spawn(g.x, g.y + 0.05, g.z, 0, 0.5, 0, 0.4, 0.38, 0.36, 0.03, 0.5, 0, 1);
@@ -168,17 +203,28 @@
     // artículos para la tienda, cofres y cajas
     item(type, n, price) {
       const T = TYPES[type];
-      return { kind: 'throw', type, n, price, title: (n > 1 ? n + ' × ' : '') + T.name, desc: T.desc + ` (máx. ${T.max}) · se lanza con ${VX.Settings.keyName(VX.Settings.key('throw'))}`, color: T.color, shape: T.shape };
+      return { kind: 'throw', type, n, price, title: (n > 1 ? n + ' × ' : '') + T.name, desc: T.desc + ` · ${VX.Settings.keyName(VX.Settings.key('throw'))}`, color: T.color, shape: T.shape };
     },
     attachItem(W, price) {
       const a = W.randomAttach();
       if (!a) return null;
       const d = VX.Weapons.ATTACH[a];
-      return { kind: 'attach', att: a, price, title: 'Accesorio: ' + d.name, desc: d.desc + ' (para esta partida; se monta en el arma)', color: d.color, shape: 'scope' };
+      return { kind: 'attach', att: a, price, title: 'Accesorio: ' + d.name, desc: d.desc, color: d.color, shape: 'scope' };
     },
 
     // ---- dibujo ----
     render(batch, g, time) {
+      if (g.type === 'gun') {
+        // el arma da vueltas en el aire (giro sobre su eje lateral)
+        const model = VX.Weapons.coloredModel(g.id, VX.Profile.skinFor(g.id));
+        const s = 0.022, q = M.qMul(M.qY(Math.atan2(g.vx, g.vz) + Math.PI), M.qX(g.rot * 1.6)), tmp = [0, 0, 0];
+        for (const v of model) {
+          if (v.tag === 'hand' || v.tag === 'wrist' || v.tag === 'sleeve') continue;
+          M.qRot(q, v.x * s, v.y * s, (v.z + 10) * s, tmp);
+          batch.rbox(g.x + tmp[0], g.y + tmp[1], g.z + tmp[2], s, s, s, q, v.r, v.g, v.b, Math.max(v.e, 0.12));
+        }
+        return;
+      }
       const q = M.qAxis(0.6, 0.3, 0.74, g.rot);
       if (g.type === 'frag') {
         batch.rbox(g.x, g.y, g.z, 0.1, 0.12, 0.1, q, 0.3, 0.36, 0.2, 0);

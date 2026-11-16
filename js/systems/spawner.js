@@ -152,7 +152,7 @@
         if (t === 'boss') n.bossKind = this.secret ? 'guardian' : this.finalPending ? 'corazon' : VX.ZONES[zone].boss;
         if (side === goldSide) this.goldDoor(room, side, n, Math.random() < 0.5 ? 'hoard' : 'rare');
         if (recipes) recipes.push({ gv: n.goldVault || null, side, t, ex: nexits, z: nz, lb: lateralBoss ? 1 : 0, seed, bn: n.bossNext ? 1 : 0, bk: n.bossKind || null, ev: n.event || null, tn: n.template && n.template.name });
-        if (game.mapReveal > 0) this.planFor(game, n);
+        if (game.mapReveal > 0) { this.planFor(game, n); this.forecast(game, n); }
       }, side));
       if (recipes) job(() => VX.Coop.sendNeighbors(game, room, recipes));
     }
@@ -174,6 +174,24 @@
         if (fi >= 0 && types[fi] === 'normal' && Math.random() < p) types[fi] = 'boss';
       }
       n.plannedTypes = types;
+    }
+
+    // (0.57) previsión del cartógrafo: se decide ya lo que habrá en la sala (y luego se respeta)
+    forecast(game, n) {
+      if (!n || n.fc || game.mode !== 'dungeon') return;
+      const fc = {};
+      if (n.type === 'normal') {
+        const D = this.difficulty(game.floor);
+        fc.n = this.enemyCount(n, game.floor);
+        fc.ambush = game.floor >= 3 && Math.random() < 0.1 && !(n.template && n.template.event);
+        fc.elites = 0;
+        for (let i = 0; i < fc.n; i++) if (Math.random() < D.elite) fc.elites++;
+        fc.key = Math.random() < 0.35;   // el cartógrafo marca una llave: la suelta el último enemigo
+      } else if (n.type === 'reward' && !n.goldVault) {
+        const rr = Math.random();
+        fc.reward = game.floor >= 3 && Math.random() < 0.25 ? 'chest' : rr < 0.3 ? 'rare' : rr < 0.45 ? 'curse' : 'normal';
+      } else if (n.type === 'shop') fc.gun = Math.random() < 0.4;
+      n.fc = fc;
     }
 
     // Enemigos según el espacio libre de la sala: una sala pequeña no se llena de zombis.
@@ -200,7 +218,7 @@
       const D = this.difficulty(game.floor);
       for (let i = 0; i < n; i++) {
         const p = room.randomFreeCell(6, P.x, P.z);
-        const elite = Math.random() < D.elite;
+        const elite = room.fcElites != null ? room.fcElites-- > 0 : Math.random() < D.elite;
         let kind = this.pickKind(game.floor, room.zone || 0);
         // campeón: un enemigo enorme con nombre y barra de vida, desde el piso 6 (uno por sala)
         const champion = room.type === 'normal' && !room.hadChampion && game.floor >= 6 && Math.random() < Math.min(0.3, (game.floor - 5) * 0.035);
@@ -213,16 +231,21 @@
         // los cuervos llegan en bandada
         if (kind === 'crow') for (let k = 0; k < 3; k++) this.spawnZombieNear(game, p.x, p.z, 1.5, 'crow');
       }
+      room.fcElites = null;   // las élites previstas sólo cuentan para la primera tanda
     }
 
     // Género de la tienda en los pedestales (también al tocar la campana: repone todo)
     fillShop(game, room, slots) {
       const PR = VX.Profile;
       const ups = VX.Upgrades.random(Math.max(2, slots.length), game, [], 'shop');
-      // la tienda suele ofrecer un arma que no tengas (sólo las desbloqueadas en el Arsenal)
+      // (0.57) sólo el 40 % de los vendedores trae un arma (de las desbloqueadas en el Arsenal que no lleves)
       const notOwned = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));
-      const gun = notOwned.length && Math.random() < 0.75 ? M.choice(notOwned) : null;
+      const gunRoll = room.fc && room.fc.gun != null ? room.fc.gun : Math.random() < 0.4;   // el cartógrafo ya lo sabe
+      const gun = notOwned.length && gunRoll ? M.choice(notOwned) : null;
       const heal = [40, 60, 80][PR.shopUp('apothecary')];
+      // (0.57) el armero también mejora armas (a veces): la que llevas en la mano si se puede
+      const upg = game.weapon.slots.filter((s) => !VX.Weapons.DEFS[s.id].melee && (s.lvl || 1) < 3);
+      const gunUp = upg.length && Math.random() < 0.65 ? (upg.find((s) => s === game.weapon.slot) || M.choice(upg)) : null;
       // género selecto: un altar con una mejora rara
       const rareAt = Math.random() < [0, 0.2, 0.35, 0.5][PR.shopUp('select')] ? M.choice(slots.map((_, i) => i).filter((i) => i > 0)) : -1;
       const made = [];
@@ -241,6 +264,12 @@
         } else if ((i === 2 || (i > 2 && roll < 0.25)) && Math.random() < 0.6 && VX.Throw.attachItem(game.weapon, 0)) {
           const it = VX.Throw.attachItem(game.weapon, Math.round((26 + game.floor * 2) * (game.priceMul || 1)));
           add({ ...it, ...P, onTake: (g) => g.stats.purchases++ });
+        } else if (i === 1 && gunUp) {
+          // (0.57) mejora de arma: I → II → III (más daño, cargador y recarga más rápida)
+          const lv = (gunUp.lvl || 1) + 1, d = VX.Weapons.DEFS[gunUp.id];
+          add({ kind: 'gunUp', weapon: gunUp.id, toLvl: lv, price: lv === 2 ? 40 + game.floor * 3 : 75 + game.floor * 4, ...P,
+            title: `Mejorar ${d.name} → ${lv === 2 ? 'II' : 'III'}`, desc: lv === 2 ? '+20 % daño y cargador' : '+45 % daño, +50 % cargador',
+            color: lv === 3 ? [1, 0.78, 0.3] : [0.75, 0.82, 0.95], shape: 'star', onTake: (g) => g.stats.purchases++ });
         } else if ((i === 1 || (i > 2 && roll < 0.5)) && Math.random() < 0.35 && VX.Throw.randomType(game.weapon)) {
           const t = VX.Throw.randomType(game.weapon);
           add({ ...VX.Throw.item(t, 2, Math.round(VX.Throw.TYPES[t].price * 1.6 + game.floor)), ...P });
@@ -261,7 +290,7 @@
     // la campana: se lleva lo que no hayas comprado y pone género nuevo
     restockShop(game, room) {
       const slots = room.features.filter((f) => f.kind === 'shopSlot');
-      for (const it of game.pickups.items) if (it.shopRoom === room && !it.taken && (it.kind === 'upgrade' || it.kind === 'weapon' || it.kind === 'heal' || it.kind === 'throw' || it.kind === 'attach')) {
+      for (const it of game.pickups.items) if (it.shopRoom === room && !it.taken && (it.kind === 'upgrade' || it.kind === 'weapon' || it.kind === 'heal' || it.kind === 'throw' || it.kind === 'attach' || it.kind === 'gunUp')) {
         it.taken = true;
         for (let i = 0; i < 10; i++) game.particles.spawn(it.x, it.y, it.z, M.rand(-1, 1), M.rand(0.5, 2), M.rand(-1, 1), 1, 0.8, 0.3, 0.03, 0.6, 1, 1);
       }
@@ -291,14 +320,16 @@
           const PR = VX.Profile;
           for (const f of specials) {
             if (f.what === 'keys') {
-              game.pickups.addItem({ kind: 'keyAltar', color3: 'gold', price: 0, x: f.x, y: f.y, z: f.z, title: 'Relicario de las llaves', desc: 'Mete una llave y gira: madera, plata y oro dan premios cada vez mejores (y a veces el gordo)', action: 'Meter una llave', color: [1, 0.78, 0.3], shape: 'key' });
+              // máquina de chicles: mira hacia el centro de la tienda
+              const face = Math.atan2(room.centerX() - f.x, room.centerZ() - f.z);
+              game.pickups.addItem({ kind: 'keyAltar', color3: 'gold', price: 0, x: f.x, y: game.world.groundAt(f.x + Math.sin(face) * 1.2, f.z + Math.cos(face) * 1.2), z: f.z, face, title: 'Máquina de chicles', desc: 'Mete una llave: sale un premio por chicle', action: 'Meter una llave', color: [1, 0.35, 0.35], shape: 'key' });
             } else if (f.what === 'bell') {
               const uses = PR.shopUp('bell');
-              game.pickups.addItem({ kind: 'restock', uses, price: 20 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Campana del vendedor', desc: `El vendedor repone todo el género (${uses} ${uses > 1 ? 'veces' : 'vez'})`, action: 'Tocar la campana', color: [0.95, 0.78, 0.3], shape: 'bell' });
+              game.pickups.addItem({ kind: 'restock', uses, price: 20 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Campana del vendedor', desc: `Repone la tienda (${uses})`, action: 'Tocar la campana', color: [0.95, 0.78, 0.3], shape: 'bell' });
             } else if (f.what === 'mystery') {
-              game.pickups.addItem({ kind: 'mystery', price: 35 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Caja misteriosa', desc: 'Una mejora al azar: normal, rara… o maldita', action: 'Abrir', color: [0.7, 0.4, 1], shape: 'chest' });
+              game.pickups.addItem({ kind: 'mystery', price: 35 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Caja misteriosa', desc: 'Mejora al azar (¿o maldita?)', action: 'Abrir', color: [0.7, 0.4, 1], shape: 'chest' });
             } else if (f.what === 'souls') {
-              game.pickups.addItem({ kind: 'offering', essence: 5, again: true, price: 25, x: f.x, y: f.y, z: f.z, title: 'Altar de las almas', desc: '+5 de esencia (para siempre). Cada ofrenda cuesta más', action: 'Ofrendar', color: [0.75, 0.55, 1], shape: 'crystal' });
+              game.pickups.addItem({ kind: 'offering', essence: 5, again: true, price: 25, x: f.x, y: f.y, z: f.z, title: 'Altar de las almas', desc: '+5 de esencia', action: 'Ofrendar', color: [0.75, 0.55, 1], shape: 'crystal' });
             }
           }
           for (const it of game.pickups.items.slice(n0)) { it.shopRoom = room; it.basePrice = it.price; }
@@ -312,7 +343,8 @@
         }
         case 'map': {
           const f = room.features.find((x) => x.kind === 'mapTable');
-          game.pickups.addItem({ kind: 'map', price: 0, x: f.x, y: f.y, z: f.z, title: 'Mapa de la mazmorra', desc: 'Estúdialo para ver qué hay tras las próximas puertas (y las grietas)', action: 'Estudiar', color: [0.55, 1, 0.55], shape: 'scroll' });
+          const fw = { zp: [0, 1], zn: [0, -1], xp: [1, 0], xn: [-1, 0] }[VX.Room.OPP[room.entrance || 'zn']] || [0, 1];   // (0.59) el pergamino, en el borde de la mesa que da a la entrada (el holograma va en el centro)
+          game.pickups.addItem({ kind: 'map', price: 0, x: f.x - fw[0] * 0.75, y: f.y, z: f.z - fw[1] * 0.75, title: 'Mapa de la mazmorra', desc: 'Revela las próximas salas', action: 'Estudiar', color: [0.55, 1, 0.55], shape: 'scroll' });
           break;
         }
         case 'save': {
@@ -322,7 +354,7 @@
           if (o) {
             const ess = 3 + Math.floor(game.floor / 5);
             game.pickups.addItem({ kind: 'offering', essence: ess, price: Math.round((30 + game.floor * 3) / (game.priceMul || 1)), x: o.x, y: o.y, z: o.z,
-              title: 'Ofrenda', desc: `Entrega oro y recibe ${ess} de esencia para el Santuario`, action: 'Ofrecer', color: [0.8, 0.55, 1], shape: 'coin' });
+              title: 'Ofrenda', desc: `Oro por ${ess} de esencia`, action: 'Ofrecer', color: [0.8, 0.55, 1], shape: 'coin' });
           }
           break;
         }
@@ -330,15 +362,16 @@
           const f = room.features.find((x) => x.kind === 'reward');
           if (room.goldVault && f) { this.fillGoldVault(game, room, f); break; }
           // evento: cofre misterioso (a veces es un mímico)
-          if (game.floor >= 3 && Math.random() < 0.25) {
-            game.pickups.addItem({ kind: 'chest', mimic: Math.random() < 0.4, price: 0, x: f.x, y: f.y, z: f.z, title: 'Cofre misterioso', desc: 'Puede guardar una mejora rara… o morder', action: 'Abrir', color: [0.95, 0.7, 0.25], shape: 'chest' });
+          const pre = room.fc && room.fc.reward;
+          if (pre ? pre === 'chest' : game.floor >= 3 && Math.random() < 0.25) {
+            game.pickups.addItem({ kind: 'chest', mimic: Math.random() < 0.4, price: 0, x: f.x, y: f.y, z: f.z, title: 'Cofre misterioso', desc: '¿Mejora rara… o mímico?', action: 'Abrir', color: [0.95, 0.7, 0.25], shape: 'chest' });
             room.event = 'chest';
             break;
           }
           const rr = Math.random();
-          const kind = rr < 0.3 ? 'rare' : rr < 0.45 ? 'curse' : 'normal';
-          // a veces el premio es un accesorio para el arma
-          const ai = kind !== 'curse' && Math.random() < 0.2 ? VX.Throw.attachItem(game.weapon, 0) : null;
+          const kind = pre && pre !== 'chest' ? pre : rr < 0.3 ? 'rare' : rr < 0.45 ? 'curse' : 'normal';
+          // a veces el premio es un accesorio para el arma (no si el cartógrafo ya lo ha visto)
+          const ai = kind !== 'curse' && !pre && Math.random() < 0.2 ? VX.Throw.attachItem(game.weapon, 0) : null;
           if (ai) { game.pickups.addItem({ ...ai, x: f.x, y: f.y, z: f.z }); break; }
           const up = VX.Upgrades.random(1, game, [], kind)[0];
           const tag = up.rare ? ' ★ RARA' : up.curse ? ' ☠ MALDICIÓN' : '';
@@ -363,7 +396,7 @@
         const price = Math.round(VX.Upgrades.price(game) * 1.1);
         ups.forEach((up, i) => { const it = PK.addItem({ kind: 'upgrade', up, price, x: f.x + (i ? 1.4 : -1.4), y: f.y, z: f.z, title: up.name + ' ★ RARA', desc: up.desc + ' (vendedor raro)', color: up.color, shape: up.shape, onTake: (g) => g.stats.purchases++ }); it.shopRoom = room; it.basePrice = price; });
         const notOwned = VX.Weapons.GUNS.filter((id) => !game.weapon.has(id) && VX.Profile.weaponUnlocked(id));
-        if (notOwned.length) { const id = M.choice(notOwned), d = VX.Weapons.DEFS[id]; const it = PK.addItem({ kind: 'weapon', weapon: id, price: Math.round(d.price * 0.6), x: f.x, y: f.y, z: f.z, title: d.name + ' · REBAJA', desc: 'Del vendedor raro, a mitad de precio', color: [1, 0.85, 0.5], shape: 'star' }); it.shopRoom = room; it.basePrice = it.price; }
+        if (notOwned.length) { const id = M.choice(notOwned), d = VX.Weapons.DEFS[id]; const it = PK.addItem({ kind: 'weapon', weapon: id, price: Math.round(d.price * 0.6), x: f.x, y: f.y, z: f.z, title: d.name + ' · REBAJA', desc: 'Mitad de precio', color: [1, 0.85, 0.5], shape: 'star' }); it.shopRoom = room; it.basePrice = it.price; }
         else { const up = VX.Upgrades.random(1, game, [], 'rare')[0]; if (up) PK.addItem({ kind: 'upgrade', up, price: 0, x: f.x, y: f.y, z: f.z, title: up.name + ' ★ REGALO', desc: up.desc, color: up.color, shape: up.shape }); }
       }
     }
@@ -381,10 +414,12 @@
       switch (client && (room.type === 'normal' || room.type === 'boss') ? 'none' : room.type) {
         case 'normal': {
           const D = this.difficulty(game.floor);
-          const n = this.enemyCount(room, game.floor);
+          const fc = room.fc && room.fc.n != null ? room.fc : null;
+          const n = fc ? fc.n : this.enemyCount(room, game.floor);
           // evento de sala: emboscada (vacía… hasta que no)
           const ev = Math.random();
-          room.event = game.floor >= 3 && ev < 0.1 && !(room.template && room.template.event) ? 'ambush' : null;
+          room.event = (fc ? fc.ambush : game.floor >= 3 && ev < 0.1 && !(room.template && room.template.event)) ? 'ambush' : null;
+          if (fc) room.fcElites = fc.elites;
           if (room.event === 'ambush') {
             room.ambushAt = game.time + 1.6;
             room.pendingWaves = 1 + (game.floor >= 10 ? 1 : 0);

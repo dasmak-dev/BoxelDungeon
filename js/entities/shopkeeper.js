@@ -87,7 +87,7 @@
         for (let i = 0; i < 10; i++) game.particles.spawn(it.x, it.y, it.z, M.rand(-1, 1), M.rand(0.5, 2), M.rand(-1, 1), 0.6, 0.25, 0.9, 0.03, 0.7, 1, 1);
       }
       game.spawner.shopBan = Math.max(game.spawner.shopBan || 0, 4 + this.mem.deaths);
-      if (why === 'close') game.hud.banner('TIENDA CERRADA', `No habrá tiendas en las próximas ${game.spawner.shopBan} salas`, 3);
+      if (why === 'close') game.hud.banner('TIENDA CERRADA', `Sin tiendas en ${game.spawner.shopBan} salas`, 3);
     }
 
     // ---------- daño ----------

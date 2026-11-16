@@ -52,6 +52,10 @@
     { id: 'flamer', cost: 160 },
     { id: 'lmg', cost: 180 },
     { id: 'raygun', cost: 280 },
+    { id: 'dual', cost: 100 },
+    { id: 'nailgun', cost: 140 },
+    { id: 'harpoon', cost: 170 },
+    { id: 'katana', cost: 160 },
   ];
 
   // Retos de cada skin: se cuentan por arma (stat dentro de wstats[arma])
@@ -204,7 +208,7 @@
         if (this.gearValue(g.cond) >= g.cond.n) {
           this.data.gear.push(g.id); this.dirty = true;
           if (game && game.hud && game.state === 'playing') {
-            game.hud.banner(g.kind === 'attach' ? '¡NUEVO ACCESORIO!' : '¡NUEVO OBJETO PARA LANZAR!', `«${g.name}» — ya puede aparecer en tiendas, cofres y cajas`, 3.5);
+            game.hud.banner(g.kind === 'attach' ? '¡NUEVO ACCESORIO!' : '¡NUEVO OBJETO PARA LANZAR!', `«${g.name}»`, 3.5);
             VX.Audio.upgrade();
           }
         }
@@ -224,7 +228,7 @@
             this.data.unlocked.push(w + ':' + s.id);
             this.dirty = true;
             if (game && game.hud && game.state === 'playing') {
-              game.hud.banner(s.ultimate ? '¡SKIN LEGENDARIA!' : '¡SKIN DESBLOQUEADA!', `${VX.Weapons.DEFS[w].name}: «${VX.Weapons.skinLabel(s, w)}» — equípala en la Armería`, 3.5);
+              game.hud.banner(s.ultimate ? '¡SKIN LEGENDARIA!' : '¡SKIN DESBLOQUEADA!', `${VX.Weapons.DEFS[w].name}: «${VX.Weapons.skinLabel(s, w)}»`, 3.5);
               VX.Audio.upgrade();
             }
           }
@@ -308,7 +312,7 @@
     unlockObjectives(game, how) {
       if (this.objLevel() > 0) return false;
       this.data.objUnlocked = true; this.dirty = true; this.save();
-      if (game && game.hud) { game.hud.banner('¡OBJETIVOS DE PARTIDA!', `${how}: desde la próxima partida, cada una trae 3 objetivos que dan esencia`, 4); VX.Audio.upgrade && VX.Audio.upgrade(); }
+      if (game && game.hud) { game.hud.banner('¡OBJETIVOS DE PARTIDA!', `${how}`, 4); VX.Audio.upgrade && VX.Audio.upgrade(); }
       return true;
     },
     checkUps(game) {

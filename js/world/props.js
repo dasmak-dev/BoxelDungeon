@@ -988,6 +988,12 @@
       }
       // lo que estaba encima se viene abajo
       if (this.alive < this.total * 0.5) for (const rd of this.riders) if (!rd.dead) rd.collapse(game, dx, dz);
+      // (0.59) lo que colgaba de esta cadena cae en cuanto la cadena ya no llega abajo
+      if (this.hangs && !this.hangs.dead) {
+        let held = false;
+        for (let n = 0; n < this.w * this.d; n++) if (this.fill[n]) { held = true; break; }
+        if (!held || this.alive <= 0) { const h = this.hangs; this.hangs = null; h.collapse(game, dx, dz); }
+      }
       if (this.alive <= 0) this.dead = true;
       this.dirty = true; this.touched = true; this.room.propsDirty = true;
     }
@@ -1236,9 +1242,9 @@
   }
 
   // Viga o poste de madera (también se rompe)
-  function placeBeam(r, ox, oy, oz, w, h, d, anchor = 'none') {
-    const m = boxModel(Math.max(1, Math.round(w / PV)), Math.max(1, Math.round(h / PV)), Math.max(1, Math.round(d / PV)), [0.26, 0.17, 0.09]);
-    return addProp(r, 'beam', m, ox, oy, oz, { mat: 'wood', anchor });
+  function placeBeam(r, ox, oy, oz, w, h, d, anchor = 'none', col = null, mat = 'wood') {
+    const m = boxModel(Math.max(1, Math.round(w / PV)), Math.max(1, Math.round(h / PV)), Math.max(1, Math.round(d / PV)), col || [0.26, 0.17, 0.09]);
+    return addProp(r, 'beam', m, ox, oy, oz, { mat, anchor });
   }
 
   VX.Props = { DEFS, Prop, getModel, place, placeAt, placeBeam, addRaw: addProp, spotFree, colH, PV, emitGrid };

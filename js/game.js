@@ -2,9 +2,9 @@
 (function () {
   // llaves: madera, plata y oro (lo que hay detrás de la cerradura depende de la llave)
   VX.KEY_TIERS = {
-    wood: { name: 'de madera', col: [0.58, 0.38, 0.2], desc: 'Botín modesto: algo de oro y quizá vida o un explosivo.' },
-    silver: { name: 'de plata', col: [0.78, 0.8, 0.86], desc: 'Buen botín: oro, vida y una mejora.' },
-    gold: { name: 'de oro', col: [1, 0.78, 0.25], desc: 'Gran botín: mucho oro, vida y una mejora rara.' },
+    wood: { name: 'de madera', col: [0.58, 0.38, 0.2], desc: 'Botín pequeño.' },
+    silver: { name: 'de plata', col: [0.78, 0.8, 0.86], desc: 'Botín bueno.' },
+    gold: { name: 'de oro', col: [1, 0.78, 0.25], desc: 'Botín grande.' },
   };
   const M = VX.M;
   const S = VX.S;
@@ -173,7 +173,7 @@
       this.hud.show(true);
       VX.Input.lock();
       if (this.daily) { VX.Daily.applyStart(this); const mu = VX.Daily.mut(); this.hud.banner('MAZMORRA DIARIA · ' + mu.name.toUpperCase(), mu.desc, 4.5); }
-      else this.hud.banner('VOXEL DUNGEON', `Acércate a una puerta para abrirla  ·  [${VX.Settings.keyName(VX.Settings.key('flashlight'))}] linterna  ·  [${VX.Settings.keyName(VX.Settings.key('inspect'))}] inspeccionar arma`, 3.5);
+      else this.hud.banner('VOXEL DUNGEON', 'Acércate a una puerta', 3.5);
     }
 
     // ---------------- Modo Horda ----------------
@@ -373,7 +373,7 @@
           this.keys.gold--; this.hud.setKeys && this.hud.setKeys(this.keys);
           VX.Objectives.keyUsed(this);
           d.goldLock = false;
-          this.hud.banner(d.neighbor.goldVault === 'hoard' ? 'SALA DEL TESORO' : 'VENDEDOR RARO', d.neighbor.goldVault === 'hoard' ? 'La llave de oro abre un montón de botín' : 'Género raro y un arma a mitad de precio', 2.5);
+          this.hud.banner(d.neighbor.goldVault === 'hoard' ? 'SALA DEL TESORO' : 'VENDEDOR RARO', d.neighbor.goldVault === 'hoard' ? 'Botín' : 'Género raro y un arma a mitad de precio', 2.5);
         }
         if (VX.Coop.active) VX.Net.send({ k: 'door', rid: cr.rid, s }, VX.Coop.isHost ? undefined : 'all');   // los compañeros también la ven abrirse
         this.spawner.prepare(this, d.neighbor);
@@ -527,6 +527,9 @@
       for (const s of this.weapon.slots) VX.Profile.maxW(s.id, 'floor', this.floor, this);
       VX.Profile.save();
       this.bullets.clear();
+      // (0.57) las armas lanzadas que dejaste atrás se pierden
+      { const lost = this.pickups.items.filter((i) => i.droppedGun && !i.taken); for (const i of lost) i.taken = true; if (lost.length) this.hud.toast('Has perdido: ' + lost.map((i) => VX.Weapons.DEFS[i.weapon].name).join(', ')); }
+      for (const g of this.weapon.grenades) if (g.type === 'gun') g.dead = true;
       // la sala anterior y las otras opciones desaparecen: la puerta se cierra detrás
       this.world.keepOnly([r]);
       { const mo = document.getElementById('mapOverlay'); if (mo) mo.classList.add('hidden'); this.hud.mapOpen = false; }
@@ -538,7 +541,7 @@
       this.npcs = this.npcs.filter((n) => r.contains(n.body.x, n.body.z));
       this.setupVault(r);
       VX.Objectives.roomEntered(this);
-      if (r.vault && !r.vault.open && this.keys && (this.keys.wood || this.keys.silver || this.keys.gold)) this.hud.toast('Hay una cerradura dorada en esta sala: ábrela con tu llave');
+      if (r.vault && !r.vault.open && this.keys && (this.keys.wood || this.keys.silver || this.keys.gold)) this.hud.toast('Hay una cerradura dorada aquí');
       this.enemies = [];
       this.gibs = this.gibs.filter((g) => r.contains(g.x, g.z));
       this.corpses = this.corpses.filter((c) => r.contains(c.body.x, c.body.z));
@@ -596,7 +599,7 @@
         if (r.type === 'boss' && r.finalBoss) this.victory();
         if (r.type === 'boss') {
           this.hud.hideBoss();
-          this.hud.banner('¡JEFE DERROTADO!', 'Recompensa: mejora gratis y vida restaurada', 3.5);
+          this.hud.banner('¡JEFE DERROTADO!', 'Mejora gratis y vida llena', 3.5);
           this.player.heal(this.player.maxHp);
           const up = VX.Upgrades.random(1, this)[0];
           const bz = this.boss ? this.boss.z : r.centerZ();
@@ -806,9 +809,9 @@
     studyMap() {
       this.mapReveal = 9;
       const r = this.currentRoom;
-      for (const s of r.exits) { const n = r.doors[s] && r.doors[s].neighbor; if (n) this.spawner.planFor(this, n); }
+      for (const s of r.exits) { const n = r.doors[s] && r.doors[s].neighbor; if (n) { this.spawner.planFor(this, n); this.spawner.forecast(this, n); } }
       VX.Audio.upgrade();
-      this.hud.banner('HAS ESTUDIADO EL MAPA', 'Pulsa M: verás las salas que vienen y las grietas secretas', 4);
+      this.hud.banner('HAS ESTUDIADO EL MAPA', 'Pulsa M para verlo', 4.5);
       this.hud.showMap(this, true);
     }
 
@@ -960,7 +963,7 @@
       VX.Profile.add('victories', 1, this);
       VX.Profile.save();
       this.stats.victories = (this.stats.victories || 0) + 1;
-      setTimeout(() => this.hud.banner('¡HAS CONQUISTADO LA MAZMORRA!', `+${bonus} de esencia · la mazmorra se hace más profunda (vuelta ${this.spawner.loop + 1})`, 5), 3600);
+      setTimeout(() => this.hud.banner('¡HAS CONQUISTADO LA MAZMORRA!', `+${bonus} de esencia · vuelta ${this.spawner.loop + 1}`, 5), 3600);
       VX.Audio.reward();
     }
 
@@ -1448,7 +1451,7 @@
     setupVault(r) {
       const v = r.vault;
       if (!v || v.open || v.item) return;
-      v.item = this.pickups.addItem({ kind: 'lockdoor', vault: v, room: r, price: 0, x: v.x, y: v.y, z: v.z, title: 'Cerradura', desc: 'Ábrela con cualquier llave: cuanto mejor la llave (madera, plata, oro), mejor el botín', action: 'Abrir', color: [0.8, 0.7, 0.5], shape: 'key', hidden: true });
+      v.item = this.pickups.addItem({ kind: 'lockdoor', vault: v, room: r, price: 0, x: v.x, y: v.y, z: v.z, title: 'Cerradura', desc: 'Ábrela con una llave', action: 'Abrir', color: [0.8, 0.7, 0.5], shape: 'key', hidden: true });
       // el cofre de dentro sólo se abre con llave (rompiéndolo no suelta nada)
       for (const p of r.props) if (p.type === 'chest' && !p.dead && Math.hypot(p.cx - v.cx, p.cz - v.cz) < 3) p.looted = true;
     }
@@ -1461,7 +1464,7 @@
       const K = VX.KEY_TIERS[tier] || VX.KEY_TIERS.wood;
       const ground = this.world.groundAt(x, z);
       // la llave sale despedida y cae al suelo
-      this.pickups.addItem({ kind: 'key', color3: tier, price: 0, x, y: Math.max(y, ground), z, fall: true, vy: 2.5, title: 'Llave ' + K.name, desc: 'Abre una cerradura dorada de la pared o gírala en el Relicario del vendedor. ' + K.desc, action: 'Coger', color: K.col, shape: 'key' });
+      this.pickups.addItem({ kind: 'key', color3: tier, price: 0, x, y: Math.max(y, ground), z, fall: true, vy: 2.5, title: 'Llave ' + K.name, desc: 'Para cerraduras y la máquina de chicles. ' + K.desc, action: 'Coger', color: K.col, shape: 'key' });
       VX.Audio.reward && VX.Audio.reward();
       this.hud.toast('¡Una llave ' + K.name + '!');
     }
@@ -1470,13 +1473,13 @@
       this.keys[tier] = (this.keys[tier] || 0) + 1;
       VX.Audio.gold(); VX.Audio.click();
       this.hud.setKeys && this.hud.setKeys(this.keys);
-      if (!this.keyTip) { this.keyTip = true; this.hud.banner('UNA LLAVE', 'Ábrela en una cerradura dorada de la pared o métela en el Relicario del vendedor', 3.5); }
+      if (!this.keyTip) { this.keyTip = true; this.hud.banner('UNA LLAVE', 'Para cerraduras y la máquina de chicles', 3.5); }
     }
     tryVault(it) {
       const v = it.vault, r = it.room;
       this.keys = this.keys || { wood: 0, silver: 0, gold: 0 };
       const tier = ['gold', 'silver', 'wood'].find((t) => this.keys[t] > 0);   // usa la mejor que tengas
-      if (!tier) { VX.Audio.deny(); this.hud.toast('Necesitas una llave (de madera, de plata o de oro)'); return; }
+      if (!tier) { VX.Audio.deny(); this.hud.toast('Necesitas una llave'); return; }
       this.keys[tier]--; this.hud.setKeys && this.hud.setKeys(this.keys);
       VX.Objectives.keyUsed(this);
       v.tier = tier;
@@ -1487,7 +1490,7 @@
         if (Math.random() < 0.3) this.particles.spawn(r.worldX(lx), (ly + 0.5) * VX.S, r.worldZ(lz), M.rand(-1, 1), M.rand(1, 3), M.rand(-1, 1), 0.35, 0.22, 0.12, 0.03, M.rand(0.6, 1.2), 0);
       }
       VX.Audio.gate ? VX.Audio.gate() : VX.Audio.door();
-      this.hud.banner('CERRADURA ABIERTA', 'Llave ' + VX.KEY_TIERS[tier].name + ': abre el cofre con ' + VX.Settings.tag('use'), 2.5);
+      this.hud.banner('CERRADURA ABIERTA', 'Abre el cofre con ' + VX.Settings.tag('use'), 2.5);
       let chest = null, bd = 3;
       for (const p of r.props) if (p.type === 'chest' && !p.dead) { const d = Math.hypot(p.cx - v.cx, p.cz - v.cz); if (d < bd) { bd = d; chest = p; } }
       if (chest) { chest.looted = true; this.pickups.addItem({ kind: 'secretChest', tier, prop: chest, price: 0, x: chest.cx, y: chest.oy + 0.2, z: chest.cz, title: 'Cofre (llave ' + VX.KEY_TIERS[tier].name + ')', desc: VX.KEY_TIERS[tier].desc, action: 'Abrir', color: VX.KEY_TIERS[tier].col, shape: 'chest' }); }
@@ -1523,7 +1526,7 @@
           VX.Profile.add('secrets', 1, this);
           return;
         }
-        this.hud.banner('¡CÁMARA SECRETA!', 'Hay un cofre: ábrelo con ' + VX.Settings.tag('use'), 3);
+        this.hud.banner('¡CÁMARA SECRETA!', 'Ábrelo con ' + VX.Settings.tag('use'), 3);
         VX.Audio.reward();
         // el cofre del fondo se abre con E (ya no hace falta destrozarlo)
         let chest = null, bd = 3;
@@ -2492,6 +2495,7 @@
       for (const n of this.npcs) if (!n.hidden) n.body.render(b);
       this.particles.render(b);
       this.pickups.render(b);
+      if (VX.Carto) VX.Carto.holo(b, this);   // holograma de la mesa del cartógrafo
       this.weapon.renderTracers(b);
       this.renderBlasts(b);
       this.weapon.renderMuzzle(spec ? null : cam);

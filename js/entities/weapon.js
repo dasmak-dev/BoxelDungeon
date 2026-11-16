@@ -6,6 +6,8 @@
   const tmp = [0, 0, 0];
   const ucol = [0, 0, 0, 0];
 
+  // (0.57) niveles del arma: se mejoran en el vendedor (I → II → III)
+  const LEVELS = [{ dmg: 1, mag: 1, reload: 1 }, { dmg: 1.2, mag: 1.25, reload: 0.88 }, { dmg: 1.45, mag: 1.5, reload: 0.76 }];
   const MOD0 = () => ({ damage: 1, rate: 1, range: 1, mag: 1, reload: 1, pierce: 0, destruction: 1, pellets: 0, spread: 1, auto: false, recoil: 1 });
 
   class Weapon {
@@ -68,7 +70,7 @@
     reserveMax(id) {
       const d = VX.Weapons.DEFS[id];
       if (d.melee) return 0;
-      const mags = { pistol: 8, smg: 6, shotgun: 6, rifle: 6, grenade: 4, crossbow: 20, dbarrel: 12, lmg: 4, flamer: 4, raygun: 5 }[id] || 6;
+      const mags = { pistol: 8, smg: 6, shotgun: 6, rifle: 6, grenade: 4, crossbow: 20, dbarrel: 12, lmg: 4, flamer: 4, raygun: 5, dual: 5, nailgun: 5, harpoon: 18 }[id] || 6;
       return Math.round(d.mag * (this.mods ? this.mods.mag : 1)) * mags;
     }
     reserveStart(id) { return Math.round(this.reserveMax(id) * 0.5); }
@@ -84,7 +86,8 @@
       return any;
     }
     refillAll() { for (const s of this.slots) if (!VX.Weapons.DEFS[s.id].melee) { s.reserve = this.reserveMax(s.id); s.ammo = this.magFor(s.id); } }
-    magFor(id) { const d = VX.Weapons.DEFS[id]; return d.melee ? 0 : Math.round(d.mag * (this.mods ? this.mods.mag : 1) * this.attMul(id).mag); }   // con el cargador ampliado si lo lleva
+    magFor(id) { const d = VX.Weapons.DEFS[id]; return d.melee ? 0 : Math.round(d.mag * (this.mods ? this.mods.mag : 1) * this.attMul(id).mag * LEVELS[this.lvlOf(id) - 1].mag); }
+    lvlOf(id) { const s = this.slots && this.slots.find((x) => x.id === id); return Math.max(1, Math.min(3, (s && s.lvl) || 1)); }   // con el cargador ampliado si lo lleva
 
     get slot() { return this.slots[this.cur]; }
     get def() { return VX.Weapons.DEFS[this.slot.id]; }
@@ -92,10 +95,14 @@
 
     stats(id = this.slot.id) {
       const d = VX.Weapons.DEFS[id], m = this.mods, a = this.attMul(id);
-      if (d.melee) return { melee: true, damage: d.damage * Math.sqrt(m.damage) * (m.meleeDmg || 1), fireRate: d.fireRate * (m.meleeRate || 1), reach: d.reach * (m.reach || 1), destruction: 1 };
+      if (d.melee) { const k = d.katana; return { melee: true, damage: d.damage * Math.sqrt(m.damage) * (m.meleeDmg || 1) * (k ? m.kPower || 1 : 1), fireRate: d.fireRate * (m.meleeRate || 1) * (k ? m.kSpeed || 1 : 1), reach: d.reach * (m.reach || 1) * (k ? m.kReach || 1 : 1), destruction: 1 }; }
+      // (0.57) nivel del arma (I·II·III, se mejora en el vendedor) y golpe tras la patada (el siguiente disparo hace el doble)
+      const lv = this.lvlOf(id), LV = LEVELS[lv - 1];
+      const kb = this.kickBuff > 0 && this.slot && id === this.slot.id ? 2 : 1;
       return {
-        damage: d.damage * m.damage * a.damage, fireRate: d.fireRate * m.rate * (m.spinup ? 1 + Math.min(0.5, (this.heat || 0) * 0.035) : 1), range: d.range * m.range * a.range,
-        mag: Math.round(d.mag * m.mag * a.mag), reload: d.reload * m.reload * a.reload, spread: d.spread * m.spread * a.spread,
+        lvl: lv,
+        damage: d.damage * m.damage * a.damage * LV.dmg * kb, fireRate: d.fireRate * m.rate * (m.spinup ? 1 + Math.min(0.5, (this.heat || 0) * 0.035) : 1), range: d.range * m.range * a.range,
+        mag: Math.round(d.mag * m.mag * a.mag * LV.mag), reload: d.reload * m.reload * a.reload * LV.reload, spread: d.spread * m.spread * a.spread,
         pellets: d.pellets + (d.pellets > 1 ? m.pellets * 2 : m.pellets), pierce: d.pierce + m.pierce,
         destruction: d.destruction * m.destruction, auto: d.auto || m.auto, ricochet: m.ricochet || 0,
       };
@@ -116,6 +123,8 @@
     get name() { return this.def.name; }
 
     has(id) { return this.slots.some((s) => s.id === id); }
+    // forma de la hoja que llevas en la mano (la katana es un arma propia; el cuchillo cambia de forma)
+    bladeForm(id = this.slot && this.slot.id) { return id === 'katana' ? 'katana' : VX.Profile.knifeForm ? VX.Profile.knifeForm() : 'cuchillo'; }
 
     // Recoge un arma: si ya la tienes, recarga; si no, ocupa un hueco o sustituye la actual
     giveWeapon(id) {
@@ -129,6 +138,95 @@
       this.slots[idx] = w;
       this.cur = -1; this.select(idx);
       return old;
+    }
+
+    // (0.57) lanzar el arma que llevas: vuela girando, golpea fuerte y aturde; luego queda en el suelo
+    // para recogerla (con su munición y su nivel). Si te vas de la sala sin ella, la pierdes.
+    throwGun(game) {
+      const P = game.player, s = this.slot, d = this.def;
+      if (game.state !== 'playing' || P.hp <= 0 || !s || d.melee || this.switchT > 0 || this.swingT > 0 || this.throwCd > 0) return;
+      if (VX.Coop.active) { game.hud.toast('No disponible en cooperativo'); VX.Audio.deny(); return; }
+      const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch), sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
+      const fwd = [sy * cp, sp, cy * cp], v = 17;
+      const heavy = { shotgun: 1.3, minigun: 1.6, launcher: 1.5, flamethrower: 1.4, rifle: 1.2, harpoon: 1.3 }[s.id] || 1;
+      this.grenades.push({
+        type: 'gun', id: s.id, slotData: { ...s }, x: P.x + fwd[0] * 0.5 - cy * 0.15, y: P.eyeY() - 0.15 + fwd[1] * 0.4, z: P.z + fwd[2] * 0.5 + sy * 0.15,
+        vx: fwd[0] * v + P.vx * 0.6, vy: fwd[1] * v + 2.2, vz: fwd[2] * v + P.vz * 0.6, life: 8, rot: 0, dmg: 55 * heavy, heavy, hitSet: [],
+      });
+      const idx = this.cur;
+      this.slots.splice(idx, 1);
+      this.cur = -1; this.prev = 0; this.reloading = false;
+      const next = this.slots.findIndex((x) => !VX.Weapons.DEFS[x.id].melee);
+      this.select(next >= 0 ? next : this.slots.findIndex((x) => x.id === 'knife'));
+      this.throwCd = 0.5;
+      VX.Audio.swish();
+      game.hud.toast('¡Arma lanzada!');
+    }
+
+    // (0.57) patada: empuja y aturde a lo que tengas delante. Encadenadas (3 seguidas) la última pega el doble.
+    // Sinergia: tras una patada que acierte, el siguiente disparo hace el doble de daño.
+    doKick(game) {
+      const P = game.player;
+      if (game.state !== 'playing' || P.hp <= 0 || this.kickCd > 0 || this.swingT > 0) return;
+      this.kickCd = 0.55; this.kickT = 0.32;
+      this.kickChain = this.kickChainT > 0 ? (this.kickChain || 0) + 1 : 1;
+      this.kickChainT = 1.3;
+      const big = this.kickChain >= 3;
+      if (big) this.kickChain = 0;
+      this.inspectT = 0;
+      const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
+      const ox = P.eyeX(), oy = P.eyeY(), oz = P.eyeZ();
+      const cand = [];
+      for (const e of game.enemies) {
+        if (e.dead || (e.spawnT && e.spawnT > 0.5)) continue;
+        const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz);
+        if (d > 2.4 || Math.abs(e.y - P.y) > 2) continue;
+        if (d > 0.5 && (dx * sy + dz * cy) / d < 0.5) continue;
+        cand.push({ e, d });
+      }
+      cand.sort((a, b) => a.d - b.d);
+      let any = false;
+      game.dmgSource = 'knife'; game.dmgWeapon = 'kick';
+      for (const { e, d } of cand.slice(0, 3)) {
+        const tx = e.body.cx - ox, ty = e.body.cy - oy, tz = e.body.cz - oz, L = Math.hypot(tx, ty, tz) || 1;
+        const h = e.body.rayHit(ox, oy, oz, tx / L, ty / L, tz / L, L + 1);
+        const dmg = 16 * Math.sqrt(this.mods.damage || 1) * (this.mods.meleeDmg || 1) * (big ? 2 : 1);
+        let killed = false;
+        if (h) killed = e.hit(h, dmg, { ox, oy, oz, dx: tx / L, dy: ty / L, dz: tz / L }, game, {});
+        any = true;
+        if (!killed && !e.dead) {
+          const nx = d > 0.01 ? (e.x - P.x) / d : sy, nz = d > 0.01 ? (e.z - P.z) / d : cy;
+          const f = (e.isBoss ? 1.2 : (e.T && e.T.heavy) ? 5 : 10) * (big ? 1.6 : 1);
+          e.kx = (e.kx || 0) + nx * f; e.kz = (e.kz || 0) + nz * f;
+          if (!e.isBoss) e.stunT = Math.max(e.stunT || 0, big ? 2.2 : 1.3);
+        }
+      }
+      game.dmgSource = null;
+      if (any) {
+        this.kickBuff = 2.5;
+        game.hud.hitmarker(false);
+        VX.Audio.wall(); game.shake(big ? 0.3 : 0.16); VX.Haptics.buzz(big ? 45 : 25);
+        if (big) game.hud.toast('¡Patada encadenada!');
+      } else VX.Audio.swish();
+      P.knock(-sy * (any ? 1.2 : 0), -cy * (any ? 1.2 : 0));
+    }
+
+    // (0.59) katana: estela del corte y, con «Corte del viento», una onda que vuela y corta
+    katanaFx(game, ox, oy, oz, ray, sl) {
+      for (let i = 0; i < 10; i++) { const t = (i - 4.5) * 0.09; game.particles.spawn(ox + ray.dx * 1.4 + sl[0] * t, oy + ray.dy * 1.4 + sl[1] * t, oz + ray.dz * 1.4 + sl[2] * t, ray.dx, 0, ray.dz, 0.9, 0.95, 1, 0.02, 0.15, 1, 1); }
+    }
+    katanaWave(game) {
+      const P = game.player, st = this.stats();
+      const ox = P.eyeX(), oy = P.eyeY() - 0.15, oz = P.eyeZ();
+      const cp = Math.cos(P.pitch), dx = Math.sin(P.yaw) * cp, dy = Math.sin(P.pitch), dz = Math.cos(P.yaw) * cp;
+      const wh = game.world.raycast(ox, oy, oz, dx, dy, dz, 9), maxT = wh ? wh.t : 9;
+      const hits = [];
+      for (const e of game.enemies) { if (e.dead || (e.spawnT && e.spawnT > 0.5)) continue; const h = e.body.rayHit(ox, oy, oz, dx, dy, dz, maxT); if (h) hits.push({ e, h }); }
+      hits.sort((a, b) => a.h.t - b.h.t);
+      game.dmgSource = 'knife'; game.dmgWeapon = 'katana';
+      for (const x of hits.slice(0, 4)) x.e.hit(x.h, st.damage * 0.55, { ox, oy, oz, dx, dy, dz }, game, { slash: [-Math.cos(P.yaw), 0.15, Math.sin(P.yaw)], katana: true });
+      game.dmgSource = null;
+      this.tracers.push({ x0: ox + dx * 0.6, y0: oy, z0: oz + dz * 0.6, x1: ox + dx * maxT, y1: oy + dy * maxT, z1: oz + dz * maxT, life: 0.25, max: 0.25, w: 5, c: [0.85, 0.92, 1] });
     }
 
     select(i) {
@@ -145,7 +243,7 @@
       const st = this.stats();
       if (st.melee || this.reloading || this.slot.ammo >= st.mag) return;
       if (this.limited && (this.slot.reserve || 0) <= 0) {
-        if (!this.noAmmoT || performance.now() - this.noAmmoT > 1500) { this.noAmmoT = performance.now(); VX.game && VX.game.hud.toast('¡Sin munición! Busca cajas o usa el cuchillo [V]'); }
+        if (!this.noAmmoT || performance.now() - this.noAmmoT > 1500) { this.noAmmoT = performance.now(); VX.game && VX.game.hud.toast('¡Sin munición!'); }
         return;
       }
       if (this.mods.belt && this.slot.ammo > 0) return;   // cinta de munición: no se recarga a mano
@@ -194,6 +292,7 @@
       this.cooldown -= dt;
       this.updateRecoil(dt, game.player);
       this.kick = M.lerp(this.kick, 0, Math.min(1, dt * 14));
+      if (this.kickL || this.kickR) { this.kickL = M.lerp(this.kickL || 0, 0, Math.min(1, dt * 16)); this.kickR = M.lerp(this.kickR || 0, 0, Math.min(1, dt * 16)); }
       this.slide = Math.max(0, this.slide - dt * 9);
       VX.GunAnim.update(this, dt, this.slot.id);
       if (this.puffs.length) { for (const p of this.puffs) p.t += dt; this.puffs = VX.M.compact(this.puffs, (p) => p.t < 0.7); }
@@ -232,6 +331,10 @@
       this.throwCd = Math.max(0, this.throwCd - dt);
       if (I.wasPressed(KS.key('throwNext'))) VX.Throw.cycle(game);
       if (I.wasPressed(KS.key('throw'))) VX.Throw.toss(game);
+      if (I.wasPressed(KS.key('throwGun'))) this.throwGun(game);
+      this.kickCd = Math.max(0, (this.kickCd || 0) - dt); this.kickT = Math.max(0, (this.kickT || 0) - dt);
+      this.kickBuff = Math.max(0, (this.kickBuff || 0) - dt); this.kickChainT = Math.max(0, (this.kickChainT || 0) - dt);
+      if (I.wasPressed(KS.key('kick'))) this.doKick(game);
       if (I.wasPressed(kKnife)) {
         const k = this.slots.findIndex((s) => s.id === 'knife');
         if (this.cur !== k) { this.select(k); this.switchT = 0.08; }
@@ -272,15 +375,25 @@
       }
 
       if (I.mouseClicked) this.queued = true;
+      // (0.57) pistolas dobles: clic derecho dispara la de la izquierda
+      const dual = !!this.def.dual;
+      if (dual && I.rightClicked) this.queuedL = true;
+      if (!dual) this.queuedL = false;
       if (this.switchT > 0 || game.player.hp <= 0) return;
-      const want = st.melee ? (this.queued || I.mouseDown) : (st.auto ? I.mouseDown : this.queued);
+      const want = st.melee ? (this.queued || I.mouseDown) : (st.auto ? I.mouseDown : this.queued || (dual && this.queuedL));
       if (want && this.cooldown <= 0 && !this.reloading) {
-        this.queued = false;
+        if (dual) {
+          // con los dos clics a la vez se alternan; si no, dispara la que toque
+          this.dualSide = this.queued && this.queuedL ? 1 - (this.dualSide || 0) : this.queuedL ? 1 : 0;
+          if (this.dualSide) this.queuedL = false; else this.queued = false;
+        }
+        if (!dual) this.queued = false;
         if (st.melee) this.swing(game);
         else if (this.slot.ammo <= 0) { VX.Audio.empty(); this.startReload(); this.cooldown = 0.25; }
         else this.fire(game, st);
       }
       if (!I.mouseDown && this.cooldown < -0.15) this.queued = false;
+      if (!I.rightDown && this.cooldown < -0.15) this.queuedL = false;
     }
 
     // ---------------- Cuerpo a cuerpo ----------------
@@ -300,7 +413,7 @@
         return;
       }
       // karambit: dos zarpazos rápidos en gancho y un giro completo sobre la anilla
-      if (VX.Profile.knifeForm && VX.Profile.knifeForm() === 'karambit') {
+      if (this.bladeForm() === 'karambit') {
         this.swingN = ((this.swingN || 0) + 1) % 3;
         this.swingType = this.swingN === 0 ? 'kspin' : 'khook';
         this.swingSide = this.swingN === 1 ? 1 : -1;
@@ -313,7 +426,7 @@
         return;
       }
       // cada forma del cuchillo tiene su propio juego de golpes
-      const form = VX.Profile.knifeForm ? VX.Profile.knifeForm() : 'cuchillo';
+      const form = this.bladeForm();
       const SETS = {
         // daga: dos estocadas rápidas y un revés con la hoja invertida
         daga: [['dstab', 0.22, 0.75, 0.08], ['dstab', 0.22, 0.75, 0.08], ['drev', 0.36, 1.1, 0.12]],
@@ -410,13 +523,14 @@
 
     meleeHit(game) {
       if (this.def.heavy) return this.heavyHit(game);
+      if (this.def.katana && this.mods.kWave) this.katanaWave(game);
       const P = game.player, st = this.stats();
       const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch), sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
       const ox = P.eyeX(), oy = P.eyeY(), oz = P.eyeZ();
       let best = null, bestE = null, bestDir = null;
       const T = this.swingType;
-      const form = VX.Profile.knifeForm ? VX.Profile.knifeForm() : 'cuchillo';
-      const reach = st.reach * ({ katana: 1.4, machete: 1.15, bayoneta: 1.1 }[form] || 1) * (T === 'blunge' ? 1.3 : 1);
+      const form = this.bladeForm(), kat = !!this.def.katana;
+      const reach = st.reach * (kat ? 1 : ({ katana: 1.4, machete: 1.15, bayoneta: 1.1 }[form] || 1)) * (T === 'blunge' ? 1.3 : 1);
       const wide = T === 'mwide' || T === 'kiai';
       const fan = wide ? [0, -0.3, 0.3, -0.6, 0.6, -0.9, 0.9] : [0, -0.25, 0.25, -0.5, 0.5];
       const extra = [];   // golpes anchos: alcanzan a varios
@@ -442,10 +556,14 @@
         const al = Math.hypot(ax, ay, az);
         const MULT = { stab: 1.5, kspin: 1.45, overhead: 1.3, dstab: 1.1, drev: 1.35, mchop: 1.6, mwide: 1.25, blunge: 1.8, bslash: 1, bquick: 0.85, bflip: 1.5, kiai: 1.6, kdown: 1.9 };
         const mult = MULT[T] || 1;
-        game.dmgSource = 'knife'; game.dmgWeapon = 'knife';
+        game.dmgSource = 'knife'; game.dmgWeapon = kat ? 'katana' : 'knife';
+        const so = { slash: [ax / al, ay / al, az / al], katana: kat };
         // los tajos anchos también cortan a los de al lado (con menos fuerza)
-        for (const x of extra) if (x.e !== bestE && !x.e.dead) { const rr = { ox, oy, oz, dx: x.dir[0], dy: x.dir[1], dz: x.dir[2] }; x.e.hit(x.h, st.damage * mult * 0.7, rr, game, { slash: [ax / al, ay / al, az / al] }); }
-        const killed = bestE.hit(best, st.damage * mult, ray, game, { slash: [ax / al, ay / al, az / al] });
+        for (const x of extra) if (x.e !== bestE && !x.e.dead) { const rr = { ox, oy, oz, dx: x.dir[0], dy: x.dir[1], dz: x.dir[2] }; x.e.hit(x.h, st.damage * mult * 0.7, rr, game, so); }
+        let killed = bestE.hit(best, st.damage * mult, ray, game, so);
+        // (0.59) tajo doble de la katana
+        if (kat && this.mods.kDouble && !killed && !bestE.dead && Math.random() < 0.35) { const h2 = bestE.body.rayHit(ox, oy, oz, ray.dx, ray.dy, ray.dz, reach + 1); if (h2) { killed = bestE.hit(h2, st.damage * mult * 0.6, ray, game, { slash: [ax / al, -ay / al, az / al], katana: true }); game.hud.toast('¡Tajo doble!'); } }
+        if (kat) this.katanaFx(game, ox, oy, oz, ray, [ax / al, ay / al, az / al]);
         this.meleeExtras(game, st, mult, bestE, [ax / al, ay / al, az / al]);
         game.dmgSource = null;
         if (!bestE.isCorpse) game.hud.hitmarker(killed);   // (los golpes cuerpo a cuerpo no cuentan para la precisión)
@@ -511,6 +629,29 @@
       }
     }
 
+    // (0.57) clavadora y arpón: frenan, tiran del zombi y lo clavan a la pared si hay una justo detrás
+    pinFx(game, e, h, ray) {
+      const W = game.world, x = h.vox.wx, y = h.vox.wy, z = h.vox.wz;
+      const wall = W.raycast(x, y, z, ray.dx, 0, ray.dz, this.def.harpoon ? 1.6 : 1.1);
+      if (e.isBoss) { e.stunT = Math.max(e.stunT || 0, this.def.harpoon ? 0.5 : 0.08); return; }
+      if (wall) {
+        // clavado: no se mueve un rato
+        e.stunT = Math.max(e.stunT || 0, this.def.harpoon ? 2.6 : 1.2);
+        e.kx = 0; e.kz = 0; e.pinT = Math.max(e.pinT || 0, this.def.harpoon ? 2.6 : 1.2);
+        if (!e.pinnedMsg && this.def.harpoon) { e.pinnedMsg = true; game.hud.toast('¡Clavado a la pared!'); }
+        for (let i = 0; i < 5; i++) game.particles.spawn(wall.x, wall.y, wall.z, M.rand(-1, 1), M.rand(0, 1.5), M.rand(-1, 1), 0.8, 0.8, 0.82, 0.02, 0.4, 0.3, 1);
+        VX.Audio.at(wall.x, wall.y, wall.z, () => VX.Audio.click());
+      } else if (this.def.harpoon) {
+        // tira de él hacia ti con la cuerda
+        e.kx = (e.kx || 0) - ray.dx * 11; e.kz = (e.kz || 0) - ray.dz * 11;
+        e.stunT = Math.max(e.stunT || 0, 0.9);
+      } else {
+        e.nails = (e.nails || 0) + 1;
+        e.stunT = Math.max(e.stunT || 0, Math.min(0.5, 0.1 + e.nails * 0.04));
+      }
+      if (this.def.harpoon && this.muzzle) this.tracers.push({ x0: this.muzzle[0], y0: this.muzzle[1], z0: this.muzzle[2], x1: x, y1: y, z1: z, life: 0.45, max: 0.45, c: [0.75, 0.62, 0.42], w: 1.4 });
+    }
+
     // Efectos de la munición especial (mejoras de la partida) al alcanzar a un enemigo
     bulletFx(game, e, h, dmg, killed) {
       const m = this.mods;
@@ -568,6 +709,7 @@
 
     fire(game, st) {
       const P = game.player, d = this.def;
+      if (this.kickBuff > 0) { this.kickBuff = 0; this.kickShot = true; } else this.kickShot = false;   // golpe tras patada: se gasta en este disparo
       // primer disparo y últimas balas (se miran antes de gastar la bala)
       this.shotFirst = !!this.mods.firstShot && this.slot.ammo >= st.mag;
       this.shotLast = !!this.mods.lastRounds && this.slot.ammo - 1 < st.mag * 0.2;
@@ -590,11 +732,12 @@
       const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
       const fwd = [sy * cp, sp, cy * cp], right = [-cy, 0, sy], up = [-sy * sp, cp, -cy * sp];
       const ox = P.eyeX(), oy = P.eyeY(), oz = P.eyeZ();
-      const vm = d.vm, mz = d.muzzle;
+      const vm = d.vm, mz = d.dual && this.dualSide ? [-d.muzzle[0] - 31, d.muzzle[1], d.muzzle[2]] : d.muzzle;
+      if (d.dual) { if (this.dualSide) this.kickL = 1; else this.kickR = 1; }
       this.muzzle = this.viewToWorld(P, vm.x + mz[0] * vm.g, vm.y + mz[1] * vm.g, vm.z + mz[2] * vm.g);
       const [mx, my, mzz] = this.muzzle;
       // fogonazo ligero en la punta (sólo las armas de balas): un destello suave y una voluta de humo
-      if (!d.grenade && !d.flame && !d.beam && !d.bolt && !d.ray && ['pistol', 'smg', 'rifle', 'shotgun', 'dbarrel', 'lmg'].includes(this.slot.id)) {
+      if (!d.grenade && !d.flame && !d.beam && !d.bolt && !d.ray && ['pistol', 'smg', 'rifle', 'shotgun', 'dbarrel', 'lmg', 'dual'].includes(this.slot.id)) {
         if (this.puffs.length > 24) this.puffs.shift();
         // la punta tal como se ve: el arma se dibuja con 58° de campo de visión y el mundo con el tuyo,
         // así que la posición en pantalla se pasa de una perspectiva a la otra
@@ -683,6 +826,7 @@
         if (!bestE.isCorpse) { game.hud.hitmarker(killed); if (!this.shotHit) { this.shotHit = true; game.stats.hits++; } }
         if (this.def.flame && !killed && !bestE.isBoss && !(bestE.T && bestE.T.fireImmune)) bestE.burn = Math.max(bestE.burn || 0, this.mods.blueFlame ? 2 : 3);   // lanzallamas: arde
         if (this.def.flame && this.mods.tar && Math.random() < 0.04 && game.addFire && !bestE.isCorpse) game.addFire(bestE.x, bestE.z, 0.7, 5);
+        if ((this.def.nail || this.def.harpoon) && !killed && !bestE.dead && !bestE.isCorpse) this.pinFx(game, bestE, best, ray);
         ignore.add(bestE);
         if (pierce > 0) { pierce--; dmg *= 0.75; continue; }
         endT = best.t + 0.4; stoppedByEnemy = true;
@@ -747,6 +891,8 @@
       if (game.stirFog && bounce === 0) { game.stirFog(ex, ez, 0.9, 0.7, 0.4); game.stirFog(ox + dx * Math.min(endT, 3), oz + dz * Math.min(endT, 3), 0.8, 0.5, 0.5); }
       if (this.def.flame) return;
       if (this.def.ray) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.14, max: 0.14, c: [0.35, 1, 0.45], w: 3 });
+      else if (this.def.nail) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.07, max: 0.07, c: [0.7, 0.72, 0.76], w: 0.9 });
+      else if (this.def.harpoon) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.14, max: 0.14, c: [0.8, 0.82, 0.86], w: 2.2 });
       else if (this.def.bolt) this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: 0.09, max: 0.09, c: [0.75, 0.7, 0.6], w: 1.6 });
       else {
         // la trazadora cambia con la munición: más gruesa y lenta (subsónica, magnum), fina y rápida (alta velocidad), azul (eléctrica)…
@@ -889,6 +1035,15 @@
         const w = 0.012 * (t.w || 1) * (t.life / (t.max || 0.06));
         const c = t.c || [1, 0.85, 0.5];
         batch.rbox((t.x0 + t.x1) / 2, (t.y0 + t.y1) / 2, (t.z0 + t.z1) / 2, w, w, len, q, c[0], c[1], c[2], 1);
+      }
+      // (0.57) la bota de la patada (se ve al mirar al frente/abajo)
+      if (this.kickT > 0 && VX.game) {
+        const P = VX.game.player, k = Math.sin(Math.PI * (1 - this.kickT / 0.32));
+        const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw), q = M.qMul(M.qY(P.yaw), M.qX(-0.9 * k));
+        const r = 0.28 + 0.62 * k, bx = P.x + sy * r + cy * 0.1, bz = P.z + cy * r - sy * 0.1, by = P.y + 0.3 + 0.5 * k;
+        batch.rbox(bx, by, bz, 0.17, 0.15, 0.3, q, 0.24, 0.16, 0.1, 0);                      // bota
+        batch.rbox(bx, by - 0.08, bz, 0.18, 0.04, 0.31, q, 0.1, 0.08, 0.07, 0);             // suela
+        batch.rbox(bx - sy * 0.18, by + 0.12, bz - cy * 0.18, 0.15, 0.34, 0.15, q, 0.2, 0.22, 0.28, 0);   // pierna
       }
       for (const g of this.grenades) {
         if (g.type) { VX.Throw.render(batch, g, (VX.game && VX.game.time) || 0); continue; }
@@ -1050,7 +1205,7 @@
           const turn = M.smoothstep(0.1, 0.3, k) - M.smoothstep(0.45, 0.65, k) * 2 + M.smoothstep(0.7, 0.88, k);   // 0 → 1 → -1 → 0
           if (d.melee) {
             // el cuchillo da una voltereta en la mano
-            const fm = id === 'knife' ? VX.Profile.knifeForm() : '';
+            const fm = id === 'knife' || id === 'katana' ? this.bladeForm(id) : '';
             const flip = fm === 'karambit' || fm === 'katana' ? 0 : M.smoothstep(0.42, 0.62, k) * Math.PI * 2 * (fm === 'mariposa' ? 3 : 1);
             if (fm === 'katana') { bYaw += Math.sin(k * Math.PI * 2) * 0.6 * inn; bPitch -= M.smoothstep(0.3, 0.5, k) * (1 - M.smoothstep(0.6, 0.8, k)) * 0.8; }
             if (VX.Profile.knifeForm() === 'karambit' && id === 'knife') bPitch -= (M.smoothstep(0.35, 0.5, k) + M.smoothstep(0.55, 0.7, k)) * Math.PI * 2;
@@ -1072,6 +1227,7 @@
       const slideBack = A ? A.slideZ : pose ? 0 : this.slide * 4;
       const pumpBack = A ? A.pumpZ : pose ? 0 : this.slide * 6;
       const parts = A ? A.parts : null, lp = [0, 0, 0];
+      const lvV = pose || d.melee ? 1 : this.lvlOf(id);
       for (const v of model) {
         let vq = q, insts = null;
         if (v.part) {
@@ -1086,6 +1242,7 @@
           vq = qb;
         } else {
           lp[0] = v.x; lp[1] = v.y; lp[2] = v.z + (v.slide ? slideBack : v.pump ? pumpBack : 0);
+          if (v.side === 'L') lp[2] += (this.kickL || 0) * 3; else if (d.dual) lp[2] += (this.kickR || 0) * 3;
           const pp = v.part && parts ? parts[v.part] : null;
           let pq = null;
           if (pp) {
@@ -1108,6 +1265,11 @@
         let r = v.r, gg = v.g, b = v.b, e = v.e;
         if (v.an && model.ult) { VX.Weapons.ultColor(v, model.ult, game.time, ucol); r = ucol[0]; gg = ucol[1]; b = ucol[2]; e = Math.max(e, ucol[3]); }
         if (v.tag === 'accent' && this.accent && !pose && VX.Profile.skinFor(id) === 'default') { r = this.accent[0]; gg = this.accent[1]; b = this.accent[2]; e = Math.max(e, 0.5); }
+        // (0.57) nivel del arma: II con bandas de acero pulido, III con bandas y detalles dorados
+        if (lvV > 1 && !v.an && (((v.tag === 'main' || v.tag === 'dark') && (Math.round(v.z) % 6 + 6) % 6 === 0) || (lvV === 3 && v.tag === 'accent'))) {
+          if (lvV === 2) { r = r * 0.4 + 0.42; gg = gg * 0.4 + 0.46; b = b * 0.4 + 0.54; e = Math.max(e, 0.06); }
+          else { r = 1; gg = 0.76; b = 0.28; e = Math.max(e, 0.32); }
+        }
         batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], g, g, g, vq, r, gg, b, e);
       }
       if (A && this.casings.length) VX.GunAnim.drawCasings(this, batch, q, g, bx, by, bz, tmp);

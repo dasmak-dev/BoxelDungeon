@@ -35,8 +35,28 @@
     const f = w.fireT == null ? 99 : w.fireT, cd = 1 / Math.max(0.1, w.stats().fireRate);
     const rl = w.reloading, k = rl ? 1 - w.reloadT / w.reloadTime : 0;
     const tilt = rl ? S(k, 0, 0.12) * (1 - S(k, 0.86, 1)) : 0;
-    const key = id === 'pistol' ? (form && form !== 'pistola' ? form : 'pistola') : id;
+    const key = id === 'pistol' ? (form && form !== 'pistola' ? form : 'pistola') : id === 'dual' ? 'pistola' : id;
     switch (key) {
+      case 'harpoon': {
+        // (0.57) el arpón desaparece al disparar y se mete otro por la boca al recargar
+        const loaded = w.slot.ammo > 0 && !rl;
+        let bolt = null, on = loaded;
+        if (rl) {
+          A.pitch += tilt * 0.25; A.roll += tilt * 0.3; A.by += tilt * 0.03;
+          if (k > 0.3) { on = true; const a = S(k, 0.3, 0.8); bolt = off(0, 0, -(1 - a) * 30); }
+          A.bz -= bump(k, 0.8, 0.84, 0.86, 0.92) * 0.02;
+        }
+        P.bolt = on ? (bolt || off(0, 0, 0)) : { hide: true };
+        break;
+      }
+      case 'nailgun': {
+        if (rl) {
+          // se abre el cargador de clavos, sale la tira vacía y entra una nueva
+          A.roll -= tilt * 0.6; A.pitch += tilt * 0.15; A.by += tilt * 0.06;
+          A.by += bump(k, 0.6, 0.64, 0.66, 0.72) * 0.012;
+        }
+        break;
+      }
       case 'pistola': case 'deagle': case 'auto': {
         if (rl) {
           A.roll -= tilt * 0.6; A.pitch += tilt * 0.18; A.bx -= tilt * 0.04; A.by += tilt * 0.07; A.yaw += tilt * 0.25;
@@ -219,6 +239,7 @@
 
   // Vainas y cartuchos expulsados (en el espacio del arma)
   const EJECT = {
+    dual: { x: 2, y: 8, z: -9, kind: 'brass', at: 0.02, vx: -25, vy: 35, vz: -10 },
     pistol: { x: 2, y: 8, z: -9, kind: 'brass', at: 0.02, vx: -25, vy: 35, vz: -10 }, smg: { x: 2, y: 5, z: -10, kind: 'brass', at: 0 },
     lmg: { x: 2, y: 4, z: -14, kind: 'brass', at: 0 }, rifle: { x: 2, y: 6, z: -6, kind: 'brass', at: 0.42 },
     shotgun: { x: 2, y: 4, z: -6, kind: 'shell', at: 0.2 },
