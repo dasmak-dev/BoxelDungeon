@@ -253,7 +253,7 @@
 
     // ---- formas del cuchillo ----
     knifeUnlocked(id) { return id === 'cuchillo' || (this.data.knives || []).includes(id); },
-    knifeForm() { const f = this.data.knifeForm || 'cuchillo'; return this.knifeUnlocked(f) ? f : 'cuchillo'; },
+    knifeForm() { const f = this.data.knifeForm || 'cuchillo'; return f !== 'katana' && this.knifeUnlocked(f) ? f : 'cuchillo'; },   // (0.60.1) la katana ya es un arma aparte
     setKnifeForm(id) { if (this.knifeUnlocked(id)) { this.data.knifeForm = id; this.save(); } },
     checkKnives(game) {
       this.data.knives = this.data.knives || [];

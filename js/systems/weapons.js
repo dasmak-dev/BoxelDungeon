@@ -687,7 +687,6 @@
     { id: 'machete', name: 'Machete', cond: { stat: 'knifeElites', n: 8 }, txt: 'Mata 8 élites o campeones con el cuchillo' },
     { id: 'bayoneta', name: 'Bayoneta', cond: { stat: 'knifeBosses', n: 1 }, txt: 'Remata a un jefe con el cuchillo' },
     { id: 'mariposa', name: 'Navaja mariposa', cond: { stat: 'knifeKills', n: 150 }, txt: 'Mata 150 zombis con el cuchillo' },
-    { id: 'katana', name: 'Katana', cond: { stat: 'knifeKills', n: 300 }, txt: 'Mata 300 zombis con el cuchillo', desc: 'Más alcance, tajo ancho' },
   ];
   const KNIFE_MODELS = {
     // cuchillo de combate: hoja con punta de clip, filo brillante, acanaladura y sierra en el lomo;
@@ -921,6 +920,9 @@
     lmg: { name: 'Sangre de guerra', c1: [0.12, 0.12, 0.13], c2: [0.45, 0.04, 0.04], glow: [1, 0.15, 0.1], speed: 1.2 },
     flamer: { name: 'Llamarada', c1: [0.45, 0.12, 0.02], c2: [0.95, 0.6, 0.1], glow: [1, 0.9, 0.4], speed: 1.6 },
     raygun: { name: 'Plasma', c1: [0.85, 0.92, 0.95], c2: [0.1, 0.55, 0.6], glow: [1, 0.3, 0.9], speed: 1.4 },
+    dual: { name: 'Gemelas de fuego', c1: [0.06, 0.03, 0.02], c2: [0.6, 0.18, 0.05], glow: [1, 0.55, 0.15], speed: 1.2 },
+    nailgun: { name: 'Óxido radiactivo', c1: [0.12, 0.1, 0.05], c2: [0.45, 0.4, 0.08], glow: [0.7, 1, 0.2], speed: 1.1 },
+    harpoon: { name: 'Abisal', c1: [0.02, 0.05, 0.08], c2: [0.05, 0.3, 0.42], glow: [0.2, 1, 0.85], speed: 0.8 },
     katana: { name: 'Luna sangrienta', c1: [0.08, 0.02, 0.04], c2: [0.5, 0.05, 0.12], glow: [1, 0.25, 0.35], speed: 0.9 },
     knife: { name: 'Hoja maldita', c1: [0.04, 0.03, 0.03], c2: [0.4, 0.03, 0.04], glow: [1, 0.12, 0.08], speed: 1 },
   };

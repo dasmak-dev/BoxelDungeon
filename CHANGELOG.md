@@ -3,6 +3,16 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.60.2] — 2026-11-16
+
+- Nuevo sonido del lanzallamas: rugido grave y turbulento del chorro, siseo del gas, chasquidos sueltos de llama, «fuuomp» al prender y soplo al apagarse (sin el zumbido de antes).
+
+## [0.60.1] — 2026-11-16
+
+- La katana ya no es una forma del cuchillo (ahora es un arma aparte); si la llevabas equipada, vuelve el cuchillo de combate.
+- Armería: los textos ya no se salen de sus recuadros (formas, skins y nombres largos de armas).
+- Skins legendarias para Pistolas dobles (Gemelas de fuego), Clavadora (Óxido radiactivo) y Arpón (Abisal), que no tenían.
+
 ## [0.60.0] — 2026-11-16
 
 ### Horda: nuevo mapa «Gasolinera»

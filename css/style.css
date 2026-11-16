@@ -525,7 +525,9 @@ body.touch #bannerSub { font-size: 13px; }
 #armoryWeapons button small { font-size: 9px; letter-spacing: 0; display: block; margin-top: 2px; }
 #armoryWeapons button.on { box-shadow: 0 3px 0 #6b0f0f; }
 #armoryWeapons button.gear { grid-column: 1 / -1; }
-#armorySkins { overflow-x: hidden; }
+#armoryWeapons button { overflow-wrap: anywhere; word-break: break-word; overflow: hidden; }   /* (0.60.1) nombres largos (LANZAGRANADAS…) sin salirse */
+@media (max-width: 1050px) { #armoryWeapons button { font-size: 11px; letter-spacing: 0; } }
+#armorySkins { overflow-x: hidden; grid-auto-rows: max-content; align-content: start; }   /* (0.60.1) las filas no se encogen: el texto no se sale de su recuadro */
 @media (max-height: 720px), (max-width: 1050px) {
   #armory { padding: 2.5vh 2vw; }
   .armCol { gap: 8px; }

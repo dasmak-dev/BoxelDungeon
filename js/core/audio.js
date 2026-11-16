@@ -159,8 +159,9 @@
 
   // para js/core/sfx.js (sonidos más ricos): la misma salida (3D, buses) que el resto
   A._out = (pan) => out(pan);
-  // (0.59.2) el rugido del lanzallamas: un bucle de fuego mientras mantienes el gatillo
-  // (rugido grave + chisporroteo), con un «fuuush» al encenderse y un soplido al cortarse
+  // (0.60.2) lanzallamas: un chorro de gas ardiendo. Rugido grave y turbulento (ruido filtrado cuyo
+  // corte se mueve despacio y al azar), el siseo del gas a presión, chasquidos sueltos de llama y un
+  // «fuuomp» al prender; al soltar, la llama se apaga en un soplo
   A.flame = (on) => {
     if (!A.ctx || !A.noiseBuf || A.enabled === false) return;
     const c = A.ctx, t = c.currentTime;
@@ -169,27 +170,39 @@
     if (!A._flWatch) A._flWatch = setInterval(() => { if (A._fl && performance.now() - (A._flLast || 0) > 200) A.flame(false); }, 150);
     if (on && !A._fl) {
       const dst = A.sfx; if (!dst) return;
-      const mk = (type, f, q, vol) => {
-        const s = c.createBufferSource(); s.buffer = A.noiseBuf; s.loop = true; s.playbackRate.value = 0.9 + Math.random() * 0.2;
+      const master = c.createGain(); master.gain.setValueAtTime(0.0001, t); master.gain.exponentialRampToValueAtTime(0.85, t + 0.18); master.connect(dst);
+      const srcs = [];
+      const layer = (type, f, q, vol, lfos) => {
+        const s = c.createBufferSource(); s.buffer = A.noiseBuf; s.loop = true; s.playbackRate.value = 0.7 + Math.random() * 0.15;
         const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
         const g = c.createGain(); g.gain.value = vol;
-        s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random()); return s;
+        s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 1.5); srcs.push(s);
+        // turbulencia: osciladores lentos (no periódicos entre sí) que mueven el corte del filtro
+        for (const [hz, depth] of lfos) { const o = c.createOscillator(); o.frequency.value = hz * (0.9 + Math.random() * 0.2); const og = c.createGain(); og.gain.value = depth; o.connect(og); og.connect(fl.frequency); o.start(t); srcs.push(o); }
+        return g;
       };
-      const master = c.createGain(); master.gain.setValueAtTime(0.0001, t); master.gain.exponentialRampToValueAtTime(0.9, t + 0.12); master.connect(dst);
-      const roar = mk('lowpass', 520, 0.7, 0.9), body = mk('bandpass', 1100, 0.9, 0.35), hiss = mk('highpass', 4200, 0.6, 0.12);
-      // chisporroteo: la ganancia del siseo tiembla deprisa
-      const lfo = c.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 17;
-      const lg = c.createGain(); lg.gain.value = 0.25; lfo.connect(lg); lg.connect(master.gain); lfo.start(t);
-      A._fl = { master, srcs: [roar, body, hiss, lfo] };
-      noise(0.35, 0.35, 300, 'bandpass', 0, 0.8);   // encendido
+      layer('lowpass', 320, 0.6, 1.1, [[0.55, 90], [1.7, 60], [3.3, 35]]);     // rugido grave
+      layer('bandpass', 750, 0.7, 0.42, [[0.9, 160], [2.6, 110]]);             // cuerpo de la llama
+      const jet = layer('bandpass', 2600, 0.5, 0.07, [[1.3, 500]]);             // siseo del gas
+      // el siseo «respira» un poco (variación lenta de volumen, no un zumbido)
+      const lo = c.createOscillator(); lo.frequency.value = 0.8; const lg = c.createGain(); lg.gain.value = 0.025; lo.connect(lg); lg.connect(jet.gain); lo.start(t); srcs.push(lo);
+      A._fl = { master, srcs };
+      // encendido: «fuuomp» (golpe grave + soplo que se abre)
+      tone(70, 0.28, 'sine', 0.35, 130);
+      const s = c.createBufferSource(); s.buffer = A.noiseBuf;
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(200, t); f.frequency.exponentialRampToValueAtTime(1800, t + 0.22); f.Q.value = 0.7;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+      s.connect(f); f.connect(g); g.connect(dst); s.start(t); s.stop(t + 0.45);
       return;
     }
+    // chasquidos sueltos de la llama mientras sale el chorro
+    if (on && A._fl && Math.random() < 0.12) noise(0.025 + Math.random() * 0.03, 0.05 + Math.random() * 0.07, 1800 + Math.random() * 2500, 'bandpass', 0, 1.5);
     if (!on && A._fl) {
       const f = A._fl; A._fl = null;
       f.master.gain.cancelScheduledValues(t); f.master.gain.setValueAtTime(Math.max(0.0001, f.master.gain.value), t);
-      f.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
-      for (const s of f.srcs) s.stop(t + 0.3);
-      noise(0.18, 0.18, 1600, 'bandpass', 0, 1);   // soplido al cortar
+      f.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      for (const s of f.srcs) s.stop(t + 0.4);
+      noise(0.3, 0.16, 500, 'lowpass', 0, 0.7);   // la llama se apaga en un soplo
     }
   };
   // límite de sonidos a la vez (0.52): en un tiroteo grande se acumulaban cientos de nodos de audio
