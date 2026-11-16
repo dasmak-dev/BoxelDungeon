@@ -43,6 +43,7 @@
     { tr: -5, tempo: 0.92, lead: 'triangle', cutoff: 850 },    // 7 Coliseo: tambores y metales graves
     { tr: -7, tempo: 1.1, lead: 'square', cutoff: 700 },       // 8 Base militar: marcial y tenso
     { tr: -4, tempo: 0.96, lead: 'sawtooth', cutoff: 520 },    // 9 Barco: oscuro, con vaivén
+    { tr: -6, tempo: 0.88, lead: 'triangle', cutoff: 420 },    // 10 Gasolinera: lenta, sucia y oscura
   ];
   Mu.zone = 0;
   Mu.setZone = function (z) {

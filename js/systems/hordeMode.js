@@ -16,6 +16,8 @@
       desc: 'Hangar, barracones, búnker y torres de vigilancia a las que se sube. Un helicóptero arde en el helipuerto. Entran por la puerta y por las brechas de la alambrada.' },
     { id: 'barco', name: 'Barco', zone: 9, create: () => VX.Ship.create(),
       desc: 'Un portacontenedores en plena tormenta. Trepa a los contenedores, sube al castillo de popa o al de proa. Suben por la borda y salen de las escotillas.' },
+    { id: 'gasolinera', name: 'Gasolinera', zone: 10, create: () => VX.GasStation.create(),
+      desc: 'Una gasolinera perdida en la carretera, de noche y entre la niebla. Los surtidores explotan si les disparas. Tienda, taller y aseos; llegan por la carretera y el bosque.' },
   ];
   const BOSS_ROT = ['coloso', 'capataz', 'carnicero', 'ancestro', 'reina'];
 
@@ -107,6 +109,7 @@
     updateFx(game, dt) {
       const P = game.player;
       if (this.room && this.room.updateStorm && this.phase !== 'evac') this.room.updateStorm(game, dt);   // el temporal del barco
+      if (this.room && this.room.updateMap) this.room.updateMap(game, dt);   // lo propio de cada mapa (surtidores de la gasolinera…)
       // humo y llamas de los coches quemados y los bidones
       this.flameT -= dt;
       if (this.flameT <= 0) {

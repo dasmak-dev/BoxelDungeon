@@ -380,6 +380,7 @@ body.touch #throwSlots { font-size: 8px; }
 .hmapArt.coliseo { background-image: url('../img/maps/coliseo.jpg'); }
 .hmapArt.base { background-image: url('../img/maps/base.jpg'); }
 .hmapArt.barco { background-image: url('../img/maps/barco.jpg'); }
+.hmapArt.gasolinera { background-image: url('../img/maps/gasolinera.jpg'); }
 .hmap:not(.locked):hover .hmapArt { filter: brightness(1.15); }
 
 /* mirilla del rifle */

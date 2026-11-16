@@ -159,6 +159,39 @@
 
   // para js/core/sfx.js (sonidos más ricos): la misma salida (3D, buses) que el resto
   A._out = (pan) => out(pan);
+  // (0.59.2) el rugido del lanzallamas: un bucle de fuego mientras mantienes el gatillo
+  // (rugido grave + chisporroteo), con un «fuuush» al encenderse y un soplido al cortarse
+  A.flame = (on) => {
+    if (!A.ctx || !A.noiseBuf || A.enabled === false) return;
+    const c = A.ctx, t = c.currentTime;
+    if (on) A._flLast = performance.now();
+    // si el juego deja de llamar (pausa, menú, muerte), el bucle se corta solo
+    if (!A._flWatch) A._flWatch = setInterval(() => { if (A._fl && performance.now() - (A._flLast || 0) > 200) A.flame(false); }, 150);
+    if (on && !A._fl) {
+      const dst = A.sfx; if (!dst) return;
+      const mk = (type, f, q, vol) => {
+        const s = c.createBufferSource(); s.buffer = A.noiseBuf; s.loop = true; s.playbackRate.value = 0.9 + Math.random() * 0.2;
+        const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+        const g = c.createGain(); g.gain.value = vol;
+        s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random()); return s;
+      };
+      const master = c.createGain(); master.gain.setValueAtTime(0.0001, t); master.gain.exponentialRampToValueAtTime(0.9, t + 0.12); master.connect(dst);
+      const roar = mk('lowpass', 520, 0.7, 0.9), body = mk('bandpass', 1100, 0.9, 0.35), hiss = mk('highpass', 4200, 0.6, 0.12);
+      // chisporroteo: la ganancia del siseo tiembla deprisa
+      const lfo = c.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 17;
+      const lg = c.createGain(); lg.gain.value = 0.25; lfo.connect(lg); lg.connect(master.gain); lfo.start(t);
+      A._fl = { master, srcs: [roar, body, hiss, lfo] };
+      noise(0.35, 0.35, 300, 'bandpass', 0, 0.8);   // encendido
+      return;
+    }
+    if (!on && A._fl) {
+      const f = A._fl; A._fl = null;
+      f.master.gain.cancelScheduledValues(t); f.master.gain.setValueAtTime(Math.max(0.0001, f.master.gain.value), t);
+      f.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      for (const s of f.srcs) s.stop(t + 0.3);
+      noise(0.18, 0.18, 1600, 'bandpass', 0, 1);   // soplido al cortar
+    }
+  };
   // límite de sonidos a la vez (0.52): en un tiroteo grande se acumulaban cientos de nodos de audio
   // y el móvil se ahogaba. Si ya suenan demasiados, los nuevos (los más pequeños) se saltan.
   A.voices = 0;

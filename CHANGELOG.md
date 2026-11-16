@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.60.0] — 2026-11-16
+
+### Horda: nuevo mapa «Gasolinera»
+- Una gasolinera perdida en una carretera comarcal, de noche, con niebla y bosque muerto alrededor.
+- Marquesina con dos islas de surtidores: si les disparas pierden gasolina y **explotan**, y los de alrededor revientan en cadena.
+- Tienda 24 h con escaparates rotos, góndolas y neveras; taller con un coche en el elevador y persianas que se rompen; aseos a oscuras detrás.
+- La carretera está cortada por un camión cisterna volcado que arde y por un choque múltiple; coche patrulla con las luces puestas, farolas fundidas y charcos de gasolina que se prenden.
+- Luces que parpadean o están rotas, truenos lejanos y música propia, lenta y oscura.
+
+## [0.59.2] — 2026-11-16
+
+- Lanzallamas: chorro continuo al mantener el clic, sin animación ni estampido de disparo; suena a fuego (rugido en bucle, encendido y soplido al soltar).
+- El lanzallamas prende cajas, estanterías, barriles y demás objetos de madera o tela, y quema poco a poco los bloques de madera y paja.
+
 ## [0.59.1] — 2026-11-16
 
 - Recarga mucho más fuerte y contundente (sobre todo revólver y rifle): más volumen, golpe grave al encajar el tambor, el cargador y el cerrojo, y compresor propio.

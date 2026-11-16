@@ -292,6 +292,12 @@
       this.cooldown -= dt;
       this.updateRecoil(dt, game.player);
       this.kick = M.lerp(this.kick, 0, Math.min(1, dt * 14));
+      // (0.59.2) lanzallamas: mientras sale el chorro, el arma vibra un poco y suena el fuego (en bucle)
+      this.flameOn = Math.max(0, (this.flameOn || 0) - dt);
+      const fl = this.flameOn > 0 && this.def.flame && game.player.hp > 0;
+      this.flameK = M.lerp(this.flameK || 0, fl ? 1 : 0, Math.min(1, dt * 10));
+      if (this.flameK > 0.02) this.kick = Math.max(this.kick, this.flameK * (0.12 + Math.random() * 0.06));
+      if (VX.Audio.flame) VX.Audio.flame(fl);
       if (this.kickL || this.kickR) { this.kickL = M.lerp(this.kickL || 0, 0, Math.min(1, dt * 16)); this.kickR = M.lerp(this.kickR || 0, 0, Math.min(1, dt * 16)); }
       this.slide = Math.max(0, this.slide - dt * 9);
       VX.GunAnim.update(this, dt, this.slot.id);
@@ -718,15 +724,21 @@
       if (d.grenade && this.mods.remote) for (const g of this.grenades) if (g.stuck && !g.dead && !g.mini) { g.dead = true; this.explode(game, g); }
       this.slot.ammo--;
       this.cooldown = 1 / st.fireRate;
-      this.kick = 1; this.slide = 1; this.flash = 1;
-      VX.GunAnim.onFire(this, this.slot.id, d.form);
-      P.recoilPitch += (d.recoil + st.damage * 0.0002) * this.attMul().recoil;
+      // (0.59.2) el lanzallamas no «dispara»: mantiene el chorro (sin retroceso por tiro ni estampido; suena el fuego continuo)
+      if (d.flame) this.flameOn = 0.12;
+      else {
+        this.kick = 1; this.slide = 1; this.flash = 1;
+        VX.GunAnim.onFire(this, this.slot.id, d.form);
+        P.recoilPitch += (d.recoil + st.damage * 0.0002) * this.attMul().recoil;
+      }
       game.stats.shots++;
       this.shotHit = false;
       game.roomShots = (game.roomShots || 0) + 1;
-      VX.Audio.shoot(d.sound * this.attMul().sound, d.sfx);
-      game.shake(d.shake || 0.1);
-      VX.Haptics.buzz(Math.round(8 + (d.shake || 0.1) * 70));
+      if (!d.flame) {
+        VX.Audio.shoot(d.sound * this.attMul().sound, d.sfx);
+        game.shake(d.shake || 0.1);
+        VX.Haptics.buzz(Math.round(8 + (d.shake || 0.1) * 70));
+      }
 
       const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
       const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
@@ -778,7 +790,7 @@
         }
         if (coopDirs) VX.Coop.shareShot(game, ox, oy, oz, coopDirs, this.slot.id, st.damage, st.destruction, mx, my, mzz, this.mods);
       }
-      this.applyRecoil(P, d);
+      if (!d.flame) this.applyRecoil(P, d);
       this.shotFirst = this.shotLast = false;
       // retroceso propulsor: con perdigones en el aire, el disparo te empuja hacia atrás y arriba
       if (this.mods.recoilJump && st.pellets > 1 && !P.onGround) {
@@ -834,7 +846,13 @@
       }
 
       if (!stoppedByEnemy && ph) {
-        ph.prop.hit(ph, dmg * st.destruction, ray, game);
+        if (this.def.flame) {
+          // (0.59.2) el fuego no agujerea: prende la madera y la tela (cajas, estanterías, barriles…) y calienta lo demás
+          const pr = ph.prop;
+          if (pr.flammable) { pr.heat = (pr.heat || 0) + 1; if (pr.heat > 3) pr.ignite(); }
+          else if (pr.def.explosive) pr.damage(dmg * 0.6, game, dx, dz);
+          if (Math.random() < 0.3) game.particles.spawn(ph.x, ph.y, ph.z, M.rand(-0.5, 0.5), M.rand(0.8, 1.6), M.rand(-0.5, 0.5), 1, 0.5, 0.1, 0.06, 0.4, 1, 1);
+        } else ph.prop.hit(ph, dmg * st.destruction, ray, game);
         stoppedByEnemy = true; endT = ph.t;
       }
       // para el cooperativo: dónde acabó la bala y qué tocó (los compañeros lo repiten igual)
@@ -843,6 +861,13 @@
       if (!stoppedByEnemy && wHit && this.def.flame) {
         // el fuego no agujerea: chamusca y a veces prende el suelo
         if (Math.random() < (this.mods.tar ? 0.3 : 0.05) && wHit.ny > 0.5 && game.addFire) game.addFire(wHit.x, wHit.z, this.mods.tar ? 0.7 : 0.5, this.mods.tar ? 6 : 2.5);   // brea: charcos que arden
+        // (0.59.2) la madera, los tablones y la paja se queman poco a poco
+        const B = VX.Blocks, bk = wHit.block;
+        if (bk === B.WOOD || bk === B.PLANK || bk === B.WBARREL || bk === B.HAY || bk === B.DEADWOOD) {
+          game.world.damageSphere(wHit.x + dx * 0.05, wHit.y + dy * 0.05, wHit.z + dz * 0.05, 0.2, bk === B.HAY ? 30 : 9, game);
+          if (Math.random() < 0.5) game.particles.spawn(wHit.x, wHit.y, wHit.z, wHit.nx + M.rand(-0.4, 0.4), M.rand(0.8, 1.8), wHit.nz + M.rand(-0.4, 0.4), 1, M.rand(0.3, 0.6), 0.05, 0.07, 0.5, 1, 1);
+          if (Math.random() < 0.03 && game.addFire) game.addFire(wHit.x, wHit.z, 0.5, 3);
+        }
         game.dmgSource = null;
         return;
       }
