@@ -29,6 +29,8 @@
     aimAssist: true,     // la mira se frena y se pega un poco a los enemigos (sólo táctil)
     vibrate: true,       // vibración del móvil al disparar, recibir daño y con las explosiones
     fpsCap: 0,           // 0 = sin límite, 60 o 30
+    drawDist: 1,         // distancia de dibujado: 0,65 corta · 1 normal · 1,4 larga (mapas grandes)
+    maxCorpses: 0,       // cadáveres a la vez: 0 = según la calidad
     batterySaver: false, // 30 FPS y menos resolución (móvil con poca batería)
     uiScale: 1,          // tamaño de la interfaz de juego (HUD)
     brightness: 1,       // brillo (aclara las sombras sin quemar las luces); en el móvil empieza en 1,35
@@ -113,7 +115,7 @@
       if (VX.Audio) { if (VX.Audio.setMaster) VX.Audio.setMaster(d.master ?? 1); VX.Audio.setVolume(d.sfx); if (VX.Audio.setBusVolumes) VX.Audio.setBusVolumes(d.ambVol ?? 1, d.enemyVol ?? 1); }
       if (VX.Music) VX.Music.setVolume(d.music);
       if (VX.Input) { VX.Input.sensitivity = 0.0022 * d.sensitivity; VX.Input.invertY = d.invertY; }
-      if (VX.Renderer) VX.Renderer.brightness = d.brightness || 1;
+      if (VX.Renderer) { VX.Renderer.brightness = d.brightness || 1; VX.Renderer.cullMul = d.drawDist || 1; }
       if (VX.Renderer && VX.Renderer.gl) {
         VX.Renderer.fov = d.fov * Math.PI / 180;
         VX.Renderer.setQuality(d.quality, d.shadows);

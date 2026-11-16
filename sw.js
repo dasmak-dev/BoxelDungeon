@@ -2,7 +2,7 @@
 // Al instalarse descarga TODO el juego (0.52), así funciona sin internet desde el primer momento.
 // Al jugar con conexión, primero intenta la red (así siempre tienes la última versión) y guarda la
 // copia; sin conexión, usa la copia guardada.
-const CACHE = 'boxel-cache-v2';
+const CACHE = 'boxel-cache-v3';
 const ASSETS = [
 "./",
 "./index.html",
@@ -53,6 +53,7 @@ const ASSETS = [
 "./js/systems/objectives.js",
 "./js/systems/profile.js",
 "./js/systems/selftest.js",
+"./js/systems/smoketest.js",
 "./js/systems/spawner.js",
 "./js/systems/throwables.js",
 "./js/systems/tutorial.js",

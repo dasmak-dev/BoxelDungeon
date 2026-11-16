@@ -104,25 +104,16 @@
     }
 
     // ---------------- Partidas ----------------
-    newGame() { this.startRun(null); }
-    // mazmorra cooperativa: misma semilla para la primera sala; el resto lo manda el anfitrión
-    startCoopDungeon(seed, rng) { this.startRun(null, { coop: true, seed, rng }); }
-
-    continueGame() {
-      const data = VX.Save.peek();
-      if (!data) return this.newGame();
-      this.startRun(data);
+    // reinicio común de todos los sistemas al empezar cualquier partida (mazmorra, diaria, cooperativo u horda)
+    // lo que dan las mejoras del Santuario al empezar (desliz, precios, imán y segundas vidas)
+    applyRunPerks() {
+      this.player.dashCdBase = VX.Profile.dashCooldown();
+      this.player.dashStock = this.player.dashMax;
+      this.priceMul = VX.Profile.priceMul();
+      this.player.magnet = Math.max(this.player.magnet, 2 * (VX.Profile.data.perks.iman || 0));
+      this.revives = VX.Profile.data.perks.segunda || 0;
     }
-
-    startRun(save, opts = {}) {
-      if (!opts.coop && (VX.Coop.active || VX.Net.code)) { VX.Coop.stop(); VX.Net.leave(); }
-      this.mode = 'dungeon';
-      // mazmorra diaria: semilla del día (también al continuar una partida diaria guardada)
-      this.daily = opts.daily || (save && save.daily) || null;
-      this.dailyRes = null;
-      this.ambientMul = 1;
-      { const hp = document.getElementById('hordePerks'); if (hp) hp.innerHTML = ''; }
-      VX.Renderer.fogNear = VX.Renderer.fogFar = VX.Renderer.cullDist = undefined;
+    resetSystems() {
       this.resetCollections();
       this.world.reset();
       this.particles.clear();
@@ -131,21 +122,24 @@
       this.weapon.reset();
       this.spawner.reset();
       this.hud.hideBoss();
+    }
+    newGame() { this.startRun(null); }
+    // mazmorra cooperativa: misma semilla para la primera sala; el resto lo manda el anfitrión
+    startCoopDungeon(seed, rng) { this.startRun(null, { coop: true, seed, rng }); }
+
+    startRun(_unused, opts = {}) {   // (el primer parámetro era la partida guardada: ya no se guardan)
+      if (!opts.coop && (VX.Coop.active || VX.Net.code)) { VX.Coop.stop(); VX.Net.leave(); }
+      this.mode = 'dungeon';
+      // mazmorra diaria: semilla del día
+      this.daily = opts.daily || null;
+      this.dailyRes = null;
+      this.ambientMul = 1;
+      { const hp = document.getElementById('hordePerks'); if (hp) hp.innerHTML = ''; }
+      VX.Renderer.fogNear = VX.Renderer.fogFar = VX.Renderer.cullDist = undefined;
+      this.resetSystems();
 
       let first;
-      if (save) {
-        Object.assign(this.player, save.player);
-        this.weapon.load(save.version2 ? save.weapon : null);
-        this.upgradesTaken = (save.upgrades || []).map((id) => VX.Upgrades.byId[id]).filter(Boolean);
-        this.synergies = save.synergies || [];
-        Object.assign(this.spawner, save.spawner);
-        Object.assign(this.stats, save.stats);
-        this.floor = save.floor;
-        // se reanuda en una sala tranquila; la partida suspendida se consume al cargarla
-        first = this.world.addStart('start', save.floor, this.spawner.planExits('zn', 'start', !!save.bossPending).slice(0, 3), null, save.zone || 0);
-        first.bossNext = !!save.bossPending;
-        VX.Save.clear();
-      } else {
+      {
         this.floor = 0;
         const rnd0 = Math.random;
         if (opts.rng) Math.random = opts.rng;   // cooperativo: la primera sala sale igual en todos
@@ -154,11 +148,7 @@
         first.rid = 'S';
         this.applyPerks();
       }
-      this.player.dashCdBase = VX.Profile.dashCooldown();
-      this.player.dashStock = this.player.dashMax;
-      this.priceMul = VX.Profile.priceMul();
-      this.player.magnet = Math.max(this.player.magnet, 2 * (VX.Profile.data.perks.iman || 0));
-      this.revives = save && save.revives !== undefined ? save.revives : (VX.Profile.data.perks.segunda || 0);
+      this.applyRunPerks();
       this.zone = first.zone || 0;
       VX.Renderer.fogColor = VX.ZONES[this.zone].fog.slice();
       first.entered = true;
@@ -176,14 +166,13 @@
       this.player.yaw = 0;
       this.player.pitch = 0;
       this.hud.refreshUpgrades(this);
-      VX.Objectives.start(this, save && save.objectives);
+      VX.Objectives.start(this);
       this.state = 'playing';
-      if (!save) VX.Tutorial.start(this); else VX.Tutorial.box(false);
+      VX.Tutorial.start(this);
       VX.Menus.hideAll();
       this.hud.show(true);
       VX.Input.lock();
-      if (this.daily && !save) this.hud.banner('MAZMORRA DIARIA', 'La misma para todos hoy · llega lo más hondo que puedas', 3.5);
-      else if (save) this.hud.banner('PARTIDA REANUDADA', `Continúas en el piso ${save.floor}`, 3);
+      if (this.daily) { VX.Daily.applyStart(this); const mu = VX.Daily.mut(); this.hud.banner('MAZMORRA DIARIA · ' + mu.name.toUpperCase(), mu.desc, 4.5); }
       else this.hud.banner('VOXEL DUNGEON', `Acércate a una puerta para abrirla  ·  [${VX.Settings.keyName(VX.Settings.key('flashlight'))}] linterna  ·  [${VX.Settings.keyName(VX.Settings.key('inspect'))}] inspeccionar arma`, 3.5);
     }
 
@@ -199,21 +188,10 @@
       this.hordeMap = map.id;
       if (VX.Audio.setBiome) VX.Audio.setBiome(-1);
       this.ambientMul = 1;
-      this.resetCollections();
-      this.world.reset();
-      this.particles.clear();
-      this.pickups.clear();
-      this.player.reset();
-      this.weapon.reset();
-      this.spawner.reset();
-      this.hud.hideBoss();
+      this.resetSystems();
       this.applyPerks();
       this.weapon.limited = false;
-      this.player.dashCdBase = VX.Profile.dashCooldown();
-      this.player.dashStock = this.player.dashMax;
-      this.priceMul = VX.Profile.priceMul();
-      this.player.magnet = Math.max(this.player.magnet, 2 * (VX.Profile.data.perks.iman || 0));
-      this.revives = VX.Profile.data.perks.segunda || 0;
+      this.applyRunPerks();
       // en el cooperativo el azar de la construcción sale de la semilla compartida: mapa idéntico
       const rnd0 = Math.random;
       if (opts.rng) Math.random = opts.rng;
@@ -272,29 +250,6 @@
       this.state = 'playing';
       VX.Menus.hideAll();
       VX.Input.lock();
-    }
-
-    // Guardar y salir (suspender): sólo se puede reanudar una vez y se borra al morir
-    saveAndQuit() {
-      this.flushJobs();
-      if (this.mode === 'horde' || VX.Coop.active) { this.abandonRun(); return; }
-      const r = this.currentRoom, Sp = this.spawner;
-      const snap = { floor: this.floor, bossPending: !!(r.cleared && r.bossNext), zone: this.zone,
-        spawner: Sp.snapshot(), daily: this.daily || null };
-      if (!r.cleared) {
-        // la sala a medias no cuenta: se vuelve a jugar una equivalente
-        snap.floor = Math.max(0, this.floor - 1);
-        if (r.type === 'boss') {
-          snap.bossPending = true; snap.zone = r.zone || 0;
-          // deshacer lo que contó al entrar en la sala del jefe
-          if (r.finalBoss) { snap.spawner.finalPending = true; snap.spawner.loop--; }
-          else if (r.secretBoss) snap.spawner.secret = { rooms: 0 };
-          else { snap.spawner.bossCount--; snap.spawner.finalPending = false; }
-        }
-        else snap.spawner.roomsSinceBoss = Math.max(0, Sp.roomsSinceBoss - 1);
-      }
-      VX.Save.write(this, snap);
-      this.quitToTitle();
     }
 
     // Abandonar = rendirse: cuenta como muerte (esencia incluida) y se borra la partida
@@ -746,7 +701,7 @@
         this.crackT = (this.crackT || 0) - dt;
         while (this.crackT <= 0) { this.crackT += M.rand(0.04, 0.3) / Math.max(0.3, lvl); A.crackle(Math.min(1, 0.35 + lvl * 0.5), pan + M.rand(-0.2, 0.2)); }
       }
-      const rain = on ? ({ 9: 1, 6: 0.3 }[this.zone] || 0) * (this.mode === 'horde' ? 1 : 0) : 0;
+      const rain = on ? ({ 9: 0.55 + ((this.currentRoom && this.currentRoom.stormK) || 0) * 0.65, 6: 0.3 }[this.zone] || 0) * (this.mode === 'horde' ? 1 : 0) : 0;
       A.setRain(rain);
     }
 
@@ -966,7 +921,8 @@
       // tormenta en el barco: relámpagos que iluminan la cubierta, y el trueno detrás
       if (z === 9) {
         this.boltT = (this.boltT == null ? 6 : this.boltT) - dt;
-        if (this.boltT <= 0) { this.boltT = M.rand(7, 18); this.bolt = 1; this.thunderT = M.rand(0.4, 2.2); this.thunderD = (this.thunderT - 0.4) / 1.8; }
+        const sk = (this.currentRoom && this.currentRoom.stormK) || 0;    // con el temporal, rayos mucho más a menudo
+        if (this.boltT <= 0) { this.boltT = M.rand(14 - sk * 11, 30 - sk * 24); this.bolt = 0.7 + sk * 0.5; this.thunderT = M.rand(0.4, 2.2); this.thunderD = (this.thunderT - 0.4) / 1.8; }
         if (this.bolt > 0) this.bolt = Math.max(0, this.bolt - dt * (this.bolt > 0.5 ? 6 : 2.2));
         if (this.thunderT > 0) { this.thunderT -= dt; if (this.thunderT <= 0) VX.Audio.thunder(this.thunderD || 0.5); }
       } else this.bolt = 0;
@@ -1054,6 +1010,7 @@
     }
 
     onKill(z) {
+      { const mu = this.daily && VX.Daily.mut(); if (mu && mu.vamp && !z.isCorpse) this.player.heal(mu.vamp); }   // mutador «Vampiro»
       VX.Objectives.kill(this, z);
       // resumen de la partida: muertes por arma y la mejor racha (muertes seguidas en poco tiempo)
       const S = this.stats, w = z && z.lastW || this.dmgWeapon || (this.dmgSource === 'knife' ? 'knife' : null);
@@ -1154,7 +1111,7 @@
           }
         }
       }
-      this.fallers = this.fallers.filter((f) => !f.dead);
+      this.fallers = VX.M.compact(this.fallers, (f) => !f.dead);
     }
 
     // ---------- Estructuras que se vienen abajo (bloques del escenario) ----------
@@ -1170,7 +1127,11 @@
         x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); z0 = Math.min(z0, z); z1 = Math.max(z1, z);
         for (const tc of r.torches) if (tc.alive && tc.anchor[0] === x && tc.anchor[1] === y && tc.anchor[2] === z) tc.alive = false;
       }
-      r.walk = null; r.mapVersion++;
+      // la navegación: en los mapas grandes de la Horda sólo se recalcula la zona tocada (rehacerla entera
+      // costaba 6-10 ms, un tirón en cada derrumbe); en las salas de la mazmorra, que son pequeñas, entera
+      if (r.big && r.walk) for (const [x, , z] of cells) r.walkDirty.push(z * r.W + x);
+      else r.walk = null;
+      r.mapVersion++;
       // cuánto cae: hasta lo primero sólido bajo cada columna
       const low = new Map();
       for (const c of list) { const k = c.x + ':' + c.z; if (!low.has(k) || low.get(k) > c.y) low.set(k, c.y); }
@@ -1215,7 +1176,7 @@
         }
         if (f.phase === 'done' || f.t > 6) this.landBlockFaller(f);
       }
-      this.blockFallers = this.blockFallers.filter((f) => !f.dead);
+      this.blockFallers = VX.M.compact(this.blockFallers, (f) => !f.dead);
     }
 
     // posición (en celdas, sin redondear) de un bloque del derrumbe en este instante
@@ -1273,7 +1234,7 @@
         const P = this.player;
         if (this.state === 'playing' && inside(P.x, P.z)) { this.dmgSrc = 'Un derrumbe'; P.damage(30, cx, cz, this); this.dmgSrc = null; }
       }
-      r.walk = null;
+      if (!r.big) r.walk = null;   // (en los mapas grandes, r.set ya ha marcado las zonas tocadas)
       // lo que ha caído puede haber dejado otra cosa sin apoyo
       void placed;
     }
@@ -1355,7 +1316,7 @@
         }
         if (t.done) t.hold = (t.hold || 0) - dt;
       }
-      this.telegraphs = this.telegraphs.filter((t) => !t.done || t.hold > 0);
+      this.telegraphs = VX.M.compact(this.telegraphs, (t) => !t.done || t.hold > 0);
     }
     renderTelegraphs(b) {
       for (const t of this.telegraphs) {
@@ -1422,8 +1383,8 @@
       }
       for (const f of this.fires) if (f.kind !== 'poison' && this.waterAt(f.x, f.z)) { f.t = 0; for (let i = 0; i < 10; i++) this.particles.spawn(f.x + M.rand(-0.4, 0.4), 0.2, f.z + M.rand(-0.4, 0.4), 0, M.rand(0.8, 1.6), 0, 0.7, 0.7, 0.72, 0.08, 1.2, 0, 1); }
       for (const f of this.fires) if (f.t <= 0 && f.kind !== 'poison' && !f.scorched) { f.scorched = true; this.addScorch(f.x, f.z, f.r * 0.8); }
-      this.fires = this.fires.filter((f) => f.t > 0);
-      this.oils = this.oils.filter((o) => !o.burning || this.fires.some((f) => f.x === o.x && f.z === o.z));
+      this.fires = VX.M.compact(this.fires, (f) => f.t > 0);
+      this.oils = VX.M.compact(this.oils, (o) => !o.burning || this.fires.some((f) => f.x === o.x && f.z === o.z));
       // zombis en llamas prenden el aceite que pisan
       for (const e of this.enemies) if (!e.dead && e.burn > 0) for (const o of this.oils) if (!o.burning && Math.hypot(o.x - e.x, o.z - e.z) < o.r) this.igniteAt(o.x, o.z, 0.1);
     }
@@ -1477,7 +1438,7 @@
           r.done = true;
         }
       }
-      this.rises = this.rises.filter((r) => !r.done);
+      this.rises = VX.M.compact(this.rises, (r) => !r.done);
     }
 
     // ---------------- Cerraduras y llaves (0.41) ----------------
@@ -2063,7 +2024,7 @@
 
     addCorpse(c) {
       this.corpses.push(c);
-      if (this.corpses.length > ((VX.Q && VX.Q.corpses) || 14)) this.corpses[0].life = Math.min(this.corpses[0].life, 1.5);
+      if (this.corpses.length > (VX.Settings.data.maxCorpses || (VX.Q && VX.Q.corpses) || 14)) this.corpses[0].life = Math.min(this.corpses[0].life, 1.5);
     }
 
     musicMode() {
@@ -2195,12 +2156,12 @@
         VX.Audio.enemyCtx = false; this.dmgSrc = null;
         VX.Horde.separate(this);
       }
-      if (this.frame % 30 === 0 && this.enemies.length) this.enemies = this.enemies.filter((e) => !e.dead || e === this.boss);
+      if (this.frame % 30 === 0 && this.enemies.length) this.enemies = VX.M.compact(this.enemies, (e) => !e.dead || e === this.boss);
 
       for (const c of this.corpses) c.update(dt, this);
-      this.corpses = this.corpses.filter((c) => c.life > 0);
+      this.corpses = VX.M.compact(this.corpses, (c) => c.life > 0);
       for (const g of this.gibs) g.update(dt, this.world);
-      this.gibs = this.gibs.filter((g) => g.life > 0);
+      this.gibs = VX.M.compact(this.gibs, (g) => g.life > 0);
       const gMax = (VX.Q && VX.Q.gibs) || 70;
       if (this.gibs.length > gMax) this.gibs.splice(0, this.gibs.length - gMax);
 
@@ -2248,17 +2209,17 @@
           this.particles.spawn(w.x + M.rand(-1, 1), 3, w.z, M.rand(-0.3, 0.3), M.rand(-1, 0), M.rand(-0.3, 0.3), 0.35, 0.32, 0.3, 0.04, 1);
         }
       }
-      this.doorAnims = this.doorAnims.filter((a) => (a.drop ? !a.done : a.t < a.dur + 0.1));
+      this.doorAnims = VX.M.compact(this.doorAnims, (a) => (a.drop ? !a.done : a.t < a.dur + 0.1));
       this.updateFire(dt);
       this.updateFogHoles(dt); this.fogFootsteps(dt);
       for (const bl of this.blasts) bl.t += dt;
-      if (this.blasts.length) this.blasts = this.blasts.filter((bl) => bl.t < (bl.pop ? 1.4 : 4));
+      if (this.blasts.length) this.blasts = VX.M.compact(this.blasts, (bl) => bl.t < (bl.pop ? 1.4 : 4));
       this.updateRises(dt);
       this.checkSecret();
       if (this.state === 'playing' && this.mode !== 'horde' && VX.Input.wasPressed(VX.Settings.key('map'))) this.hud.showMap(this);
       if (this.state === 'playing') this.runTime += dt;
       for (const e of this.pendingExplosions) { e.delay -= dt; if (e.delay <= 0) { e.done = true; this.explode(e); } }
-      this.pendingExplosions = this.pendingExplosions.filter((e) => !e.done);
+      this.pendingExplosions = VX.M.compact(this.pendingExplosions, (e) => !e.done);
       this.updateShockwaves(dt);
       this.updateTelegraphs(dt);
       if (this.state === 'playing' || this.state === 'title') this.updateAmbience(dt);
@@ -2360,7 +2321,7 @@
           } else { VX.Audio.slam(); this.shake(0.3); }
         }
       }
-      this.projectiles = this.projectiles.filter((p) => !p.dead);
+      this.projectiles = VX.M.compact(this.projectiles, (p) => !p.dead);
     }
 
     // charcos de savia de la hidra: frenan y queman un poco
@@ -2404,7 +2365,7 @@
           this.particles.spawn(px, this.world.groundAt(px, pz) + 0.1, pz, 0, M.rand(1, 3), 0, 0.35, 0.3, 0.28, 0.08, 0.6);
         }
       }
-      this.shockwaves = this.shockwaves.filter((s) => s.r < s.max);
+      this.shockwaves = VX.M.compact(this.shockwaves, (s) => s.r < s.max);
     }
 
     // ---------------- Luces ----------------
@@ -2611,6 +2572,7 @@
 
       // ---- escena ----
       const lights = this.gatherLights(cam, vis);
+      this.renderFrame = (this.renderFrame | 0) + 1;
       // Sombras de las luces de la sala (calidad alta): hasta 4 antorchas o lámparas, elegidas entre
       // las que alumbran lo que tienes delante (no sólo la más cercana). Esas luces pasan a ser las 0..3.
       for (const T of R.tsh) T.on = false;
@@ -2632,12 +2594,17 @@
           const tc = tl.torch;
           const sp = tc ? { x: tl.x + tc.nx * 0.1, y: tl.y, z: tl.z + tc.nz * 0.1, dx: tc.nx, dy: -0.55, dz: tc.nz, fov: 2.6, far: 22 }
             : { x: tl.x, y: tl.y, z: tl.z, dx: 0, dy: -1, dz: 0, fov: 2.7, far: 22 };
+          // (0.55) cada mapa de sombra se redibuja cada 3 fotogramas, por turnos (antes los 4 en cada fotograma):
+          // las antorchas no se mueven y la sombra de un zombi que va 3 fotogramas tarde no se nota.
+          // Si la luz de este hueco es otra (o es nueva), se dibuja ya.
+          const T = R.tsh[k], N = 3, fn = this.renderFrame | 0;
+          if (T.light === tl && T.mat && fn - (T.drawn | 0) < N && (fn + k) % N !== 0) { T.on = true; return; }
           R.beginShadow2(sp, k);
           this.world.render(R, this.currentRoom);
           b.draw();
           R.drawBodies(true);
           R.endShadow();
-          R.tsh[k].on = true;
+          T.on = true; T.light = tl; T.drawn = fn;
         });
       }
       const zt = VX.ZONES[this.zone].tint;

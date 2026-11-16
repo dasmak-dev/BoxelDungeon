@@ -192,6 +192,8 @@
         this.regenQ = []; this.gen = opts.gen || 0; for (const p of this.body.parts) for (const v of p.vox) v.orig = v.alive; if (this.gen) this.spawnT = 0.3; }   // orig: lo que vuelve a crecer   // orig: lo que hay que reconstruir; el torso no se parte (lleva el corazón)
       if (T.pile) { this.spawnT = 0; this.gen = opts.gen || 1; this.pileT = 8; this.pileMax = 8; this.maxHp = this.hp = 65 + this.gen * 22; this.body.hitPad = 0.05; }
       if (T.grows) { this.pileT = this.pileMax = 3.5; this.maxHp = this.hp = 28; this.body.hitPad = 0.06; }   // brote de hidra: poco tiempo para romperlo   // vida fija (no crece con el nivel) y algo de margen al apuntar
+      // mutador de la mazmorra diaria (más vida o más velocidad para todos los zombis)
+      { const mu = VX.Daily && VX.Daily.mut(); if (mu) { if (mu.ehp) this.maxHp = this.hp = this.hp * mu.ehp; if (mu.espd && this.baseSpeed) this.baseSpeed *= mu.espd; } }
       // un renacido que vuelve: más grande, más rápido, más duro y con los ojos en llamas
       if (T.revenant && opts.gen) {
         this.gen = opts.gen;
@@ -1551,7 +1553,7 @@
     hydraAfter(res, dir, game, caut) {
       const b = this.body;
       // lo que pierde la cabeza no vuelve a crecer
-      if (this.regenQ) this.regenQ = this.regenQ.filter((r) => !HEADS(r.p));
+      if (this.regenQ) this.regenQ = VX.M.compact(this.regenQ, (r) => !HEADS(r.p));
       const gone = (n) => { if (this.twinGrowT > 0) return false; const h = b.byName[n]; return !h || h.detached || res[n] === 'detached' || res[n] === 'severed' || b.broken(n, 0.5); };
       const headsDown = this.twin ? gone('head') && gone('head2') : gone('head');
       if (this.twin && !game.visualOnly) for (const n of ['head', 'head2']) { const h = b.byName[n]; if (h && !h.detached && gone(n)) { b.detach(n, game.gibs, dir[0] * 3, 2.5, dir[2] * 3); game.hud.toast('¡Una cabeza menos! Queda otra'); } }
@@ -1612,7 +1614,7 @@
         if (this.burn > 0) { w.t = -99; for (let i = 0; i < 8; i++) game.particles.spawn(x, y, z, M.rand(-1, 1), M.rand(1, 2), M.rand(-1, 1), 0.2, 0.2, 0.2, 0.05, 0.8, 0); continue; }   // cauterizada
         if (w.t <= 0) { w.t = -99; this.sprout(game, { wp: [x, y, z] }, [w.dx, 0, w.dz]); VX.Audio.flesh(); }
       }
-      this.woundQ = this.woundQ.filter((w) => w.t > -50);
+      this.woundQ = VX.M.compact(this.woundQ, (w) => w.t > -50);
     }
     sprout(game, p, dir) {
       if (VX.Coop.isClient || (this.gen || 0) >= 2) return;

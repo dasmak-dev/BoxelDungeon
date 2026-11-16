@@ -3,6 +3,118 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.55.0] — 2026-11-16
+
+### Añadido
+- **Mutadores en la mazmorra diaria.** Cada día hay una regla distinta, la misma para todo el mundo. Se ve en la pantalla de la diaria, en el aviso al empezar y en el resultado:
+  - Zombis veloces: los zombis corren un 30 % más.
+  - Cañón de cristal: la mitad de vida y un 60 % más de daño.
+  - Apagón: todo mucho más oscuro.
+  - Fiebre del oro: el doble de oro, pero los zombis tienen un 30 % más de vida.
+  - Vampiro: cada muerte te cura 3, pero no aparecen corazones.
+  - Escopetero: empiezas con la escopeta.
+  - Carne dura: los zombis tienen un 50 % más de vida y tú haces un 20 % más de daño.
+- **Temporal en el Barco (Horda).** La tormenta va y viene durante toda la partida: calma de 1 a 2 minutos y temporal de 35 a 55 s, una y otra vez. Con el temporal:
+  - llueve el triple y la lluvia suena más;
+  - los rayos caen cada 3-6 s, en vez de cada 14-30 s en calma;
+  - el mar se encrespa;
+  - **las olas barren la cubierta**: primero avisan con espuma y estruendo en la borda, y luego una lámina de agua cruza la cubierta y empuja hacia el otro lado a jugadores y zombis (los zombis quedan aturdidos un momento). En los camarotes y en el castillo se está a cubierto.
+
+  Avisa al empezar («¡TEMPORAL!») y al terminar.
+- **Prueba de todos los modos** (Ajustes → «Prueba de todos los modos», o abrir el juego con `?test=all`). Juega unos segundos la mazmorra, la diaria y cada mapa de la Horda (en el Barco, con el temporal) con un bot invulnerable que apunta y dispara. Al final da un informe con los errores de cada modo, los FPS y el peor fotograma.
+- **Ajustes gráficos nuevos:** distancia de dibujado en los mapas grandes (corta, normal o larga, y la niebla se ajusta con ella) y cadáveres en el suelo a la vez (automático, 6, 14 o 30). Las sombras de las antorchas ya se podían quitar.
+
+### Mejorado
+- **Sombras de las antorchas más baratas.** Cada uno de sus cuatro mapas de sombra se redibuja cada 3 fotogramas, por turnos, en vez de los cuatro en cada fotograma. El mundo se dibuja unas 2,7 veces menos por fotograma con calidad alta, y no se nota.
+- **Menos basura de memoria:** 24 listas que se limpiaban creando una lista nueva en cada fotograma ahora se limpian en el sitio.
+
+### Interno
+- Se ha borrado el código muerto del antiguo «guardar y salir», que ya no se usaba: continuar partida, la rama de cargar en `startRun`, el guardado del generador y de los objetivos. También 9 funciones que nadie llamaba.
+- El arranque de partida (mazmorra, diaria, cooperativo y horda) usa funciones comunes, `resetSystems` y `applyRunPerks`, en vez de repetir el mismo código.
+
+## [0.54.3] — 2026-11-16
+
+### Mejorado
+- **Sin tirones al derrumbarse algo en los mapas grandes de la Horda.** Cada derrumbe rehacía la navegación de los zombis de todo el mapa: 10 ms en la Ciudad y 6 ms en el Barco en un ordenador, unas 3 veces más en un móvil. Ahora solo se recalcula la zona tocada, unos 0,01 ms. El resultado es idéntico: comprobado tras un derrumbe real, 0 casillas distintas.
+
+## [0.54.2] — 2026-11-16
+
+### Cambiado
+- **Barco: piso de camarotes más amplio, pensado para el cooperativo.**
+  - El pasillo pasa de 1,5 a 2,25 m de ancho y va por un lado. Las dos escaleras de bajada se ensanchan igual.
+  - En vez de 40 camarotes pequeños de 3 × 1,75 m hay 10 grandes de 6 × 2,5 m, con puertas de 1,5 m.
+  - Cada camarote tiene más dentro:
+    - literas: dos literas dobles, mesita con flexo y libro, póster y dos taquillas;
+    - almacén: cuatro cajas y dos estanterías;
+    - enfermería: dos camillas, gotero y botiquín;
+    - lavandería: cuatro lavadoras, mesa de planchar y ropa tendida;
+    - comedor: mesa, banco y barra de servir con ollas;
+    - arsenal: armero de diez fusiles y cofre;
+    - sala de máquinas: dos bombas, válvulas, tuberías y cofre.
+  - El pasillo tiene además mangueras contra incendios y dos luces por camarote.
+
+### Corregido
+- La litera de arriba no tenía base sólida: era tan fina que se quedaba sin ningún bloque.
+
+## [0.54.1] — 2026-11-16
+
+### Añadido
+- **Barco: el puente de mando se puede visitar.** Desde el techo del castillo de popa se entra por dos puertas, a los lados de la consola, con dintel y rótulo verde.
+  - **Primer piso:** timón con cabillas, sillón del capitán, telégrafo de máquinas, pantalla de radar, mesa de cartas con carta, regla y prismáticos, panel de alarmas y aros salvavidas.
+  - **Segundo piso (sala del radar):** se sube por una escalera interior y tiene consola con pantallas, un asiento y barandilla alrededor del hueco de la escalera.
+- **Grúas nuevas, hechas de bloques:**
+  - pedestal redondo con aros, corona de giro, plataforma, cabina con ventanas y contrapeso;
+  - castillete en A y pluma de celosía horizontal (cordones, diagonales en zigzag y tirantes) que se estrecha en la punta;
+  - tirante desde el castillete, cable y gancho colgando, luces rojas de aviso, foco de trabajo, escala y rótulo de carga.
+
+  Antes era una columna amarilla que subía hasta el cielo, con una pluma de decorado suelta.
+
+### Corregido
+- **Al subir la cubierta, todo lo que pasaba de 8,5 m quedaba cortado.** El mapa tenía ese techo, así que desaparecían el segundo piso del puente y parte de la grúa, y quedaban piezas flotando. Ahora el mapa mide 13,5 m de alto.
+- **Cuadrados negros flotando**, sobre todo encima de las escaleras a los camarotes. Eran los charcos de lluvia de la 0.54.0, que quedaban a la altura de la cubierta aunque debajo hubiera un hueco. Se han quitado.
+- Pantallas y telégrafo del puente que sobresalían de sus consolas.
+
+## [0.54.0] — 2026-11-16
+
+### Añadido
+- **Barco (Horda): piso de camarotes bajo la cubierta.** Debajo de la fila central de contenedores hay un pasillo de 60 m con 40 camarotes a los dos lados, con puerta y número. Cada camarote es de un tipo:
+  - literas con colchones, mantas, almohadas, taquilla y póster;
+  - almacén con cajas y estanterías;
+  - enfermería con camilla, cruz roja y botiquín;
+  - lavandería con lavadoras y ropa tendida;
+  - comedor con mesa, mantel, platos y banco;
+  - arsenal con armero y fusiles, que guarda un cofre;
+  - sala de máquinas con bomba y válvulas, que a veces guarda un cofre.
+
+  El pasillo tiene paredes de dos colores, tuberías y bandeja de cables en el techo, luces (algunas fundidas), luces rojas de emergencia y flechas de salida. Se baja por dos escaleras abiertas con barandilla, una en popa (donde estaba la escotilla central) y otra en proa. Los zombis también salen de abajo y saben bajar y subir.
+- **Más detalle en el barco:**
+  - en cubierta, ventiladores de seta, bitas de amarre, armarios de manguera contra incendios, tuberías de servicio junto a la borda y charcos de lluvia;
+  - en los contenedores, puertas con barras de cierre, manillas, matrícula y el logotipo de la naviera;
+  - en el casco, marcas de calado, chorretones de óxido y el escobén del ancla;
+  - en el castillo de popa, aros salvavidas, escalas, antenas y franjas de seguridad en el techo;
+  - en los huecos de la fila central, puentes de trincaje.
+
+### Cambiado
+- La cubierta del barco está ahora 3 m más alta (así cabe el piso de abajo) y es una losa de bloques con los colores de antes: acero rojo óxido, juntas, tapas de bodega y franjas amarillas.
+
+### Corregido
+- **Objetos del barco que se podían atravesar.** Eran solo decorado, sin bloque sólido. Ahora tienen física:
+  - las puertas abiertas de los contenedores, los botes salvavidas, los rollos de cabo y la tapa de las escotillas;
+  - los extintores, el gancho de las grúas, las trincas de los contenedores y los postes de los alerones del puente.
+
+## [0.53.4] — 2026-11-16
+
+### Mejorado
+- **Sonidos de recarga más realistas.** Las piezas metálicas se hacían con tonos puros que resonaban y sonaban a moneda. Ahora son golpes cortos de ruido filtrado, como el acero y el polímero al encajar. El cargador suena con un «clac» seco al entrar (chasquido, cuerpo y golpe), la corredera y el cerrojo cierran de golpe, y las balas traquetean dentro del cargador al sacarlo y meterlo, y en el cargador rápido del revólver. El cargador vacío cae al suelo con un golpe sordo, y las vainas tintinean cortas y apagadas.
+
+### Corregido
+- **Revólver: hueco en la parte de atrás.** El armazón estaba vacío por dentro detrás del tambor, y desde la vista del jugador se veía un agujero. Se ha rellenado con el escudo trasero del armazón, con el canal del percutor.
+
+## [0.53.3] — 2026-11-16
+
+### Corregido
+- **La precisión podía pasar del 100 %** en las estadísticas al morir. Cada perdigón de la escopeta y cada zombi atravesado por una bala sumaban un acierto, pero el disparo solo contaba una vez. Además, los golpes de cuchillo y mazo sumaban aciertos sin sumar disparos. Ahora cada disparo cuenta como mucho un acierto, y el cuerpo a cuerpo no cuenta para la precisión.
+
 ## [0.53.2] — 2026-11-16
 
 ### Añadido

@@ -75,6 +75,8 @@
     CHAIN: 83,    // cadenas, rejillas y jaulas (hierro que se puede romper)
     MCRYST: 84,   // veta de cristal azul (Minas)
     LOCKR: 85, LOCKB: 86, LOCKY: 87,   // placa de color de las puertas cerradas con llave (roja, azul, dorada)
+    // cubierta del barco (0.54): la cubierta ya no es el suelo del mapa sino una losa de bloques (hay un piso debajo)
+    SDECK: 88, SDECKB: 89, SDECK2: 90, SHATCH: 91, SHATCH2: 92, SPAINT: 93, STILE: 94,
   };
 
   // hp: vida del bloque (Infinity = indestructible)
@@ -170,6 +172,13 @@
   B.info[B.LOCKR] = { solid: true, hp: Infinity, color: [0.16, 0.09, 0.03], vary: 0.03, e: 0.35, shiny: 0.3 };   // ojo de cerradura: hueco oscuro con un leve brillo cálido
   B.info[B.LOCKB] = { solid: true, hp: Infinity, color: [0.15, 0.28, 0.8], vary: 0.03, e: 0.35 };
   B.info[B.LOCKY] = { solid: true, hp: Infinity, color: [0.8, 0.6, 0.12], vary: 0.03, e: 0.35 };
+  B.info[B.SDECK] = { solid: true, hp: Infinity, color: [0.165, 0.068, 0.05], vary: 0.05, shiny: 0.15 };    // acero rojo óxido
+  B.info[B.SDECKB] = { solid: true, hp: Infinity, color: [0.18, 0.074, 0.054], vary: 0.05, shiny: 0.15 };
+  B.info[B.SDECK2] = { solid: true, hp: Infinity, color: [0.115, 0.123, 0.107], vary: 0.04, shiny: 0.2 };   // juntas de chapa
+  B.info[B.SHATCH] = { solid: true, hp: Infinity, color: [0.1, 0.17, 0.17], vary: 0.03, shiny: 0.2 };       // tapas de bodega
+  B.info[B.SHATCH2] = { solid: true, hp: Infinity, color: [0.085, 0.14, 0.14], vary: 0.03, shiny: 0.2 };
+  B.info[B.SPAINT] = { solid: true, hp: Infinity, color: [0.6, 0.53, 0.12], vary: 0.06 };                     // franjas amarillas
+  B.info[B.STILE] = { solid: true, hp: Infinity, color: [0.27, 0.27, 0.28], vary: 0.05 };                      // baldosa interior
   // celdas que no se dibujan (colisión de objetos, límites del mapa)
   B.invisible = new Uint8Array(256);
   for (let i = 0; i < B.info.length; i++) if (B.info[i] && B.info[i].invisible) B.invisible[i] = 1;

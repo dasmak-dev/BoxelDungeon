@@ -44,9 +44,6 @@
     }
 
     // Snapshot para guardar la partida
-    snapshot() {
-      return { roomsSinceBoss: this.roomsSinceBoss, nextBossIn: this.nextBossIn, bossCount: this.bossCount, order: this.order.slice(), loop: this.loop, finalPending: this.finalPending, secret: this.secret ? { ...this.secret } : null, roomsSinceSave: this.roomsSinceSave };
-    }
 
     // ¿Pueden aparecer puertas de jefe? El primero nunca antes del piso 10
     bossEligible(floor) {

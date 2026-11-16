@@ -10,8 +10,30 @@
   const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // mutadores (0.55): cada día una regla distinta, la misma para todo el mundo
+  const MUTS = [
+    { id: 'veloces', name: 'Zombis veloces', desc: 'Los zombis corren un 30 % más', espd: 1.3 },
+    { id: 'cristal', name: 'Cañón de cristal', desc: 'Tienes la mitad de vida, pero haces un 60 % más de daño', php: 0.5, pdmg: 1.6 },
+    { id: 'apagon', name: 'Apagón', desc: 'La mazmorra está mucho más oscura: tu linterna es lo único que alumbra', dark: 0.42 },
+    { id: 'oro', name: 'Fiebre del oro', desc: 'Los zombis sueltan el doble de oro, pero tienen un 30 % más de vida', gold: 2, ehp: 1.3 },
+    { id: 'vampiro', name: 'Vampiro', desc: 'Cada zombi que matas te cura 3 de vida, pero no aparecen corazones', vamp: 3, noHearts: true },
+    { id: 'escopetero', name: 'Escopetero', desc: 'Empiezas con la escopeta en vez de la pistola', start: 'shotgun' },
+    { id: 'duros', name: 'Carne dura', desc: 'Los zombis tienen un 50 % más de vida; tú haces un 20 % más de daño', ehp: 1.5, pdmg: 1.2 },
+  ];
   const Daily = {
-    hash,
+    hash, MUTS,
+    // el mutador de una fecha (o el de la partida diaria en curso)
+    mutOf(date) { return MUTS[hash('boxel-mutador-' + date) % MUTS.length]; },
+    mut() { const g = VX.game; return g && g.daily ? (g.daily.mut || (g.daily.mut = this.mutOf(g.daily.date))) : null; },
+    // aplica al empezar lo que toca al jugador (vida, daño, arma inicial, oscuridad)
+    applyStart(game) {
+      const m = this.mut(); if (!m) return;
+      const P = game.player, W = game.weapon;
+      if (m.php) { P.maxHp = Math.round(P.maxHp * m.php); P.hp = P.maxHp; }
+      if (m.pdmg) W.mods.damage *= m.pdmg;
+      if (m.start) W.slots[0] = W.mk(m.start);
+      if (m.dark) game.ambientMul = m.dark;
+    },
     today() { return new Date().toISOString().slice(0, 10); },
     seedOf(date) { return hash('boxel-diaria-' + date); },
     // semilla de una sala concreta (por su ruta de puertas) y de una tarea en ella
@@ -48,6 +70,7 @@
       VX.Menus.show('daily');
       $('dailyDate').textContent = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
       const m = this.mine();
+      { const mu = this.mutOf(this.today()); $('dailyMut').innerHTML = `<b>Regla de hoy: ${esc(mu.name)}</b><br>${esc(mu.desc)}`; }
       $('dailyMine').innerHTML = m ? `Tu mejor marca de hoy: <b>${m.best}</b> (piso ${m.floor}) · ${m.tries} intento${m.tries === 1 ? '' : 's'}` : 'Aún no la has jugado hoy.';
       this.loadBoard();
       // cuánto falta para la siguiente
@@ -100,7 +123,8 @@
     },
     resultText(game, out, fail) {
       const m = VX.Profile.data.daily || {};
-      return `<b>MAZMORRA DIARIA</b> · ` + (out.rec ? '<span style="color:#7fd36b">¡tu mejor marca de hoy!</span>' : `tu mejor de hoy: ${m.best}`) +
+      const mu = this.mut();
+      return `<b>MAZMORRA DIARIA</b>${mu ? ' (' + esc(mu.name) + ')' : ''} · ` + (out.rec ? '<span style="color:#7fd36b">¡tu mejor marca de hoy!</span>' : `tu mejor de hoy: ${m.best}`) +
         (out.pos ? ` · puesto <b>#${out.pos}</b> en la clasificación` : fail ? ' · sin conexión: no se ha podido mandar a la tabla' : ' · mandando a la tabla…');
     },
   };

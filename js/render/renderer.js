@@ -369,8 +369,10 @@
     R.setFrustum(M.multiply(R.proj, R.view));
     gl.uniform3f(U.u_camPos, cam.x, cam.y, cam.z);
     gl.uniform3f(U.u_fogColor, f[0], f[1], f[2]);
-    gl.uniform1f(U.u_fogNear, R.fogNear || 8);
-    gl.uniform1f(U.u_fogFar, R.fogFar || 36);
+    // en los mapas grandes (con distancia de dibujado propia) la niebla se aleja o se acerca con el ajuste
+    const fk = R.cullDist ? (R.cullMul || 1) : 1;
+    gl.uniform1f(U.u_fogNear, (R.fogNear || 8) * fk);
+    gl.uniform1f(U.u_fogFar, (R.fogFar || 36) * fk);
     gl.uniform1f(U.u_gamma, 1 / (R.brightness || 1));
     gl.uniform1f(U.u_edge, 0.02);
     gl.uniform1f(U.u_clipY, tgt && tgt.clipY != null ? tgt.clipY : -1e9);
@@ -446,7 +448,7 @@
   R.visible = function (cx, cy, cz, rad) {
     const c = R.camPos;
     const dx = cx - c[0], dz = cz - c[2];
-    const cd = (R.cullDist || 62) + rad;
+    const cd = (R.cullDist || 62) * (R.cullMul || 1) + rad;   // (ajuste: distancia de dibujado)
     if (dx * dx + dz * dz > cd * cd) return false;   // más allá de la niebla
     const P = R.frustum;
     if (!P) return true;
@@ -824,7 +826,7 @@ void main() {
     gl.uniformMatrix4fv(U.u_view, false, R.view);
     const f = R.fogColor;
     gl.uniform3f(U.u_fogColor, f[0], f[1], f[2]);
-    gl.uniform1f(U.u_fogNear, R.fogNear || 8); gl.uniform1f(U.u_fogFar, R.fogFar || 36);
+    { const fk = R.cullDist ? (R.cullMul || 1) : 1; gl.uniform1f(U.u_fogNear, (R.fogNear || 8) * fk); gl.uniform1f(U.u_fogFar, (R.fogFar || 36) * fk); }
     gl.disable(gl.CULL_FACE); gl.depthMask(false); gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(U.u_add, 0); R.smoke.draw();
     gl.blendFunc(gl.ONE, gl.ONE); gl.uniform1f(U.u_add, 1); R.fire.draw();

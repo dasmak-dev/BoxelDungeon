@@ -158,14 +158,6 @@
   // bala de latón con punta de plomo
   function round(add, x, y, z, len = 4) { add(x, x, y, y, z - len, z - 1, 'brass'); add(x, x, y, y, z - len - 1, z - len - 1, 'lead'); }
   // mano que agarra una empuñadura en (z de la empuñadura)
-  function addHand(add, zc = 2, yTop = -2) {
-    add(-3, 2, yTop - 8, yTop, zc - 5, zc + 4, 'hand', (x, y, z) => x === -3 || x === 2 || z === zc + 4 || y === yTop - 8);
-    add(-4, -3, yTop - 1, yTop, zc - 9, zc - 1, 'hand');
-    add(-3, -1, yTop - 7, yTop - 2, zc - 6, zc - 5, 'hand');
-    add(-3, 2, yTop - 11, yTop - 8, zc + 2, zc + 6, 'wrist', (x, y) => x === -3 || x === 2 || y === yTop - 11 || y === yTop - 8);
-    add(-4, 3, yTop - 15, yTop - 9, zc + 6, zc + 22, 'sleeve', (x, y) => x === -4 || x === 3 || y === yTop - 15 || y === yTop - 9);
-  }
-
   // Cargador dentro de la empuñadura (pistolas): la chapa de abajo y el cuerpo, que sale al recargar
   function magIn(vox, add, part, n, slope, z0, z1, x0, x1) {
     for (const v of vox) if (v.tag !== 'accent' && v.y <= -n + 0.5 && v.y >= -n - 0.5 && v.z > -6) v.part = 'mag';
@@ -611,6 +603,9 @@
       for (let i = 0; i < 6; i++) { const th = i / 6 * Math.PI * 2 + 0.5, x = Math.round(Math.cos(th) * 1.6 - 0.5), y = 4 + Math.round(Math.sin(th) * 1.6); add(x, x, y, y, -9, -3, 'brass'); }
       part(null);
       add(-2, 1, 1, 8, -2, 1, 'main', (x, y) => y < 3 || y > 6 || x === -2 || x === 1);
+      // escudo trasero del armazón: tapa la parte de atrás del tambor (antes era un hueco que se veía desde atrás)
+      add(-1, 0, 3, 6, -2, 1, 'main', (x, y, z) => !(z === 1 && y >= 4 && y <= 5));
+      add(-1, 0, 4, 5, 1, 1, 'dark');                                                          // canal del percutor
       add(-3, -3, 3, 4, -1, 0, 'steel');                                                       // pestillo del tambor
       part('ham'); add(-1, 0, 8, 9, 1, 3, 'dark'); add(-1, 0, 10, 10, 2, 4, 'steel'); part(null);   // percutor con espuela
       add(-1, 0, 0, 1, -10, -3, 'main');

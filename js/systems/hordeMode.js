@@ -96,6 +96,7 @@
 
     updateFx(game, dt) {
       const P = game.player;
+      if (this.room && this.room.updateStorm && this.phase !== 'evac') this.room.updateStorm(game, dt);   // el temporal del barco
       // humo y llamas de los coches quemados y los bidones
       this.flameT -= dt;
       if (this.flameT <= 0) {

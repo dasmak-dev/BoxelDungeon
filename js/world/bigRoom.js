@@ -212,7 +212,7 @@
     const hash = (a, b, c) => M.hash3(Math.floor(a * 7.13), Math.floor(b * 3.71), Math.floor(c * 5.37));
     // Máquina de ventajas (modo Horda): armario de 1,25 × 2,25 m con panel luminoso.
     // face: hacia dónde mira el frontal ('xn','xp','zn','zp'); perk: id de la ventaja
-    const machine = (x, z, face, perk) => {
+    const machine = (x, z, face, perk, base = 0) => {   // base: altura del suelo en celdas
       const P = VX.HordeMode && VX.HordeMode.PERKS[perk];
       const body = P ? B[P.block] : B.MACH_R, neon = P ? B[P.neon] : B.NEON_R;
       const X = cm(x), Z = cm(z), Wm = 5, Dm = 3, Hm = 9;
@@ -220,7 +220,7 @@
       const along = n[0] === 0;   // el frontal se extiende en x
       const put = (a, d, y, t) => {   // a: a lo ancho (-2..2), d: fondo (0 = frontal)
         const px = along ? X + a : X - n[0] * d, pz = along ? Z - n[1] * d : Z + a;
-        setc(px, y, pz, t);
+        setc(px, y + base, pz, t);
       };
       for (let a = -2; a <= 2; a++) for (let d = 0; d < Dm; d++) for (let y = 0; y < Hm; y++) {
         let t = body;
@@ -235,7 +235,7 @@
       }
       const fx = (X + 0.5 + (along ? 0 : n[0] * 1.2)) / C, fz = (Z + 0.5 + (along ? n[1] * 1.2 : 0)) / C;
       const nc = P ? P.color : [1, 0.2, 0.2];
-      light(fx + n[0] * 0.2, 1.4, fz + n[1] * 0.2, 4.5, [nc[0] * 0.38, nc[1] * 0.38, nc[2] * 0.38]);
+      light(fx + n[0] * 0.2, 1.4 + base / C, fz + n[1] * 0.2, 4.5, [nc[0] * 0.38, nc[1] * 0.38, nc[2] * 0.38]);
       r.perkSpots.push({ x: wx(fx + n[0] * 0.55), z: wz(fz + n[1] * 0.55), perk });
     };
     return { C, W, D, H, wx, wz, setc, getc, fc, fm, cm, gm, dec, light, prop, chestSpot, hash, machine };

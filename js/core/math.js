@@ -16,6 +16,8 @@
     return arr;
   };
   // Hash determinista 0..1 para variar colores de vóxeles.
+  // quita de una lista (en el sitio, sin crear otra) lo que no cumple f: para las listas que se limpian cada fotograma
+  M.compact = (a, f) => { let j = 0; for (let i = 0; i < a.length; i++) { const v = a[i]; if (f(v)) a[j++] = v; } a.length = j; return a; };
   M.hash3 = (x, y, z) => {
     let h = (x * 374761393 + y * 668265263 + z * 2147483647) | 0;
     h = (h ^ (h >>> 13)) * 1274126177;
@@ -34,8 +36,6 @@
   };
   M.smoothstep = (a, b, x) => { const t = M.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-  M.len3 = (x, y, z) => Math.sqrt(x * x + y * y + z * z);
-  M.dist2D = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
 
   // ---------- Matrices (column-major, estilo WebGL) ----------
   M.perspective = (fovy, aspect, near, far) => {
@@ -82,7 +82,6 @@
   };
 
   // ---------- Cuaterniones [x, y, z, w] ----------
-  M.qIdentity = () => [0, 0, 0, 1];
   // Ruido de valor 3D suave (0..1), para el fuego
   const vh = (x, y, z) => { const n = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return n - Math.floor(n); };
   const sm = (t) => t * t * (3 - 2 * t);

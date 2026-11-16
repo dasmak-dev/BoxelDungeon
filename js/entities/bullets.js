@@ -84,7 +84,7 @@
           this.pop(b, game, true);
         }
       }
-      this.list = this.list.filter((b) => !b.dead);
+      this.list = VX.M.compact(this.list, (b) => !b.dead);
     }
 
     pop(b, game, wall) {

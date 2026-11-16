@@ -19,11 +19,12 @@
   VX.game = game; // accesible desde la consola para depurar
   VX.onLimb = (body) => game.noteLimb(body);   // objetivos: brazos y piernas arrancados
   if (new URLSearchParams(location.search).get('test') === '1') setTimeout(() => { VX.Menus.hideAll(); VX.SelfTest.run(game); }, 1500);   // modo de pruebas
+  if (new URLSearchParams(location.search).get('test') === 'all') setTimeout(() => { VX.Menus.hideAll(); VX.SmokeTest.run(game); }, 1500);   // prueba de todos los modos
   VX.Menus.init(game);
   VX.Touch.init(game);
 
   VX.Input.onLockChange = (locked) => {
-    if (!locked && game.state === 'playing') game.pause();
+    if (!locked && game.state === 'playing' && !VX.testing) game.pause();
   };
   window.addEventListener('keydown', (e) => {
     if (e.code === VX.Settings.key('pause') && game.state === 'playing') { VX.Input.unlock(); game.pause(); }
@@ -31,7 +32,7 @@
 
   // Si el juego deja de verse (otra pestaña, minimizado, otra ventana encima) se calla y se pausa.
   // En el cooperativo la partida sigue (no se puede parar a los demás), pero tampoco suena.
-  const away = () => { VX.Audio.setHidden && VX.Audio.setHidden(true); if (game.state === 'playing') { VX.Input.unlock(); game.pause(); } };
+  const away = () => { VX.Audio.setHidden && VX.Audio.setHidden(true); if (game.state === 'playing' && !VX.testing) { VX.Input.unlock(); game.pause(); } };
   const back = () => { if (!document.hidden) VX.Audio.setHidden && VX.Audio.setHidden(false); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) away(); else back(); });
   window.addEventListener('blur', away);

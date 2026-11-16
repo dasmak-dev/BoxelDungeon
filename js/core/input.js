@@ -49,6 +49,7 @@
   };
 
   Input.lock = function () {
+    if (VX.testing) return;   // prueba automática: no se captura el ratón (el navegador lo rechaza sin un clic)
     const c = Input.canvas;
     if (!c || !c.requestPointerLock) return;
     try {

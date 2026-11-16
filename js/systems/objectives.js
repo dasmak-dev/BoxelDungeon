@@ -33,7 +33,6 @@
       this.showT = 7;
       this.render(game, true);
     },
-    serialize(game) { return game.objectives ? { list: game.objectives, c: game.obj } : null; },
     // ---- lo que va contando el juego ----
     kill(game, z) {
       if (!game.obj) return;

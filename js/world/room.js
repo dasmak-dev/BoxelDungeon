@@ -172,7 +172,6 @@
       }
       return false;
     }
-    hasDoor(side) { return !!this.doors[side]; }
 
     box(x0, y0, z0, x1, y1, z1, t, ignoreReserve = false) {
       const xa = Math.max(2, Math.min(x0, x1)), xb = Math.min(this.w - 3, Math.max(x0, x1));
@@ -597,7 +596,7 @@
         if (!b || !b.count) continue;
         const cxi = i % this.CW, czi = (i - cxi) / this.CW;
         const cx = (this.ox + cxi * CH + CH / 2) * S, cz = (this.oz + czi * CH + CH / 2) * S;
-        if (this.drawDist && Math.hypot(cx - R.camPos[0], cz - R.camPos[2]) > this.drawDist) continue;
+        if (this.drawDist && Math.hypot(cx - R.camPos[0], cz - R.camPos[2]) > this.drawDist * (R.cullMul || 1)) continue;
         if (!R.visible(cx, this.H * S / 2, cz, CH * S + this.H * S)) continue;
         b.draw();
       }
@@ -671,7 +670,6 @@
 
     // Techo: cada sala tiene un estilo según su bioma y su tipo
     // Estilo de techo de la sala (fijo según su posición, bioma y tipo)
-    ceilInfo() { return this.ceilPlan ? { ...this.ceilPlan, top: this.ceilBase * S } : { style: 'flat', top: this.ceilBase * S }; }
     // Altura (m) de la cara inferior del techo en un punto del mundo
     ceilY(wx, wz) { return this.ceilPlan ? VX.Ceilings.ceilY(this, wx, wz) : this.ceilBase * S; }
 
@@ -745,7 +743,7 @@
 
     draw(R) {
       // en la pasada de sombras de la linterna basta con lo cercano (mapas grandes)
-      const far = R.shadowPass && this.drawDist ? 30 : this.drawDist;
+      const far = R.shadowPass && this.drawDist ? 30 : this.drawDist && this.drawDist * (R.cullMul || 1);
       for (let i = 0; i < this.chunks.length; i++) {
         const b = this.chunks[i];
         if (!b) continue;

@@ -163,7 +163,7 @@
       o.x = d.x; o.z = d.z; o.y = d.y - 0.06; o.vx = 0; o.vz = 0; o.vy = 0; o.hp = Math.max(1, P.hp);
       return o;
     },
-    update() { this.decoys = this.decoys.filter((d) => !d.dead); },
+    update() { this.decoys = VX.M.compact(this.decoys, (d) => !d.dead); },
 
     // artículos para la tienda, cofres y cajas
     item(type, n, price) {

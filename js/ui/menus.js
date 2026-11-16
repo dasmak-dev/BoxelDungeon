@@ -62,6 +62,7 @@
       $('setTouch').addEventListener('change', (e) => S.set('touchMode', e.target.value));
       $('errCopyBtn').addEventListener('click', async () => { VX.Audio.click(); const ok = await VX.ErrLog.copy(); $('profileMsg').textContent = ok ? `Copiado: ${VX.ErrLog.list.length} errores` : 'No se pudo copiar'; });
       $('errClearBtn').addEventListener('click', () => { VX.Audio.click(); VX.ErrLog.clear(); $('profileMsg').textContent = 'Registro borrado'; });
+      $('smokeTestBtn').addEventListener('click', () => { VX.Audio.click(); if (game.state !== 'title' && !confirm('Se abandonará la partida en curso. ¿Seguir?')) return; this.hideAll(); setTimeout(() => VX.SmokeTest.run(game), 50); });
       $('selfTestBtn').addEventListener('click', () => { VX.Audio.click(); if (game.state !== 'title' && !confirm('Se abandonará la partida en curso. ¿Seguir?')) return; this.hideAll(); setTimeout(() => VX.SelfTest.run(game), 50); });
       VX.ErrLog.badge();
       $('tutorialBtn').addEventListener('click', () => { VX.Audio.click(); VX.Tutorial.reset(); $('profileMsg').textContent = 'El tutorial saldrá en tu próxima partida.'; });
@@ -69,6 +70,8 @@
       $('setAimAssist').addEventListener('change', (e) => S.set('aimAssist', e.target.checked));
       $('setVibrate').addEventListener('change', (e) => { S.set('vibrate', e.target.checked); if (e.target.checked) VX.Haptics.buzz(60, true); });
       $('setFpsCap').addEventListener('change', (e) => S.set('fpsCap', +e.target.value));
+      $('setDrawDist').addEventListener('change', (e) => S.set('drawDist', +e.target.value));
+      $('setMaxCorpses').addEventListener('change', (e) => S.set('maxCorpses', +e.target.value));
       $('setSaver').addEventListener('change', (e) => S.set('batterySaver', e.target.checked));
       bindRange('setTouchSens', 'touchSens', (v) => v.toFixed(2) + 'x', 'touchSensVal');
       bindRange('setPadSens', 'padSens', (v) => v.toFixed(2) + 'x', 'padSensVal');
@@ -172,7 +175,7 @@
       $('setFov').value = d.fov; $('fovVal').textContent = d.fov + '°';
       $('setQuality').value = d.quality;
       $('setTouch').value = d.touchMode || 'auto';
-      $('setAimAssist').checked = d.aimAssist !== false; $('setVibrate').checked = d.vibrate !== false; $('setFpsCap').value = String(d.fpsCap || 0); $('setSaver').checked = !!d.batterySaver;
+      $('setAimAssist').checked = d.aimAssist !== false; $('setVibrate').checked = d.vibrate !== false; $('setFpsCap').value = String(d.fpsCap || 0); $('setDrawDist').value = String(d.drawDist || 1); $('setMaxCorpses').value = String(d.maxCorpses || 0); $('setSaver').checked = !!d.batterySaver;
       $('setPadSens').value = d.padSens || 1; $('padSensVal').textContent = (d.padSens || 1).toFixed(2) + 'x';
       $('setTouchSens').value = d.touchSens || 1; $('touchSensVal').textContent = (d.touchSens || 1).toFixed(2) + 'x';
       $('setShadows').checked = d.shadows;

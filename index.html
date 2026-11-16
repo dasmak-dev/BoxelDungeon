@@ -139,6 +139,7 @@
     <h2>MAZMORRA DIARIA</h2>
     <p class="dSub"><span id="dailyDate"></span> · la misma mazmorra para todo el mundo</p>
     <p class="dSub">Las mismas salas tras las mismas puertas y los mismos enemigos. Llega lo más hondo que puedas.</p>
+    <div id="dailyMut" class="dMut"></div>
     <div id="dailyMine" class="dMine"></div>
     <div id="dailyBoard" class="dBoard"></div>
     <div class="dNameRow">Tu nombre en la tabla: <input id="dailyName" maxlength="16"></div>
@@ -200,6 +201,19 @@
       <input type="checkbox" id="setDust">
       <label>Niebla baja a ras de suelo</label>
       <input type="checkbox" id="setGroundFog">
+      <label>Distancia de dibujado (mapas grandes de la Horda)</label>
+      <select id="setDrawDist">
+        <option value="0.65">Corta (más FPS)</option>
+        <option value="1">Normal</option>
+        <option value="1.4">Larga</option>
+      </select>
+      <label>Cadáveres en el suelo a la vez</label>
+      <select id="setMaxCorpses">
+        <option value="0">Automático (según la calidad)</option>
+        <option value="6">Pocos (6)</option>
+        <option value="14">Normal (14)</option>
+        <option value="30">Muchos (30)</option>
+      </select>
       <label>Límite de FPS</label>
       <select id="setFpsCap">
         <option value="0">Sin límite</option>
@@ -312,6 +326,8 @@
       </div>
       <label>Modo de pruebas<br><small>Genera todas las salas y prueba cada enemigo buscando fallos (unos minutos)</small></label>
       <button id="selfTestBtn" class="small secondary">PROBAR</button>
+      <label>Prueba de todos los modos<br><small>Juega unos segundos la mazmorra, la diaria y cada mapa de la Horda, y avisa de errores</small></label>
+      <button id="smokeTestBtn" class="small secondary">PROBAR</button>
     </div>
     <div class="row">
       <button id="resetSettingsBtn" class="secondary small">RESTABLECER</button>
@@ -438,6 +454,7 @@
   <script src="js/systems/daily.js"></script>
   <script src="js/systems/tutorial.js"></script>
   <script src="js/systems/selftest.js"></script>
+  <script src="js/systems/smoketest.js"></script>
   <script src="js/systems/horde.js"></script>
   <script src="js/systems/hordeMode.js"></script>
   <script src="js/net/net.js"></script>

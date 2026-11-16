@@ -194,6 +194,7 @@
     clear() { this.gold = []; this.items = []; this.focus = null; }
 
     dropGold(x, y, z, n) {
+      { const mu = VX.Daily && VX.Daily.mut(); if (mu && mu.gold) n = Math.round(n * mu.gold); }   // mutador «Fiebre del oro»
       for (let i = 0; i < n; i++) {
         this.gold.push({
           x, y, z, vx: M.rand(-2.5, 2.5), vy: M.rand(3, 6), vz: M.rand(-2.5, 2.5),
@@ -203,12 +204,9 @@
     }
 
     // Caja de munición (modo Horda): reparte balas a todas las armas
-    dropAmmo(x, y, z, frac = 1) {
-      this.gold.push({ x, y, z, vx: M.rand(-1.5, 1.5), vy: M.rand(3, 5), vz: M.rand(-1.5, 1.5), t: M.rand(0, 6), value: 0, ammo: frac, delay: 0.5 });
-    }
-
     // Corazón pequeño (cura al recogerlo)
     dropHeart(x, y, z, amount = 10, regen = false) {
+      { const mu = VX.Daily && VX.Daily.mut(); if (mu && mu.noHearts) return; }   // mutador «Vampiro»
       this.gold.push({ x, y, z, vx: M.rand(-1.5, 1.5), vy: M.rand(3, 5), vz: M.rand(-1.5, 1.5), t: 0, value: 0, heal: amount, delay: 0.5, regen });
     }
 
@@ -283,7 +281,7 @@
         if (d < best) { best = d; this.focus = it; }
       }
       if (this.focus && VX.Input.wasPressed(VX.Settings.key('use'))) this.interact(this.focus, game);
-      this.items = this.items.filter((i) => !i.taken);
+      this.items = VX.M.compact(this.items, (i) => !i.taken);
     }
 
     // ---- Relicario de las llaves (tienda): una tómbola que se paga con llaves ----

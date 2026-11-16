@@ -84,12 +84,6 @@
       return any;
     }
     refillAll() { for (const s of this.slots) if (!VX.Weapons.DEFS[s.id].melee) { s.reserve = this.reserveMax(s.id); s.ammo = this.magFor(s.id); } }
-    // fracción total de munición (para que los enemigos suelten más cuando vas justo)
-    ammoFrac() {
-      let a = 0, m = 0;
-      for (const s of this.slots) { if (VX.Weapons.DEFS[s.id].melee) continue; a += s.ammo + (s.reserve || 0); m += this.magFor(s.id) + this.reserveMax(s.id); }
-      return m ? a / m : 1;
-    }
     magFor(id) { const d = VX.Weapons.DEFS[id]; return d.melee ? 0 : Math.round(d.mag * (this.mods ? this.mods.mag : 1) * this.attMul(id).mag); }   // con el cargador ampliado si lo lleva
 
     get slot() { return this.slots[this.cur]; }
@@ -202,7 +196,7 @@
       this.kick = M.lerp(this.kick, 0, Math.min(1, dt * 14));
       this.slide = Math.max(0, this.slide - dt * 9);
       VX.GunAnim.update(this, dt, this.slot.id);
-      if (this.puffs.length) { for (const p of this.puffs) p.t += dt; this.puffs = this.puffs.filter((p) => p.t < 0.7); }
+      if (this.puffs.length) { for (const p of this.puffs) p.t += dt; this.puffs = VX.M.compact(this.puffs, (p) => p.t < 0.7); }
       this.flash = Math.max(0, this.flash - dt * 16);
       this.switchT = Math.max(0, this.switchT - dt);
       this.swingT = Math.max(0, this.swingT - dt);
@@ -212,7 +206,7 @@
       this.scopeK = M.lerp(this.scopeK || 0, this.scoped ? 1 : 0, Math.min(1, dt * (this.scoped ? 9 : 14)));
       if (this.scopeK < 0.002) this.scopeK = 0;
       // cooperativo: en el suelo o muerto no se dispara
-      if (VX.Coop.down || VX.Coop.deadWait) { this.updateGrenades(dt, game); this.tracers = this.tracers.filter((t) => (t.life -= dt) > 0); return; }
+      if (VX.Coop.down || VX.Coop.deadWait) { this.updateGrenades(dt, game); this.tracers = VX.M.compact(this.tracers, (t) => (t.life -= dt) > 0); return; }
       if (this.scoped) this.inspectT = 0;
       // [F] inspeccionar el arma (se cancela al disparar, recargar o cambiar)
       const KS = VX.Settings, kInspect = KS.key('inspect'), kKnife = KS.key('knife');
@@ -223,9 +217,9 @@
       if (I.mouseClicked || I.wasPressed(KS.key('reload')) || I.wheel || I.wasPressed(KS.key('prev')) || I.wasPressed(kKnife) ||
           I.wasPressed('Digit1') || I.wasPressed('Digit2') || I.wasPressed('Digit3')) this.inspectT = 0;
       for (const t of this.tracers) t.life -= dt;
-      this.tracers = this.tracers.filter((t) => t.life > 0);
+      this.tracers = VX.M.compact(this.tracers, (t) => t.life > 0);
       for (const e of this.explosions) e.t -= dt;
-      this.explosions = this.explosions.filter((e) => e.t > 0);
+      this.explosions = VX.M.compact(this.explosions, (e) => e.t > 0);
       this.updateGrenades(dt, game);
 
       // cambio de arma
@@ -388,7 +382,7 @@
         }
       }
       game.dmgSource = null;
-      if (hits) { game.hud.hitmarker(kills > 0); game.stats.hits++; }
+      if (hits) game.hud.hitmarker(kills > 0);   // (los golpes cuerpo a cuerpo no cuentan para la precisión)
       // punto de impacto contra el escenario
       let t = st.reach;
       const wh = game.world.raycast ? game.world.raycast(ox, oy, oz, fx, fy, fz, st.reach) : null;
@@ -454,7 +448,7 @@
         const killed = bestE.hit(best, st.damage * mult, ray, game, { slash: [ax / al, ay / al, az / al] });
         this.meleeExtras(game, st, mult, bestE, [ax / al, ay / al, az / al]);
         game.dmgSource = null;
-        if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
+        if (!bestE.isCorpse) game.hud.hitmarker(killed);   // (los golpes cuerpo a cuerpo no cuentan para la precisión)
         if (killed && this.mods.meleeHeal && !bestE.isCorpse) game.player.heal(4);   // sinergia Berserker
         game.shake(0.12);
         VX.Haptics.buzz(25);
@@ -586,6 +580,7 @@
       VX.GunAnim.onFire(this, this.slot.id, d.form);
       P.recoilPitch += (d.recoil + st.damage * 0.0002) * this.attMul().recoil;
       game.stats.shots++;
+      this.shotHit = false;
       game.roomShots = (game.roomShots || 0) + 1;
       VX.Audio.shoot(d.sound * this.attMul().sound, d.sfx);
       game.shake(d.shake || 0.1);
@@ -684,7 +679,8 @@
         if (!best) break;
         const killed = bestE.hit(best, dmg, ray, game);
         if (!game.visualOnly) this.bulletFx(game, bestE, best, dmg, killed);
-        if (!bestE.isCorpse) { game.hud.hitmarker(killed); game.stats.hits++; }
+        // precisión: cada disparo cuenta como mucho un acierto (aunque varios perdigones o una bala que atraviesa den a varios)
+        if (!bestE.isCorpse) { game.hud.hitmarker(killed); if (!this.shotHit) { this.shotHit = true; game.stats.hits++; } }
         if (this.def.flame && !killed && !bestE.isBoss && !(bestE.T && bestE.T.fireImmune)) bestE.burn = Math.max(bestE.burn || 0, this.mods.blueFlame ? 2 : 3);   // lanzallamas: arde
         if (this.def.flame && this.mods.tar && Math.random() < 0.04 && game.addFire && !bestE.isCorpse) game.addFire(bestE.x, bestE.z, 0.7, 5);
         ignore.add(bestE);
@@ -810,7 +806,7 @@
           else this.explode(game, g);
         }
       }
-      this.grenades = this.grenades.filter((g) => !g.dead);
+      this.grenades = VX.M.compact(this.grenades, (g) => !g.dead);
       VX.Throw.update();
     }
 
