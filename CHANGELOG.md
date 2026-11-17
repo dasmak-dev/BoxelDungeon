@@ -3,6 +3,21 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.61.4] — 2026-11-17
+
+- Pistolas dobles: cada clic dispara la pistola de su lado (izquierdo → izquierda, derecho → derecha).
+- El fogonazo y el humo salen de la pistola que dispara (antes, siempre de la derecha); el efecto de las mejoras se ve en las dos.
+
+## [0.61.3] — 2026-11-17
+
+- Vasijas para romper repartidas por todas las salas y biomas; en la cripta, también calaveras sueltas.
+- Las mejoras se ven:
+  - La bala ahora se ve volar, con estela. Es más gorda con las mejoras de daño y destrucción, y aún más con magnum o subsónica; fina y rápida con alta velocidad; la estela se alarga con más alcance.
+  - Rastro según la munición: fuego (llamas; azules con Llama azul), hielo (escarcha), veneno (gotas verdes), eléctrica (chispazos), explosiva (humo), vampirismo (gotas rojas), perforación (anillas), rebote (destellos) y sangrado; al llegar, un remate del mismo color.
+  - El arma lo enseña aunque no dispares: llamitas, escarcha, chispas o gotas en la boca del cañón.
+  - Cuchillo y katana: la hoja brilla con su mejora (al rojo con más daño o Ejecución, sangrante, ígnea, helada, tóxica).
+  - Botas ligeras: al correr levantas una estela azulada.
+
 ## [0.61.2] — 2026-11-17
 
 - Las llaves de arriba a la izquierda ahora son llaves de verdad (anilla, tija y dientes) del color de cada una; también en el mapa.

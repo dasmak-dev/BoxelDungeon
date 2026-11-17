@@ -25,6 +25,7 @@
       this.switchT = 0;
       this.swingT = 0; this.swingSide = 1; this.pendingHit = -1;
       this.tracers = [];
+      this.shotsV = [];   // (0.61.3) balas visibles en vuelo (el impacto es instantáneo; esto es lo que se ve)
       this.grenades = [];
       this.explosions = [];
       this.queued = false;
@@ -340,6 +341,7 @@
           I.wasPressed('Digit1') || I.wasPressed('Digit2') || I.wasPressed('Digit3')) this.inspectT = 0;
       for (const t of this.tracers) t.life -= dt;
       this.tracers = VX.M.compact(this.tracers, (t) => t.life > 0);
+      this.updateShotsV(dt, game);
       for (const e of this.explosions) e.t -= dt;
       this.explosions = VX.M.compact(this.explosions, (e) => e.t > 0);
       this.updateGrenades(dt, game);
@@ -408,7 +410,7 @@
       }
 
       if (I.mouseClicked) this.queued = true;
-      // (0.57) pistolas dobles: clic derecho dispara la de la izquierda
+      // (0.57) pistolas dobles: cada clic dispara la pistola de su lado
       const dual = !!this.def.dual;
       if (dual && I.rightClicked) this.queuedL = true;
       if (!dual) this.queuedL = false;
@@ -419,10 +421,11 @@
         if (dual) {
           // con los dos clics a la vez se alternan; si no, dispara la que toque
           const D = this.dualAmmo();
-          this.dualSide = this.queued && this.queuedL ? 1 - (this.dualSide || 0) : this.queuedL ? 1 : 0;
+          // (0.61.4) clic izquierdo = pistola izquierda (dualSide 1), clic derecho = pistola derecha (dualSide 0)
+          this.dualSide = this.queued && this.queuedL ? 1 - (this.dualSide || 0) : this.queued ? 1 : 0;
           // con los dos pulsados, si a la que toca no le quedan balas, dispara la otra
           if (this.queued && this.queuedL && (this.dualSide ? D.L : D.R) <= 0) this.dualSide = 1 - this.dualSide;
-          if (this.dualSide) this.queuedL = false; else this.queued = false;
+          if (this.dualSide) this.queued = false; else this.queuedL = false;
           dualDry = (this.dualSide ? D.L : D.R) <= 0;
         }
         if (!dual) this.queued = false;
@@ -957,7 +960,8 @@
         // la trazadora cambia con la munición: más gruesa y lenta (subsónica, magnum), fina y rápida (alta velocidad), azul (eléctrica)…
         const m = this.mods, cal = m.caliber;
         const c = m.shock ? [0.55, 0.85, 1] : m.frost ? [0.7, 0.95, 1] : m.toxic ? [0.5, 1, 0.35] : m.explosive ? [1, 0.55, 0.2] : m.tracer;
-        this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: cal === 'subsonic' || cal === 'magnum' ? 0.1 : 0.06, max: cal === 'subsonic' || cal === 'magnum' ? 0.1 : 0.06, c, w: cal === 'magnum' ? 2 : cal === 'subsonic' ? 1.5 : cal === 'highvel' ? 0.7 : 1 });
+        this.tracers.push({ x0: mx, y0: my, z0: mz, x1: ex, y1: ey, z1: ez, life: cal === 'subsonic' || cal === 'magnum' ? 0.1 : 0.06, max: cal === 'subsonic' || cal === 'magnum' ? 0.1 : 0.06, c, w: (cal === 'magnum' ? 2 : cal === 'subsonic' ? 1.5 : cal === 'highvel' ? 0.7 : 1) * 0.6 });
+        this.addShotV(mx, my, mz, ex, ey, ez, !!wHit);
       }
     }
 
@@ -1085,7 +1089,97 @@
     }
 
     // ---------------- Render ----------------
+    // ---------------- (0.61.3) Las mejoras se ven en la bala ----------------
+    // Aspecto de la bala según lo que llevas: tamaño por el daño y el calibre, y un rastro por cada efecto
+    // (fuego, hielo, veneno, electricidad, explosiva, vampirismo, perforación, rebote, sangrado…)
+    shotLook() {
+      const m = this.mods, cal = m.caliber;
+      const dmgK = Math.max(1, m.damage || 1), destK = Math.max(1, m.destruction || 1);
+      let size = 0.032 * Math.min(2.6, Math.pow(dmgK, 0.55) * Math.pow(destK, 0.25));
+      if (cal === 'magnum') size *= 1.5; else if (cal === 'subsonic') size *= 1.3; else if (cal === 'highvel') size *= 0.75;
+      const speed = cal === 'highvel' ? 95 : cal === 'subsonic' ? 42 : 60;
+      const fire = !!m.fire, blue = !!m.blueFlame;
+      const core = m.shock ? [0.6, 0.85, 1] : m.frost ? [0.75, 0.95, 1] : m.toxic ? [0.55, 1, 0.3] : fire ? (blue ? [0.45, 0.65, 1] : [1, 0.6, 0.15])
+        : m.explosive ? [1, 0.5, 0.15] : m.lifesteal ? [1, 0.2, 0.3] : m.tracer || [1, 0.88, 0.55];
+      return { size, speed, core, fire, blue, frost: !!m.frost, toxic: !!m.toxic, shock: !!m.shock, boom: !!m.explosive, vamp: !!m.lifesteal,
+        pierce: (m.pierce || 0) > 0, rico: (m.ricochet || 0) > 0, bleed: !!m.bleed, streak: cal === 'highvel' ? 2.2 : (m.range || 1) > 1.2 ? 1.5 : 1 };
+    }
+    addShotV(x0, y0, z0, x1, y1, z1, hitWall) {
+      const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0);
+      if (len < 0.5) return;
+      if (this.shotsV.length > 60) this.shotsV.shift();
+      const L = this.shotLook();
+      this.shotsV.push({ x0, y0, z0, dx: (x1 - x0) / len, dy: (y1 - y0) / len, dz: (z1 - z0) / len, len, d: 0.4, L, hitWall, trailT: 0, seed: Math.random() * 100 });
+    }
+    updateShotsV(dt, game) {
+      if (!this.shotsV.length) return;
+      const PT = game.particles;
+      for (const b of this.shotsV) {
+        const L = b.L, d0 = b.d;
+        b.d = Math.min(b.len, b.d + L.speed * dt);
+        // rastro: partículas a lo largo de lo recorrido este fotograma
+        const seg = b.d - d0, n = Math.min(6, Math.ceil(seg / 0.9));
+        for (let i = 0; i < n; i++) {
+          const t = d0 + seg * (i + Math.random()) / n, x = b.x0 + b.dx * t, y = b.y0 + b.dy * t, z = b.z0 + b.dz * t;
+          if (L.fire) { const bl = L.blue; PT.spawn(x, y, z, M.rand(-0.3, 0.3), M.rand(0.4, 1.4), M.rand(-0.3, 0.3), bl ? 0.35 : 1, bl ? 0.6 : M.rand(0.35, 0.7), bl ? 1 : 0.08, L.size * M.rand(0.8, 1.4), M.rand(0.2, 0.4), 1, 1); }
+          if (L.frost && Math.random() < 0.7) PT.spawn(x, y, z, M.rand(-0.2, 0.2), M.rand(-0.4, 0.1), M.rand(-0.2, 0.2), 0.8, 0.95, 1, L.size * 0.7, M.rand(0.4, 0.8), 0.6, 1);
+          if (L.toxic && Math.random() < 0.6) PT.spawn(x, y, z, 0, -0.5, 0, 0.45, 1, 0.25, L.size * 0.8, M.rand(0.4, 0.7), 0.5);
+          if (L.boom && Math.random() < 0.5) { const c = M.rand(0.2, 0.32); PT.spawn(x, y, z, M.rand(-0.15, 0.15), M.rand(0.2, 0.5), M.rand(-0.15, 0.15), c, c * 0.95, c * 0.9, L.size * 1.6, M.rand(0.35, 0.6), 0, 1); }
+          if (L.vamp && Math.random() < 0.45) PT.spawn(x, y, z, M.rand(-0.2, 0.2), M.rand(-0.1, 0.3), M.rand(-0.2, 0.2), 0.9, 0.05, 0.15, L.size * 0.6, M.rand(0.3, 0.5), 0.8, 1);
+          if (L.rico && Math.random() < 0.3) PT.spawn(x, y, z, M.rand(-1, 1), M.rand(-1, 1), M.rand(-1, 1), 0.4, 1, 0.9, L.size * 0.4, 0.2, 1, 1);
+          if (L.bleed && Math.random() < 0.3) PT.spawn(x, y, z, 0, -1, 0, 0.6, 0.02, 0.04, L.size * 0.6, 0.5, 0);
+        }
+        if (b.d >= b.len && !b.done) {
+          b.done = true;
+          // al llegar: un remate con el color de la munición
+          const x = b.x0 + b.dx * b.len, y = b.y0 + b.dy * b.len, z = b.z0 + b.dz * b.len, c = L.core;
+          for (let i = 0; i < (L.fire || L.boom ? 7 : 3); i++) PT.spawn(x, y, z, M.rand(-1.5, 1.5) - b.dx, M.rand(0, 2), M.rand(-1.5, 1.5) - b.dz, c[0], c[1], c[2], L.size * M.rand(0.6, 1.1), M.rand(0.15, 0.35), 1, L.fire ? 1 : 0);
+        }
+      }
+      this.shotsV = VX.M.compact(this.shotsV, (b) => !b.done);
+    }
+    renderShotsV(batch, time) {
+      for (const b of this.shotsV) {
+        const L = b.L, s = L.size, c = L.core;
+        const q = M.qFromDir(b.dx, b.dy, b.dz);
+        const sl = Math.min(b.d, s * 14 * L.streak);   // estela detrás de la bala
+        const hx = b.x0 + b.dx * b.d, hy = b.y0 + b.dy * b.d, hz = b.z0 + b.dz * b.d;
+        // estela (más fina) y la bala (más gorda y brillante)
+        batch.rbox(hx - b.dx * sl / 2, hy - b.dy * sl / 2, hz - b.dz * sl / 2, s * 0.55, s * 0.55, sl, q, c[0], c[1], c[2], 1);
+        batch.rbox(hx, hy, hz, s, s, s * 2.2, q, Math.min(1, c[0] + 0.25), Math.min(1, c[1] + 0.25), Math.min(1, c[2] + 0.25), 1);
+        // perforante: anillas alrededor de la bala
+        if (L.pierce) { const ph = (time * 30 + b.seed) % 1; batch.rbox(hx - b.dx * s * 4 * ph, hy - b.dy * s * 4 * ph, hz - b.dz * s * 4 * ph, s * 2.4 * (1 - ph * 0.5), s * 2.4 * (1 - ph * 0.5), s * 0.3, q, 0.8, 0.5, 1, 0.8); }
+        // eléctrica: chispazos que saltan alrededor
+        if (L.shock) for (let i = 0; i < 3; i++) {
+          const k = M.rand(0.2, 1) * sl, ox = M.rand(-1, 1) * s * 3, oy = M.rand(-1, 1) * s * 3, oz = M.rand(-1, 1) * s * 3;
+          batch.rbox(hx - b.dx * k + ox, hy - b.dy * k + oy, hz - b.dz * k + oz, s * 0.35, s * 0.35, s * 1.6, M.qAxis(Math.random(), Math.random(), Math.random(), Math.random() * 6), 0.7, 0.9, 1, 1);
+        }
+        // fuego: llamita pegada a la bala
+        if (L.fire) batch.rbox(hx - b.dx * s * 2, hy - b.dy * s * 2 + s * 0.6, hz - b.dz * s * 2, s * 1.6, s * 1.9, s * 1.6, M.qY(time * 20 + b.seed), L.blue ? 0.4 : 1, L.blue ? 0.7 : 0.45, L.blue ? 1 : 0.05, 1);
+        // hielo: escarcha alrededor de la bala
+        if (L.frost) batch.rbox(hx, hy, hz, s * 1.7, s * 1.7, s * 1.7, M.qAxis(0.577, 0.577, 0.577, time * 9 + b.seed), 0.85, 0.97, 1, 0.55);
+      }
+    }
+    // (0.61.3) el arma «cargada» con un efecto lo enseña: llamitas, escarcha, chispas, gotas de veneno o
+    // de sangre en la boca del cañón (en el modelo de primera persona)
+    renderInfusion(batch, q, g, bx, by, bz, d, time) {
+      const m = this.mods, mz = d.muzzle;
+      if (!mz) return;
+      const at = (x, y, z, sz, r, gg, b, e, qq) => { M.qRot(q, x * g, y * g, z * g, tmp); batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], sz * g, sz * g, sz * g, qq || q, r, gg, b, e); };
+      const x0 = mz[0], y0 = mz[1], z0 = mz[2] + 1;
+      if (m.fire) for (let i = 0; i < 4; i++) {
+        const ph = (time * 2.2 + i * 0.25) % 1, wob = Math.sin(time * 13 + i * 2) * 0.6, bl = m.blueFlame;
+        at(x0 + wob + (i - 1.5) * 0.9, y0 + 1.5 + ph * 7, z0 + 1 + i * 1.6, 3.2 * (1 - ph * 0.7), bl ? 0.35 : 1, bl ? 0.6 : 0.65 - ph * 0.4, bl ? 1 : 0.1, 1);
+      }
+      if (m.frost) for (let i = 0; i < 6; i++) at(x0 + (i % 2 ? 2.2 : -2.2), y0 + (i % 3) * 1.4 - 0.6, z0 + 2 + i * 2.2, 1.8, 0.82, 0.96, 1, 0.35 + 0.2 * Math.sin(time * 3 + i));
+      if (m.shock && Math.sin(time * 23) > 0.2) for (let i = 0; i < 3; i++) at(x0 + M.rand(-3.5, 3.5), y0 + M.rand(-2, 3.5), z0 + M.rand(0, 8), 1.4, 0.7, 0.9, 1, 1, M.qZ(Math.random() * 3));
+      if (m.toxic) { const ph = (time * 0.9) % 1; at(x0, y0 - 2 - ph * 9, z0 + 0.5, 2.2 * (1 - ph * 0.5), 0.45, 1, 0.25, 0.7); }
+      if (m.lifesteal) { const ph = (time * 0.6 + 0.5) % 1; at(x0 + 1, y0 - 2 - ph * 9, z0 + 4, 1.9, 0.8, 0.05, 0.12, 0.4); }
+      if (m.explosive) { const p = 0.5 + 0.5 * Math.sin(time * 6); at(x0, y0 + 3, z0 + 3, 1.8, 1, 0.35 + p * 0.3, 0.1, p); }
+    }
+
     renderTracers(batch) {
+      if (this.shotsV.length) this.renderShotsV(batch, (VX.game && VX.game.time) || 0);
       for (const t of this.tracers) {
         const dx = t.x1 - t.x0, dy = t.y1 - t.y0, dz = t.z1 - t.z0;
         const len = Math.hypot(dx, dy, dz);
@@ -1287,6 +1381,8 @@
       const pumpBack = A ? A.pumpZ : pose ? 0 : this.slide * 6;
       const parts = A ? A.parts : null, lp = [0, 0, 0];
       const lvV = pose || d.melee ? 1 : this.lvlOf(id);
+      const mm = this.mods, bladeTint = !pose && d.melee ? (mm.fire ? [1, 0.45, 0.08, 0.7] : mm.frost ? [0.7, 0.92, 1, 0.6] : mm.bleed ? [0.7, 0.02, 0.05, 0.6] : mm.toxic ? [0.4, 1, 0.25, 0.55]
+        : (mm.meleeDmg || 1) > 1.01 || mm.execute ? [1, 0.22, 0.1, Math.min(0.6, 0.25 + ((mm.meleeDmg || 1) - 1) * 0.6)] : null) : null;
       for (const v of model) {
         let vq = q, insts = null;
         if (v.part) {
@@ -1328,6 +1424,8 @@
           M.qRot(q, lp[0] * g, lp[1] * g, lp[2] * g, tmp);
         }
         let r = v.r, gg = v.g, b = v.b, e = v.e;
+        // (0.61.3) cuchillo/katana con mejoras: la hoja brilla con su efecto (filo al rojo, sangrante, ígneo, helado…)
+        if (bladeTint && v.tag === 'blade') { const k = bladeTint[3] * (0.75 + 0.25 * Math.sin(game.time * 4 + v.z * 0.4)); r = M.lerp(r, bladeTint[0], k); gg = M.lerp(gg, bladeTint[1], k); b = M.lerp(b, bladeTint[2], k); e = Math.max(e, k * 0.8); }
         if (v.an && model.ult) { VX.Weapons.ultColor(v, model.ult, game.time, ucol); r = ucol[0]; gg = ucol[1]; b = ucol[2]; e = Math.max(e, ucol[3]); }
         if (v.tag === 'accent' && this.accent && !pose && VX.Profile.skinFor(id) === 'default') { r = this.accent[0]; gg = this.accent[1]; b = this.accent[2]; e = Math.max(e, 0.5); }
         // (0.57) nivel del arma: II con bandas de acero pulido, III con bandas y detalles dorados
@@ -1339,9 +1437,15 @@
       }
       if (A && this.casings.length) VX.GunAnim.drawCasings(this, batch, q, g, bx, by, bz, tmp);
       // dónde queda la boca del cañón en pantalla (para el fogonazo, que se dibuja en el mundo)
-      if (!pose && !d.melee && !idOverride && d.muzzle) { const mz = d.muzzle; M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 1) * g, tmp); this.vmTip = [bx + tmp[0], by + tmp[1], bz + tmp[2]]; }
+      // (0.61.4) pistolas dobles: la boca del cañón (fogonazo, humo) es la de la pistola que acaba de disparar
+      const mzSide = d.dual && this.dualSide && d.muzzle ? [-d.muzzle[0] - 31, d.muzzle[1], d.muzzle[2]] : d.muzzle;
+      if (!pose && !d.melee && !idOverride && d.muzzle) { const mz = mzSide; M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 1) * g, tmp); this.vmTip = [bx + tmp[0], by + tmp[1], bz + tmp[2]]; }
+      if (!pose && !d.melee && !idOverride && !d.flame) {
+        this.renderInfusion(batch, q, g, bx, by, bz, d, game.time || 0);
+        if (d.dual) this.renderInfusion(batch, q, g, bx, by, bz, { muzzle: [-d.muzzle[0] - 31, d.muzzle[1], d.muzzle[2]] }, (game.time || 0) + 0.37);
+      }
       if (this.flash > 0.05 && !d.melee && !pose) {
-        const mz = d.muzzle;
+        const mz = mzSide;
         M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 3) * g, tmp);
         const f = this.flash, big = d.pellets > 1 || d.grenade ? 1.6 : 1;
         for (let i = 0; i < 7; i++) {

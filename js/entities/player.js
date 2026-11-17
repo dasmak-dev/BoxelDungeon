@@ -46,6 +46,11 @@
       this.pitch = M.clamp(this.pitch, -1.5, 1.5);
 
       if (I.wasPressed(VX.Settings.key('flashlight'))) { this.flashlight = !this.flashlight; VX.Audio.click(); }
+      // (0.61.3) Botas ligeras: al correr, los pies levantan polvo y dejan una estela azulada
+      if (this.speed > 5.05 && this.onGround && Math.hypot(this.vx, this.vz) > 3.5 && Math.random() < dt * 14 * Math.min(2, (this.speed - 5) / 0.6)) {
+        const bx = this.x - this.vx * 0.06 + M.rand(-0.2, 0.2), bz = this.z - this.vz * 0.06 + M.rand(-0.2, 0.2);
+        game.particles.spawn(bx, this.y + 0.05, bz, -this.vx * 0.15, M.rand(0.2, 0.6), -this.vz * 0.15, 0.45, 0.65, 1, M.rand(0.03, 0.05), M.rand(0.25, 0.45), 0.6, 1);
+      }
 
       // --- Moverse ---
       let fx = 0, fz = 0;

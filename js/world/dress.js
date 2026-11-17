@@ -273,6 +273,20 @@
       const x = r.uX(M.randInt(3, r.w - 3)), z = r.uZ(M.randInt(3, r.d - 3));
       pl(r, Z.id === 'cloacas' && Math.random() < 0.5 ? 'acidpuddle' : M.choice(flat), x, z, { margin: 5 });
     }
+    // (0.61.3) vasijas para romper repartidas por la sala (en todos los biomas y salas) y, en la cripta,
+    //  calaveras sueltas: de una en una o en parejas, sin llenar el suelo
+    if (!(VX.game && VX.game.mode === 'horde')) {
+      const nU = Math.max(2, Math.round((area / 100) * (r.type === 'normal' ? 0.55 : 0.3)));
+      for (let i = 0; i < nU; i++) {
+        const x = r.uX(M.randInt(5, r.w - 6)), z = r.uZ(M.randInt(5, r.d - 6));
+        const u = pl(r, 'urn', x, z, { margin: 3 });
+        if (u && Math.random() < 0.35) pl(r, 'urn', x + M.rand(-0.45, 0.45), z + M.rand(-0.45, 0.45), { margin: 1 });
+      }
+      if (Z.id === 'cripta' && r.type !== 'shop') {
+        const nS = Math.round((area / 100) * 0.6);
+        for (let i = 0; i < nS; i++) pl(r, 'skull', r.uX(M.randInt(4, r.w - 5)), r.uZ(M.randInt(4, r.d - 5)), { margin: 2, rot: M.randInt(0, 3) });
+      }
+    }
     if (r.type === 'normal' || r.type === 'boss') {
       if (Z.id === 'cripta') {
         // hileras de 2-4 lápidas junto a una pared, de cara a la sala
