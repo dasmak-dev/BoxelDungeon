@@ -599,7 +599,10 @@
         const MULT = { stab: 1.5, kspin: 1.45, overhead: 1.3, dstab: 1.1, drev: 1.35, mchop: 1.6, mwide: 1.25, blunge: 1.8, bslash: 1, bquick: 0.85, bflip: 1.5, kiai: 1.6, kdown: 1.9 };
         const mult = MULT[T] || 1;
         game.dmgSource = 'knife'; game.dmgWeapon = kat ? 'katana' : 'knife';
-        const so = { slash: [ax / al, ay / al, az / al], katana: kat };
+        // (0.61.5) forma del tajo según el golpe: [medio largo (m), grosor (vóxeles), profundidad (m)]
+        const CUT = { mchop: [0.36, 1.7, 0.24], mwide: [0.4, 1.5, 0.2], drev: [0.32, 1.3, 0.18], bslash: [0.32, 1.3, 0.18], bquick: [0.26, 1.1, 0.14], bflip: [0.38, 1.5, 0.2],
+          stab: [0.07, 1.8, 0.34], dstab: [0.06, 1.6, 0.32], blunge: [0.08, 2, 0.42], kspin: [0.4, 1.4, 0.2], khook: [0.3, 1.3, 0.18], overhead: [0.42, 1.6, 0.24], slash: [0.34, 1.4, 0.18] };
+        const so = { slash: [ax / al, ay / al, az / al], katana: kat, cut: CUT[T] || CUT.slash };
         // los tajos anchos también cortan a los de al lado (con menos fuerza)
         for (const x of extra) if (x.e !== bestE && !x.e.dead) { const rr = { ox, oy, oz, dx: x.dir[0], dy: x.dir[1], dz: x.dir[2] }; x.e.hit(x.h, st.damage * mult * 0.7, rr, game, so); }
         let killed = bestE.hit(best, st.damage * mult, ray, game, so);

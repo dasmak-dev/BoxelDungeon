@@ -3,6 +3,11 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.61.5] — 2026-11-17
+
+- Cortes del cuchillo que se leen: el tajo abre una raja en la dirección de la hoja (vertical con el hachazo del machete, diagonal en los tajos, ancha en el barrido, punzante en las estocadas) y los bordes quedan en carne viva, oscura y roja.
+- Cada golpe corta a su manera (largo, grosor y profundidad propios). No cambia nada de las balas ni de las explosiones.
+
 ## [0.61.4] — 2026-11-17
 
 - Pistolas dobles: cada clic dispara la pistola de su lado (izquierdo → izquierda, derecho → derecha).

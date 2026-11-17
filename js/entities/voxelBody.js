@@ -266,21 +266,33 @@
       this.ensureAll();
       const removed = {};
       let debris = 0;
+      // (0.61.5) los bordes del tajo quedan marcados (carne abierta, oscura y roja): así el corte se lee
+      // como una raja en la dirección de la hoja y no como un simple golpe
+      const rim = radius + this.v * 1.9, rim2 = rim * rim, r2 = radius * radius;
       for (const p of this.parts) {
         if (p.detached) continue;
-        let n = 0;
+        let n = 0, tinted = false;
         for (const vx of p.vox) {
           if (!vx.alive) continue;
           const rx = vx.wx - px, ry = vx.wy - py, rz = vx.wz - pz;
           const t = rx * dx + ry * dy + rz * dz;
-          if (t < -radius || t > depth) continue;
+          if (t < -rim || t > depth + this.v) continue;
           let sAx = rx * ax + ry * ay + rz * az;
+          const inLen = sAx >= -halfLen && sAx <= halfLen;
           sAx = Math.max(-halfLen, Math.min(halfLen, sAx));
           const qx = rx - ax * sAx, qy = ry - ay * sAx, qz = rz - az * sAx;
           // distancia al segmento, sin contar la componente de profundidad
           const pd = qx * dx + qy * dy + qz * dz;
           const ex = qx - dx * pd, ey = qy - dy * pd, ez = qz - dz * pd;
-          if (ex * ex + ey * ey + ez * ez > radius * radius) continue;
+          const d2 = ex * ex + ey * ey + ez * ez;
+          if (d2 > r2 || t < -radius || t > depth) {
+            if (d2 <= rim2 && inLen && !vx.cut) {
+              vx.cut = 1; tinted = true;
+              const k = 1 - Math.sqrt(d2) / rim * 0.4;
+              vx.r = vx.r * (1 - 0.6 * k) + 0.32 * k; vx.g = vx.g * (1 - 0.75 * k) + 0.015 * k; vx.b = vx.b * (1 - 0.75 * k) + 0.02 * k;
+            }
+            continue;
+          }
           vx.alive = false; n++;
           if (particles && debris < 18 && Math.random() < 0.7) {
             debris++;
@@ -289,6 +301,7 @@
           }
         }
         if (n) { p.alive -= n; removed[p.name] = n; }
+        if (tinted) p.ver = (p.ver || 0) + 1;   // la malla de la GPU se rehace con los colores nuevos
       }
       return removed;
     }
@@ -317,7 +330,9 @@
         const a = opts.slash;
         // (0.59) la katana: corte largo, fino y profundo (parte en dos)
         if (opts.katana) return this.carveSlash(hit.vox.wx, hit.vox.wy, hit.vox.wz, a[0], a[1], a[2], ray.dx, ray.dy, ray.dz, 0.6, this.v * 1.05, 0.7, particles);
-        return this.carveSlash(hit.vox.wx, hit.vox.wy, hit.vox.wz, a[0], a[1], a[2], ray.dx, ray.dy, ray.dz, 0.22, this.v * 1.4, 0.16, particles);
+        // (0.61.5) cada hoja corta a su manera: largo del tajo, grosor y profundidad
+        const L = opts.cut || [0.3, 1.4, 0.18];
+        return this.carveSlash(hit.vox.wx, hit.vox.wy, hit.vox.wz, a[0], a[1], a[2], ray.dx, ray.dy, ray.dz, L[0], this.v * L[1], L[2], particles);
       }
       const radius = this.v * (radiusK + dmg / 30) * destruction;
       return this.carveTunnel(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, hit.t, radius, particles);
