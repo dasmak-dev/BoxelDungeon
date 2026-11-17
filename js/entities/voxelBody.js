@@ -28,13 +28,25 @@
     }
   }
 
-  function localQ(p) {
-    let q = [0, 0, 0, 1];
-    if (p.ax) q = M.qMul(q, M.qX(p.ax));
-    if (p.az) q = M.qMul(q, M.qZ(p.az));
-    if (p.ay) q = M.qMul(q, M.qY(p.ay));
-    return q;
+  // (0.61) cuaterniones sin crear arrays nuevos (antes, varios por pieza y fotograma)
+  function qMulTo(o, a, b) {
+    const ax = a[0], ay = a[1], az = a[2], aw = a[3], bx = b[0], by = b[1], bz = b[2], bw = b[3];
+    o[0] = aw * bx + ax * bw + ay * bz - az * by;
+    o[1] = aw * by - ax * bz + ay * bw + az * bx;
+    o[2] = aw * bz + ax * by - ay * bx + az * bw;
+    o[3] = aw * bw - ax * bx - ay * by - az * bz;
+    return o;
   }
+  const _lq = [0, 0, 0, 1], _ax = [0, 0, 0, 1], _t4 = [0, 0, 0, 1], _rq = [0, 0, 0, 1];
+  // giro local de la pieza (X, luego Z, luego Y) en «o»
+  function localQTo(p, o) {
+    o[0] = 0; o[1] = 0; o[2] = 0; o[3] = 1;
+    if (p.ax) { const h = p.ax / 2; _ax[0] = Math.sin(h); _ax[1] = 0; _ax[2] = 0; _ax[3] = Math.cos(h); qMulTo(_t4, o, _ax); o[0] = _t4[0]; o[1] = _t4[1]; o[2] = _t4[2]; o[3] = _t4[3]; }
+    if (p.az) { const h = p.az / 2; _ax[0] = 0; _ax[1] = 0; _ax[2] = Math.sin(h); _ax[3] = Math.cos(h); qMulTo(_t4, o, _ax); o[0] = _t4[0]; o[1] = _t4[1]; o[2] = _t4[2]; o[3] = _t4[3]; }
+    if (p.ay) { const h = p.ay / 2; _ax[0] = 0; _ax[1] = Math.sin(h); _ax[2] = 0; _ax[3] = Math.cos(h); qMulTo(_t4, o, _ax); o[0] = _t4[0]; o[1] = _t4[1]; o[2] = _t4[2]; o[3] = _t4[3]; }
+    return o;
+  }
+  function localQ(p) { return localQTo(p, [0, 0, 0, 1]); }
 
   class VoxelBody {
     constructor(model, scale = 1) {
@@ -57,7 +69,14 @@
 
     computeWorld() {
       const s = this.scale;
-      const rootQ = M.qMul(M.qMul(M.qY(this.yaw), M.qX(this.pitch)), M.qZ(this.roll));
+      // rootQ = Y(yaw) · X(pitch) · Z(roll), sin arrays nuevos
+      const rootQ = _rq;
+      { const hy = this.yaw / 2, hp = this.pitch / 2, hr = this.roll / 2;
+        _ax[0] = 0; _ax[1] = Math.sin(hy); _ax[2] = 0; _ax[3] = Math.cos(hy);
+        _t4[0] = Math.sin(hp); _t4[1] = 0; _t4[2] = 0; _t4[3] = Math.cos(hp);
+        qMulTo(_lq, _ax, _t4);
+        _t4[0] = 0; _t4[1] = 0; _t4[2] = Math.sin(hr); _t4[3] = Math.cos(hr);
+        qMulTo(rootQ, _lq, _t4); }
       const fx = Math.sin(this.yaw) * this.fwdOff, fz = Math.cos(this.yaw) * this.fwdOff;
       const bx = this.x + fx, by = this.y + this.yOff, bz = this.z + fz;
       for (const p of this.parts) {
@@ -67,11 +86,13 @@
           // pivote relativo al del padre, girado con el padre
           M.qRot(par.q, (p.pivot[0] - par.pivot[0]) * s, (p.pivot[1] - par.pivot[1]) * s, (p.pivot[2] - par.pivot[2]) * s, tmp);
           p.wp[0] = par.wp[0] + tmp[0]; p.wp[1] = par.wp[1] + tmp[1]; p.wp[2] = par.wp[2] + tmp[2];
-          p.q = M.qMul(par.q, localQ(p));
+          if (!p._q) p._q = [0, 0, 0, 1];
+          p.q = qMulTo(p._q, par.q, localQTo(p, _lq));
         } else {
           M.qRot(rootQ, p.pivot[0] * s, p.pivot[1] * s, p.pivot[2] * s, tmp);
           p.wp[0] = bx + tmp[0]; p.wp[1] = by + tmp[1]; p.wp[2] = bz + tmp[2];
-          p.q = M.qMul(rootQ, localQ(p));
+          if (!p._q) p._q = [0, 0, 0, 1];
+          p.q = qMulTo(p._q, rootQ, localQTo(p, _lq));
         }
       }
       // la posición de cada vóxel ya no se calcula en cada fotograma: sólo cuando hace falta
@@ -477,6 +498,25 @@
 
     update(dt, world) {
       this.life -= dt;
+      // (0.61) al final se desmorona de arriba abajo en polvo (en vez de encogerse)
+      if (this.life < 2.5 && this.vox.length) {
+        if (!this.crumb) {
+          this.crumb = true; this.n0 = this.vox.length;
+          for (const a of this.vox) { M.qRot(this.q, a.x, a.y, a.z, tmp); a.h = tmp[1]; }
+          this.vox.sort((p, q) => q.h - p.h);
+        }
+        const target = Math.ceil(this.n0 * Math.max(0, this.life - 0.2) / 2.3);
+        const P = VX.game && VX.game.particles;
+        let n = 0;
+        while (this.vox.length > target) {
+          const a = this.vox.shift();
+          if (P && (n++ % 4) === 0 && Gib.dust < 40) {
+            Gib.dust++;
+            M.qRot(this.q, a.x, a.y, a.z, tmp);
+            P.spawn(this.x + tmp[0], this.y + tmp[1], this.z + tmp[2], M.rand(-0.3, 0.3), M.rand(0.1, 0.6), M.rand(-0.3, 0.3), a.r * 0.6 + 0.1, a.g * 0.6 + 0.09, a.b * 0.6 + 0.08, this.v * M.rand(0.6, 1), M.rand(0.5, 1), 0.3);
+          }
+        }
+      }
       if (this.resting) return;
       this.vy -= 18 * dt;
       const nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
@@ -501,16 +541,18 @@
     }
 
     render(batch) {
-      const fade = Math.min(1, this.life / 1.5);
-      const s = this.v * (0.4 + 0.6 * fade);
+      const fade = Math.min(1, this.life / 0.3);
+      const s = this.v * (0.5 + 0.5 * fade);
       const q = M.qMul(this.q, this.baseQ);
-      const sink = (1 - fade) * 0.15;
+      const sink = 0;
       for (const a of this.vox) {
         M.qRot(this.q, a.x, a.y, a.z, tmp);
         batch.rbox(this.x + tmp[0], this.y + tmp[1] - sink, this.z + tmp[2], s, s, s, q, a.r, a.g, a.b, a.e);
       }
     }
   }
+
+  Gib.dust = 0;   // polvo por fotograma (lo reinicia el juego)
 
   // Cadáver: el cuerpo cae al suelo con una animación y se puede seguir destrozando
   class Corpse {
@@ -538,7 +580,20 @@
       this.t += dt;
       this.life -= dt;
       const b = this.body;
-      if (!this.landed || this.bounce > 0.001 || this.life < 2) {
+      // (0.61) se desmorona en vez de hundirse: se va deshaciendo de arriba abajo en polvo
+      if (this.life < 2.5 && this.landed) {
+        this.crT = (this.crT || 0) - dt;
+        if (this.crT <= 0) {
+          this.crT = 0.07;
+          const v = b.nearestVoxel(b.cx + M.rand(-0.4, 0.4), b.cy + 3, b.cz + M.rand(-0.4, 0.4));
+          if (v) {
+            const rem = b.carveSphere(v.wx, v.wy, v.wz, b.v * (2.2 + (2.5 - this.life) * 1.6), game.particles, 0, -0.3, 0, 5);
+            b.afterCarve(rem, game.gibs, M.rand(-0.3, 0.3), 0.2, M.rand(-0.3, 0.3));
+            for (let i = 0; i < 2; i++) game.particles.spawn(v.wx, v.wy, v.wz, M.rand(-0.4, 0.4), M.rand(0.2, 0.9), M.rand(-0.4, 0.4), 0.3, 0.27, 0.25, M.rand(0.04, 0.07), M.rand(0.6, 1.2), 0.5);
+          }
+        }
+      }
+      if (!this.landed || this.bounce > 0.001) {
         const k = Math.min(1, this.t / this.dur);
         const e = k * k * (1.6 - 0.6 * k);            // acelera como una caída
         if (k >= 1 && !this.landed) {
@@ -562,7 +617,6 @@
         if (P_.head && !P_.head.detached) P_.head.ax = M.lerp(P_.head.ax, -0.4 * Math.sign(this.target), Math.min(1, dt * 5));
         if (P_.legL && !P_.legL.detached) P_.legL.ax = M.lerp(P_.legL.ax, 0.15, Math.min(1, dt * 4));
         if (P_.legR && !P_.legR.detached) P_.legR.ax = M.lerp(P_.legR.ax, -0.1, Math.min(1, dt * 4));
-        if (this.life < 2) b.yOff -= (2 - this.life) * 0.004; // se hunde antes de desaparecer
         b.computeWorld();
       }
     }

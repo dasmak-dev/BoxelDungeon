@@ -291,7 +291,15 @@
     if (!R.bodies.length) return;
     const gl = R.gl, U = depth ? R.DU : R.U;
     gl.uniform4f(U.u_bp, 0, 0, 0, 1);
+    const P = R.frustum;
     for (const body of R.bodies) {
+      // (0.61) descarte por pasada: fuera del cono de esta luz o de la cámara, no se dibuja
+      if (P) {
+        const cx = body.cx, cy = body.cy, cz = body.cz, rad = Math.max(body.height, 2) * 1.25 + (body.cullPad || 0.6);
+        let out = false;
+        for (let k = 0; k < 6; k++) { const p = P[k]; if (p[0] * cx + p[1] * cy + p[2] * cz + p[3] < -rad) { out = true; break; } }
+        if (out) continue;
+      }
       if (!depth) gl.uniform1f(U.u_bflash, body.flash > 0 ? body.flash : 0);
       const c = R.bodyBatches(body), ps = body.parts;
       for (let ch = 0; ch < c.b.length; ch++) {

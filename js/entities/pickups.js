@@ -5,6 +5,7 @@
 
   const SHAPES = {
     heart: ['.X.X.', 'XXXXX', 'XXXXX', '.XXX.', '..X..'],
+    quest: ['.XXX.', 'X...X', '..XX.', '.....', '..X..'],
     plus: ['..X..', '..X..', 'XXXXX', '..X..', '..X..'],
     bullet: ['..X..', '.XXX.', '.XXX.', '.XXX.', '.XXX.'],
     bolt: ['...XX', '..XX.', '.XXXX', '..XX.', '.XX..'],
@@ -462,6 +463,7 @@
     }
 
     interact(it, game) {
+      if (VX.RoomEvents && VX.RoomEvents.interact(it, game, this)) return;   // (0.61) salas de evento
       if (it.kind === 'rest') {
         it.taken = true;
         game.player.heal(Math.round(game.player.maxHp * 0.35));
@@ -651,6 +653,8 @@
       // Objetos flotantes
       for (const it of this.items) {
         if (it.hiddenOwned) continue;
+        if (it.kind === 'roulette') { VX.RoomEvents.renderRoulette(batch, it); continue; }
+        if (it.noDraw) continue;
         if (it.kind === 'weapon' || it.kind === 'gunUp') { this.renderWeapon(batch, it); continue; }
         if (it.kind === 'supply') { this.renderSupply(batch, it); continue; }
         if (it.kind === 'keyAltar') { this.renderGumball(batch, it); continue; }
@@ -684,7 +688,7 @@
           // objeto en 3D: gira despacio y flota; en la tienda, quieto sobre el mostrador
           // tamaño según el objeto (las mejoras y las llaves, algo más pequeñas)
           const vs = (it.kind === 'chest' || it.kind === 'rest' ? 0.034 : it.kind === 'upgrade' || it.kind === 'offering' ? 0.03 : it.kind === 'key' ? 0.028 : it.kind === 'keyAltar' ? 0.045 : 0.032), q = M.qY(it.t * 1.1);
-          const by = it.fall ? it.y + 0.05 : it.kind === 'rest' || it.kind === 'offering' ? it.y + 0.12 + Math.sin(it.t * 1.5) * 0.015 : it.y + 0.36 + Math.sin(it.t * 2.2) * 0.05;   // (0.58.2) el cristal y la ofrenda, apoyados
+          const by = it.fall ? it.y + 0.05 : it.kind === 'rest' || it.kind === 'offering' || it.kind === 'bloodAltar' || it.kind === 'well' ? it.y + 0.12 + Math.sin(it.t * 1.5) * 0.015 : it.y + 0.36 + Math.sin(it.t * 2.2) * 0.05;   // (0.58.2) el cristal y la ofrenda, apoyados
           for (const o of mdl) {
             M.qRot(q, o[0] * vs, o[1] * vs, o[2] * vs, tmp);
             batch.rbox(it.x + tmp[0], by + tmp[1], it.z + tmp[2], vs, vs, vs, q, o[3], o[4], o[5], Math.max(o[6], 0.12));

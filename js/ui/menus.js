@@ -296,6 +296,16 @@
       // dónde y quién
       const where = game.deathWhere && game.mode !== 'horde' ? `${(VX.ZONES[game.deathWhere.zone] || {}).name || ''} · ${(VX.ROOM_TYPES[game.deathWhere.type] || {}).label || 'sala'} · piso ${game.deathWhere.floor}` : '';
       if (!res.escaped && (game.lastHitBy || where)) h += `<div class="dRow dKill">${game.lastHitBy ? `Te mató: <b>${esc(game.lastHitBy)}</b>` : ''}${where ? `<small> · en ${esc(where)}</small>` : ''}</div>`;
+      // (0.61) la ruta: una pastilla por sala, agrupadas por bioma
+      if (game.route && game.route.length > 1 && game.mode !== 'horde') {
+        let last = -1, rt = '';
+        for (const st of game.route) {
+          if (st.zone !== last) { last = st.zone; rt += `<em>${esc(((VX.ZONES[st.zone] || {}).name || '').replace(/^(LA|LAS|LOS|EL) /, ''))}</em>`; }
+          const T = VX.ROOM_TYPES[st.type] || {}, c = (T.color || [0.6, 0.6, 0.6]).map((x) => Math.round(Math.min(1, x) * 255)).join(',');
+          rt += `<i title="${esc(T.label || st.type)} · piso ${st.floor}" style="background:rgb(${c})"></i>`;
+        }
+        h += `<div class="dRow dRoute">${rt}<b>✖</b></div>`;
+      }
       // momentos de la partida
       const wk = Object.entries(S.wKills || {}).sort((a, b) => b[1] - a[1]);
       const fav = wk[0] && VX.Weapons.DEFS[wk[0][0]];
@@ -306,6 +316,15 @@
       const tot0 = Object.values(game.dmgTaken || {}).reduce((a, b) => a + b, 0);
       if (tot0) mom.push(['Daño recibido', Math.round(tot0).toLocaleString('es')]);
       if (S.secrets) mom.push(['Secretos', S.secrets]);
+      // (0.61) la mejora más útil: la que más muertes por minuto ha visto desde que la tienes
+      let best = null, bestR = 0;
+      for (const id in game.upSeen || {}) {
+        const u = game.upSeen[id], dt = (game.time - u.t) / 60;
+        if (dt < 0.75) continue;
+        const r = (S.kills - u.k) / dt;
+        if (r > bestR) { bestR = r; best = u; }
+      }
+      if (best) mom.push(['Mejora más útil', `${esc(best.name)} <small>(${bestR.toFixed(1)}/min)</small>`]);
       if (mom.length) h += '<div class="dCol"><u>TU PARTIDA</u>' + mom.map(([k, v]) => `<div class="dMom"><span>${k}</span><b>${v}</b></div>`).join('') + (wk.length > 1 ? '<div class="dWk">' + wk.slice(0, 5).map(([id, n]) => `<span>${esc((VX.Weapons.DEFS[id] || {}).name || id)} ${n}</span>`).join('') + '</div>' : '') + '</div>';
       const dm = Object.entries(game.dmgTaken || {}).sort((a, b) => b[1] - a[1]).slice(0, 4);
       const tot = tot0 || 1;

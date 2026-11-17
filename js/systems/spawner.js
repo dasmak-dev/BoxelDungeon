@@ -10,6 +10,7 @@
     shop: { label: 'Vendedor', shape: 'coin', color: [1, 0.7, 0.15] },
     save: { label: 'Fuente de almas', shape: 'crystal', color: [0.4, 0.9, 1] },
     map: { label: 'Sala del cartógrafo', shape: 'scroll', color: [0.55, 1, 0.55] },
+    odd: { label: 'Sala extraña', shape: 'quest', color: [0.8, 0.5, 1] },
     boss: { label: '¡JEFE!', shape: 'skull', color: [0.85, 0.25, 1] },
     start: { label: 'Entrada', shape: 'star', color: [1, 1, 1] },
   };
@@ -77,7 +78,7 @@
         let t;
         for (let tries = 0; tries < 10; tries++) {
           const r = Math.random();
-          t = r < 0.55 ? 'normal' : r < 0.73 ? 'reward' : r < 0.9 ? 'shop' : r < 0.955 ? 'save' : 'map';
+          t = r < 0.52 ? 'normal' : r < 0.68 ? 'reward' : r < 0.82 ? 'shop' : r < 0.91 ? 'odd' : r < 0.96 ? 'save' : 'map';   // (0.61) salas de evento
           // las salas especiales no se repiten seguidas: si acabas de pasar por una
           // tienda, mejora, fuente o mapa, las siguientes puertas son de otro tipo
           if (t !== 'normal' && (out.includes(t) || from.type === t || (this.history || []).slice(-3).includes(t))) continue;
@@ -341,6 +342,7 @@
           }
           break;
         }
+        case 'odd': VX.RoomEvents.prepare(game, room); break;
         case 'map': {
           const f = room.features.find((x) => x.kind === 'mapTable');
           const fw = { zp: [0, 1], zn: [0, -1], xp: [1, 0], xn: [-1, 0] }[VX.Room.OPP[room.entrance || 'zn']] || [0, 1];   // (0.59) el pergamino, en el borde de la mesa que da a la entrada (el holograma va en el centro)
@@ -471,7 +473,7 @@
           void e;
           break;
         }
-        case 'shop': case 'save': case 'reward': case 'map': this.prepare(game, room); break;
+        case 'shop': case 'save': case 'reward': case 'map': case 'odd': this.prepare(game, room); break;
       }
     }
 

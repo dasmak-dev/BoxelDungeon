@@ -115,23 +115,63 @@
     else if (iOS) game.hud.toast('En Safari pulsa Compartir y luego «Añadir a pantalla de inicio»');
   });
 
-  let last = performance.now();
+  // ---- medidor de rendimiento (Ajustes → Mostrar FPS) ----
+  VX.perf = { on: false, n: 0, real: 0, upd: 0, ren: 0, worst: 0, fps: 0, cpuU: 0, cpuR: 0, worstOut: 0, gpu: -1 };
+  // tiempo de la tarjeta gráfica con consultas de tiempo (si el navegador las da; si no, sólo CPU)
+  const GT = { ext: null, q: [], cur: null, acc: 0, n: 0 };
+  try { GT.ext = VX.Renderer.gl.getExtension('EXT_disjoint_timer_query_webgl2'); } catch (e) { GT.ext = null; }
+  function gpuBegin() {
+    const gl = VX.Renderer.gl, X = GT.ext;
+    if (!X || GT.cur || GT.q.length > 4) return;
+    GT.cur = gl.createQuery(); gl.beginQuery(X.TIME_ELAPSED_EXT, GT.cur);
+  }
+  function gpuEnd() {
+    const gl = VX.Renderer.gl, X = GT.ext;
+    if (!X || !GT.cur) return;
+    gl.endQuery(X.TIME_ELAPSED_EXT); GT.q.push(GT.cur); GT.cur = null;
+    while (GT.q.length) {
+      const q = GT.q[0];
+      if (!gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) break;
+      if (!gl.getParameter(X.GPU_DISJOINT_EXT)) { GT.acc += gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6; GT.n++; }
+      gl.deleteQuery(q); GT.q.shift();
+    }
+    if (GT.n >= 15) { VX.perf.gpu = GT.acc / GT.n; GT.acc = 0; GT.n = 0; }
+  }
+
+  let last = performance.now(), nextT = 0;
   function loop(now) {
     // límite de FPS (30 o 60): se salta los refrescos de pantalla que sobran
     // ahorro de batería: 30 FPS. En los menús (título, pausa, ajustes…) también 30: no hace falta más y así
     // la tarjeta gráfica no va a tope (con FPS sin límite podía zumbar o acelerar el ventilador al cargar)
     const menu = game.state !== 'playing' && game.state !== 'dying';
     const cap = VX.Settings.data.batterySaver || menu ? 30 : VX.Settings.data.fpsCap;
-    if (cap && now - last < 1000 / cap - 2) { requestAnimationFrame(loop); return; }
+    // (0.61) reparto con reloj objetivo: también sirve para límites que no dividen el refresco (144 en 180 Hz)
+    if (cap) {
+      const iv = 1000 / cap;
+      if (now < nextT - 1) { requestAnimationFrame(loop); return; }
+      nextT = now - nextT > iv ? now + iv : nextT + iv;
+    }
     const realDt = (now - last) / 1000;
     const dt = Math.min(0.05, realDt);
     last = now;
     if (realDt < 1) autoQuality(realDt);
+    const PF = VX.perf;
     try {
+      const t0 = performance.now();
       VX.Pad.poll(dt, game);
       game.update(dt);
       VX.Touch.update(game, dt);
+      const t1 = performance.now();
+      if (PF.on) gpuBegin();
       game.render();
+      if (PF.on) gpuEnd();
+      const t2 = performance.now();
+      // (0.61) medidor: FPS reales, tiempo de CPU (lógica + preparar el dibujo), GPU y el peor fotograma
+      PF.n++; PF.real += realDt; PF.upd += t1 - t0; PF.ren += t2 - t1; PF.worst = Math.max(PF.worst, realDt * 1000);
+      if (PF.real >= 0.5) {
+        PF.fps = PF.n / PF.real; PF.cpuU = PF.upd / PF.n; PF.cpuR = PF.ren / PF.n; PF.worstOut = PF.worst;
+        PF.n = 0; PF.real = 0; PF.upd = 0; PF.ren = 0; PF.worst = 0;
+      }
     } catch (e) { console.error(e); }
     VX.Input.endFrame();
     VX.Pad.endFrame();

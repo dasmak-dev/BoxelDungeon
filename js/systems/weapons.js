@@ -833,7 +833,9 @@
   // (0.57) pistolas dobles: la pistola de servicio en cada mano (la izquierda, en espejo, 30 vóxeles a la izquierda)
   MODELS.dual = () => {
     const R = MODELS.pistol('pistola');
-    const L = R.map((v) => ({ ...v, x: -v.x - 1 - 30, side: 'L' }));
+    // (0.61) cada pistola tiene sus piezas (cargador «mag» y «mag_L»): se recargan por separado
+    for (const v of R) v.side = 'R';
+    const L = R.map((v) => ({ ...v, x: -v.x - 1 - 30, side: 'L', part: v.part ? v.part + '_L' : v.part }));
     return R.concat(L);
   };
   // (0.57) clavadora neumática: cuerpo industrial amarillo, nariz de contacto, tira de clavos inclinada,

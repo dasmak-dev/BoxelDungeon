@@ -28,7 +28,7 @@
     padSens: 1.0,        // sensibilidad del stick derecho del mando
     aimAssist: true,     // la mira se frena y se pega un poco a los enemigos (sólo táctil)
     vibrate: true,       // vibración del móvil al disparar, recibir daño y con las explosiones
-    fpsCap: 0,           // 0 = sin límite, 60 o 30
+    fpsCap: 0,           // 0 = sin límite, 144, 120, 90, 60 o 30
     drawDist: 1,         // distancia de dibujado: 0,65 corta · 1 normal · 1,4 larga (mapas grandes)
     maxCorpses: 0,       // cadáveres a la vez: 0 = según la calidad
     batterySaver: false, // 30 FPS y menos resolución (móvil con poca batería)

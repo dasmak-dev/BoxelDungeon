@@ -157,8 +157,17 @@
         return [[0.04, 'valveOff'], [0.12, 'tankOut'], [0.64, 'tankIn'], [0.75, 'valveOn']];
       case 'raygun':
         return [[0.08, 'cellOut'], [0.62, 'cellIn'], [0.72, 'chargeUp']];
-      case 'dual':
-        return [[0.08, 'magOut'], [0.14, 'magDrop'], [0.5, 'magIn'], [0.62, 'magIn'], [0.77, 'slideBack'], [0.86, 'slideFwd']];
+      case 'dual': {
+        // (0.61) cada pistola, su recarga (los momentos van con la animación de cada mano)
+        const N = w.dualNeed || { R: true, L: true }, E = w.dualEmpty || {}, both = N.R && N.L, out = [];
+        const one = (a, sp, empty) => {
+          out.push([a + 0.03 * sp, 'magOut'], [a + 0.14 * sp, 'magDrop'], [a + 0.6 * sp, 'magIn']);
+          if (empty) out.push([a + 0.79 * sp, 'slideFwd']); else out.push([a + 0.73 * sp, 'slideBack'], [a + 0.8 * sp, 'slideFwd']);
+        };
+        if (N.R) one(both ? 0.02 : 0.04, both ? 0.56 : 0.9, E.R);
+        if (N.L) one(both ? 0.4 : 0.04, both ? 0.56 : 0.9, E.L);
+        return out.sort((a, b) => a[0] - b[0]);
+      }
       case 'nailgun':
         return [[0.08, 'magOut'], [0.62, 'magIn'], [0.78, 'valveOn']];
       case 'harpoon':

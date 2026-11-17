@@ -1,6 +1,17 @@
 // Utilidades matemáticas: aleatoriedad, matrices y cuaterniones.
 (function () {
   const M = {};
+  // (0.61) Math.hypot nativo es lento y crea un número nuevo en cada llamada (basura para el recolector):
+  // se usa cientos de veces por fotograma. Esta versión se integra en el código optimizado y no reserva nada.
+  {
+    const sq = Math.sqrt, ab = Math.abs;
+    Math.hypot = function (a, b, c, d) {
+      if (b === undefined) return ab(+a || 0);
+      let s = a * a + b * b;
+      if (c !== undefined) { s += c * c; if (d !== undefined) s += d * d; }
+      return sq(s);
+    };
+  }
 
   M.clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   M.lerp = (a, b, t) => a + (b - a) * t;

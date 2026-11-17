@@ -94,9 +94,31 @@
   const game_time = () => (VX.game ? VX.game.time : 0);
   const HEADS = (p) => /^head2?$/.test(p.name) || (p.parent && /^head2?$/.test(p.parent)) || /^head2?drool/.test(p.name);
 
+  // (0.61) afijos de élite
+  const AFFIX = {
+    vampiro: { name: 'Vampiro', desc: 'Se cura al golpearte', shape: 'drop', c: [1, 0.1, 0.15], ok: (z) => !z.T.fly },
+    divisor: { name: 'Divisor', desc: 'Se parte en dos al morir', shape: 'multi', c: [0.6, 1, 0.3], ok: (z) => !z.T.fly && !z.T.pile && !z.T.hydra && !z.T.boss },
+    cuervero: { name: 'Cuervero', desc: 'Llama a los cuervos', shape: 'eye', c: [0.75, 0.45, 1], ok: (z) => !z.T.fly },
+    blindado: { name: 'Blindado', desc: 'Sólo le duele por la espalda', shape: 'crystal', c: [0.7, 0.8, 0.95], ok: (z) => !z.T.fly && !z.T.shield && !z.T.knight },
+    rabioso: { name: 'Rabioso', desc: 'Enloquece con poca vida', shape: 'flame', c: [1, 0.45, 0.1], ok: () => true },
+  };
+  const NECKS = ['neck', 'neck2'], HEAD_PARTS = ['head', 'head2'];
   class Zombie {
     constructor(kind, x, z, floor, opts = {}) {
       const T = TYPES[kind];
+      // (0.61) todos los campos que se usan más tarde, creados ya aquí y siempre en el mismo orden:
+      // así todos los zombis comparten «forma» y el motor de JavaScript optimiza su update de verdad
+      // (antes cada uno iba ganando propiedades por su cuenta y el código optimizado se tiraba una y otra vez)
+      this.animAcc = 0; this.bleedT = 0; this.blockedH = 0; this.ceilT = 0; this.ceilY = 0; this.chargeX = 0; this.chargeZ = 0;
+      this.chillT = 0; this.contactCd = 0; this.dodging = 0; this.eatT = 0; this.embedT = 0; this.fleeT = 0; this.gx = 0; this.gz = 0;
+      this.heartT = 0; this.lastX = x; this.lastY = 0; this.lastZ = z; this.leapX = 0; this.leapZ = 0; this.losT = 0; this.markT = 0;
+      this.noLosT = 0; this.poisonT = 0; this.spotT = 0; this.stuckN = 0; this.stunT = 0; this.suppressT = 0; this.trailT = 0;
+      this.twinGrowT = 0; this.unstickA = 0; this.unstickT = 0; this.want = 0; this.weaveF = 0; this.weaveP = 0; this.weaveLean = 0;
+      this.windTotal = 1; this.intent = 0;
+      this.allowDie = false; this.cauterized = false; this.chargeHit = false; this.enraged = false; this.fled = false; this.headHint = false;
+      this.hydraHint = false; this.knightHint = false; this.leapHit = false; this.longHead = false; this.los = false; this.raising = false;
+      this.riotHint = false; this.rising = false; this.spitting = false; this.wet = false;
+      this.eating = null; this.spot = null; this.lastW = null; this.game = null; this.fdir = [0, 0];
       this.kind = kind;
       this.T = T;
       this.isBoss = false;
@@ -168,6 +190,11 @@
       this.climbing = 0;
       this.B = BEH[kind];
       this.uid = ++UID;
+      // (0.61) afijos de élite: un rasgo con nombre (y un icono que flota encima)
+      if (this.elite && !this.champion && !opts.noAffix && f >= 2 && Math.random() < 0.7) {
+        const ok = Object.keys(AFFIX).filter((k) => AFFIX[k].ok(this));
+        if (ok.length) { this.affix = M.choice(ok); this.affixT = M.rand(3, 6); if (this.affix === 'divisor') this.maxHp = this.hp = this.hp * 0.85; }
+      }
       this.vx = 0; this.vz = 0; this.aspd = 0;
       this.state = 'chase'; this.stateT = M.rand(0.5, 2);
       this.pathT = 0; this.pdir = [0, 0]; this.direct = false;
@@ -250,6 +277,7 @@
     }
 
     update(dt, game) {
+      if (this.affix && !this.dead) this.affixTick(dt, game);
       this.game = game;
       const b = this.body, P = game.player;
       b.flash = Math.max(0, b.flash - dt * 6);
@@ -932,12 +960,12 @@
         const t = this.walkT, open = this.mouthOpen > 0 ? 1 : 0;
         if (this.windup <= 0 && this.climbing <= 0) { P_.armL.ax = mix(-0.25 + Math.sin(t) * 0.3, C.armL); P_.armR.ax = mix(-0.25 - Math.sin(t) * 0.3, C.armR); P_.armL.az = -0.18; P_.armR.az = 0.18; }
         const wind = this.state === 'chargeWind' ? 1 : 0, lunge = this.state === 'charge' ? 1 : 0;
-        for (const nm of ['neck', 'neck2']) {
+        for (const nm of NECKS) {
           const N = P_[nm]; if (!N) continue;
           N.ax = Math.sin(t * 0.6 + (nm === 'neck2' ? 1.7 : 0)) * 0.09 - wind * 0.45 + lunge * 0.55 + (this.eating ? 0.7 : 0) + fl.x;
           N.az = Math.sin(t * 0.4 + (nm === 'neck2' ? 2 : 0)) * 0.08;
         }
-        for (const nm of ['head', 'head2']) {
+        for (const nm of HEAD_PARTS) {
           const H = P_[nm]; if (!H) continue;
           H.ax = -open * 0.25 + Math.sin(t * 1.3) * 0.05 + (open ? Math.sin(game_time() * 40) * 0.03 : 0);
           H.az = Math.sin(t * 0.7 + (nm === 'head2' ? 1 : 0)) * 0.1;
@@ -1151,8 +1179,8 @@
       if (g - fy > 0.55) { this.blockedH = g; return false; }
       // el pie puede apoyarse en el escalón de al lado (escaleras empinadas de 2 en 2 vóxeles)
       const rr = r + 0.002, c0 = g;
-      for (const [ox, oz] of [[-rr, -rr], [rr, -rr], [-rr, rr], [rr, rr]]) {
-        const gg = world.groundAt(nx + ox, nz + oz);
+      for (let k = 0; k < 4; k++) {
+        const gg = world.groundAt(nx + (k & 1 ? rr : -rr), nz + (k & 2 ? rr : -rr));
         if (gg > g && gg - c0 <= 0.55 && gg - fy <= 1.05) g = gg;
       }
       const base = Math.max(g, fy) + 0.06;
@@ -1165,6 +1193,12 @@
     hit(hit, dmg, ray, game, opts) {
       if (VX.Codex && VX.Codex.bonus && game.dmgSource) dmg *= VX.Codex.bonus(this.kind);   // conocer al enemigo (bestiario)
       if (this.dead) return false;
+      // (0.61) élite blindada: de frente casi no le haces nada; por la espalda, más
+      if (this.affix === 'blindado' && ray) {
+        const fx = Math.sin(this.body.yaw), fz = Math.cos(this.body.yaw);
+        if (fx * ray.dx + fz * ray.dz < -0.2) { dmg *= 0.2; if (!game.visualOnly && Math.random() < 0.5) { game.particles.sparks(hit.vox.wx, hit.vox.wy, hit.vox.wz, -ray.dx, 0.4, -ray.dz, 5); VX.Audio.wall(); } }
+        else dmg *= 1.35;
+      }
       // (0.59) la katana resbala en las armaduras (caballeros, antidisturbios, escudos, cascos)
       if (opts && opts.katana && !game.weapon.mods.kArmor && (this.T.knight || this.T.riot || this.T.shield || (hit.part && hit.part.armor))) {
         dmg *= 0.4;
@@ -1315,7 +1349,7 @@
         game.stats.headshots++;
         VX.Profile.add('headshots', 1, game);
         VX.Profile.addW(this.lastW, 'heads', 1, game);
-        if (Math.hypot(this.x - game.player.x, this.z - game.player.z) > 18) VX.Profile.addW(this.lastW, 'longHead', 1, game);
+        if (Math.hypot(this.x - game.player.x, this.z - game.player.z) > 18) { VX.Profile.addW(this.lastW, 'longHead', 1, game); this.longHead = true; }
         this.hp = 0;
       }
       const legHit = pn.startsWith('leg');
@@ -1421,8 +1455,25 @@
         game.hud.banner('¡CAMPEÓN ABATIDO!', 'Ha dejado algo valioso', 2.5);
         if (game.champion === this) { game.champion = null; game.hud.hideBoss(); }
       }
-      b.collapse(game.gibs, dir[0], dir[2], 2.2);
-      game.particles.blood(this.x, this.y + 0.9, this.z, dir[0], 0.5, dir[2], 14);
+      // (0.61) muertes vistosas: las explosiones lo hacen trizas
+      if (game.inBlast) {
+        b.ensureSurf();
+        const rem = b.carveSphere(b.cx, b.cy, b.cz, 0.42, game.particles, dir[0], 1, dir[2], 34);
+        b.afterCarve(rem, game.gibs, dir[0] * 4, 3, dir[2] * 4);
+        b.collapse(game.gibs, dir[0], dir[2], 5);
+        game.particles.blood(this.x, this.y + 0.9, this.z, dir[0], 1, dir[2], 34);
+        const gy = game.world.groundAt(this.x, this.z);
+        for (let i = 0; i < 6; i++) game.addDecal(this.x + M.rand(-1.2, 1.2), gy, this.z + M.rand(-1.2, 1.2), 1, M.rand(0.15, 0.3));
+      } else {
+        b.collapse(game.gibs, dir[0], dir[2], 2.2);
+        game.particles.blood(this.x, this.y + 0.9, this.z, dir[0], 0.5, dir[2], 14);
+      }
+      // cámara lenta: el último de la sala o un tiro a la cabeza de lejos
+      if (!VX.Coop.active && game.mode !== 'horde' && !this.T.quad) {
+        const cr = game.currentRoom;
+        const last = cr && cr.entered && !cr.cleared && !(cr.pendingWaves > 0) && !game.rises.length && !game.enemies.some((e) => !e.dead && e !== this && !e.isCorpse);
+        if (last || this.longHead) { game.slowMo = Math.max(game.slowMo || 0, last ? 0.75 : 0.45); }
+      }
       VX.Audio.at(this.x, this.y + 1.2, this.z, () => { VX.Audio.zombieDie(); }, 4);
       this.reward(game, dir);
     }
@@ -1588,7 +1639,7 @@
         game.stats.headshots++;
         VX.Profile.add('headshots', 1, game);
         VX.Profile.addW(this.lastW, 'heads', 1, game);
-        if (Math.hypot(this.x - game.player.x, this.z - game.player.z) > 18) VX.Profile.addW(this.lastW, 'longHead', 1, game);
+        if (Math.hypot(this.x - game.player.x, this.z - game.player.z) > 18) { VX.Profile.addW(this.lastW, 'longHead', 1, game); this.longHead = true; }
         // corta una cabeza y salen dos: si no la has quemado ni volado, del cuello brotan dos
         const burnt = caut || this.burn > 0 || game.dmgSource === 'blast';
         if (!this.twin && !burnt && !this.gen && !VX.Coop.isClient) { this.becomeTwin(game, dir); return false; }
@@ -1803,6 +1854,16 @@
     }
 
     reward(game) {
+      // (0.61) divisor: al morir salen dos más pequeños
+      if (this.affix === 'divisor' && !VX.Coop.isClient) {
+        for (const s of [-1, 1]) {
+          const a = this.body.yaw + Math.PI / 2, x = this.x + Math.sin(a) * 0.6 * s, z = this.z + Math.cos(a) * 0.6 * s;
+          const c = new VX.Zombie(this.kind, x, z, Math.max(0, game.floor - 2), { y: this.y, noAffix: true });
+          c.spawnT = 0.2; c.maxHp = c.hp = c.hp * 0.55; c.kx = Math.sin(a) * s * 4; c.kz = Math.cos(a) * s * 4;
+          game.enemies.push(c);
+        }
+        game.hud.toast('¡Se ha partido en dos!');
+      }
       // cooperativo: el oro y las estadísticas son de quien lo mata (a los demás que le dieron, asistencia)
       if (game.noReward || (VX.Coop.isClient && !game.localAct)) { if (VX.Coop.isHost && game.mode === 'horde') VX.HordeMode.killed++; VX.Coop.noteAssist && VX.Coop.noteAssist(this, game); return; }
       VX.Coop.noteSave && VX.Coop.noteSave(this, game);
@@ -1829,9 +1890,38 @@
       game.onKill(this);
     }
 
-    render(batch) { if (this.lod) this.body.renderCoarse(batch); else this.body.render(batch); }
+    render(batch) {
+      if (this.lod) this.body.renderCoarse(batch); else this.body.render(batch);
+      // icono del afijo flotando sobre la cabeza, siempre mirando al jugador
+      if (this.affix && !this.dead) {
+        const A = AFFIX[this.affix], S_V = VX.SHAPE_VOX[A.shape], g = VX.game; if (!S_V || !g) return;
+        const vs = 0.045, y = this.y + this.body.height * this.body.scale * 1.08 + 0.32 + Math.sin(g.time * 3 + this.uid) * 0.04;
+        const q = M.qY(Math.atan2(g.player.x - this.x, g.player.z - this.z)), t = [0, 0, 0];
+        for (const o of S_V) { M.qRot(q, o[0] * vs, o[1] * vs, 0, t); batch.rbox(this.x + t[0], y + t[1], this.z + t[2], vs, vs, vs * 0.5, q, A.c[0], A.c[1], A.c[2], 0.9); }
+      }
+    }
+    // (0.61) lo que hace cada afijo a cada momento
+    affixTick(dt, game) {
+      const A = this.affix;
+      if (A === 'cuervero') {
+        this.affixT -= dt;
+        if (this.affixT <= 0) {
+          this.affixT = M.rand(6, 9);
+          const crows = game.enemies.filter((e) => !e.dead && e.kind === 'crow').length;
+          if (crows < 6) { for (let i = 0; i < 2; i++) game.spawner.spawnZombieNear(game, this.x, this.z, 1.6, 'crow'); VX.Audio.at(this.x, this.y + 1.5, this.z, () => VX.Audio.groan && VX.Audio.groan()); }
+        }
+      } else if (A === 'rabioso' && !this.enraged && this.hp < this.maxHp * 0.5) {
+        this.enraged = true; this.baseSpeed *= 1.55; this.dmg = Math.round(this.dmg * 1.3); this.cdBase *= 0.7;
+        for (let i = 0; i < 16; i++) game.particles.spawn(this.x, this.y + 1.2, this.z, M.rand(-1, 1), M.rand(0.5, 2), M.rand(-1, 1), 1, 0.15, 0.05, 0.05, 0.6, 1, 1);
+        VX.Audio.at(this.x, this.y + 1.5, this.z, () => VX.Audio.roar && VX.Audio.roar());
+      } else if (A === 'vampiro' && Math.random() < dt * 4) {
+        game.particles.spawn(this.x + M.rand(-0.3, 0.3), this.y + M.rand(0.5, 1.6), this.z + M.rand(-0.3, 0.3), 0, 0.6, 0, 0.6, 0.02, 0.05, 0.03, 0.6, 1, 1);
+      }
+      if (A === 'rabioso' && this.enraged && Math.random() < dt * 6) game.particles.spawn(this.x, this.y + 1.7, this.z, M.rand(-0.3, 0.3), M.rand(0.5, 1.2), M.rand(-0.3, 0.3), 0.3, 0.05, 0.05, 0.06, 0.6, 0, 1);
+    }
   }
 
   Zombie.TYPES = TYPES;
+  Zombie.AFFIX = AFFIX;
   VX.Zombie = Zombie;
 })();

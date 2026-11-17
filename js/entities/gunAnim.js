@@ -35,7 +35,7 @@
     const f = w.fireT == null ? 99 : w.fireT, cd = 1 / Math.max(0.1, w.stats().fireRate);
     const rl = w.reloading, k = rl ? 1 - w.reloadT / w.reloadTime : 0;
     const tilt = rl ? S(k, 0, 0.12) * (1 - S(k, 0.86, 1)) : 0;
-    const key = id === 'pistol' ? (form && form !== 'pistola' ? form : 'pistola') : id === 'dual' ? 'pistola' : id;
+    const key = id === 'pistol' ? (form && form !== 'pistola' ? form : 'pistola') : id;
     switch (key) {
       case 'harpoon': {
         // (0.57) el arpón desaparece al disparar y se mete otro por la boca al recargar
@@ -55,6 +55,42 @@
           A.roll -= tilt * 0.6; A.pitch += tilt * 0.15; A.by += tilt * 0.06;
           A.by += bump(k, 0.6, 0.64, 0.66, 0.72) * 0.012;
         }
+        break;
+      }
+      case 'dual': {
+        // (0.61) pistolas dobles: cada mano recarga la suya, una detrás de otra. La pistola suelta el
+        // cargador vacío, baja hasta el cinturón (sale por abajo de la pantalla), vuelve con el nuevo
+        // metido, la palma lo asienta y el pulgar suelta la corredera. Si sólo una lo necesita, sólo esa.
+        const D = w.dualAmmo ? w.dualAmmo() : { L: 1, R: 1 };
+        const N = rl ? (w.dualNeed || { R: true, L: true }) : null, E = w.dualEmpty || { R: false, L: false };
+        const both = N && N.R && N.L;
+        const side = (need, a, span, sgn, emptyNow, mp) => {
+          const T = { q: null, px: sgn > 0 ? -0.5 : -30.5, py: 1, pz: -4, ox: 0, oy: 0, oz: 0 };
+          let slide = emptyNow ? 4.5 : 0;
+          if (rl && need) {
+            const u = Math.max(0, Math.min(1, (k - a) / span));
+            // 1) gira hacia dentro y suelta el cargador, que cae
+            const turn = S(u, 0, 0.12) * (1 - S(u, 0.82, 1));
+            if (u < 0.34) P[mp] = u > 0.3 ? { hide: true } : off(sgn * S(u, 0.08, 0.3) * 4, -S(u, 0.02, 0.1) * 7 - S(u, 0.1, 0.3) * 44, 0);
+            // 2) baja al cinturón y vuelve con el cargador nuevo ya dentro (entra el último tramo de un golpe)
+            const dip = S(u, 0.22, 0.4) * (1 - S(u, 0.5, 0.68));
+            if (u >= 0.34) P[mp] = off(0, -(1 - S(u, 0.5, 0.62)) * 6 - (1 - S(u, 0.34, 0.5)) * 20, 0);
+            // 3) palmada (sube de golpe) y el pulgar suelta la corredera
+            const slap = bump(u, 0.62, 0.65, 0.67, 0.74);
+            // vacía: corredera atrás hasta que el pulgar la suelta; si no, sólo un tirón de comprobación
+            slide = emptyNow ? 4.5 * (1 - S(u, 0.78, 0.81)) : bump(u, 0.72, 0.76, 0.78, 0.84) * 4.5;
+            const jolt = bump(u, 0.8, 0.82, 0.84, 0.9);
+            T.q = M.qMul(M.qMul(M.qZ(-sgn * (turn * 0.55 + dip * 0.35) - jolt * sgn * 0.12), M.qX(turn * 0.35 - dip * 0.9 + slap * 0.12)), M.qY(sgn * turn * 0.15));
+            T.ox = -sgn * turn * 2.5 - sgn * dip * 3; T.oy = -dip * 46 + slap * 2 - turn * 2; T.oz = dip * 6 - jolt * 1.5;
+          } else if (!rl && emptyNow) slide = 4.5;
+          return { T, slide };
+        };
+        const sR = side(N && N.R, both ? 0.02 : 0.04, both ? 0.56 : 0.9, 1, rl ? E.R : D.R <= 0, 'mag');
+        const sL = side(N && N.L, both ? 0.4 : 0.04, both ? 0.56 : 0.9, -1, rl ? E.L : D.L <= 0, 'mag_L');
+        A.sideR = sR.T.q || sR.T.oy ? sR.T : null; A.sideL = sL.T.q || sL.T.oy ? sL.T : null;
+        A.slideZ = Math.max(sR.slide, w.slide * 4 * (w.dualSide ? 0 : 1));
+        A.slideZL = Math.max(sL.slide, w.slide * 4 * (w.dualSide ? 1 : 0));
+        if (rl) { A.pitch += tilt * 0.08; A.by += tilt * 0.015; }
         break;
       }
       case 'pistola': case 'deagle': case 'auto': {
@@ -267,8 +303,8 @@
     const c = Math.cos(P.yaw), s = Math.sin(P.yaw), ey = P.eyeY ? P.eyeY() : P.y + 1.6;
     const rx = -c, rz = s, fx = s, fz = c;   // derecha y delante de la cámara
     const x = P.x + rx * 0.45 + fx * 0.15, z = P.z + rz * 0.45 + fz * 0.15;
-    g.particles.spawn(x, ey - 0.75, z, rx * M.rand(0.6, 1.1) + fx * M.rand(-0.2, 0.2), M.rand(0.2, 0.8), rz * M.rand(0.6, 1.1) + fz * M.rand(-0.2, 0.2),
-      sh ? 0.62 : 0.86, sh ? 0.1 : 0.66, sh ? 0.07 : 0.26, sh ? 0.03 : 0.018, M.rand(1.6, 2.4), 0.1);
+    // (0.61) la vaina cae, rebota y se queda en el suelo mientras sigas en la sala
+    if (g.addShell) g.addShell(x, ey - 0.75, z, rx * M.rand(0.6, 1.1) + fx * M.rand(-0.2, 0.2), M.rand(0.2, 0.8), rz * M.rand(0.6, 1.1) + fz * M.rand(-0.2, 0.2), sh);
   }
   function update(w, dt, id) {
     w.fireT = (w.fireT == null ? 99 : w.fireT) + dt;

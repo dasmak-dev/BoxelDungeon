@@ -159,6 +159,8 @@
 
   // para js/core/sfx.js (sonidos más ricos): la misma salida (3D, buses) que el resto
   A._out = (pan) => out(pan);
+  // (0.61) vaina que rebota en el suelo (muy flojito y sin saturar: como mucho una cada 60 ms)
+  A.tink = () => { const n = performance.now(); if (n - (A._tinkT || 0) < 60) return; A._tinkT = n; tone(3800 + Math.random() * 1600, 0.05, 'triangle', 0.035, 2600); tone(6200 + Math.random() * 900, 0.03, 'sine', 0.015); };
   // (0.60.2) lanzallamas: un chorro de gas ardiendo. Rugido grave y turbulento (ruido filtrado cuyo
   // corte se mueve despacio y al azar), el siseo del gas a presión, chasquidos sueltos de llama y un
   // «fuuomp» al prender; al soltar, la llama se apaga en un soplo

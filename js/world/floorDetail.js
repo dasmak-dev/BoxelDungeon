@@ -5,7 +5,7 @@
   const M = VX.M;
 
   function scatter(r) {
-    if (!r.ceilPlan || r.type === 'shop' || r.type === 'save' || r.type === 'map') return;
+    if (!r.ceilPlan || r.type === 'shop' || r.type === 'save' || r.type === 'map' || r.type === 'odd') return;
     const B = VX.Blocks, W = r.W, D = r.D, zone = r.zone || 0;
     const q = (VX.Renderer && VX.Renderer.quality) || 'media';
     const dens = (q === 'alta' ? 1 : q === 'media' ? 0.7 : 0.4) * ((VX.Touch && VX.Touch.on) ? 0.7 : 1);
@@ -22,9 +22,13 @@
         for (let y = 0; y < h; y++) put(x + dx, y, z + dz, pickT(y, d));
       }
     };
-    const N = Math.round((W * D) / 240 * dens);
+    // (0.61.2) mucho menos y sólo arrimado a los muros (los escombros se acumulan en las esquinas y al pie
+    // de las paredes): el centro de la sala queda despejado para moverse y pelear
+    const N = Math.round((W * D) / 1100 * dens);
     for (let n = 0; n < N; n++) {
-      const x = M.randInt(5, W - 6), z = M.randInt(5, D - 6);
+      const edge = M.randInt(5, 11), side = M.randInt(0, 3);
+      const x = side === 0 ? edge : side === 1 ? W - 1 - edge : M.randInt(5, W - 6);
+      const z = side === 2 ? edge : side === 3 ? D - 1 - edge : M.randInt(5, D - 6);
       if (!ok(x, z)) continue;
       const k = Math.random();
       switch (zone) {

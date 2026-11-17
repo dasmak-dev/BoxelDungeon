@@ -3,6 +3,29 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.61.2] — 2026-11-17
+
+- Las llaves de arriba a la izquierda ahora son llaves de verdad (anilla, tija y dientes) del color de cada una; también en el mapa.
+- Salas más limpias: fuera los escombros, huesos, calaveras y paja sueltos por el suelo. Los pocos montones que quedan van arrimados a los muros y las esquinas; el centro de la sala queda despejado.
+- Menos montones junto a las paredes y más separados; charcos sólo de vez en cuando.
+- Piezas con sentido en su sitio: en la cripta, hileras de lápidas junto a los muros (además de los túmulos); en el jardín, corros de setas al pie de las paredes.
+
+## [0.61.1] — 2026-11-17
+
+- Pistolas dobles: cada una tiene su propio cargador (12 y 12). Clic izquierdo gasta la derecha y clic derecho la izquierda; si una se vacía, hace clic en seco y queda con la corredera atrás. El marcador enseña las dos («izquierda · derecha»).
+- Nueva recarga de las pistolas dobles: cada mano suelta su cargador, baja al cinturón, vuelve con el nuevo, lo asienta de un golpe y suelta la corredera; primero la derecha y luego la izquierda. Si sólo una lo necesita, sólo recarga esa (y tarda menos). Sonidos sincronizados con cada mano.
+
+## [0.61.0] — 2026-11-17
+
+- Salas extrañas (sin combate): altar de sangre (vida a cambio de una mejora rara), superviviente enjaulado (puede estar infectado), ruleta y pozo de los deseos.
+- Élites con afijo y nombre: vampiro, divisor, cuervero, blindado y rabioso (se ve la etiqueta al apuntarles).
+- La sala guarda la pelea: vainas en el suelo, charcos de sangre donde caen los cuerpos y hollín de los fuegos.
+- Muertes vistosas: cámara lenta al matar al último de la sala o con un tiro a la cabeza lejano; las explosiones los hacen trizas; los restos se desmoronan en polvo.
+- Salas de dos alturas (una por bioma): Muralla, Depósito elevado, Andamios, Altos hornos y Terrazas, con escaleras, pasarelas y barandillas.
+- Resumen al morir: ruta por salas y biomas y la mejora más útil (además de quién te mató y el arma favorita).
+- Optimización: los zombis comparten forma interna y el motor los optimiza de verdad; menos basura por fotograma (menos tirones del recolector); las sombras ya no dibujan partículas, manchas ni llamas, y cada luz sólo dibuja los cuerpos que tiene delante.
+- Nuevos límites de FPS (144, 120, 90) con reparto más regular, y medidor ampliado (Ajustes → Mostrar FPS): CPU de lógica y dibujo, GPU y peor fotograma.
+
 ## [0.60.2] — 2026-11-16
 
 - Nuevo sonido del lanzallamas: rugido grave y turbulento del chorro, siseo del gas, chasquidos sueltos de llama, «fuuomp» al prender y soplo al apagarse (sin el zumbido de antes).

@@ -161,6 +161,10 @@
       jardin: { crate: 'shrooms', bigcrate: 'mushroom', sack: 'shrooms', barrel: 'shrooms' },
       vacio: { crate: 'crystal', bigcrate: 'statue', sack: 'rubble', barrel: 'urn', straw: 'rubble' } }[Z.id];
     if (SWAP && r.type === 'normal') for (const q of r.pending) if (SWAP[q.type] && P().DEFS[SWAP[q.type]]) { q.type = SWAP[q.type]; q.stack = 1; if (q.opts) { delete q.opts.onTop; } }
+    // (0.61.2) suelo más limpio: los escombros, huesos y paja sueltos que pedían las plantillas ya no se ponen
+    // (el bioma ya deja montones junto a los muros); se quedan las piezas con sentido (lápidas, estatuas, mesas…)
+    const LOOSE = new Set(['rubble', 'bones', 'skull', 'straw']);
+    if (r.type !== 'shop') r.pending = r.pending.filter((q) => !LOOSE.has(q.type) || (q.opts && q.opts.keep));
     for (const q of r.pending) {
       if (q.at) {
         const pr = P().placeAt(r, q.type, q.x, q.at.y, q.z, q.at.rot || 0, q.at.v || 0);
@@ -208,8 +212,9 @@
     else if (BIO) set = set.concat(BIO.add.slice(0, 1));
     for (const w of walls(r)) {
       if (T.onlyEntranceWall && w.side !== r.entrance) continue;
-      for (let a = w.a0 + 1.2; a < w.a1 - 1.2; a += M.rand(1.3, 2.4))
-        if (Math.random() < T.wallP) cluster(r, w, a, M.choice(set));
+      // (0.61.2) menos montones, más separados: las paredes respiran
+      for (let a = w.a0 + 1.6; a < w.a1 - 1.6; a += M.rand(2.2, 3.6))
+        if (Math.random() < T.wallP * 0.7) cluster(r, w, a, M.choice(set));
       // estandartes
       if (T.banners) for (let a = w.a0 + 2.5; a < w.a1 - 2.5; a += M.rand(4, 7)) {
         if (Math.random() < T.banners && solidWall(r, w, a, 2.0) && solidWall(r, w, a, 3.0) && !nearTorch(r, ...wallPt(w, a, 0.3), 2.4))
@@ -260,13 +265,25 @@
     }
     for (let i = 0; i < (T.chandeliers || 0); i++) hangChandelier(r, r.centerX() + M.rand(-2, 2), r.uZ(Math.round(r.d * (i + 1) / ((T.chandeliers || 0) + 1))));
 
-    // 6) suelo
-    const nFloor = Math.round((area / 100) * T.floorN);
-    for (let i = 0; i < nFloor; i++) {
+    // 6) suelo (0.61.2): nada de objetos sueltos por en medio. Sólo charcos (planos) y, según el bioma,
+    //    alguna pieza con sentido colocada con orden: hileras de lápidas en la cripta, corros de setas en el jardín
+    const flat = T.floor.filter((k) => k === 'puddle' || k === 'acidpuddle');
+    const nFloor = Math.round((area / 100) * T.floorN * 0.25);
+    for (let i = 0; flat.length && i < nFloor; i++) {
       const x = r.uX(M.randInt(3, r.w - 3)), z = r.uZ(M.randInt(3, r.d - 3));
-      let kind = M.choice(T.floor);
-      if (Z.id === 'cloacas' && Math.random() < 0.35) kind = 'acidpuddle';
-      pl(r, kind, x, z, { margin: 5 });
+      pl(r, Z.id === 'cloacas' && Math.random() < 0.5 ? 'acidpuddle' : M.choice(flat), x, z, { margin: 5 });
+    }
+    if (r.type === 'normal' || r.type === 'boss') {
+      if (Z.id === 'cripta') {
+        // hileras de 2-4 lápidas junto a una pared, de cara a la sala
+        for (const w of walls(r)) {
+          if (w.side === r.entrance || Math.random() < 0.45) continue;
+          const len = w.a1 - w.a0, n = M.randInt(2, 4), a0 = w.a0 + M.rand(2.5, Math.max(2.6, len - 2.5 - n * 1.3));
+          for (let i = 0; i < n; i++) { const [px, pz] = wallPt(w, a0 + i * 1.3, 0.9); pl(r, 'tomb', px, pz, { rot: (w.rot + 2) % 4 }); }
+        }
+      } else if (Z.id === 'jardin') {
+        for (let i = 0; i < 3; i++) { const w = M.choice(walls(r)); const [px, pz] = wallPt(w, M.rand(w.a0 + 2, w.a1 - 2), 0.6); pl(r, 'shrooms', px, pz); }
+      }
     }
 
     // 7) a veces hay una llave escondida dentro de algo que se puede romper (sobre todo vasijas);

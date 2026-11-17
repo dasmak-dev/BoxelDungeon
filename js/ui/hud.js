@@ -63,8 +63,8 @@
       const el = $('keyLabel');
       if (!el) return;
       const parts = [];
-      for (const c of ['wood', 'silver', 'gold']) if (k && k[c]) parts.push(`<span class="key k-${c}"></span>${VX.Settings.data.colorblind ? '<b class="ksym">' + { wood: 'M', silver: 'P', gold: 'O' }[c] + '</b>' : ''}${k[c] > 1 ? '×' + k[c] : ''}`);
-      el.innerHTML = parts.join(' ');
+      for (const c of ['wood', 'silver', 'gold']) if (k && k[c]) parts.push(`<span class="kwrap" title="Llave ${VX.Settings.keyColorName(c)}"><span class="key k-${c}"></span>${VX.Settings.data.colorblind ? '<b class="ksym">' + { wood: 'M', silver: 'P', gold: 'O' }[c] + '</b>' : ''}${k[c] > 1 ? '×' + k[c] : ''}</span>`);
+      el.innerHTML = parts.join('');
       el.classList.toggle('hidden', !parts.length);
     },
 
@@ -248,6 +248,24 @@
     },
 
     update(dt, game) {
+      // (0.61) nombre del afijo de la élite a la que apuntas
+      this.eliteT = (this.eliteT || 0) - dt;
+      if (this.eliteT <= 0 && game.player) {
+        this.eliteT = 0.12;
+        const P = game.player, cp = Math.cos(P.pitch), fx = Math.sin(P.yaw) * cp, fz = Math.cos(P.yaw) * cp;
+        let best = null, bd = 18;
+        for (const e of game.enemies) {
+          if (e.dead || !e.affix) continue;
+          const dx = e.x - P.x, dz = e.z - P.z, d = Math.hypot(dx, dz);
+          if (d < bd && (dx * fx + dz * fz) / (d || 1) > 0.94) { bd = d; best = e; }
+        }
+        const el = document.getElementById('eliteTag');
+        if (el) {
+          const A = best && VX.Zombie.AFFIX[best.affix];
+          const key = A ? best.affix + best.kind : '';
+          if (key !== this.eliteKey) { this.eliteKey = key; if (A) el.innerHTML = `<b>ÉLITE ${A.name.toUpperCase()}</b> · ${A.desc}`; el.classList.toggle('hidden', !A); }
+        }
+      }
       const P = game.player, W = game.weapon, el = this.el;
       if (this.mapOpen) { this.mapT = (this.mapT || 0) - dt; if (this.mapT <= 0) { this.mapT = 0.1; this.drawRoomMap(game); } }
       const r = game.currentRoom;
@@ -266,7 +284,9 @@
       el.hp.style.width = `${(P.hp / P.maxHp) * 100}%`;
       el.hpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp}`;
       const melee = W.def.melee;
+      const DU = !melee && W.def.dual ? W.dualAmmo() : null, red = (n) => n <= 0 ? ' style="color:#ff5a4a"' : '';
       el.ammo.innerHTML = melee ? `<small>${W.name.toUpperCase()}</small>` : W.reloading ? `<small>RECARGANDO</small>` :
+        DU ? `<span${red(DU.L)}>${DU.L}</span><small> · </small><span${red(DU.R)}>${DU.R}</span> <small>/ ${W.limited ? (W.slot.reserve || 0) : DU.hr}</small>` :
         W.limited ? `${W.ammo} <small style="${(W.slot.reserve || 0) <= 0 ? 'color:#ff5a4a' : ''}">/ ${W.slot.reserve || 0}</small>` : `${W.ammo} <small>/ ${W.magSize}</small>`;
       const sk = W.slots.map((s) => s.id + (s.lvl || 1)).join('|') + W.cur + (W.kickBuff > 0 ? 'k' : '');
       if (sk !== this.slotKey) {
@@ -349,8 +369,14 @@
         if (this.bossPh !== ph) { this.bossPh = ph; const pe = document.getElementById('bossPhase'); if (pe) pe.textContent = ['FASE 1 / 3', 'FASE 2 / 3 · FURIA', 'FASE 3 / 3 · FINAL'][ph] || ''; el.boss.dataset.phase = ph; }
       }
 
-      this.fpsAcc = (this.fpsAcc || 0) + dt; this.fpsN = (this.fpsN || 0) + 1;
-      if (this.fpsAcc > 0.5) { el.fps.textContent = Math.round(this.fpsN / this.fpsAcc) + ' FPS'; this.fpsAcc = 0; this.fpsN = 0; }
+      const PF = VX.perf;
+      if (PF) {
+        PF.on = !!VX.Settings.data.showFps;
+        if (PF.on && PF.shown !== PF.fps) {
+          PF.shown = PF.fps;
+          el.fps.textContent = `${Math.round(PF.fps)} FPS · CPU ${(PF.cpuU + PF.cpuR).toFixed(1)} ms (lógica ${PF.cpuU.toFixed(1)} · dibujo ${PF.cpuR.toFixed(1)})` + (PF.gpu >= 0 ? ` · GPU ${PF.gpu.toFixed(1)} ms` : '') + ` · peor ${Math.round(PF.worstOut)} ms`;
+        }
+      }
       const alive = game.enemies.filter((e) => !e.dead).length;
       el.enemies.textContent = alive > 0 ? `ENEMIGOS: ${alive}` : '';
       // localizador: con pocos enemigos y tras un rato, flechas que apuntan a los que quedan

@@ -2,7 +2,7 @@
 // Al instalarse descarga TODO el juego (0.52), así funciona sin internet desde el primer momento.
 // Al jugar con conexión, primero intenta la red (así siempre tienes la última versión) y guarda la
 // copia; sin conexión, usa la copia guardada.
-const CACHE = 'boxel-cache-v13';
+const CACHE = 'boxel-cache-v16';
 const ASSETS = [
 "./",
 "./index.html",
@@ -60,6 +60,7 @@ const ASSETS = [
 "./js/systems/upgrades.js",
 "./js/systems/weapons.js",
 "./js/ui/cartography.js",
+"./js/systems/roomEvents.js",
 "./js/ui/armory.js",
 "./js/ui/codex.js",
 "./js/ui/hud.js",

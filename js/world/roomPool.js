@@ -105,6 +105,52 @@
     r.queue('brazier', r.uX(ux + 1), r.uZ(uz + 1), { rot: 0 });
     r.features.push({ kind: 'light', x: r.uX(ux + 1), y: 1.2, z: r.uZ(uz + 1), r: 8, c: [1.1, 0.55, 0.18] });
   }
+
+  // ---- Salas de dos alturas (0.61): niveles macizos, escaleras y barandillas ----
+  // levels(r): .rect(ux0,uz0,ux1,uz1) marca celdas altas; .stairs(...) añade una escalera que sube hacia dir;
+  // .build(H, cuerpo, suelo, barandilla, rail, posts) lo levanta todo y pone barandilla en los bordes sin escalera
+  function levels(r) {
+    const hi = new Set(), st = [], stc = new Set();
+    const k = (x, z) => x + ',' + z;
+    return {
+      rect(x0, z0, x1, z1) {
+        for (let x = Math.max(2, x0); x <= Math.min(r.w - 3, x1); x++) for (let z = Math.max(2, z0); z <= Math.min(r.d - 3, z1); z++) if (!r.isReservedU(x, z)) hi.add(k(x, z));
+      },
+      stairs(x0, z0, x1, z1, dir) {
+        st.push([x0, z0, x1, z1, dir]);
+        for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) stc.add(k(x, z));
+      },
+      build(H, body, top, rail, withRail = true, posts = false) {
+        for (const c of hi) {
+          const [ux, uz] = c.split(',').map(Number);
+          for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++)
+            for (let y = 0; y < H; y++) if (!r.get(x, y, z)) r.set(x, y, z, y === H - 1 ? top : (posts && (ux + uz) % 4 !== 0 && y < H - 2) ? 0 : body);
+        }
+        for (const s of st) stairsUp(r, s[0], s[1], s[2], s[3], H, s[4], top);
+        if (!withRail) return;
+        for (const c of hi) {
+          const [ux, uz] = c.split(',').map(Number);
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = ux + dx, nz = uz + dz;
+            if (nx < 2 || nz < 2 || nx > r.w - 3 || nz > r.d - 3) continue;
+            if (hi.has(k(nx, nz)) || stc.has(k(nx, nz))) continue;
+            // un vóxel de grosor en el borde exterior de la celda
+            for (let i = 0; i < 2; i++) {
+              const x = dx ? ux * 2 + (dx > 0 ? 1 : 0) : ux * 2 + i, z = dz ? uz * 2 + (dz > 0 ? 1 : 0) : uz * 2 + i;
+              const post = (dx ? uz : ux) % 2 === 0 && i === 0;
+              for (let y = H; y < H + (post ? 4 : 3); y++) if (r.inBounds(x, y, z) && !r.get(x, y, z)) r.set(x, y, z, y === H + 2 && !post ? top : rail);
+            }
+          }
+        }
+      },
+    };
+  }
+  // brasero sobre un nivel alto (la luz va a su altura)
+  function hiBrazier(r, ux, uz, H) {
+    if (ux < 2 || uz < 2 || ux > r.w - 3 || uz > r.d - 3 || r.isReservedU(ux, uz)) return;
+    r.queue('brazier', r.uX(ux + 1), r.uZ(uz + 1), { rot: 0 });
+    r.features.push({ kind: 'light', x: r.uX(ux + 1), y: H * 0.25 + 1.2, z: r.uZ(uz + 1), r: 8, c: [1.1, 0.55, 0.18] });
+  }
   // Jaula colgada del techo
   // Jaula colgante (objeto de vóxel fino): si le cortas la cadena, cae y aplasta
   function cage(r, ux, uz) {
@@ -657,6 +703,92 @@
       },
     },
 
+    // ================= Salas de dos alturas (0.61) =================
+    {
+      name: 'Muralla', w: [48, 56], d: [52, 62], h: 13,
+      build(r) {
+        // terraza alta al fondo (2 m) con almenas; dos escaleras laterales y una central
+        const z0 = Math.round(r.d * 0.6), H = 8;
+        const L = levels(r);
+        L.rect(3, z0, r.w - 4, r.d - 4);
+        L.stairs(Math.round(r.w * 0.2) - 1, z0 - 4, Math.round(r.w * 0.2) + 1, z0 - 1, 'zp');
+        L.stairs(Math.round(r.w * 0.8) - 1, z0 - 4, Math.round(r.w * 0.8) + 1, z0 - 1, 'zp');
+        L.build(H, BL().BRICK, BL().STONE, BL().STONE, true);
+        hiBrazier(r, Math.round(r.w * 0.35), z0 + 2, H); hiBrazier(r, Math.round(r.w * 0.65) - 2, z0 + 2, H);
+        for (let i = 0; i < 3; i++) r.queue(M.choice(['urn', 'bones', 'rubble']), r.uX(M.randInt(5, r.w - 6)), r.uZ(M.randInt(z0 + 3, r.d - 6)), {});
+        for (let i = 0; i < 3; i++) column(r, M.randInt(8, r.w - 10), M.randInt(10, z0 - 8), 2, Math.random() < 0.4);
+        brazier(r, Math.round(r.w / 2) - 1, Math.round(z0 * 0.45));
+      },
+    },
+    {
+      name: 'Depósito elevado', w: [48, 56], d: [50, 60], h: 13,
+      build(r) {
+        // dos andenes laterales unidos por una pasarela de ladrillo que cruza la sala
+        const H = 8, cz = Math.round(r.d / 2);
+        const L = levels(r);
+        L.rect(3, 9, 12, r.d - 10); L.rect(r.w - 13, 9, r.w - 4, r.d - 10);
+        L.rect(13, cz - 1, r.w - 14, cz + 1);
+        L.stairs(5, 5, 9, 8, 'zp'); L.stairs(r.w - 10, r.d - 9, r.w - 6, r.d - 6, 'zn');
+        L.stairs(Math.round(r.w / 2) - 1, cz - 6, Math.round(r.w / 2) + 1, cz - 2, 'zp');
+        L.build(H, BL().BRICK, BL().STONE, BL().IRON, true);
+        r.features.push({ kind: 'light', x: r.uX(r.w / 2), y: H * 0.25 + 1.6, z: r.uZ(cz), r: 9, c: [0.6, 1, 0.5] });
+        scatterBarrels(r, 3, 0.5);
+      },
+    },
+    {
+      name: 'Andamios', w: [46, 54], d: [52, 62], h: 14,
+      build(r) {
+        // andamios de madera en las esquinas del fondo, unidos por una pasarela de tablones
+        const H = 10;
+        const L = levels(r);
+        L.rect(3, r.d - 14, 13, r.d - 4); L.rect(r.w - 14, r.d - 14, r.w - 4, r.d - 4);
+        L.rect(14, r.d - 7, r.w - 15, r.d - 4);
+        L.rect(3, Math.round(r.d * 0.35), 6, r.d - 15);
+        L.stairs(7, r.d - 20, 10, r.d - 15, 'zp'); L.stairs(r.w - 11, r.d - 20, r.w - 8, r.d - 15, 'zp');
+        L.stairs(3, Math.round(r.d * 0.35) - 6, 6, Math.round(r.d * 0.35) - 1, 'zp');
+        L.build(H, BL().WOOD, BL().PLANK, BL().WOOD, true);
+        r.wantMineFrames = true;
+        for (let i = 0; i < 2; i++) r.queue('cart', r.uX(M.randInt(16, r.w - 17)), r.uZ(M.randInt(10, r.d - 22)), { rot: 0, margin: 2 });
+        hiBrazier(r, 6, r.d - 9, H); hiBrazier(r, r.w - 9, r.d - 9, H);
+        scatterBarrels(r, 3, 0.7);
+      },
+    },
+    {
+      name: 'Altos hornos', w: [50, 58], d: [50, 60], h: 15,
+      build(r) {
+        // estrado central de hierro con escaleras a los cuatro lados y una pasarela hasta el fondo
+        const H = 8, cx = Math.round(r.w / 2), cz = Math.round(r.d / 2);
+        const L = levels(r);
+        L.rect(cx - 6, cz - 6, cx + 5, cz + 5);
+        L.rect(cx - 1, cz + 6, cx + 1, r.d - 9); L.rect(cx - 8, r.d - 8, cx + 7, r.d - 4);
+        L.stairs(cx - 1, cz - 10, cx + 1, cz - 7, 'zp');
+        L.stairs(cx - 10, cz - 1, cx - 7, cz + 1, 'xp'); L.stairs(cx + 6, cz - 1, cx + 9, cz + 1, 'xn');
+        L.build(H, BL().METAL, BL().METAL, BL().IRON, true);
+        r.features.push({ kind: 'light', x: r.uX(cx), y: H * 0.25 + 1.4, z: r.uZ(cz), r: 10, c: [1.4, 0.55, 0.15] });
+        hiBrazier(r, cx - 1, r.d - 7, H);
+        brazier(r, 8, 10); brazier(r, r.w - 10, 10);
+        scatterBarrels(r, 2, 0.8);
+      },
+    },
+    {
+      name: 'Terrazas', w: [48, 56], d: [56, 66], h: 15,
+      build(r) {
+        // bancales de musgo: uno a media altura y otro más alto al fondo
+        const H1 = 6, H2 = 12, z1 = Math.round(r.d * 0.45), z2 = Math.round(r.d * 0.72);
+        const A = levels(r), B = levels(r);
+        A.rect(3, z1, r.w - 4, r.d - 4);
+        A.stairs(Math.round(r.w * 0.3) - 1, z1 - 3, Math.round(r.w * 0.3) + 1, z1 - 1, 'zp');
+        A.stairs(Math.round(r.w * 0.7) - 1, z1 - 3, Math.round(r.w * 0.7) + 1, z1 - 1, 'zp');
+        A.build(H1, BL().STONE, BL().MOSS, BL().WOOD, true);
+        B.rect(8, z2, r.w - 9, r.d - 4);
+        B.stairs(Math.round(r.w / 2) - 1, z2 - 6, Math.round(r.w / 2) + 1, z2 - 1, 'zp');
+        B.build(H2, BL().STONE, BL().MOSS, BL().WOOD, true);
+        for (let i = 0; i < 6; i++) r.queue('shrooms', r.uX(M.randInt(5, r.w - 6)), r.uZ(M.randInt(z1 + 2, r.d - 6)), {});
+        for (let i = 0; i < 3; i++) r.queue('mushroom', r.uX(M.randInt(8, r.w - 9)), r.uZ(M.randInt(8, z1 - 6)), { rot: M.randInt(0, 3) });
+        r.features.push({ kind: 'light', x: r.uX(r.w / 2), y: H2 * 0.25 + 1.5, z: r.uZ(r.d - 7), r: 9, c: [0.4, 0.9, 1] });
+      },
+    },
+
     // ================= Minas =================
     {
       name: 'Galería minera', w: [40, 48], d: [56, 68], h: 12,
@@ -1079,6 +1211,7 @@
     'Herrería': [2, 3], 'Puente del río': [1, 3, 4, 5], 'Sala del trono': [0, 3, 5], 'Laboratorio del alquimista': [1, 4],
     'Salón en cruz': [0, 1, 2, 3, 4, 5], 'Sala en U': [0, 1, 2, 3, 4, 5], 'Sala en zigzag': [0, 1, 2, 3, 4, 5],
     'Pasillo largo': [0, 1, 2, 3, 4, 5], 'Galería con balcón': [0, 1, 3, 5],
+    'Muralla': [0, 5], 'Depósito elevado': [1], 'Andamios': [2], 'Altos hornos': [3], 'Terrazas': [4],
     'Galería minera': [2], 'Veta de cristal': [2, 5], 'Bosque de hongos': [4], 'Cueva de esporas': [4], 'Santuario del vacío': [5],
     'El gran árbol': [0, 1, 2, 4, 5],
     'Osario': [0], 'Colector': [1], 'Pozo de extracción': [2], 'Fundición': [3], 'Setas gigantes': [4], 'Monolitos': [5],
@@ -1228,6 +1361,50 @@
       for (const [x, z] of [[5, 5], [r.w - 7, 5], [5, r.d - 7], [r.w - 7, r.d - 7]]) {
         pillar(r, x, z, 2, r.h - 2);
         r.box(x, 3, z, x + 1, 3, z + 1, BL().CRYSTAL);
+      }
+    },
+  }];
+
+  // (0.61) Salas de evento (sin combate): altar de sangre, superviviente atrapado, ruleta y pozo de los deseos.
+  // El evento se elige al construir la sala (así la decoración encaja) y lo prepara VX.RoomEvents.
+  Pool.odd = [{
+    name: 'Sala extraña', w: [24, 28], d: [22, 26],
+    build(r) {
+      const cx = Math.floor(r.w / 2), cz = Math.floor(r.d / 2), B = BL();
+      const kind = r.eventKind || (r.eventKind = VX.M.choice(['altar', 'survivor', 'roulette', 'well']));
+      r.queue('carpet', r.centerX(), r.uZ(cz), { rot: 0, margin: 3 });
+      for (const [x, z] of [[4, 4], [r.w - 5, 4], [4, r.d - 5], [r.w - 5, r.d - 5]]) pillar(r, x, z, 2, r.h - 2);
+      if (kind === 'altar') {
+        r.name = 'Altar de sangre';
+        r.box(cx - 3, 0, cz - 2, cx + 2, 0, cz + 1, B.STONE, true);
+        r.box(cx - 2, 1, cz - 1, cx + 1, 1, cz, B.BRICK, true);
+        r.features.push({ kind: 'eventSpot', x: r.centerX(), z: r.uZ(cz), y: 1.0 });
+        r.features.push({ kind: 'light', x: r.centerX(), y: 1.8, z: r.uZ(cz), r: 9, c: [1.3, 0.15, 0.1] });
+        for (const [dx, dz] of [[-4, -3], [3, -3], [-4, 2], [3, 2]]) r.queue('candles', r.uX(cx + dx), r.uZ(cz + dz), {});
+      } else if (kind === 'survivor') {
+        r.name = 'Celda olvidada';
+        // jaula de barrotes con una puerta (la puerta se abre al liberarle)
+        for (let x = cx - 2; x <= cx + 1; x++) for (const z of [cz - 2, cz + 1]) if ((x + z) % 2 === 0 || x === cx - 2 || x === cx + 1) r.box(x, 0, z, x, 4, z, B.IRON, true);
+        for (let z = cz - 1; z <= cz; z++) for (const x of [cx - 2, cx + 1]) if (z % 2 === 0) r.box(x, 0, z, x, 4, z, B.IRON, true);
+        r.box(cx - 2, 5, cz - 2, cx + 1, 5, cz + 1, B.IRON, true);
+        r.features.push({ kind: 'eventSpot', x: r.centerX(), z: r.uZ(cz), y: 0, gateZ: r.uZ(cz - 2) });
+        r.features.push({ kind: 'light', x: r.centerX(), y: 2.6, z: r.uZ(cz), r: 8, c: [1, 0.8, 0.5] });
+        r.queue('crate', r.uX(cx - 6), r.uZ(cz + 3), { rot: 0 }); r.queue('barrel', r.uX(cx + 5), r.uZ(cz - 4), { rot: 0 });
+      } else if (kind === 'roulette') {
+        r.name = 'Ruleta del vendedor';
+        r.box(cx - 2, 0, cz, cx + 1, 1, cz, B.PLANK, true);   // mesa
+        r.features.push({ kind: 'eventSpot', x: r.centerX(), z: r.uZ(cz) + 0.25, y: 1.0 });
+        r.features.push({ kind: 'light', x: r.centerX(), y: 2.8, z: r.uZ(cz) - 1, r: 10, c: [1.2, 0.9, 0.4] });
+        r.queue('candles', r.uX(cx - 4), r.uZ(cz), {}); r.queue('candles', r.uX(cx + 3), r.uZ(cz), {});
+      } else {
+        r.name = 'Pozo de los deseos';
+        // brocal de piedra con agua al fondo, dos postes y el tejadillo
+        for (let x = cx - 2; x <= cx + 1; x++) for (let z = cz - 2; z <= cz + 1; z++) if (x === cx - 2 || x === cx + 1 || z === cz - 2 || z === cz + 1) r.box(x, 0, z, x, 1, z, B.STONE, true);
+        r.box(cx - 1, 0, cz - 1, cx, 0, cz, B.CRYSTAL, true);   // el agua brilla al fondo
+        r.box(cx - 2, 2, cz - 2, cx - 2, 4, cz - 2, B.WOOD, true); r.box(cx + 1, 2, cz + 1, cx + 1, 4, cz + 1, B.WOOD, true);
+        r.box(cx - 2, 5, cz - 2, cx + 1, 5, cz + 1, B.PLANK, true);
+        r.features.push({ kind: 'eventSpot', x: r.centerX(), z: r.uZ(cz - 2) - 0.2, y: 1.0 });
+        r.features.push({ kind: 'light', x: r.centerX(), y: 1.2, z: r.uZ(cz), r: 7, c: [0.4, 0.8, 1.1] });
       }
     },
   }];

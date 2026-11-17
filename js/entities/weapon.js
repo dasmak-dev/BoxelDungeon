@@ -117,6 +117,16 @@
     get ammo() { return this.slot.ammo; }
     set ammo(v) { this.slot.ammo = v; }
     get reloadTime() { return this.stats().reload || 1; }
+    // (0.61) pistolas dobles: cada una con su cargador. slot.ammo es el total y slot.ammoL lo de la izquierda;
+    // se reajusta siempre (las mejoras y recargas de otras partes del juego sólo tocan el total)
+    dualAmmo(slot = this.slot) {
+      const mag = this.magFor('dual'), hl = Math.floor(mag / 2), hr = mag - hl;
+      const a = Math.max(0, slot.ammo | 0);
+      let L = slot.ammoL == null ? Math.min(hl, Math.floor(a / 2)) : slot.ammoL | 0;
+      L = Math.max(a - hr, Math.min(hl, a, L), 0);
+      slot.ammoL = L;
+      return { L, R: a - L, hl, hr };
+    }
     get auto() { return !!this.stats().auto; }
     get pierce() { return this.stats().pierce || 0; }
     get pellets() { return this.stats().pellets || 1; }
@@ -251,6 +261,13 @@
       this.reloadT = st.reload;
       if (this.mods.tacReload && this.slot.ammo <= 0) this.reloadT *= 0.6;     // recarga táctica
       if (this.mods.belt && this.slot.ammo <= 0) { this.reloadT = st.reload * 1.4; VX.game && VX.game.hud.toast('¡Recalentada!'); }
+      if (this.def.dual) {
+        // sólo se recarga la que lo necesita (si sólo es una, tarda menos)
+        const D = this.dualAmmo();
+        this.dualNeed = { R: D.R < D.hr, L: D.L < D.hl };
+        if (!(this.dualNeed.R && this.dualNeed.L)) this.reloadT *= 0.62;
+        this.dualEmpty = { R: D.R <= 0, L: D.L <= 0 };
+      }
       this.reloadDur = this.reloadT;
       this.magKills = 0;   // misión «con un solo cargador»
       this.rlCue = -1;   // los sonidos de la recarga los pone la animación, pieza a pieza (js/core/sfx.js)
@@ -367,7 +384,17 @@
         this.reloadT -= dt;
         if (this.reloadT <= 0) {
           this.reloading = false;
-          if (this.limited) {
+          if (this.def.dual) {
+            // cada pistola, su cargador (con munición limitada, se reparte entre las dos)
+            const D = this.dualAmmo(), N = this.dualNeed || { R: true, L: true };
+            let nL = N.L ? D.hl - D.L : 0, nR = N.R ? D.hr - D.R : 0;
+            if (this.limited) {
+              let pool = Math.min(nL + nR, this.slot.reserve || 0);
+              this.slot.reserve = (this.slot.reserve || 0) - pool;
+              const gR = Math.min(nR, Math.ceil(pool / 2)); const gL = Math.min(nL, pool - gR); nR = Math.min(nR, pool - gL); nL = gL;
+            }
+            this.slot.ammo = D.R + nR + D.L + nL; this.slot.ammoL = D.L + nL;
+          } else if (this.limited) {
             const take = Math.min(st.mag - this.slot.ammo, this.slot.reserve || 0);
             this.slot.ammo += take; this.slot.reserve = (this.slot.reserve || 0) - take;
           } else this.slot.ammo = st.mag;
@@ -388,14 +415,20 @@
       if (this.switchT > 0 || game.player.hp <= 0) return;
       const want = st.melee ? (this.queued || I.mouseDown) : (st.auto ? I.mouseDown : this.queued || (dual && this.queuedL));
       if (want && this.cooldown <= 0 && !this.reloading) {
+        let dualDry = false;
         if (dual) {
           // con los dos clics a la vez se alternan; si no, dispara la que toque
+          const D = this.dualAmmo();
           this.dualSide = this.queued && this.queuedL ? 1 - (this.dualSide || 0) : this.queuedL ? 1 : 0;
+          // con los dos pulsados, si a la que toca no le quedan balas, dispara la otra
+          if (this.queued && this.queuedL && (this.dualSide ? D.L : D.R) <= 0) this.dualSide = 1 - this.dualSide;
           if (this.dualSide) this.queuedL = false; else this.queued = false;
+          dualDry = (this.dualSide ? D.L : D.R) <= 0;
         }
         if (!dual) this.queued = false;
         if (st.melee) this.swing(game);
         else if (this.slot.ammo <= 0) { VX.Audio.empty(); this.startReload(); this.cooldown = 0.25; }
+        else if (dualDry) { VX.Audio.empty(); this.cooldown = 0.2; if (this.dualSide) this.kickL = 0.3; else this.kickR = 0.3; }   // esa está vacía: clic en seco
         else this.fire(game, st);
       }
       if (!I.mouseDown && this.cooldown < -0.15) this.queued = false;
@@ -723,6 +756,7 @@
       // detonador remoto: disparar otra granada hace estallar las que están pegadas
       if (d.grenade && this.mods.remote) for (const g of this.grenades) if (g.stuck && !g.dead && !g.mini) { g.dead = true; this.explode(game, g); }
       this.slot.ammo--;
+      if (d.dual && this.dualSide) this.slot.ammoL = Math.max(0, (this.slot.ammoL | 0) - 1);
       this.cooldown = 1 / st.fireRate;
       // (0.59.2) el lanzallamas no «dispara»: mantiene el chorro (sin retroceso por tiro ni estampido; suena el fuego continuo)
       if (d.flame) this.flameOn = 0.12;
@@ -1266,7 +1300,7 @@
           M.qRot(q, tmp[0] + PIV[0] * g, tmp[1] + PIV[1] * g, tmp[2] + PIV[2] * g, tmp);
           vq = qb;
         } else {
-          lp[0] = v.x; lp[1] = v.y; lp[2] = v.z + (v.slide ? slideBack : v.pump ? pumpBack : 0);
+          lp[0] = v.x; lp[1] = v.y; lp[2] = v.z + (v.slide ? (v.side === 'L' && A && A.slideZL != null ? A.slideZL : slideBack) : v.pump ? pumpBack : 0);
           if (v.side === 'L') lp[2] += (this.kickL || 0) * 3; else if (d.dual) lp[2] += (this.kickR || 0) * 3;
           const pp = v.part && parts ? parts[v.part] : null;
           let pq = null;
@@ -1277,6 +1311,12 @@
             lp[0] += pp.ox || 0; lp[1] += pp.oy || 0; lp[2] += pp.oz || 0;
             if (pq) vq = M.qMul(q, pq);
             insts = pp.inst || null;
+          }
+          // (0.61) pistolas dobles: cada pistola se mueve por su cuenta al recargar
+          const sd = A && v.side ? (v.side === 'L' ? A.sideL : A.sideR) : null;
+          if (sd) {
+            if (sd.q) { M.qRot(sd.q, lp[0] - sd.px, lp[1] - sd.py, lp[2] - sd.pz, tmp); lp[0] = tmp[0] + sd.px; lp[1] = tmp[1] + sd.py; lp[2] = tmp[2] + sd.pz; pq = pq ? M.qMul(sd.q, pq) : sd.q; vq = M.qMul(q, pq); }
+            lp[0] += sd.ox; lp[1] += sd.oy; lp[2] += sd.oz;
           }
           if (insts) {
             for (const o of insts) {

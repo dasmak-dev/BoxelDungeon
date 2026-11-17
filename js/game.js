@@ -64,6 +64,7 @@
       this.boss = null;
       this.upgradesTaken = [];
       this.dmgTaken = {}; this.lastHitBy = null; this.dmgSrc = null;   // para la pantalla de muerte
+      this.route = []; this.upSeen = {};   // (0.61) resumen: salas recorridas y desde cuándo llevas cada mejora
       this.coopTable = '';
       this.synergies = [];
       this.stats = { kills: 0, headshots: 0, bosses: 0, gold: 0, totalGold: 0, shots: 0, hits: 0, purchases: 0, dmgDealt: 0 };
@@ -521,6 +522,7 @@
       if (VX.Audio.setBiome) VX.Audio.setBiome(this.mode === 'horde' ? -1 : (r.zone || 0));
       const prev = this.currentRoom;
       this.currentRoom = r;
+      if (!r.entered && this.route && this.mode !== 'horde') { this.route.push({ type: r.type, zone: r.zone || 0, floor: r.index }); if (this.route.length > 200) this.route.shift(); }
       r.entered = true;
       this.floor = r.index;
       VX.Profile.max('bestFloor', this.floor, this);
@@ -546,6 +548,7 @@
       this.gibs = this.gibs.filter((g) => r.contains(g.x, g.z));
       this.corpses = this.corpses.filter((c) => r.contains(c.body.x, c.body.z));
       this.decals = this.decals.filter((d) => r.contains(d.x, d.z));
+      this.shells = (this.shells || []).filter((s) => r.contains(s.x, s.z));
       this.oils = this.oils.filter((o) => r.contains(o.x, o.z));
       this.fires = this.fires.filter((f) => r.contains(f.x, f.z));
       this.fallers = []; this.rises = [];
@@ -858,13 +861,13 @@
         const k = 0.03 + Math.random() * 0.04;
         this.decals.push({ x: px, y: this.world.groundAt(px, pz), z: pz, axis: 1, sign: 1, s: M.rand(0.12, 0.35) * (1 - d / (R + 0.5) * 0.5), r: k, g: k * 0.9, b: k * 0.85, life: 1 });
       }
-      if (this.decals.length > 900) this.decals.splice(0, this.decals.length - 900);
+      if (this.decals.length > 1500) this.decals.splice(0, this.decals.length - 1500);
     }
     addBulletHole(h) {
       const axis = h.nx ? 0 : h.ny ? 1 : 2, sign = h.nx || h.ny || h.nz;
       this.decals.push({ x: h.x, y: h.y, z: h.z, axis, sign, s: M.rand(0.035, 0.06), r: 0.03, g: 0.028, b: 0.026, life: 1 });
       if (Math.random() < 0.4) this.decals.push({ x: h.x + (axis ? M.rand(-0.04, 0.04) : 0), y: h.y + (axis !== 1 ? M.rand(-0.04, 0.04) : 0), z: h.z + (axis !== 2 ? M.rand(-0.04, 0.04) : 0), axis, sign, s: M.rand(0.08, 0.12), r: 0.09, g: 0.085, b: 0.08, life: 1 });
-      if (this.decals.length > 900) this.decals.splice(0, this.decals.length - 900);
+      if (this.decals.length > 1500) this.decals.splice(0, this.decals.length - 1500);
     }
 
     // Partículas de ambiente de cada bioma alrededor del jugador
@@ -1018,6 +1021,7 @@
       // resumen de la partida: muertes por arma y la mejor racha (muertes seguidas en poco tiempo)
       const S = this.stats, w = z && z.lastW || this.dmgWeapon || (this.dmgSource === 'knife' ? 'knife' : null);
       if (w) { S.wKills = S.wKills || {}; S.wKills[w] = (S.wKills[w] || 0) + 1; }
+      if (this.upSeen) for (const u of this.upgradesTaken) if (!u.curse && !this.upSeen[u.id]) this.upSeen[u.id] = { t: this.time, k: S.kills, name: u.name };
       this.multiN = this.time - (this.lastKillT || -9) < 1.5 ? (this.multiN || 1) + 1 : 1;
       this.lastKillT = this.time;
       S.bestMulti = Math.max(S.bestMulti || 0, this.multiN);
@@ -1026,8 +1030,27 @@
     }
 
     // ---------------- Manchas de sangre ----------------
+    // (0.61) vainas en el suelo: caen, rebotan y se quedan (las más viejas desaparecen si hay demasiadas)
+    addShell(x, y, z, vx, vy, vz, big) {
+      const sh = this.shells || (this.shells = []);
+      if (sh.length > 350) sh.splice(0, 30);
+      sh.push({ x, y, z, vx, vy, vz, big, rest: false, yaw: Math.random() * 6.3, roll: 0, gy: this.world.groundAt(x, z) });
+    }
+    updateShells(dt) {
+      const sh = this.shells; if (!sh || !sh.length) return;
+      for (const s of sh) {
+        if (s.rest) continue;
+        s.vy -= 9.8 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; s.roll += dt * 14;
+        if (this.world.isSolidAt(s.x, s.y, s.z) && s.vy > -0.1) { s.vx *= -0.3; s.vz *= -0.3; }
+        if (s.y <= s.gy + 0.01) {
+          s.y = s.gy + 0.01;
+          if (Math.abs(s.vy) > 1.2) { s.vy = -s.vy * 0.3; s.vx *= 0.5; s.vz *= 0.5; if (Math.random() < 0.5 && VX.Audio.tink) VX.Audio.tink(); }
+          else { s.rest = true; s.roll = Math.PI / 2; }
+        }
+      }
+    }
     addDecal(x, y, z, axis, size, sign = 1) {
-      if (this.decals.length > 900) this.decals.splice(0, 60);
+      if (this.decals.length > 1500) this.decals.splice(0, 60);
       const k = 0.55 + Math.random() * 0.35;
       this.decals.push({ x, y, z, axis, sign, s: Math.max(0.05, Math.min(0.3, size)), r: 0.3 * k, g: 0.015 * k, b: 0.02 * k, life: 1 });
     }
@@ -1048,6 +1071,11 @@
     }
 
     renderDecals(b) {
+      if (this.shells) for (const s of this.shells) {
+        const q = M.qMul(M.qY(s.yaw), M.qX(s.roll));
+        if (s.big) b.rbox(s.x, s.y + 0.012, s.z, 0.028, 0.028, 0.07, q, 0.6, 0.09, 0.07, 0);
+        else b.rbox(s.x, s.y + 0.008, s.z, 0.016, 0.016, 0.042, q, 0.8, 0.6, 0.24, 0.12);
+      }
       for (const d of this.decals) {
         const t = 0.012, o = 0.007 * d.sign;
         if (d.axis === 1) b.box(d.x, d.y + o, d.z, d.s, t, d.s, d.r, d.g, d.b, 0);
@@ -1300,6 +1328,8 @@
       for (const f of this.fires) if (f.kind === kind && Math.hypot(f.x - x, f.z - z) < Math.max(f.r, r) * 0.7) { f.t = Math.max(f.t, t); return; }
       if (this.fires.length > 40) this.fires.shift();
       this.fires.push({ x, z, r, t, t0: t, tick: 0, kind, born: this.time || 0, seed: Math.random() * 100, gy: this.world ? this.world.groundAt(x, z) : 0 });
+      // (0.61) el fuego deja el suelo chamuscado
+      if (kind === 'fire' && this.world && this.decals) { const gy = this.world.groundAt(x, z); for (let i = 0; i < 3; i++) this.decals.push({ x: x + M.rand(-r, r) * 0.5, y: gy, z: z + M.rand(-r, r) * 0.5, axis: 1, sign: 1, s: r * M.rand(0.5, 0.9), r: 0.025, g: 0.02, b: 0.018, life: 1 }); }
     }
 
     // Avisos en el suelo (raíces, impactos): círculo que se llena y luego golpea
@@ -1550,7 +1580,7 @@
       const floor = this.floor + 1;
       this.world.keepOnly([]);
       this.pickups.items = []; this.pickups.gold = [];
-      this.npcs = []; this.enemies = []; this.corpses = []; this.gibs = []; this.decals = []; this.jobs = [];
+      this.npcs = []; this.enemies = []; this.corpses = []; this.gibs = []; this.decals = []; this.shells = []; this.jobs = [];
       this.oils = []; this.fires = []; this.blasts = []; this.fallers = []; this.blockFallers = []; this.rises = []; this.projectiles = []; this.shockwaves = []; this.telegraphs = [];
       this.bullets.clear(); this.doorAnims = [];
       this.hud.hideBoss(); this.boss = null;
@@ -2145,14 +2175,15 @@
         if (VX.Coop.isHost) {
           // cada zombi va a por el jugador más cercano (el anfitrión o un compañero)
           const me = this.player;
-          for (const e of this.enemies) if (!e.dead) { const dc = VX.Throw.decoyFor(e); this.player = dc ? VX.Throw.proxy(me, dc) : VX.Coop.targetFor(e, this); VX.Audio.source(e.x, e.y + 1.3, e.z); this.dmgSrc = srcName(e); const n0 = this.projectiles.length; try { e.update(dt, this); } finally { this.player = me; tagShots(n0); this.dmgSrc = null; } }
+          for (const e of this.enemies) if (!e.dead) { const dc = VX.Throw.decoyFor(e); this.player = dc ? VX.Throw.proxy(me, dc) : VX.Coop.targetFor(e, this); VX.Audio.source(e.x, e.y + 1.3, e.z); this.dmgSrc = srcName(e); this.curEnemy = e; const n0 = this.projectiles.length; try { e.update(dt, this); } finally { this.player = me; tagShots(n0); this.dmgSrc = null; this.curEnemy = null; } }
         } else for (const e of this.enemies) if (!e.dead) {
           VX.Audio.source(e.x, e.y + 1.3, e.z);
-          this.dmgSrc = srcName(e);
+          this.dmgSrc = srcName(e); this.curEnemy = e;
           const dc = VX.Throw.decoyFor(e);   // señuelo encendido cerca: va a por él
           const n0 = this.projectiles.length;
           if (dc) { const me = this.player; this.player = VX.Throw.proxy(me, dc); try { e.update(dt, this); } finally { this.player = me; } }
           else e.update(dt, this);
+          this.curEnemy = null;
           tagShots(n0);
         }
         VX.Audio.source(null);   // lo que suena dentro de cada zombi sale desde donde está
@@ -2162,7 +2193,11 @@
       if (this.frame % 30 === 0 && this.enemies.length) this.enemies = VX.M.compact(this.enemies, (e) => !e.dead || e === this.boss);
 
       for (const c of this.corpses) c.update(dt, this);
+      // (0.61) cuando un cadáver se va, queda un charco de sangre (la sala guarda las huellas de la pelea)
+      for (const c of this.corpses) if (c.life <= 0 && !c.marked && c.body) { c.marked = true; const gy = this.world.groundAt(c.body.x, c.body.z); for (let i = 0; i < 3; i++) this.addDecal(c.body.x + M.rand(-0.35, 0.35), gy, c.body.z + M.rand(-0.35, 0.35), 1, M.rand(0.2, 0.3)); }
       this.corpses = VX.M.compact(this.corpses, (c) => c.life > 0);
+      this.updateShells(dt);
+      VX.Gib.dust = 0;
       for (const g of this.gibs) g.update(dt, this.world);
       this.gibs = VX.M.compact(this.gibs, (g) => g.life > 0);
       const gMax = (VX.Q && VX.Q.gibs) || 70;
@@ -2226,7 +2261,7 @@
       this.updateShockwaves(dt);
       this.updateTelegraphs(dt);
       if (this.state === 'playing' || this.state === 'title') this.updateAmbience(dt);
-      if (this.state === 'playing') this.pickups.update(dt, this);
+      if (this.state === 'playing') { this.pickups.update(dt, this); if (VX.RoomEvents) VX.RoomEvents.update(dt, this); }
 
       for (const n of this.npcs) {
         if (n.update) { n.update(dt, this); continue; }   // el vendedor de la tienda va por su cuenta
@@ -2493,23 +2528,27 @@
       for (const g of this.gibs) g.render(b);
       this.renderSigns(b);
       for (const n of this.npcs) if (!n.hidden) n.body.render(b);
-      this.particles.render(b);
+      // (0.61) lo que no debe hacer sombra (partículas, manchas, llamas, trazadoras, polvo…) va en otro lote:
+      // así las 2-5 pasadas de sombras por fotograma no lo dibujan
+      const fx = this.dynFx || (this.dynFx = R.createBatch(8192, true));
+      fx.clear();
+      this.particles.render(fx);
       this.pickups.render(b);
       if (VX.Carto) VX.Carto.holo(b, this);   // holograma de la mesa del cartógrafo
-      this.weapon.renderTracers(b);
-      this.renderBlasts(b);
+      this.weapon.renderTracers(fx);
+      this.renderBlasts(fx);
       this.weapon.renderMuzzle(spec ? null : cam);
       this.renderSap(b);
       this.renderGas();
-      this.bullets.render(b, this.time);
-      this.world.renderTorches(b, this.time, vis);
+      this.bullets.render(fx, this.time);
+      this.world.renderTorches(fx, this.time, vis);
       this.renderSpikes(b, vis);
-      this.renderDecals(b);
+      this.renderDecals(fx);
       this.renderDoorAnims(b);
       this.renderHazardsExtra(b);
-      this.renderFlames(b);
+      this.renderFlames(fx);
       this.renderBlockFallers(b);
-      this.renderTelegraphs(b);
+      this.renderTelegraphs(fx);
       if (this.mode === 'horde' && this.state !== 'title') VX.HordeMode.render(b, this);
       // flechas (en vuelo y clavadas)
       const arrowR = (x, y, z, vx, vy, vz) => {
@@ -2550,8 +2589,8 @@
           b.box(s.x + Math.cos(a) * s.r, (s.y || 0) + hgt / 2, s.z + Math.sin(a) * s.r, 0.16, hgt, 0.16, 1, 0.45, 0.1, 0.8);
         }
       }
-      if (VX.Settings.data.dust && !(VX.AQoff && VX.AQoff.dust) && P.flashlight && this.state !== 'title') this.renderDust(b, cam);
-      b.upload();
+      if (VX.Settings.data.dust && !(VX.AQoff && VX.AQoff.dust) && P.flashlight && this.state !== 'title') this.renderDust(fx, cam);
+      b.upload(); fx.upload();
 
       // ---- linterna (sombras) ----
       const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
@@ -2632,14 +2671,14 @@
         if (w0) {
           R.beginReflection(cam, { lights, spot, ambient }, w0.y);
           this.world.render(R, room);
-          b.draw();
+          b.draw(); fx.draw();
           R.drawBodies(false);
           R.reflReady = true;
         }
       }
       R.beginScene(cam, { lights, spot, ambient });
       this.world.render(R, this.currentRoom);
-      b.draw();
+      b.draw(); fx.draw();
       R.drawBodies(false);
       if (wat && wat.length) {
         if (!room.waterBatch) {

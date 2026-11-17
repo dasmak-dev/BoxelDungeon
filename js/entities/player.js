@@ -208,6 +208,9 @@
         VX.Objectives.hurt(game, amount);
       }
       if (this.dead || this.invuln > 0 || VX.Coop.down || VX.Coop.deadWait) return;
+      // (0.61) élite vampira: lo que te quita, se lo cura (×3)
+      const ce = game && game.curEnemy;
+      if (ce && ce.affix === 'vampiro' && !ce.dead) { ce.hp = Math.min(ce.maxHp, ce.hp + amount * 3); for (let i = 0; i < 8; i++) game.particles.spawn(this.x, this.y + 1.2, this.z, (ce.x - this.x) * 1.5, 0.5, (ce.z - this.z) * 1.5, 0.7, 0.02, 0.04, 0.04, 0.5, 1, 1); }
       this.hp -= amount;
       if (game.onPlayerHurt) game.onPlayerHurt();
       const WM = game.weapon && game.weapon.mods;

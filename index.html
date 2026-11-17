@@ -24,6 +24,7 @@
     <div id="crosshair"><span></span><span></span><span></span><span></span></div>
     <div id="scope"><div class="lens"></div><div class="rh"></div><div class="rv"></div><div class="dot"></div></div>
     <div id="hitmarker"></div>
+    <div id="eliteTag" class="hidden"></div>
     <div id="vignette"></div>
     <div id="bloodScreen"></div>
     <div id="dmgDirs"></div>
@@ -217,7 +218,10 @@
       </select>
       <label>Límite de FPS</label>
       <select id="setFpsCap">
-        <option value="0">Sin límite</option>
+        <option value="0">Sin límite (lo que dé el monitor)</option>
+        <option value="144">144 FPS</option>
+        <option value="120">120 FPS</option>
+        <option value="90">90 FPS</option>
         <option value="60">60 FPS</option>
         <option value="30">30 FPS (ahorra batería)</option>
       </select>
@@ -477,6 +481,7 @@
   <script src="js/ui/sanctuary.js"></script>
   <script src="js/ui/codex.js"></script>
   <script src="js/ui/cartography.js"></script>
+  <script src="js/systems/roomEvents.js"></script>
 
   <!-- Arranque -->
   <script src="js/game.js"></script>
