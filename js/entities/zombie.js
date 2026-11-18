@@ -1449,7 +1449,9 @@
       if (game.weapon.mods.adrenaline) { const P = game.player; P.adrenN = P.adrenT > 0 ? Math.min(3, (P.adrenN || 0) + 1) : 1; P.adrenT = 3; }
       if (!this.T.quad && game.remains) { game.remains.push({ x: this.x, z: this.z, kind: this.kind === 'necro' ? 'walker' : this.kind, t: game.time }); if (game.remains.length > 24) game.remains.shift(); }
       if (this.champion) {
-        const up = VX.Upgrades.random(1, game, [], 'rare')[0];
+        // (0.62) la mitad de las veces suelta una mejora rara; la otra, oro de más y esencia
+        const up = Math.random() < 0.5 ? VX.Upgrades.random(1, game, [], 'rare')[0] : null;
+        if (!up) { game.pickups.dropGold(this.x, this.y + 1, this.z, 20 + game.floor); VX.Profile.add('essence', 3); VX.Profile.save(); game.essenceBanked = (game.essenceBanked || 0) + 3; game.hud.toast && game.hud.toast('+3 de esencia'); }
         if (up) game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: this.x, y: game.world.groundAt(this.x, this.z) + 0.3, z: this.z, title: up.name + ' ★ RARA', desc: up.desc, color: up.color, shape: up.shape });
         game.pickups.dropGold(this.x, this.y + 1, this.z, 15 + game.floor);
         game.hud.banner('¡CAMPEÓN ABATIDO!', 'Ha dejado algo valioso', 2.5);

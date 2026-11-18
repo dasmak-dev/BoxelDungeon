@@ -3,6 +3,79 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [versionado semántico](https://semver.org/lang/es/).
 La versión actual también se ve en la esquina de la pantalla de título (`VX.VERSION` en `js/core/namespace.js`).
 
+## [0.63.5] — 2026-11-18
+
+- Más usos para el oro de la caja del mercader:
+  - 1200: granadas, molotovs y señuelos a la venta aunque no los hayas desbloqueado.
+  - 2000: el mapa del cartógrafo revela 4 salas más.
+  - 4000: campana del vendedor en todas las tiendas, con el primer toque gratis.
+  - La máquina enseña el siguiente hito (niveles y contenido).
+- El vendedor se viste según la prosperidad: túnica granate con bordados de oro (nivel 2), cadena con medallón y anillos (3), terciopelo negro, monóculo y sombrero de copa con cinta dorada (4), y cinta roja con una gema al máximo (5).
+- Rescate del mercader: al caer en la mazmorra, si tienes al menos 1000 en su caja, puedes pagarlos para levantarte con media vida ([E] pagar · [Esc] dejarlo). Una vez por partida; avisa si tu tienda bajará de nivel. No en la diaria ni en cooperativo.
+
+## [0.63.4] — 2026-11-18
+
+- Skin de Oro: ahora pide 500 de oro en la máquina del mercader con el arma en la mano, y sólo se desbloquea cuando esa arma ya tiene sus otros camuflajes (Óxido, Podrido, Hueso, Sangre, Neón tóxico, Carbono y Cristal; no cuentan la especial ni la legendaria). El oro que metas antes se guarda.
+- Nueva skin Diamante (azul hielo translúcido): se desbloquea en todas las armas a la vez cuando todas tienen la de Oro.
+
+## [0.63.3] — 2026-11-18
+
+- Skin de la hucha: al pasar de 10 000 de oro en la caja registradora, puedes hablar con el vendedor (delante del mostrador) para cambiarla por una caja fuerte de vóxeles (acero remachado, puerta redonda con bisagras, rueda dorada que gira al meter monedas y visor verde de cifras). Se puede volver a la registradora cuando quieras; la elección se guarda.
+
+## [0.63.2] — 2026-11-18
+
+- Hucha del mercader: ahora es una caja registradora antigua hecha de vóxeles (mueble de madera con cajón, cuerpo de latón con teclas, cabezal con rodillos de cifras crema, copete con los 5 pilotos de nivel, manivela que gira al meter monedas y campanilla). Funciona igual: mantén pulsado [E].
+
+## [0.63.1] — 2026-11-18
+
+- Hucha del mercader rehecha: ahora es una máquina contadora de hierro y latón con un marcador de cifras en ámbar que enseña todo el oro que has dejado (se guarda entre partidas). Al meter monedas, el número sube rodando con su clic; debajo, una barra hacia el siguiente nivel y 5 pilotos de nivel.
+- Se mete el oro manteniendo pulsado [E]: al principio de una en una y cada vez más deprisa, hasta vaciarte los bolsillos. Las monedas vuelan a la ranura, que brilla al tragarlas.
+
+## [0.63.0] — 2026-11-18
+
+- Salas de recompensa: vuelve a salir una sola mejora. Nueva bendición en el Santuario, «Pedestales» (2 niveles): eliges entre 2 y luego entre 3.
+- Hucha del mercader: un cerdito de oro en todas las tiendas. Cada uso mete hasta 25 de oro, que se queda para siempre. El tubo del pedestal se llena hacia el siguiente nivel y las 5 luces marcan los niveles alcanzados. Con lo acumulado, la tienda prospera:
+  - 300: estandartes y más velas.
+  - 800: tienda más grande, lámpara de araña y la Tarjeta VIP a la venta (-15 % en las tiendas).
+  - 1600: molduras de oro, +15 % de género raro y el Interés compuesto a la venta (5 % de tu oro al despejar una sala, hasta 15).
+  - 3000: estatuas, más luz y las Balas de oro a la venta (+1 % de daño por cada 10 de oro que lleves, hasta +30 %).
+  - 5000: tienda de lujo con columnas de oro y siempre una mejora rara.
+  - La tienda crece con cada nivel.
+- Skin de Oro: ahora se consigue metiendo 300 de oro en la hucha con esa arma en la mano (quien ya la tenía la conserva).
+
+## [0.62.0] — 2026-11-18
+
+- Menos mejoras y mejor elegidas:
+  - Las salas de recompensa tienen tres pedestales: eliges una de tres (las maldiciones siguen viniendo solas).
+  - Algo menos de salas de recompensa (13 % en vez de 16 %).
+  - El jefe ya no suelta además una mejora normal: deja la rara, el arma, vida llena y oro.
+  - Los campeones sueltan una mejora rara la mitad de las veces; la otra, oro de más y 3 de esencia.
+- Catálogo recortado (unas 16 por estilo de arma en vez de 21):
+  - Fuera Recarga rápida (ahora va dentro de Cargador ampliado: +40 % de balas y recarga un 20 % más rápida), Recarga táctica, Últimas balas, Fuego de supresión, Disparo en la rodilla, Retroceso propulsor y Llama azul.
+  - Pulso de cirujano se funde con Empuñadura firme (-30 % de retroceso y -20 % de dispersión).
+  - Calibre magnum y Munición subsónica, sólo para armas de precisión; Gatillo ligero ya no sale con el lanzallamas.
+  - La sinergia Pistolero ahora pide Gatillo ligero + Cargador ampliado.
+
+## [0.61.9] — 2026-11-18
+
+- Cinta de munición: fuera la cinta colgando del arma. Ahora es un icono junto a la munición: apagado mientras la llevas y encendido, latiendo y con un «+» mientras el arma recupera balas sola (con su clic por bala).
+
+## [0.61.8] — 2026-11-18
+
+- Cinta de munición: ahora se ve. Una cinta de cartuchos de latón cuelga del costado del arma y se balancea; cuando el arma recupera balas sola, la cinta corre hacia dentro (un eslabón por bala, con un tironcito y un clic metálico) y el contador de munición muestra «CINTA ▸».
+
+## [0.61.7] — 2026-11-18
+
+- El mapa se abre y se cierra con Tab o con M.
+- La pausa es sólo con Esc (se quita la tecla P y su opción en Ajustes).
+
+## [0.61.6] — 2026-11-18
+
+- Las mejoras ya no ponen bloques de colores en el arma: se ven en las balas (estela, tamaño y rastro).
+- Armas largas menos aparatosas en primera persona: rifle, escopeta, ametralladora y subfusil más pequeños y algo más lejos de la cámara (la culata ya no tapa media pantalla).
+- Mejoras de la partida rehechas: icono de pixel con su color, «×2», «×3»… cuando la llevas varias veces (y «MÁX» si ya no se puede acumular más), raras en violeta y maldiciones en magenta, sinergias activas en dorado y las que tienes a un paso («falta …»).
+- En el mapa (Tab/M), nuevo apartado «Tu partida»: todas tus mejoras por grupos (munición, arma, cuerpo a cuerpo, tú, maldiciones) con lo que hace cada una, las sinergias activas y las que te faltan por completar.
+
 ## [0.61.5] — 2026-11-17
 
 - Cortes del cuchillo que se leen: el tajo abre una raja en la dirección de la hoja (vertical con el hachazo del machete, diagonal en los tajos, ancha en el barrido, punzante en las estocadas) y los bordes quedan en carne viva, oscura y roja.

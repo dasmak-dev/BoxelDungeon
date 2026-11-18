@@ -99,7 +99,7 @@
       }).join('');
       $('codexEnemies').innerHTML = h;
       for (const el of $('codexEnemies').querySelectorAll('.ce[data-id]')) el.onclick = () => { this.sel = this.sel === el.dataset.id ? null : el.dataset.id; this.render(); };
-      $('codexUps').innerHTML = VX.Upgrades.list.map((u) => {
+      $('codexUps').innerHTML = VX.Upgrades.list.filter((u) => !u.retired).map((u) => {
         const ok = d.codex.ups.includes(u.id);
         const tag = u.rare ? ' ★' : u.curse ? ' ☠' : u.shop ? ' $' : '';
         if (u.unlock && typeof u.unlock === 'object' && !VX.Profile.upUnlocked(u)) {

@@ -5,11 +5,11 @@
       apply: (g) => { g.weapon.mods.damage *= 1.25; } },
     { id: 'range', pools: ['precision', 'spray', 'fire'], name: 'Cañón largo', desc: '+35% de alcance', shape: 'arrow', color: [0.3, 0.8, 1],
       apply: (g) => { g.weapon.mods.range *= 1.35; g.weapon.mods.spread *= 0.85; } },
-    { id: 'rate', pools: ['precision', 'spray', 'scatter', 'fire'], name: 'Gatillo ligero', desc: '+20% de cadencia', shape: 'bolt', color: [1, 0.9, 0.2],
+    { id: 'rate', pools: ['precision', 'spray', 'scatter'], name: 'Gatillo ligero', desc: '+20% de cadencia', shape: 'bolt', color: [1, 0.9, 0.2],
       apply: (g) => { g.weapon.mods.rate *= 1.2; } },
-    { id: 'mag', pools: ['precision', 'spray', 'scatter', 'blast', 'fire'], name: 'Cargador ampliado', desc: '+40% de balas por cargador', shape: 'mag', color: [0.6, 0.6, 0.65],
-      apply: (g) => { g.weapon.mods.mag *= 1.4; for (const s of g.weapon.slots) s.ammo = g.weapon.magFor(s.id); } },
-    { id: 'reload', pools: ['precision', 'spray', 'scatter', 'blast', 'fire'], name: 'Recarga rápida', desc: '-25% tiempo de recarga', shape: 'clock', color: [0.4, 1, 0.5],
+    { id: 'mag', pools: ['precision', 'spray', 'scatter', 'blast', 'fire'], name: 'Cargador ampliado', desc: '+40% de balas y recarga un 20% más rápida', shape: 'mag', color: [0.6, 0.6, 0.65],
+      apply: (g) => { g.weapon.mods.mag *= 1.4; g.weapon.mods.reload *= 0.8; for (const s of g.weapon.slots) s.ammo = g.weapon.magFor(s.id); } },
+    { id: 'reload', retired: true, pools: ['precision', 'spray', 'scatter', 'blast', 'fire'], name: 'Recarga rápida', desc: '-25% tiempo de recarga', shape: 'clock', color: [0.4, 1, 0.5],
       apply: (g) => { g.weapon.mods.reload *= 0.75; } },
     { id: 'pierce', pools: ['precision', 'spray', 'scatter'], name: 'Perforación', desc: 'Atraviesa +1 enemigo', shape: 'pierce', color: [0.8, 0.4, 1],
       apply: (g) => { g.weapon.mods.pierce += 1; } },
@@ -19,8 +19,8 @@
       apply: (g) => { g.weapon.mods.pellets += 1; g.weapon.mods.spread *= 1.25; } },
     { id: 'vital', name: 'Corazón de vóxel', desc: '+25 de vida máxima', shape: 'heart', color: [1, 0.25, 0.4],
       apply: (g) => { g.player.maxHp += 25; g.player.hp += 25; } },
-    { id: 'grip', pools: ['precision', 'spray', 'scatter'], name: 'Empuñadura firme', desc: '-30% de retroceso', shape: 'arrow', color: [0.75, 0.65, 0.5],
-      available: (g) => (g.weapon.mods.recoil || 1) > 0.3, apply: (g) => { g.weapon.mods.recoil = (g.weapon.mods.recoil || 1) * 0.7; } },
+    { id: 'grip', pools: ['precision', 'spray'], name: 'Empuñadura firme', desc: '-30% de retroceso y -20% de dispersión', shape: 'arrow', color: [0.75, 0.65, 0.5],
+      available: (g) => (g.weapon.mods.recoil || 1) > 0.3, apply: (g) => { g.weapon.mods.recoil = (g.weapon.mods.recoil || 1) * 0.7; g.weapon.mods.spread *= 0.8; } },
     { id: 'speed', name: 'Botas ligeras', desc: '+12% de velocidad', shape: 'boot', color: [0.5, 0.75, 1],
       apply: (g) => { g.player.speed *= 1.12; } },
     { id: 'auto', pools: ['precision', 'scatter'], name: 'Gatillo automático', desc: 'Todas las armas son automáticas', shape: 'auto', color: [1, 0.35, 0.6],
@@ -28,7 +28,7 @@
     // ---- propias de cada estilo de arma (sólo salen si empiezas la partida con un arma de ese estilo) ----
     { id: 'headhunter', pools: ['precision'], name: 'Cazacabezas', desc: '+60% de daño en la cabeza', shape: 'skull', color: [1, 0.85, 0.4],
       apply: (g) => { g.weapon.mods.headMul = (g.weapon.mods.headMul || 1) * 1.6; } },
-    { id: 'steady', pools: ['precision'], name: 'Pulso de cirujano', desc: '-40% de dispersión y +15% de daño', shape: 'eye', color: [0.7, 0.9, 1],
+    { id: 'steady', retired: true, pools: ['precision'], name: 'Pulso de cirujano', desc: '-40% de dispersión y +15% de daño', shape: 'eye', color: [0.7, 0.9, 1],
       apply: (g) => { g.weapon.mods.spread *= 0.6; g.weapon.mods.damage *= 1.15; } },
     { id: 'spinup', pools: ['spray'], name: 'Cañón caliente', desc: 'La cadencia sube al mantener (+50%)', shape: 'bolt', color: [1, 0.5, 0.2],
       available: (g) => !g.weapon.mods.spinup, apply: (g) => { g.weapon.mods.spinup = true; } },
@@ -53,11 +53,11 @@
     { id: 'hotter', pools: ['fire'], name: 'Mezcla caliente', desc: '+30% de daño del fuego', shape: 'star', color: [1, 0.35, 0.1],
       apply: (g) => { g.weapon.mods.damage *= 1.3; } },
     // ---- calibre (sólo uno por partida: cambia cómo pega cada bala) ----
-    { id: 'subsonic', pools: ['precision', 'spray', 'scatter'], name: 'Munición subsónica', desc: '+65% daño, -25% cadencia', shape: 'bullet', color: [0.55, 0.45, 0.35],
+    { id: 'subsonic', pools: ['precision'], name: 'Munición subsónica', desc: '+65% daño, -25% cadencia', shape: 'bullet', color: [0.55, 0.45, 0.35],
       available: (g) => !g.weapon.mods.caliber, apply: (g) => { const m = g.weapon.mods; m.caliber = 'subsonic'; m.damage *= 1.65; m.destruction *= 1.3; m.rate *= 0.75; m.tracer = [1, 0.55, 0.25]; } },
     { id: 'highvel', pools: ['precision', 'spray'], name: 'Alta velocidad', desc: '+35% cadencia, atraviesan 1, -20% daño', shape: 'arrow', color: [0.5, 0.9, 1],
       available: (g) => !g.weapon.mods.caliber, apply: (g) => { const m = g.weapon.mods; m.caliber = 'highvel'; m.rate *= 1.35; m.range *= 1.3; m.pierce += 1; m.damage *= 0.8; m.tracer = [0.6, 0.95, 1]; } },
-    { id: 'magnum', pools: ['precision', 'scatter'], name: 'Calibre magnum', desc: '+90% daño, -40% cadencia, -30% cargador', shape: 'bullet', color: [0.95, 0.75, 0.3],
+    { id: 'magnum', pools: ['precision'], name: 'Calibre magnum', desc: '+90% daño, -40% cadencia, -30% cargador', shape: 'bullet', color: [0.95, 0.75, 0.3],
       available: (g) => !g.weapon.mods.caliber, apply: (g) => { const m = g.weapon.mods; m.caliber = 'magnum'; m.damage *= 1.9; m.rate *= 0.6; m.mag *= 0.7; m.recoil = (m.recoil || 1) * 1.35; m.destruction *= 1.2; m.tracer = [1, 0.85, 0.4]; for (const sl of g.weapon.slots) sl.ammo = Math.min(sl.ammo, g.weapon.magFor(sl.id)); } },
     // ---- raras (efectos especiales) ----
     { id: 'shock', pools: ['precision', 'spray', 'scatter'], rare: true, name: 'Balas eléctricas', desc: 'Un rayo salta a 2 enemigos', shape: 'bolt', color: [0.45, 0.75, 1],
@@ -103,7 +103,7 @@
       unlock: { kind: 'archer', n: 60, txt: 'Mata 60 Esqueletos arqueros' },
       available: (g) => !g.weapon.mods.throwBlade, apply: (g) => { g.weapon.mods.throwBlade = true; } },
     // ---- fuego ----
-    { id: 'blueflame', pools: ['fire'], name: 'Llama azul', desc: '+40% daño de fuego', shape: 'flame', color: [0.35, 0.6, 1],
+    { id: 'blueflame', retired: true, pools: ['fire'], name: 'Llama azul', desc: '+40% daño de fuego', shape: 'flame', color: [0.35, 0.6, 1],
       unlock: { kind: 'ember', n: 40, txt: 'Mata 40 Ígneos' },
       available: (g) => !g.weapon.mods.blueFlame, apply: (g) => { g.weapon.mods.blueFlame = true; } },
     { id: 'tar', pools: ['fire'], name: 'Brea', desc: 'Deja charcos ardiendo', shape: 'drop', color: [0.25, 0.2, 0.15],
@@ -133,22 +133,22 @@
     // ---- precisión ----
     { id: 'firstshot', pools: ['precision'], name: 'Primer disparo', desc: '1.ª bala del cargador ×2', shape: 'bullet', color: [1, 0.95, 0.6],
       available: (g) => !g.weapon.mods.firstShot, apply: (g) => { g.weapon.mods.firstShot = true; } },
-    { id: 'knee', pools: ['precision', 'spray'], name: 'Disparo en la rodilla', desc: 'Tiros a las piernas derriban', shape: 'pierce', color: [0.8, 0.6, 0.4],
+    { id: 'knee', retired: true, pools: ['precision'], name: 'Disparo en la rodilla', desc: 'Tiros a las piernas derriban', shape: 'pierce', color: [0.8, 0.6, 0.4],
       unlock: { kind: 'dog', n: 40, txt: 'Mata 40 Perros zombi' },
       available: (g) => !g.weapon.mods.knee, apply: (g) => { g.weapon.mods.knee = true; } },
     { id: 'mark', pools: ['precision'], rare: true, name: 'Marcar', desc: 'Marca al enemigo: +30% daño', shape: 'eye', color: [1, 0.3, 0.3],
       unlock: { kind: 'screamer', n: 30, txt: 'Mata 30 Chillones' },
       available: (g) => !g.weapon.mods.mark, apply: (g) => { g.weapon.mods.mark = true; } },
     // ---- ráfaga ----
-    { id: 'suppress', pools: ['spray'], name: 'Fuego de supresión', desc: 'Ralentizan un 30%', shape: 'bolt', color: [0.6, 0.65, 0.9],
+    { id: 'suppress', retired: true, pools: ['spray'], name: 'Fuego de supresión', desc: 'Ralentizan un 30%', shape: 'bolt', color: [0.6, 0.65, 0.9],
       available: (g) => !g.weapon.mods.suppress, apply: (g) => { g.weapon.mods.suppress = true; } },
-    { id: 'lastrounds', pools: ['spray', 'precision'], name: 'Últimas balas', desc: 'Últimas balas: +40% daño', shape: 'mag', color: [1, 0.45, 0.3],
+    { id: 'lastrounds', retired: true, pools: ['spray', 'precision'], name: 'Últimas balas', desc: 'Últimas balas: +40% daño', shape: 'mag', color: [1, 0.45, 0.3],
       available: (g) => !g.weapon.mods.lastRounds, apply: (g) => { g.weapon.mods.lastRounds = true; } },
     { id: 'belt', pools: ['spray'], rare: true, name: 'Cinta de munición', desc: 'Sin recargar: las balas vuelven solas', shape: 'auto', color: [0.75, 0.6, 0.3],
       unlock: { stat: 'kills', n: 1500, txt: 'Mata 1500 zombis' },
       available: (g) => !g.weapon.mods.belt, apply: (g) => { g.weapon.mods.belt = true; } },
     // ---- perdigones ----
-    { id: 'recoiljump', pools: ['scatter'], name: 'Retroceso propulsor', desc: 'Disparar en el aire te impulsa', shape: 'boot', color: [0.6, 0.8, 1],
+    { id: 'recoiljump', retired: true, pools: ['scatter'], name: 'Retroceso propulsor', desc: 'Disparar en el aire te impulsa', shape: 'boot', color: [0.6, 0.8, 1],
       unlock: { kind: 'crow', n: 40, txt: 'Mata 40 Cuervos' },
       available: (g) => !g.weapon.mods.recoilJump, apply: (g) => { g.weapon.mods.recoilJump = true; } },
     { id: 'pointblank', pools: ['scatter'], name: 'Boca a boca', desc: 'De cerca: +60% daño y empuje', shape: 'skull', color: [1, 0.55, 0.35],
@@ -162,12 +162,19 @@
       available: (g) => !g.weapon.mods.secondWind, apply: (g) => { g.weapon.mods.secondWind = true; } },
     { id: 'adrenaline', name: 'Adrenalina', desc: 'Matar da velocidad', shape: 'boot', color: [1, 0.85, 0.3],
       available: (g) => !g.weapon.mods.adrenaline, apply: (g) => { g.weapon.mods.adrenaline = true; } },
-    { id: 'tacreload', pools: ['precision', 'spray', 'scatter', 'blast', 'fire'], name: 'Recarga táctica', desc: 'Recarga en vacío 40% más rápida', shape: 'clock', color: [0.5, 0.95, 0.8],
+    { id: 'tacreload', retired: true, pools: ['precision', 'spray', 'scatter', 'blast', 'fire'], name: 'Recarga táctica', desc: 'Recarga en vacío 40% más rápida', shape: 'clock', color: [0.5, 0.95, 0.8],
       available: (g) => !g.weapon.mods.tacReload, apply: (g) => { g.weapon.mods.tacReload = true; } },
     { id: 'berserkpact', curse: true, name: 'Pacto del berserker', desc: 'Menos vida, más daño; sin botiquines', shape: 'eye', color: [0.9, 0.2, 0.05],
       unlock: { kind: 'brute', n: 60, txt: 'Mata 60 Brutos' },
       available: (g) => !g.weapon.mods.berserkPact, apply: (g) => { g.weapon.mods.berserkPact = true; } },
     // ---- mercancía de la tienda (se desbloquea con esencia en el Santuario) ----
+    // (0.63) se venden cuando la hucha del mercader llega a cierta cantidad
+    { id: 'vip', shop: true, invest: 800, name: 'Tarjeta VIP', desc: 'Las tiendas te cobran un 15 % menos', shape: 'coin', color: [0.95, 0.8, 0.35],
+      available: (g) => !g.weapon.mods.vip, apply: (g) => { g.weapon.mods.vip = true; g.priceMul = (g.priceMul || 1) * 0.85; } },
+    { id: 'interes', shop: true, invest: 1600, name: 'Interés compuesto', desc: 'Al despejar una sala ganas un 5 % de tu oro (hasta 15)', shape: 'coin', color: [0.6, 0.95, 0.5],
+      available: (g) => !g.weapon.mods.interest, apply: (g) => { g.weapon.mods.interest = true; } },
+    { id: 'balasoro', shop: true, invest: 3000, name: 'Balas de oro', desc: '+1 % de daño por cada 10 de oro que lleves (hasta +30 %)', shape: 'bullet', color: [1, 0.82, 0.25],
+      available: (g) => !g.weapon.mods.goldBullets, apply: (g) => { g.weapon.mods.goldBullets = true; } },
     { id: 'magnet', shop: true, unlock: 45, name: 'Imán de oro', desc: '+3 m de radio para recoger monedas', shape: 'coin', color: [1, 0.8, 0.2],
       apply: (g) => { g.player.magnet += 3; } },
     { id: 'dash2', shop: true, unlock: 90, name: 'Doble impulso', desc: '+1 carga de esquiva (encadena dos seguidas)', shape: 'boot', color: [0.6, 0.85, 1],
@@ -210,10 +217,10 @@
     random(n, game, exclude = [], kind = 'normal', noStyle = false) {
       const unlocked = (u) => VX.Profile.data.shopUnlocks.includes(u.id);
       const locked = (u) => u.unlock && !VX.Profile.upUnlocked(u);
-      const ok = (u) => kind === 'rare' ? u.rare : kind === 'curse' ? u.curse : kind === 'shop' ? (!u.rare && !u.curse && (!u.shop || unlocked(u))) : (!u.rare && !u.curse && !u.shop);
+      const ok = (u) => kind === 'rare' ? u.rare : kind === 'curse' ? u.curse : kind === 'shop' ? (!u.rare && !u.curse && (!u.shop || (u.invest ? (VX.Profile.data.invest || 0) >= u.invest : unlocked(u)))) : (!u.rare && !u.curse && !u.shop);   // (las de la hucha sólo salen en la tienda)
       // en la mazmorra salen las del estilo del arma con la que empezaste (para buscar sinergias)
       const style = game && game.mode !== 'horde' && !noStyle ? game.runPool : null;
-      const pool = VX.M.shuffle(U.filter((u) => ok(u) && !locked(u) && !exclude.includes(u.id) && (!u.available || !game || u.available(game)) && (!style || !u.pools || u.pools.includes(style))));
+      const pool = VX.M.shuffle(U.filter((u) => !u.retired && ok(u) && !locked(u) && !exclude.includes(u.id) && (!u.available || !game || u.available(game)) && (!style || !u.pools || u.pools.includes(style))));
       if (pool.length < n && style) return this.random(n, game, exclude, kind, true);
       if (!pool.length && kind !== 'normal') return this.random(n, game, exclude, 'normal');
       return pool.slice(0, n);
@@ -224,7 +231,7 @@
       { id: 'metralla', name: 'Metralla', needs: ['multi', 'pierce'], desc: 'Los perdigones atraviesan un enemigo más', apply: (g) => { g.weapon.mods.pierce += 1; } },
       { id: 'brasas', name: 'Sangre ardiente', needs: ['lifesteal', 'fire'], desc: 'Cada zombi que muere en llamas te cura 5', apply: (g) => { g.weapon.mods.burnHeal = true; } },
       { id: 'cadena', name: 'Reacción en cadena', needs: ['corpseBlast', 'blast'], desc: 'Los cadáveres explotan mucho más fuerte', apply: (g) => { g.weapon.mods.bigCorpse = true; } },
-      { id: 'pistolero', name: 'Pistolero', needs: ['rate', 'reload'], desc: '+15% de cadencia y recarga un 15% más rápida', apply: (g) => { g.weapon.mods.rate *= 1.15; g.weapon.mods.reload *= 0.85; } },
+      { id: 'pistolero', name: 'Pistolero', needs: ['rate', 'mag'], desc: '+15% de cadencia y recarga un 15% más rápida', apply: (g) => { g.weapon.mods.rate *= 1.15; g.weapon.mods.reload *= 0.85; } },
       { id: 'billar', name: 'Bola de billar', needs: ['ricochet', 'pierce'], desc: 'Las balas rebotan una vez más', apply: (g) => { g.weapon.mods.ricochet = (g.weapon.mods.ricochet || 0) + 1; } },
       { id: 'tirador', name: 'Tirador', needs: ['grip', 'range'], desc: '-25% de dispersión y +10% de daño', apply: (g) => { g.weapon.mods.spread *= 0.75; g.weapon.mods.damage *= 1.1; } },
       { id: 'fiebre', name: 'Fiebre del oro', needs: ['magnet', 'greed'], desc: 'Cada moneda que recoges te cura 1', apply: (g) => { g.weapon.mods.goldHeal = true; } },
@@ -251,6 +258,7 @@
         if (game.synergies.includes(s.id) || !s.needs.every((n) => have.has(n))) continue;
         game.synergies.push(s.id);
         s.apply(game);
+        if (game.hud && game.hud.refreshUpgrades) game.hud.refreshUpgrades(game);
         setTimeout(() => { game.hud.banner('¡SINERGIA! ' + s.name.toUpperCase(), s.desc, 3.5); VX.Audio.upgrade(); }, 1300);
       }
     },

@@ -37,7 +37,7 @@
     colorblind: false,   // modo para daltónicos: símbolos además de colores (llaves, mapa…)
     keys: {   // teclas configurables (todas salvo 1·2·3, la rueda, las flechas y Esc)
       fwd: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', run: 'ShiftLeft', dash: 'KeyC',
-      reload: 'KeyR', use: 'KeyE', prev: 'KeyQ', map: 'KeyM', wave: 'KeyG', pause: 'KeyP',
+      reload: 'KeyR', use: 'KeyE', prev: 'KeyQ', map: 'KeyM', wave: 'KeyG',   // (0.61.7) la pausa es sólo con Esc; el mapa, con Tab o M
       flashlight: 'KeyF', inspect: 'ControlLeft', knife: 'KeyV', throw: 'KeyT', throwNext: 'KeyB',
       kick: 'KeyX', throwGun: 'KeyZ',   // (0.57) patada y lanzar el arma que llevas en la mano
     },

@@ -27,7 +27,8 @@
     if (!locked && game.state === 'playing' && !VX.testing) game.pause();
   };
   window.addEventListener('keydown', (e) => {
-    if (e.code === VX.Settings.key('pause') && game.state === 'playing') { VX.Input.unlock(); game.pause(); }
+    // (0.61.7) pausa sólo con Esc (con el ratón capturado, el navegador suelta el ratón y eso ya pausa)
+    if (e.code === 'Escape' && game.state === 'playing') { VX.Input.unlock(); game.pause(); }
   });
 
   // Si el juego deja de verse (otra pestaña, minimizado, otra ventana encima) se calla y se pausa.

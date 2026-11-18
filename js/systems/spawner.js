@@ -78,7 +78,7 @@
         let t;
         for (let tries = 0; tries < 10; tries++) {
           const r = Math.random();
-          t = r < 0.52 ? 'normal' : r < 0.68 ? 'reward' : r < 0.82 ? 'shop' : r < 0.91 ? 'odd' : r < 0.96 ? 'save' : 'map';   // (0.61) salas de evento
+          t = r < 0.55 ? 'normal' : r < 0.68 ? 'reward' : r < 0.82 ? 'shop' : r < 0.91 ? 'odd' : r < 0.96 ? 'save' : 'map';   // (0.61) salas de evento
           // las salas especiales no se repiten seguidas: si acabas de pasar por una
           // tienda, mejora, fuente o mapa, las siguientes puertas son de otro tipo
           if (t !== 'normal' && (out.includes(t) || from.type === t || (this.history || []).slice(-3).includes(t))) continue;
@@ -248,7 +248,9 @@
       const upg = game.weapon.slots.filter((s) => !VX.Weapons.DEFS[s.id].melee && (s.lvl || 1) < 3);
       const gunUp = upg.length && Math.random() < 0.65 ? (upg.find((s) => s === game.weapon.slot) || M.choice(upg)) : null;
       // género selecto: un altar con una mejora rara
-      const rareAt = Math.random() < [0, 0.2, 0.35, 0.5][PR.shopUp('select')] ? M.choice(slots.map((_, i) => i).filter((i) => i > 0)) : -1;
+      // (0.63) la prosperidad de la hucha suma: +15 % desde el nivel 3 y siempre una rara en el 5
+      const PT = PR.investTier(), rareP = PT >= 5 ? 1 : [0, 0.2, 0.35, 0.5][PR.shopUp('select')] + (PT >= 3 ? 0.15 : 0);
+      const rareAt = Math.random() < rareP ? M.choice(slots.map((_, i) => i).filter((i) => i > 0)) : -1;
       const made = [];
       const add = (it) => { const r = game.pickups.addItem(it); made.push(r); return r; };
       let ui = 0;
@@ -324,9 +326,15 @@
               // máquina de chicles: mira hacia el centro de la tienda
               const face = Math.atan2(room.centerX() - f.x, room.centerZ() - f.z);
               game.pickups.addItem({ kind: 'keyAltar', color3: 'gold', price: 0, x: f.x, y: game.world.groundAt(f.x + Math.sin(face) * 1.2, f.z + Math.cos(face) * 1.2), z: f.z, face, title: 'Máquina de chicles', desc: 'Mete una llave: sale un premio por chicle', action: 'Meter una llave', color: [1, 0.35, 0.35], shape: 'key' });
+            } else if (f.what === 'vault') {
+              // (0.63) hucha del mercader: el oro que dejas aquí hace prosperar las tiendas para siempre
+              const face = Math.atan2(room.centerX() - f.x, room.centerZ() - f.z);
+              const it = game.pickups.addItem({ kind: 'vault', price: 0, x: f.x, y: game.world.groundAt(f.x + Math.sin(face) * 1.2, f.z + Math.cos(face) * 1.2), z: f.z, face, title: 'Hucha del mercader', desc: '', action: 'Mantén para meter oro', color: [1, 0.82, 0.3], shape: 'coin' });
+              game.pickups.vaultDesc(it, game);
             } else if (f.what === 'bell') {
-              const uses = PR.shopUp('bell');
-              game.pickups.addItem({ kind: 'restock', uses, price: 20 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Campana del vendedor', desc: `Repone la tienda (${uses})`, action: 'Tocar la campana', color: [0.95, 0.78, 0.3], shape: 'bell' });
+              // (0.63.5) con 4000 en la caja, campana en todas las tiendas y el primer toque gratis
+              const free = PR.investAt(4000), uses = Math.max(1, PR.shopUp('bell') + (free ? 1 : 0)), paid = 20 + game.floor * 2;
+              game.pickups.addItem({ kind: 'restock', uses, freeFirst: free, paidPrice: paid, price: free ? 0 : paid, x: f.x, y: f.y, z: f.z, title: 'Campana del vendedor', desc: `Repone la tienda (${uses})`, action: 'Tocar la campana', color: [0.95, 0.78, 0.3], shape: 'bell' });
             } else if (f.what === 'mystery') {
               game.pickups.addItem({ kind: 'mystery', price: 35 + game.floor * 2, x: f.x, y: f.y, z: f.z, title: 'Caja misteriosa', desc: 'Mejora al azar (¿o maldita?)', action: 'Abrir', color: [0.7, 0.4, 1], shape: 'chest' });
             } else if (f.what === 'souls') {
@@ -339,6 +347,13 @@
             const sk = new VX.Shopkeeper(game, room, v.x, v.z);
             game.npcs.push(sk);
             if (sk.markup > 1) sk.applyPrices(game);
+            // (0.63.3) con 10 000 de oro en la caja registradora, el vendedor te cambia la máquina por una caja fuerte
+            if ((VX.Profile.data.invest || 0) >= 10000) {
+              const dx = room.centerX() - v.x, dz = room.centerZ() - v.z, dl = Math.hypot(dx, dz) || 1;
+              const tx = v.x + dx / dl * 1.6, tz = v.z + dz / dl * 1.6;
+              game.pickups.addItem({ kind: 'vaultTalk', noDraw: true, price: 0, x: tx, y: game.world.groundAt(tx, tz) + 1.0, z: tz, title: 'Vendedor', desc: '', action: 'Hablar', color: [1, 0.85, 0.4], shape: 'coin', sk });
+              game.pickups.vaultTalkDesc();
+            }
           }
           break;
         }
@@ -375,9 +390,17 @@
           // a veces el premio es un accesorio para el arma (no si el cartógrafo ya lo ha visto)
           const ai = kind !== 'curse' && !pre && Math.random() < 0.2 ? VX.Throw.attachItem(game.weapon, 0) : null;
           if (ai) { game.pickups.addItem({ ...ai, x: f.x, y: f.y, z: f.z }); break; }
-          const up = VX.Upgrades.random(1, game, [], kind)[0];
-          const tag = up.rare ? ' ★ RARA' : up.curse ? ' ☠ MALDICIÓN' : '';
-          game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: f.x, y: f.y, z: f.z, title: up.name + tag, desc: up.desc, color: up.color, shape: up.shape });
+          // (0.63) una mejora; con «Pedestales» (Santuario), eliges entre 2 o 3 (las maldiciones vienen solas)
+          const ups = VX.Upgrades.random(kind === 'curse' ? 1 : VX.Profile.rewardPicks(), game, [], kind);
+          const cid = 'rew' + game.time + Math.random();
+          const n = ups.length, dx = 0, dz = 1;   // en fila a lo ancho, un pedestal cada una
+          ups.forEach((up, i) => {
+            const tag = up.rare ? ' ★ RARA' : up.curse ? ' ☠ MALDICIÓN' : '';
+            const off = (i - (n - 1) / 2) * 2;
+            game.pickups.addItem({ kind: 'upgrade', up, price: 0, x: f.x + off * dz, y: f.y, z: f.z - off * dx, title: up.name + tag, desc: up.desc + (n > 1 ? ' · (elige una)' : ''), color: up.color, shape: up.shape,
+              choice: n > 1 ? cid : undefined, onTake: n > 1 ? (gm) => { for (const o of gm.pickups.items) if (o.choice === cid && !o.taken) o.taken = true; } : undefined });
+          });
+          if (n > 1) game.hud.toast && game.hud.toast(n === 2 ? 'Elige una de las dos' : 'Elige una de las tres');
           break;
         }
       }

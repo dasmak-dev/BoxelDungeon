@@ -21,17 +21,17 @@
     smg: {
       shake: 0.07, art: 'el subfusil', name: 'Subfusil', damage: 14, fireRate: 12, range: 24, mag: 30, reload: 1.6, spread: 0.0364,
       pellets: 1, pierce: 0, destruction: 0.8, auto: true, recoil: 0.012, recoilPat: { up: 0.0128, side: 0.0075 }, kick: 0.02, sound: 0.7,
-      price: 70, vm: { x: 0.15, y: -0.14, z: -0.29, g: 0.0083 }, muzzle: [-0.5, 3.5, -42],
+      price: 70, vm: { x: 0.155, y: -0.15, z: -0.33, g: 0.0081 }, muzzle: [-0.5, 3.5, -42],
     },
     shotgun: {
       shake: 0.38, art: 'la escopeta', name: 'Escopeta', damage: 12, fireRate: 1.5, range: 16, mag: 6, reload: 2.1, spread: 0.1105,
       pellets: 8, pierce: 0, destruction: 1.25, auto: false, recoil: 0.07, recoilPat: { up: 0.096, side: 0.0225 }, kick: 0.09, sound: 2.2,
-      price: 80, vm: { x: 0.15, y: -0.15, z: -0.3, g: 0.0082 }, muzzle: [-0.5, 5.5, -48],
+      price: 80, vm: { x: 0.165, y: -0.165, z: -0.36, g: 0.0076 }, muzzle: [-0.5, 5.5, -48],
     },
     rifle: {
       shake: 0.32, art: 'el rifle', name: 'Rifle de cerrojo', damage: 90, fireRate: 1.1, range: 70, mag: 5, reload: 2.3, spread: 0.002,
       pellets: 1, pierce: 2, destruction: 1.6, auto: false, recoil: 0.08, recoilPat: { up: 0.088, side: 0.018 }, kick: 0.08, sound: 2.6,
-      price: 90, vm: { x: 0.15, y: -0.15, z: -0.32, g: 0.008 }, muzzle: [-0.5, 4.5, -63],
+      price: 90, vm: { x: 0.165, y: -0.17, z: -0.38, g: 0.0072 }, muzzle: [-0.5, 4.5, -63],
     },
     launcher: {
       shake: 0.28, art: 'el lanzagranadas', name: 'Lanzagranadas', damage: 110, fireRate: 1.0, range: 40, mag: 4, reload: 2.5, spread: 0.013,
@@ -56,7 +56,7 @@
       shake: 0.09, art: 'la ametralladora', name: 'Ametralladora', damage: 19, fireRate: 13, range: 36, mag: 80, reload: 3.6, spread: 0.042,
       pellets: 1, pierce: 1, destruction: 1.05, auto: true, recoil: 0.014, recoilPat: { up: 0.017, side: 0.011 }, kick: 0.025, sound: 1.1,
       desc: '80 balas, recarga lenta',
-      price: 150, vm: { x: 0.16, y: -0.16, z: -0.31, g: 0.0079 }, muzzle: [-0.5, 3.5, -60],
+      price: 150, vm: { x: 0.17, y: -0.175, z: -0.37, g: 0.0073 }, muzzle: [-0.5, 3.5, -60],
     },
     flamer: {
       shake: 0.03, art: 'el lanzallamas', name: 'Lanzallamas', damage: 7, fireRate: 16, range: 9, mag: 90, reload: 2.8, spread: 0.07,
@@ -110,7 +110,7 @@
       pal: { main: [0.86, 0.8, 0.68], dark: [0.55, 0.5, 0.42], grip: [0.42, 0.1, 0.1], steel: [0.96, 0.93, 0.85], accent: [0.6, 0.08, 0.08], blade: [0.95, 0.92, 0.84] } },
     { id: 'sangre', name: 'Sangre', cond: { stat: 'heads', n: 40 },
       pal: { main: [0.5, 0.05, 0.06], dark: [0.25, 0.02, 0.03], grip: [0.08, 0.06, 0.06], steel: [0.85, 0.12, 0.12], accent: [1, 0.15, 0.1, 0.8], blade: [0.8, 0.1, 0.1] } },
-    { id: 'oro', name: 'Oro', cond: { stat: 'floor', n: 12 },
+    { id: 'oro', name: 'Oro', cond: { stat: 'invested', n: 500 }, needsAll: true,   // (0.63.4) 500 en la hucha, y antes sus otros camuflajes
       pal: { main: [0.95, 0.74, 0.2], dark: [0.62, 0.43, 0.1], grip: [0.18, 0.12, 0.08], steel: [1, 0.9, 0.5], accent: [1, 0.95, 0.6, 0.6], blade: [1, 0.85, 0.35] } },
     { id: 'neon', name: 'Neón tóxico', cond: { stat: 'kills', n: 250 },
       pal: { main: [0.09, 0.09, 0.11], dark: [0.04, 0.04, 0.05], grip: [0.12, 0.12, 0.14], steel: [0.3, 1, 0.3, 0.7], accent: [0.3, 1, 0.25, 1], blade: [0.35, 1, 0.35, 0.8] } },
@@ -118,6 +118,9 @@
       pal: { main: [0.1, 0.1, 0.11], dark: [0.05, 0.05, 0.06], grip: [0.15, 0.15, 0.17], steel: [0.4, 0.42, 0.46], accent: [0.2, 0.6, 1, 0.9], blade: [0.25, 0.25, 0.28], checker: true } },
     { id: 'cristal', name: 'Cristal', cond: { stat: 'floor', n: 20 },
       pal: { main: [0.45, 0.82, 1, 0.35], dark: [0.2, 0.45, 0.75, 0.2], grip: [0.15, 0.25, 0.4], steel: [0.8, 0.95, 1, 0.5], accent: [1, 1, 1, 1], blade: [0.6, 0.9, 1, 0.5] } },
+    // (0.63.4) Diamante: para todas las armas a la vez, cuando todas tienen la de Oro
+    { id: 'diamante', name: 'Diamante', meta: true, get cond() { return { stat: 'allGold', n: VX.Profile ? VX.Profile.WEAPON_IDS().length : 16 }; },
+      pal: { main: [0.72, 0.93, 1, 0.45], dark: [0.38, 0.68, 0.92, 0.3], grip: [0.16, 0.22, 0.32], steel: [0.95, 1, 1, 0.75], accent: [1, 1, 1, 1], blade: [0.85, 0.98, 1, 0.65] } },
     { id: 'leyenda', name: 'Leyenda', ultimate: true, cond: { stat: 'allSkins', n: 8 } },
   ];
 

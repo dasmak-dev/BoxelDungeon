@@ -387,6 +387,8 @@
   A.snap = () => { noise(0.05, 0.4, 2500, 'highpass'); tone(180, 0.08, 'square', 0.1, 60); };
   A.save = () => { [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, 0.6, 'sine', 0.1, null, i * 0.1)); };
   A.click = () => tone(880, 0.03, 'square', 0.05);
+  // (0.61.8) cinta de munición: clic metálico corto de cada eslabón que entra
+  A.beltClick = () => { const n = performance.now(); if (n - (A._beltT || 0) < 45) return; A._beltT = n; tone(1500 + Math.random() * 400, 0.022, 'square', 0.022, 900); tone(380 + Math.random() * 60, 0.035, 'triangle', 0.035); };
   // Ignición: un "fuuum" suave que crece y se apaga (aire que entra en la llama)
   A.torch = (vol = 1) => {
     if (!A.ctx || !A.enabled) return;

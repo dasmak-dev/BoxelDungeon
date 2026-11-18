@@ -102,7 +102,7 @@
       const kb = this.kickBuff > 0 && this.slot && id === this.slot.id ? 2 : 1;
       return {
         lvl: lv,
-        damage: d.damage * m.damage * a.damage * LV.dmg * kb, fireRate: d.fireRate * m.rate * (m.spinup ? 1 + Math.min(0.5, (this.heat || 0) * 0.035) : 1), range: d.range * m.range * a.range,
+        damage: d.damage * m.damage * a.damage * LV.dmg * kb * (m.goldBullets && VX.game ? 1 + Math.min(0.3, (VX.game.stats.gold || 0) / 1000) : 1), fireRate: d.fireRate * m.rate * (m.spinup ? 1 + Math.min(0.5, (this.heat || 0) * 0.035) : 1), range: d.range * m.range * a.range,
         mag: Math.round(d.mag * m.mag * a.mag * LV.mag), reload: d.reload * m.reload * a.reload * LV.reload, spread: d.spread * m.spread * a.spread,
         pellets: d.pellets + (d.pellets > 1 ? m.pellets * 2 : m.pellets), pierce: d.pierce + m.pierce,
         destruction: d.destruction * m.destruction, auto: d.auto || m.auto, ricochet: m.ricochet || 0,
@@ -373,9 +373,12 @@
         this.beltIdle = (this.beltIdle || 0) + dt;
         if (this.beltIdle > 0.45 && this.slot.ammo < st.mag && (!this.limited || (this.slot.reserve || 0) > 0)) {
           this.beltAcc = (this.beltAcc || 0) + st.mag * 0.55 * dt;
-          while (this.beltAcc >= 1 && this.slot.ammo < st.mag) { this.beltAcc -= 1; this.slot.ammo++; if (this.limited) this.slot.reserve--; }
-        }
-      }
+          // (0.61.8) la cinta se ve correr: avanza un eslabón por bala que entra, con su clic
+          this.beltFeed = Math.min(1, (this.beltFeed || 0) + dt * 8);
+          this.beltPhase = (this.beltPhase || 0) + st.mag * 0.55 * dt;
+          while (this.beltAcc >= 1 && this.slot.ammo < st.mag) { this.beltAcc -= 1; this.slot.ammo++; if (this.limited) this.slot.reserve--; VX.Audio.beltClick && VX.Audio.beltClick(); }
+        } else this.beltFeed = Math.max(0, (this.beltFeed || 0) - dt * 4);
+      } else this.beltFeed = 0;
       // bocanada: al soltar el gatillo del lanzallamas sale una bola de fuego
       if (this.def.flame && this.mods.fireball) {
         if (I.mouseDown && this.slot.ammo > 0 && !this.reloading) this.flameHold = (this.flameHold || 0) + dt;
@@ -1165,6 +1168,38 @@
     }
     // (0.61.3) el arma «cargada» con un efecto lo enseña: llamitas, escarcha, chispas, gotas de veneno o
     // de sangre en la boca del cañón (en el modelo de primera persona)
+    // ---- (0.61.8) Cinta de munición: una cinta de cartuchos de latón con eslabones que cuelga del costado
+    // del arma (hacia el centro de la pantalla) y se balancea; cuando el arma recupera balas, corre hacia
+    // dentro, un eslabón por bala, con un tironcito
+    renderBelt(batch, q, g, bx, by, bz, id, time) {
+      const W = VX.Weapons, d = W.DEFS[id];
+      if (!d.beltBox) {
+        let m = W.MODELS[id]; if (typeof m === 'function') m = m();
+        let x0 = 1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+        for (const v of m || []) { if (v.side === 'L') continue; x0 = Math.min(x0, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); z0 = Math.min(z0, v.z); z1 = Math.max(z1, v.z); }
+        d.beltBox = { x: x0 - 0.6, y: y0 + (y1 - y0) * 0.55, z: z0 + (z1 - z0) * 0.5 };
+      }
+      const B = d.beltBox, feed = this.beltFeed || 0, ph = this.beltPhase || 0;
+      const SP = 2.7, L = 46, N = Math.ceil(L / SP) + 1;
+      const fr = ph - Math.floor(ph);
+      const tug = feed * Math.sin(fr * Math.PI) * 0.8;   // tironcito al entrar cada bala
+      const at = (x, y, z, sx, sy, sz, r, gg, b, e) => { M.qRot(q, x * g, y * g, z * g, tmp); batch.rbox(bx + tmp[0], by + tmp[1], bz + tmp[2], sx * g, sy * g, sz * g, q, r, gg, b, e); };
+      for (let i = 0; i < N; i++) {
+        const sv = i * SP - fr * SP;   // distancia por la cinta desde el arma (corre hacia el arma al alimentar)
+        if (sv < 0) continue;
+        const u = sv / L;
+        // curva: sale hacia el centro de la pantalla y cae por su peso, con un vaivén
+        const sw = Math.sin(time * 1.9 + u * 2.5) * u * 2.2 + Math.sin(time * 13) * feed * u * 0.6;
+        const x = B.x - sv * 0.62 - u * u * 4 + sw;
+        const y = B.y - sv * 0.26 - u * u * 9 + tug * (1 - u);
+        const z = B.z + sv * 0.05 + Math.cos(time * 1.4 + u * 2) * u * 1.2;
+        // cartucho de latón (paralelo al cañón) con la punta de cobre y el eslabón oscuro
+        at(x, y, z, 1.3, 1.3, 3.2, 0.86, 0.66, 0.26, 0.05 + feed * 0.1);
+        at(x, y, z - 2.1, 1.0, 1.0, 1.1, 0.72, 0.38, 0.18, 0.04);
+        at(x + 0.2, y + 0.75, z + 0.4, 1.7, 0.45, 1.6, 0.16, 0.16, 0.18, 0);
+      }
+    }
+
     renderInfusion(batch, q, g, bx, by, bz, d, time) {
       const m = this.mods, mz = d.muzzle;
       if (!mz) return;
@@ -1443,10 +1478,8 @@
       // (0.61.4) pistolas dobles: la boca del cañón (fogonazo, humo) es la de la pistola que acaba de disparar
       const mzSide = d.dual && this.dualSide && d.muzzle ? [-d.muzzle[0] - 31, d.muzzle[1], d.muzzle[2]] : d.muzzle;
       if (!pose && !d.melee && !idOverride && d.muzzle) { const mz = mzSide; M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 1) * g, tmp); this.vmTip = [bx + tmp[0], by + tmp[1], bz + tmp[2]]; }
-      if (!pose && !d.melee && !idOverride && !d.flame) {
-        this.renderInfusion(batch, q, g, bx, by, bz, d, game.time || 0);
-        if (d.dual) this.renderInfusion(batch, q, g, bx, by, bz, { muzzle: [-d.muzzle[0] - 31, d.muzzle[1], d.muzzle[2]] }, (game.time || 0) + 0.37);
-      }
+      // (0.61.6) las mejoras ya no ponen bloques de colores en el arma: se ven en las balas
+
       if (this.flash > 0.05 && !d.melee && !pose) {
         const mz = mzSide;
         M.qRot(q, mz[0] * g, mz[1] * g, (mz[2] - 3) * g, tmp);

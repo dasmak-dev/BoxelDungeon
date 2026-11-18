@@ -189,6 +189,10 @@
     return MODEL_CACHE[key];
   }
 
+  // (0.63.1) cifras 3×5 para el marcador de la hucha
+  const GLYPH = { 0: ['###', '#.#', '#.#', '#.#', '###'], 1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['###', '..#', '###', '#..', '###'], 3: ['###', '..#', '.##', '..#', '###'], 4: ['#.#', '#.#', '###', '..#', '..#'],
+    5: ['###', '#..', '###', '..#', '###'], 6: ['###', '#..', '###', '#.#', '###'], 7: ['###', '..#', '.#.', '.#.', '.#.'], 8: ['###', '#.#', '###', '#.#', '###'], 9: ['###', '#.#', '###', '..#', '###'] };
+  const tmpV = [0, 0, 0];
   class Pickups {
     constructor() { this.gold = []; this.items = []; this.focus = null; }
 
@@ -287,14 +291,286 @@
           } else it.hiddenOwned = true;
         } else if (it.hiddenOwned && !game.weapon.has(it.weapon)) it.hiddenOwned = false;
         if (it.hiddenOwned) continue;
+        if (it.kind === 'vault') this.vaultTick(it, dt, game);
         if (it.kind === 'keyAltar' && (it.spinT > 0 || (it.candyQ && it.candyQ.length) || (it.candies && it.candies.length) || it.flap > 0)) this.spinTick(it, dt, game);
         const d = Math.hypot(it.x - P.x, it.z - P.z);
         if (d < best) { best = d; this.focus = it; }
       }
       if (this.focus && VX.Input.wasPressed(VX.Settings.key('use'))) this.interact(this.focus, game);
+      // (0.63.1) hucha: se mete oro mientras mantienes pulsado [E]
+      const useDown = VX.Input.keys[VX.Settings.key('use')] || (VX.Pad && VX.Pad.useHeld);
+      if (this.focus && this.focus.kind === 'vault' && useDown) this.vaultHold(this.focus, dt, game);
+      else if (this.vaultHoldT || this.vaultEmptyMsg) this.vaultRelease(game);
       // (0.57) en la Horda, el arma lanzada que no recoges desaparece a los 90 s
       if (game.mode === 'horde') for (const i of this.items) if (i.droppedGun && !i.taken && game.time - i.born > 90) { i.taken = true; game.hud.toast('Has perdido: ' + VX.Weapons.DEFS[i.weapon].name); }
       this.items = VX.M.compact(this.items, (i) => !i.taken);
+    }
+
+    // ---- (0.63.1) Hucha del mercader: una máquina contadora de latón con un marcador de números que
+    // enseña todo el oro que has dejado en ella (entre partidas). Mantén pulsado [E]: al principio mete
+    // las monedas de una en una y, cuanto más tiempo lo mantienes, más deprisa, hasta vaciarte los
+    // bolsillos. El número sube rodando. Con lo acumulado la tienda prospera y, con el arma en la mano,
+    // ganas su skin de oro.
+    vaultDesc(it, game) {
+      const P = VX.Profile, nx = P.nextMilestone();
+      const wid = game.weapon.slot.id, ws = (P.data.wstats[wid] || {}).invested || 0, gold = P.isUnlocked(wid, 'oro');
+      it.desc = (nx ? `Siguiente (${nx.n}): ${nx.txt}` : 'Lo tienes todo') + (P.investAt(P.RESCUE_COST) ? ` · Rescate al morir: ${P.RESCUE_COST}` : '') +
+        (gold ? '' : ` · Skin de oro (${VX.Weapons.DEFS[wid].name}): ${Math.min(ws, 500)}/500${P.goldReady(wid) ? '' : ' (antes, sus otros camuflajes)'}`) + ' · mantén pulsado';
+    }
+    vaultTalkDesc() {
+      const caja = VX.Profile.data.vaultSkin === 'caja';
+      for (const o of this.items) if (o.kind === 'vaultTalk') { o.desc = caja ? 'Volver a la caja registradora' : 'Cambiar la máquina por una caja fuerte'; o.action = caja ? 'Pedir la registradora' : 'Pedir la caja fuerte'; }
+    }
+    vaultHold(it, dt, game) {
+      const P = VX.Profile;
+      if ((game.stats.gold || 0) <= 0) { if (!this.vaultEmptyMsg) { this.vaultEmptyMsg = true; VX.Audio.deny && VX.Audio.deny(); game.hud.toast('No llevas oro'); } return; }
+      this.vaultHoldT = (this.vaultHoldT || 0) + dt;
+      const h = this.vaultHoldT;
+      // de una en una al principio (≈3 por segundo) y cada vez más deprisa (hasta ≈250 por segundo)
+      const rate = Math.min(250, 3 + h * 8 + h * h * 30);
+      this.vaultAcc = (this.vaultAcc || 0) + rate * dt;
+      let n = Math.min(Math.floor(this.vaultAcc), game.stats.gold);
+      if (h < dt * 1.5 && n < 1) n = 1;   // la primera sale al pulsar
+      if (n <= 0) return;
+      this.vaultAcc = Math.max(0, this.vaultAcc - n);
+      const t0 = P.investTier(), wid = game.weapon.slot.id, ws = P.data.wstats[wid];
+      game.stats.gold -= n;
+      P.data.invest = (P.data.invest || 0) + n;
+      if (ws) { const b = ws.invested || 0; ws.invested = b + n; if (b < 500 && ws.invested >= 500) P.checkUnlocks(game, wid); }
+      P.dirty = true;
+      // monedas que vuelan hacia la ranura (no todas: a mucha velocidad sería una nube)
+      it.coins = it.coins || [];
+      this.vaultCoinT = (this.vaultCoinT || 0) - dt;
+      if (this.vaultCoinT <= 0 && it.coins.length < 14) {
+        this.vaultCoinT = Math.max(0.035, 0.3 - h * 0.12);
+        const pl = game.player;
+        it.coins.push({ t: 0, x0: pl.x + M.rand(-0.15, 0.15), y0: pl.y + 1.05, z0: pl.z + M.rand(-0.15, 0.15) });
+      }
+      const t1 = P.investTier();
+      if (t1 > t0) {
+        game.hud.banner('¡LA TIENDA PROSPERA!', `Nivel ${t1}: ${P.INVEST[t1 - 1].txt} (desde la próxima tienda)`, 4);
+        VX.Audio.upgrade();
+        for (let i = 0; i < 40; i++) game.particles.spawn(it.x, it.y + 1.4, it.z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), 1, 0.8, 0.25, 0.04, 1.2, 1, 1);
+      }
+      this.vaultDesc(it, game);
+    }
+    vaultRelease(game) {
+      this.vaultHoldT = 0; this.vaultAcc = 0; this.vaultEmptyMsg = false;
+      if (VX.Profile.dirty) VX.Profile.save();
+    }
+    vaultTick(it, dt, game) {
+      const inv = VX.Profile.data.invest || 0;
+      // el marcador rueda hacia la cifra real (deprisa si va muy por detrás)
+      if (it.shown == null) it.shown = inv;
+      const gap = inv - it.shown;
+      if (gap > 0) { const before = Math.floor(it.shown); it.shown = Math.min(inv, it.shown + Math.max(gap * dt * 7, dt * 12)); if (Math.floor(it.shown) !== before) { it.tick = 1; VX.Audio.beltClick && VX.Audio.beltClick(); } }
+      else it.shown = inv;
+      it.tick = Math.max(0, (it.tick || 0) - dt * 8);
+      it.flash = Math.max(0, (it.flash || 0) - dt * 3);
+      if (!it.coins || !it.coins.length) return;
+      const f = it.face || 0, sx = it.x + Math.sin(f) * 0.12, sz = it.z + Math.cos(f) * 0.12, sy = it.y + 1.18;
+      for (const c of it.coins) {
+        c.t += dt * 3;
+        if (c.t >= 1 && !c.done) { c.done = true; it.flash = 1; const n = performance.now(); if (n - (this._coinSnd || 0) > 70) { this._coinSnd = n; VX.Audio.gold(); } }
+        const k = Math.max(0, Math.min(1, c.t));
+        c.x = c.x0 + (sx - c.x0) * k; c.z = c.z0 + (sz - c.z0) * k; c.y = c.y0 + (sy - c.y0) * k + Math.sin(k * Math.PI) * 0.45;
+      }
+      it.coins = it.coins.filter((c) => !c.done);
+    }
+    // (0.63.2) variantes de la máquina (para elegir): VX.VAULT_STYLE = 'contador' | 'registradora' | 'tarro' | 'caja'
+    renderVault(batch, it) {
+      const st = VX.VAULT_STYLE || VX.Profile.data.vaultSkin || 'registradora';
+      if (st === 'registradora') return this.renderVaultRegister(batch, it);
+      if (st === 'tarro') return this.renderVaultJar(batch, it);
+      if (st === 'caja') return this.renderVaultSafe(batch, it);
+      return this.renderVaultCounter(batch, it);
+    }
+    // ayudas comunes: caja local orientada, inclinada (rx) alrededor de un pivote, y cifras 3×5
+    vaultKit(batch, it, rx = 0, piv = [0, 0, 0]) {
+      const f = it.face || 0, cf = Math.cos(f), sf = Math.sin(f), q0 = M.qY(f), qt = rx ? M.qMul(q0, M.qX(rx)) : q0, qx = rx ? M.qX(rx) : null;
+      const W = (lx, ly, lz) => [it.x + lx * cf + lz * sf, it.y + ly, it.z - lx * sf + lz * cf];
+      const box = (lx, ly, lz, sx, sy, sz, r, g, b, e = 0) => { const p = W(lx, ly, lz); batch.rbox(p[0], p[1], p[2], sx, sy, sz, q0, r, g, b, e); };
+      const tb = (lx, ly, lz, sx, sy, sz, r, g, b, e = 0) => { if (!qx) return box(lx, ly, lz, sx, sy, sz, r, g, b, e); M.qRot(qx, lx - piv[0], ly - piv[1], lz - piv[2], tmpV); const p = W(tmpV[0] + piv[0], tmpV[1] + piv[1], tmpV[2] + piv[2]); batch.rbox(p[0], p[1], p[2], sx, sy, sz, qt, r, g, b, e); };
+      const P = VX.Profile, inv = P.data.invest || 0, t = P.investTier(), nx = P.INVEST[t], prev = t ? P.INVEST[t - 1].n : 0;
+      const prog = nx ? Math.min(1, (inv - prev) / (nx.n - prev)) : 1;
+      const val = Math.min(9999999, Math.floor(it.shown != null ? it.shown : inv));
+      // cifras: n dígitos centrados en (cx, cy, z) con píxel px; tile = fondo de cada cifra (rodillo)
+      const digits = (n, cx, cy, z, px, col, e, tile, lead) => {
+        const str = String(val).padStart(n, lead ? '0' : ' '), DW = px * 4.2, x0 = cx - DW * (n - 1) / 2;
+        for (let i = 0; i < n; i++) {
+          const ch = str[str.length - n + i], dx = x0 + i * DW, lift = i === n - 1 ? (it.tick || 0) * px * 0.6 : 0;
+          if (tile) tb(dx, cy, z - 0.004, px * 3.8, px * 6.4, 0.006, ...tile);
+          if (ch === ' ' || ch == null) continue;
+          const gl = GLYPH[ch];
+          for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (gl[r][c] === '#') tb(dx + (c - 1) * px, cy + (2 - r) * px + lift, z, px * 0.88, px * 0.88, 0.006, ...col, e);
+        }
+      };
+      const coins = () => { for (const c of it.coins || []) if (c.t > 0 && c.x != null) batch.rbox(c.x, c.y, c.z, 0.07, 0.07, 0.015, M.qY(c.t * 12), 1, 0.82, 0.25, 0.5); };
+      return { box, tb, t, prog, val, digits, coins, fl: it.flash || 0 };
+    }
+    // A) caja registradora antigua, hecha de vóxeles como la máquina de chicles: mueble de madera con
+    // cajón, cuerpo de latón con teclas, cabezal con los rodillos de cifras, copete con los pilotos de
+    // nivel, manivela que gira al meter monedas y campanilla
+    renderVaultRegister(batch, it) {
+      const f = it.face || 0, cf = Math.cos(f), sf = Math.sin(f), q = M.qY(f);
+      const V = 0.055;
+      const put = (lx, ly, lz, s, r, g, b, e = 0) => batch.rbox(it.x + lx * cf + lz * sf, it.y + ly, it.z - lx * sf + lz * cf, s, s, s, q, r, g, b, e);
+      const hsh = (x, y, z) => (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0) % 1000 / 1000;
+      // bloque de vóxeles (sólo la cáscara), con un poco de variación de color por vóxel y cantos más oscuros
+      const vb = (x0, x1, y0, y1, z0, z1, c, e = 0, jit = 0.12, edge = 0.75) => {
+        for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+          const sx = x === x0 || x === x1, sy = y === y0 || y === y1, sz = z === z0 || z === z1;
+          if (!(sx || sy || sz)) continue;
+          const k = (1 - jit / 2 + hsh(x, y, z) * jit) * ((sx && sy) || (sx && sz) || (sy && sz) ? edge : 1);
+          put(x * V, y * V + V / 2, z * V, V, c[0] * k, c[1] * k, c[2] * k, e);
+        }
+      };
+      const P = VX.Profile, t = P.investTier(), fl = it.flash || 0;
+      const WOOD = [0.42, 0.22, 0.1], WOODD = [0.27, 0.13, 0.06], BR = [0.62, 0.43, 0.15], BRL = [0.78, 0.58, 0.22], CREAM = [0.9, 0.85, 0.7];
+      // mueble de madera y zócalo
+      vb(-6, 6, 0, 0, -5, 5, WOODD);
+      vb(-5, 5, 1, 10, -4, 4, WOOD);
+      vb(-4, 4, 6, 9, 5, 5, WOODD, 0, 0.1, 0.85);                    // cajón
+      put(0, 7.5 * V, 6 * V, V, ...BRL, 0.15);                         // tirador
+      vb(-6, 6, 11, 11, -5, 5, BR, 0.04);                              // tapa de latón
+      // cuerpo de latón con la fila de teclas cremosas
+      vb(-5, 5, 12, 15, -4, 2, BR, 0.04);
+      for (let i = -4; i <= 4; i += 2) { put(i * V, 13.5 * V, 3 * V, V, ...CREAM, 0.03); put(i * V, 12.5 * V, 3 * V, V, 0.3, 0.22, 0.12); }
+      // ranura de las monedas (brilla al tragar)
+      for (let x = -1; x <= 1; x++) put(x * V, 15.5 * V, 1.6 * V, V * 0.9, 0.95 * (0.25 + fl * 0.75), 0.75 * (0.25 + fl * 0.75), 0.3 * (0.25 + fl * 0.75), 0.2 + fl * 0.8);
+      // cabezal: marco de latón alrededor de la pantalla de rodillos (la pantalla, lisa)
+      vb(-5, 5, 16, 21, -3, 0, BR, 0.04);
+      const sy = 18.5 * V, sz = 0.5 * V + 0.006;
+      batch.rbox(it.x + 0 * cf + sz * sf, it.y + sy, it.z - 0 * sf + sz * cf, 8.6 * V, 3.6 * V, 0.01, q, 0.05, 0.035, 0.02, 0);
+      const K = this.vaultKit(batch, it);
+      K.digits(6, 0, sy, sz + 0.008, 0.014, [0.12, 0.08, 0.05], 0, [0.92, 0.86, 0.7, 0.05], true);
+      // copete con los 5 pilotos de nivel
+      vb(-4, 4, 22, 23, -2, -1, BRL, 0.06);
+      vb(-2, 2, 24, 24, -2, -1, BRL, 0.06);
+      for (let i = 0; i < 5; i++) { const on = i < t, x = (i - 2) * 1.6; put(x * V, 22.5 * V, 0, V * 0.8, on ? 1 : 0.22, on ? 0.82 : 0.16, on ? 0.3 : 0.1, on ? 0.9 : 0); }
+      // manivela a la derecha: eje, brazo y pomo que giran
+      const a = it.crank || 0;
+      put(6 * V, 13.5 * V, 0, V, ...BR, 0.04);
+      for (let k = 1; k <= 3; k++) put(7 * V, 13.5 * V + Math.cos(a) * k * V, Math.sin(a) * k * V, V * 0.9, ...BR, 0.04);
+      put(7.8 * V, 13.5 * V + Math.cos(a) * 3.6 * V, Math.sin(a) * 3.6 * V, V * 1.1, 0.16, 0.09, 0.05);
+      // campanilla a la izquierda
+      vb(-5, -4, 16, 16, 1, 2, BRL, 0.08 + fl * 0.5);
+      put(-4.5 * V, 17.5 * V, 1.5 * V, V, ...BRL, 0.08 + fl * 0.5);
+      it.crank = (it.crank || 0) + fl * 0.4;
+      K.coins();
+    }
+    // B) tarro de monedas: pedestal de piedra, una urna de cristal que se va llenando de monedas (el
+    // siguiente nivel) y una plaquita con las cifras en naranja
+    renderVaultJar(batch, it) {
+      const K = this.vaultKit(batch, it), { box } = K;
+      const ST = [0.4, 0.38, 0.35], ST2 = [0.3, 0.28, 0.26], GO = [0.9, 0.68, 0.22];
+      box(0, 0.06, 0, 0.62, 0.12, 0.62, ...ST2); box(0, 0.4, 0, 0.46, 0.56, 0.46, ...ST); box(0, 0.72, 0, 0.58, 0.08, 0.58, ...ST2);
+      box(0, 0.79, 0, 0.5, 0.04, 0.5, ...GO, 0.1);
+      // urna: aristas de latón y cristal tenue; dentro, monedas hasta el nivel de progreso
+      const H = 0.62, y0 = 0.81, R = 0.22;
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(sx * R, y0 + H / 2, sz * R, 0.03, H, 0.03, ...GO, 0.1);
+      box(0, y0 + H + 0.02, 0, 0.5, 0.04, 0.5, ...GO, 0.1);
+      box(0, y0 + H + 0.08, 0, 0.18, 0.08, 0.18, ...GO, 0.1);
+      box(0, y0 + H + 0.125, 0, 0.12, 0.012, 0.03, 0.05, 0.04, 0.02);       // ranura en la tapa
+      // (el cristal no se dibuja: sólo varillas de latón, así se ven las monedas)
+      for (const k of [-1, 1]) { box(k * 0.07, y0 + H / 2, R, 0.012, H, 0.012, ...GO, 0.05); box(R, y0 + H / 2, k * 0.07, 0.012, H, 0.012, ...GO, 0.05); box(-R, y0 + H / 2, k * 0.07, 0.012, H, 0.012, ...GO, 0.05); }
+      const fill = Math.max(0.02, K.prog) * (H - 0.06), V = 0.06;
+      for (let yy = 0; yy * V < fill; yy++) for (let ix = -3; ix <= 3; ix++) for (let iz = -3; iz <= 3; iz++) {
+        if (((ix * 7 + iz * 13 + yy * 5) & 3) === 0 && yy * V > fill - V) continue;
+        const sh = 0.75 + ((ix * 3 + iz * 5 + yy) % 3) * 0.1;
+        box(ix * V, y0 + 0.03 + yy * V, iz * V, V * 0.96, V * 0.5, V * 0.96, GO[0] * sh * 0.8, GO[1] * sh * 0.8, GO[2] * sh * 0.8, 0.03 + (yy * V > fill - V ? K.fl * 0.4 : 0));
+      }
+      // placa con las cifras y los pilotos de nivel
+      box(0, 0.48, 0.235, 0.4, 0.17, 0.02, 0.06, 0.04, 0.03);
+      K.digits(6, 0, 0.5, 0.248, 0.014, [1, 0.5, 0.12], 0.95);
+      for (let i = 0; i < 5; i++) { const on = i < K.t; box(-0.12 + i * 0.06, 0.42, 0.248, 0.03, 0.02, 0.008, on ? 1 : 0.25, on ? 0.75 : 0.15, on ? 0.25 : 0.1, on ? 0.9 : 0); }
+      K.coins();
+    }
+    // C) caja fuerte de vóxeles: acero remachado con puerta redonda, bisagras y rueda dorada que gira al
+    // meter monedas, ranura de latón y un visor verde de cifras (liso) arriba
+    renderVaultSafe(batch, it) {
+      const f = it.face || 0, cf = Math.cos(f), sf = Math.sin(f), q = M.qY(f), V = 0.055;
+      const put = (lx, ly, lz, s, r, g, b, e = 0) => batch.rbox(it.x + lx * cf + lz * sf, it.y + ly, it.z - lx * sf + lz * cf, s, s, s, q, r, g, b, e);
+      const hsh = (x, y, z) => (((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0) % 1000 / 1000;
+      const vb = (x0, x1, y0, y1, z0, z1, c, e = 0, jit = 0.1, edge = 0.72) => {
+        for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+          const sx = x === x0 || x === x1, sy = y === y0 || y === y1, sz = z === z0 || z === z1;
+          if (!(sx || sy || sz)) continue;
+          const k = (1 - jit / 2 + hsh(x, y, z) * jit) * ((sx && sy) || (sx && sz) || (sy && sz) ? edge : 1);
+          put(x * V, y * V + V / 2, z * V, V, c[0] * k, c[1] * k, c[2] * k, e);
+        }
+      };
+      const t = VX.Profile.investTier(), fl = it.flash || 0;
+      const ST = [0.34, 0.36, 0.39], STL = [0.46, 0.48, 0.52], STD = [0.2, 0.21, 0.23], GO = [0.78, 0.58, 0.2];
+      vb(-7, 7, 0, 0, -5, 5, STD);                                        // zócalo
+      vb(-6, 6, 1, 18, -5, 4, ST);                                        // cuerpo
+      for (const x of [-6, 6]) for (const y of [2, 17]) put(x * V, (y + 0.5) * V, 5 * V, V * 0.7, ...GO, 0.05);   // remaches
+      // puerta redonda: aro claro, disco oscuro, bisagras
+      const cy = 8;
+      for (let x = -5; x <= 5; x++) for (let y = -5; y <= 5; y++) {
+        const d = Math.hypot(x, y);
+        if (d > 5.3) continue;
+        const ring = d > 3.9, k = 0.92 + hsh(x, y, 5) * 0.12;
+        const c = ring ? STL : ST;
+        put(x * V, (cy + y + 0.5) * V, (ring ? 5 : 4.85) * V, V, c[0] * k, c[1] * k, c[2] * k, ring ? 0.02 : 0);
+      }
+      for (const y of [cy - 3, cy + 3]) { put(-6 * V, (y + 0.5) * V, 5 * V, V, ...GO, 0.05); put(-6 * V, (y + 1.5) * V, 5 * V, V, ...GO, 0.05); }
+      // rueda dorada de tres radios que gira
+      const a = it.crank || 0;
+      put(0, (cy + 0.5) * V, 6 * V, V * 1.2, ...GO, 0.15);
+      for (let k = 0; k < 3; k++) { const an = a + k * Math.PI / 3; for (const s of [-3, -2, -1, 1, 2, 3]) put(Math.cos(an) * s * V, (cy + 0.5 + Math.sin(an) * s) * V, 6 * V, V * 0.8, ...GO, 0.1); }
+      for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const an = a + k * Math.PI / 3; put(Math.cos(an) * s * 3.6 * V, (cy + 0.5 + Math.sin(an) * s * 3.6) * V, 6 * V, V * 1.1, ...GO, 0.12); }
+      it.crank = (it.crank || 0) + fl * 0.25;
+      // ranura de latón sobre la puerta
+      vb(-2, 2, 14, 14, 5, 5, GO, 0.04, 0.05, 0.9);
+      for (let x = -1; x <= 1; x++) put(x * V, 14.5 * V, 5.6 * V, V * 0.8, 0.95 * (0.25 + fl * 0.75), 0.75 * (0.25 + fl * 0.75), 0.3 * (0.25 + fl * 0.75), 0.2 + fl * 0.8);
+      // visor verde (liso) con las cifras y la barra hacia el siguiente nivel
+      const sy = 16.5 * V, sz = 5 * V + 0.03;
+      batch.rbox(it.x + sz * sf, it.y + sy, it.z + sz * cf, 9 * V, 2.4 * V, 0.01, q, 0.02, 0.05, 0.03, 0);
+      const K = this.vaultKit(batch, it);
+      K.digits(7, 0, sy + 0.006, sz + 0.008, 0.012, [0.35, 1, 0.45], 0.95);
+      // pilotos de nivel encima
+      for (let i = 0; i < 5; i++) { const on = i < t; put((i - 2) * 2 * V, 19.5 * V, 3 * V, V * 0.8, on ? 1 : 0.22, on ? 0.82 : 0.16, on ? 0.3 : 0.1, on ? 0.9 : 0); }
+      K.coins();
+    }
+    renderVaultCounter(batch, it) {
+      const f = it.face || 0, cf = Math.cos(f), sf = Math.sin(f), q = M.qY(f);
+      const W = (lx, ly, lz) => [it.x + lx * cf + lz * sf, it.y + ly, it.z - lx * sf + lz * cf];
+      const box = (lx, ly, lz, sx, sy, sz, r, g, b, e = 0) => { const p = W(lx, ly, lz); batch.rbox(p[0], p[1], p[2], sx, sy, sz, q, r, g, b, e); };
+      const P = VX.Profile, inv = P.data.invest || 0, t = P.investTier(), nx = P.INVEST[t], prev = t ? P.INVEST[t - 1].n : 0;
+      const prog = nx ? Math.min(1, (inv - prev) / (nx.n - prev)) : 1;
+      const IRON = [0.16, 0.15, 0.14], IRON2 = [0.24, 0.22, 0.2], BRASS = [0.85, 0.62, 0.22], BRASS2 = [0.6, 0.42, 0.13], WOOD = [0.3, 0.16, 0.08];
+      // zócalo de madera, cuerpo de hierro con cantos de latón
+      box(0, 0.06, 0, 0.74, 0.12, 0.56, ...WOOD);
+      box(0, 0.5, 0, 0.66, 0.76, 0.5, ...IRON);
+      for (const sx of [-1, 1]) box(sx * 0.335, 0.5, 0.255, 0.035, 0.78, 0.035, ...BRASS, 0.06);
+      box(0, 0.14, 0.255, 0.7, 0.04, 0.035, ...BRASS2, 0.04);
+      box(0, 0.88, 0, 0.7, 0.04, 0.54, ...BRASS, 0.08);
+      // remache y placa central con la ranura de las monedas (boca dorada que brilla al tragar)
+      box(0, 0.62, 0.252, 0.22, 0.14, 0.02, ...BRASS2, 0.05);
+      box(0, 0.64, 0.264, 0.13, 0.025, 0.01, 0.04, 0.03, 0.02);
+      box(0, 0.64, 0.268, 0.1, 0.012, 0.005, 1, 0.8, 0.35, 0.25 + (it.flash || 0) * 0.75);
+      // cabezal con el marcador (inclinado hacia ti)
+      const tq = M.qMul(q, M.qX(-0.32));
+      const hb = (lx, ly, lz, sx, sy, sz, r, g, b, e = 0) => { M.qRot(M.qX(-0.32), lx, ly - 1.12, lz - 0.05, tmpV); const p = W(tmpV[0], tmpV[1] + 1.12, tmpV[2] + 0.05); batch.rbox(p[0], p[1], p[2], sx, sy, sz, tq, r, g, b, e); };
+      hb(0, 1.12, 0.05, 0.7, 0.36, 0.3, ...IRON2);
+      hb(0, 1.12, 0.205, 0.64, 0.28, 0.02, 0.03, 0.025, 0.02);               // cristal oscuro
+      hb(0, 1.3, 0.05, 0.74, 0.04, 0.34, ...BRASS, 0.08);
+      // cifras: 7 dígitos con letra de pixel 3×5, en ámbar; la última «salta» al cambiar
+      const val = Math.min(9999999, Math.floor(it.shown != null ? it.shown : inv)), str = String(val).padStart(7, ' ');
+      const PX = 0.022, DW = PX * 4, x0 = -DW * 3;
+      for (let i = 0; i < 7; i++) {
+        const ch = str[i]; if (ch === ' ') continue;
+        const gl = GLYPH[ch], lift = i === 6 ? (it.tick || 0) * 0.012 : 0;
+        for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (gl[r][c] === '#')
+          hb(x0 + i * DW + (c - 1) * PX, 1.165 - r * PX + lift, 0.218, PX * 0.86, PX * 0.86, 0.008, 1, 0.68, 0.18, 0.95);
+      }
+      // barra de progreso hacia el siguiente nivel y 5 pilotos de nivel
+      hb(0, 1.02, 0.218, 0.52, 0.02, 0.006, 0.12, 0.09, 0.05);
+      if (prog > 0.01) hb(-0.26 + 0.26 * prog, 1.02, 0.222, 0.52 * prog, 0.02, 0.006, 1, 0.8, 0.3, 0.8);
+      for (let i = 0; i < 5; i++) { const on = i < t; hb(-0.2 + i * 0.1, 1.24, 0.218, 0.04, 0.03, 0.008, on ? 1 : 0.22, on ? 0.82 : 0.17, on ? 0.3 : 0.1, on ? 0.95 : 0); }
+      // monedas en vuelo
+      for (const c of it.coins || []) if (c.t > 0 && c.x != null) batch.rbox(c.x, c.y, c.z, 0.07, 0.07, 0.015, M.qY(c.t * 12), 1, 0.82, 0.25, 0.5);
     }
 
     // ---- Máquina de chicles (tienda, 0.57): se paga con llaves ----
@@ -510,6 +786,18 @@
       }
       if (it.kind === 'key') { it.taken = true; game.takeKey(it.color3); return; }
       if (it.kind === 'keyAltar') { this.spinKeys(it, game); return; }
+      if (it.kind === 'vault') return;   // (se mantiene pulsado: lo lleva update)
+      if (it.kind === 'vaultTalk') {
+        // (0.63.3) cambiar la máquina: caja registradora ↔ caja fuerte
+        if (it.sk && (it.sk.state === 'hostile' || it.sk.dead)) { game.hud.toast('No está para charlas'); return; }
+        const P = VX.Profile, now = P.data.vaultSkin === 'caja' ? 'registradora' : 'caja';
+        P.data.vaultSkin = now; P.dirty = true; P.save();
+        if (it.sk) { it.sk.say(game, now === 'caja' ? '¿Una caja fuerte? Para un cliente como tú, lo que haga falta.' : 'Vuelve la vieja registradora. Tiene su encanto, ¿eh?'); it.sk.act = 'wave'; it.sk.actT = 1.5; }
+        VX.Audio.upgrade();
+        for (const o of this.items) if (o.kind === 'vault' && !o.taken) { o.flash = 1; for (let i = 0; i < 24; i++) game.particles.spawn(o.x, o.y + 0.7, o.z, M.rand(-1.5, 1.5), M.rand(0.5, 3), M.rand(-1.5, 1.5), 1, 0.85, 0.4, 0.04, 0.9, 1, 1); }
+        this.vaultTalkDesc();
+        return;
+      }
       if (it.kind === 'lockdoor') { game.tryVault(it); return; }
       if (it.kind === 'map') { it.taken = true; game.studyMap(); return; }
       if (it.kind === 'supply') { it.taken = true; VX.HordeMode.openSupply(game, it); return; }
@@ -547,6 +835,7 @@
         VX.Audio.buy(); VX.Audio.gold();
         game.spawner.restockShop(game, it.shopRoom || game.currentRoom);
         it.uses = (it.uses || 1) - 1;
+        if (it.freeFirst) { it.freeFirst = false; if (it.uses > 0) { it.price = it.paidPrice; it.basePrice = it.paidPrice; } }
         if (it.uses > 0) { it.taken = false; it.basePrice = Math.round((it.basePrice || it.price) * 1.6); it.price = Math.round(it.price * 1.6); it.desc = `El vendedor repone todo el género (queda ${it.uses})`; }
         game.hud.banner('¡GÉNERO NUEVO!', 'El vendedor ha repuesto los altares', 2.2);
       } else if (it.kind === 'mystery') {
@@ -658,6 +947,7 @@
         if (it.kind === 'weapon' || it.kind === 'gunUp') { this.renderWeapon(batch, it); continue; }
         if (it.kind === 'supply') { this.renderSupply(batch, it); continue; }
         if (it.kind === 'keyAltar') { this.renderGumball(batch, it); continue; }
+        if (it.kind === 'vault') { this.renderVault(batch, it); continue; }
         if (it.kind === 'secretChest' || it.kind === 'perk' || it.kind === 'lockdoor') continue;   // se ve el propio cofre / la máquina / la reja
         if (it.kind === 'stairs') {
           // foso con escalones de piedra que bajan hacia la pared y se pierden en la oscuridad

@@ -1247,7 +1247,8 @@
         const [ux, uz] = F.T(a, b);
         if (r.isReservedU(ux, uz)) continue;
         const e = edge && (a === Math.min(a0, a1) || a === Math.max(a0, a1) || b === Math.min(b0, b1) || b === Math.max(b0, b1));
-        for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++) if (!r.get(x, 0, z)) r.set(x, 0, z, e ? edge : t);
+        const v = e ? edge : t;
+        if (v) for (let x = ux * 2; x < ux * 2 + 2; x++) for (let z = uz * 2; z < uz * 2 + 2; z++) if (!r.get(x, 0, z)) r.set(x, 0, z, v);
       }
   }
 
@@ -1257,9 +1258,13 @@
   // Los pedestales van lejos de los pasillos de las puertas laterales: antes, si la tienda tenía
   // una salida a ese lado, al abrir el paso se borraba el pedestal y el objeto quedaba flotando.
   Pool.shop = [{
-    name: 'Tienda del vendedor', w: [30, 34], d: [30, 34], noTorches: true, dim: 0.35, lit: true,
+    name: 'Tienda del vendedor', noTorches: true, dim: 0.35, lit: true,
+    // (0.63) la hucha del mercader la hace crecer: más grande con cada nivel de prosperidad
+    get w() { const t = VX.Profile ? VX.Profile.investTier() : 0; return [30 + t * 2, 34 + t * 2]; },
+    get d() { const t = VX.Profile ? VX.Profile.investTier() : 0; return [30 + t * 2, 34 + t * 2]; },
     build(r) {
       const F = localFrame(r), T = BL();
+      const PT = VX.Profile ? VX.Profile.investTier() : 0;
       const ca = Math.floor(F.A / 2), back = F.Bd - 3;
       // mostrador de madera oscura con remates dorados, de cara a la entrada
       lbox(r, F, ca - 6, back - 5, ca + 5, back - 5, 0, 1, T.PLANK, true);
@@ -1284,8 +1289,8 @@
       });
       // altares especiales (Santuario): campana, caja misteriosa y altar de las almas.
       // Van en huecos libres a los lados, lejos de los pasillos de las puertas.
-      const specials = [['keys', [1, 0.78, 0.3]]];   // el relicario de las llaves está siempre
-      if (PR && PR.shopUp('bell')) specials.push(['bell', [0.9, 0.75, 0.3]]);
+      const specials = [['keys', [1, 0.78, 0.3]], ['vault', [1, 0.85, 0.4]]];   // la máquina de chicles y la hucha están siempre
+      if (PR && (PR.shopUp('bell') || (PR.investAt && PR.investAt(4000)))) specials.push(['bell', [0.9, 0.75, 0.3]]);
       if (PR && PR.shopUp('mystery')) specials.push(['mystery', [0.7, 0.4, 1]]);
       if (PR && PR.shopUp('souls')) specials.push(['souls', [0.75, 0.55, 1]]);
       const cands = [[4, back - 7], [F.A - 6, back - 7], [4, back - 11], [F.A - 6, back - 11], [7, back - 3], [F.A - 9, back - 3], [4, back - 15], [F.A - 6, back - 15]];
@@ -1295,7 +1300,7 @@
         if (k < 0) break;
         const [a, b] = cands.splice(k, 1)[0];
         const c = lcenter(r, F, a, b, a + 1, b + 1);
-        if (what === 'keys') {
+        if (what === 'keys' || what === 'vault') {
           // la máquina de chicles va en el suelo; un bloque invisible hace de cuerpo (no se atraviesa)
           lbox(r, F, a, b, a + 1, b + 1, 0, 2, T.BARRIER, true);
           r.features.push({ kind: 'shopSpecial', what, x: c.x, z: c.z, y: 0 });
@@ -1311,7 +1316,37 @@
       lrug(r, F, ca - 2, 3, ca + 1, back - (extra ? 15 : 11), T.CLOTH, T.GOLDB);
       // farol colgando sobre el mostrador (la luz principal, cálida y baja)
       const L = lcenter(r, F, ca - 1, back - 4, ca, back - 4);
-      r.features.push({ kind: 'light', x: L.x, y: 2.5, z: L.z, r: 6.5, c: [0.85, 0.48, 0.2] });
+      r.features.push({ kind: 'light', x: L.x, y: 2.5, z: L.z, r: 6.5 + PT * 0.7, c: [0.85, 0.48 + PT * 0.03, 0.2 + PT * 0.03] });
+      // (0.63) prosperidad (hucha del mercader): cuanto más oro has dejado, más lujosa
+      if (PT >= 1) {
+        // estandartes rojos con remate dorado a los lados de la estantería, y más velas
+        for (const a of [ca - 12, ca + 10]) { lbox(r, F, a, back, a + 1, back, 2, 6, T.CLOTH, true); lbox(r, F, a, back, a + 1, back, 7, 7, T.GOLDB, true); }
+        for (const da of [-9, 8]) { const c = lcenter(r, F, ca + da, back - 2, ca + da, back - 2); r.pending.push({ type: 'candles', x: c.x - 0.12, z: c.z - 0.12, at: { y: 0, rot: 0 } }); r.features.push({ kind: 'light', x: c.x, y: 0.6, z: c.z, r: 2.6, c: [1, 0.6, 0.25] }); }
+      }
+      if (PT >= 2) {
+        // lámpara de araña: aro dorado colgado de una cadena, con velas encendidas
+        const cb = Math.floor((back - 5) / 2) + 1, top = Math.max(7, (r.h || 12) - 1), ry = top - 3;
+        lbox(r, F, ca - 1, cb, ca, cb, ry + 1, top, T.IRON, true);
+        for (let a = ca - 3; a <= ca + 2; a++) for (const b of [cb - 2, cb + 2]) lbox(r, F, a, b, a, b, ry, ry, T.GOLDB, true);
+        for (let b = cb - 1; b <= cb + 1; b++) for (const a of [ca - 3, ca + 2]) lbox(r, F, a, b, a, b, ry, ry, T.GOLDB, true);
+        for (const [a, b] of [[ca - 3, cb - 2], [ca + 2, cb - 2], [ca - 3, cb + 2], [ca + 2, cb + 2]]) lbox(r, F, a, b, a, b, ry + 1, ry + 1, T.LAMP, true);
+        const C = lcenter(r, F, ca - 1, cb, ca, cb);
+        r.features.push({ kind: 'light', x: C.x, y: ry * 0.5 - 0.2, z: C.z, r: 8 + PT, c: [1, 0.7, 0.35] });
+      }
+      if (PT >= 3) {
+        // molduras de oro sobre la estantería y el mostrador
+        lbox(r, F, ca - 9, back, ca + 8, back, 7, 7, T.GOLDB, true);
+        lbox(r, F, ca - 6, back - 5, ca + 5, back - 5, 2, 2, T.GOLDB, true);
+      }
+      if (PT >= 4) {
+        // estatuas a los lados de la entrada y focos que las iluminan
+        for (const a of [ca - 6, ca + 5]) { const c = lcenter(r, F, a, 4, a + 1, 5); r.queue('statue', c.x, c.z, { rot: 0 }, 1); r.features.push({ kind: 'light', x: c.x, y: 2.8, z: c.z, r: 3.5, c: [1, 0.85, 0.55] }); }
+      }
+      if (PT >= 5) {
+        // columnas de oro en las esquinas y un ribete dorado a ras de suelo en toda la sala
+        for (const [a, b] of [[2, 2], [F.A - 4, 2], [2, back - 2], [F.A - 4, back - 2]]) { let ok = true; for (let x = a; x <= a + 1; x++) for (let y = b; y <= b + 1; y++) { const [ux, uz] = F.T(x, y); if (r.isReservedU(ux, uz)) ok = false; } if (ok) lbox(r, F, a, b, a + 1, b + 1, 0, (r.h || 12) - 1, T.GOLDB, true); }
+        lrug(r, F, 1, 1, F.A - 2, back - 1, null, T.GOLDB);
+      }
       // velas sobre el mostrador
       for (const da of [-5, 4]) { const c = lcenter(r, F, ca + da, back - 5, ca + da, back - 5); r.pending.push({ type: 'candles', x: c.x - 0.12, z: c.z - 0.12, at: { y: 1.0, rot: 0 } }); r.features.push({ kind: 'light', x: c.x, y: 1.4, z: c.z, r: 3, c: [1, 0.6, 0.25] }); }
       // rincones: cajas, sacos y barriles; un banco y una mesa cerca de la entrada para «descansar»
@@ -1321,12 +1356,14 @@
     },
   }];
 
+  const PEDS = () => ({ 1: [0], 2: [-2, 2], 3: [-4, 0, 4] })[VX.Profile ? VX.Profile.rewardPicks() : 1];
   Pool.reward = [
     {
       name: 'Santuario', w: [28, 32], d: [28, 32],
       build(r) {
         const cx = r.w / 2, cz = Math.floor(r.d / 2);
-        r.box(cx - 1, 0, cz - 1, cx, 1, cz, BL().METAL, true);
+        // (0.63) un pedestal; con la bendición «Pedestales» (Santuario), 2 o 3 para elegir
+        for (const ox of PEDS()) r.box(cx - 1 + ox, 0, cz - 1, cx + ox, 1, cz, BL().METAL, true);
         r.features.push({ kind: 'reward', x: r.centerX(), z: r.uZ(cz), y: 1.0 });
         for (const [x, z] of [[5, 5], [r.w - 7, 5], [5, r.d - 7], [r.w - 7, r.d - 7]]) pillar(r, x, z, 2, r.h - 3);
       },
@@ -1335,8 +1372,8 @@
       name: 'Altar musgoso', w: [28, 34], d: [28, 34],
       build(r) {
         const cx = r.w / 2, cz = Math.floor(r.d / 2);
-        r.box(cx - 3, 0, cz - 3, cx + 2, 0, cz + 2, BL().MOSS, true);
-        r.box(cx - 1, 1, cz - 1, cx, 1, cz, BL().METAL, true);
+        r.box(cx - 7, 0, cz - 3, cx + 6, 0, cz + 2, BL().MOSS, true);
+        for (const ox of PEDS()) r.box(cx - 1 + ox, 1, cz - 1, cx + ox, 1, cz, BL().METAL, true);
         r.features.push({ kind: 'reward', x: r.centerX(), z: r.uZ(cz), y: 1.0 });
         for (let i = 0; i < 6; i++) ruinWall(r, M.randInt(3, r.w - 8), M.randInt(4, r.d - 8), 4, M.chance(0.5), 3, BL().MOSS);
       },

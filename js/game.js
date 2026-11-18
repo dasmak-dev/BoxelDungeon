@@ -113,6 +113,7 @@
       this.priceMul = VX.Profile.priceMul();
       this.player.magnet = Math.max(this.player.magnet, 2 * (VX.Profile.data.perks.iman || 0));
       this.revives = VX.Profile.data.perks.segunda || 0;
+      this.rescueUsed = false;
     }
     resetSystems() {
       this.resetCollections();
@@ -270,6 +271,36 @@
       VX.Input.unlock();
       this.buildTitleScene();
       VX.Menus.showTitle();
+    }
+
+    // (0.63.5) Rescate del mercader: al caer, si tienes ahorrado en su caja, puedes pagarle para levantarte
+    canRescue() { return this.mode !== 'horde' && !VX.Coop.active && !this.rescueUsed && !this.daily && VX.Profile.investAt(VX.Profile.RESCUE_COST); }
+    offerRescue() {
+      const P = VX.Profile, cost = P.RESCUE_COST, inv = P.data.invest || 0, t0 = P.investTier(), t1 = P.investTier(inv - cost);
+      this.state = 'rescue'; this.rescueUsed = true;
+      VX.Input.unlock();
+      const el = document.getElementById('rescue');
+      document.getElementById('rescueTxt').innerHTML = `El mercader puede sacarte de aquí por <b>${cost}</b> de lo que tienes en su caja (<b>${inv}</b>).` +
+        (t1 < t0 ? `<br><span class="rwarn">Tu tienda bajará al nivel ${t1}.</span>` : '') + '<br><small>Una vez por partida.</small>';
+      el.classList.remove('hidden');
+      VX.Audio.phase && VX.Audio.phase();
+      const done = (yes) => {
+        el.classList.add('hidden');
+        window.removeEventListener('keydown', key, true);
+        if (yes) {
+          P.data.invest = Math.max(0, inv - cost); P.dirty = true; P.save();
+          const pl = this.player; pl.dead = false; pl.hp = Math.round(pl.maxHp * 0.5); pl.invuln = 3;
+          this.state = 'playing';
+          this.hud.banner('¡RESCATADO!', `El mercader cobra ${cost} de su caja`, 3);
+          VX.Audio.upgrade(); this.shake(0.5);
+          for (let i = 0; i < 40; i++) this.particles.spawn(pl.x, pl.y + 1, pl.z, M.rand(-2, 2), M.rand(1, 4), M.rand(-2, 2), 1, 0.82, 0.3, 0.04, 1.2, 1, 1);
+          VX.Input.lock();
+        } else { this.state = 'playing'; this.player.hp = 0; this.player.dead = true; this.gameOver(); }
+      };
+      const key = (e) => { if (e.code === 'KeyE' || e.code === 'Enter') { e.preventDefault(); done(true); } else if (e.code === 'Escape' || e.code === 'KeyQ') { e.preventDefault(); done(false); } };
+      window.addEventListener('keydown', key, true);
+      document.getElementById('rescueYes').onclick = () => done(true);
+      document.getElementById('rescueNo').onclick = () => done(false);
     }
 
     gameOver() {
@@ -598,16 +629,18 @@
         // calidad de vida: el oro que quede en el suelo vuela hacia ti
         for (const g of this.pickups.gold) { g.homing = true; g.delay = Math.min(g.delay, 0.3); }
         if (this.player.regenRoom) this.player.heal(this.player.regenRoom);
+        // (0.63) Interés compuesto: un 5 % de tu oro (hasta 15) al despejar la sala
+        if (this.weapon.mods.interest && this.stats.gold > 0) { const g = Math.min(15, Math.max(1, Math.round(this.stats.gold * 0.05))); this.stats.gold += g; this.hud.toast && this.hud.toast(`Interés: +${g} de oro`); }
         const ch = this.completeChallenge();
         if (r.type === 'boss' && r.finalBoss) this.victory();
         if (r.type === 'boss') {
           this.hud.hideBoss();
-          this.hud.banner('¡JEFE DERROTADO!', 'Mejora gratis y vida llena', 3.5);
+          this.hud.banner('¡JEFE DERROTADO!', 'Mejora rara y vida llena', 3.5);
           this.player.heal(this.player.maxHp);
-          const up = VX.Upgrades.random(1, this)[0];
+          // (0.62) el jefe ya no suelta además una mejora normal: sólo la rara (y el arma)
           const bz = this.boss ? this.boss.z : r.centerZ();
           const bx = this.boss ? this.boss.x : r.centerX();
-          this.pickups.addItem({ kind: 'upgrade', up, price: 0, x: bx, y: this.world.groundAt(bx, bz) + 0.3, z: bz, title: up.name, desc: up.desc, color: up.color, shape: up.shape });
+          this.pickups.dropGold(bx, this.world.groundAt(bx, bz) + 1, bz, 20 + this.floor);
           // el jefe suelta un arma
           const notOwned = VX.Weapons.GUNS.filter((id) => !this.weapon.has(id) && VX.Profile.weaponUnlocked(id));
           if (notOwned.length) {
@@ -810,7 +843,7 @@
 
     // ---------- Mapa ----------
     studyMap() {
-      this.mapReveal = 9;
+      this.mapReveal = 9 + (VX.Profile.investAt(2000) ? 4 : 0);   // (0.63.5) la caja del mercader paga un mapa mejor
       const r = this.currentRoom;
       for (const s of r.exits) { const n = r.doors[s] && r.doors[s].neighbor; if (n) { this.spawner.planFor(this, n); this.spawner.forecast(this, n); } }
       VX.Audio.upgrade();
@@ -2111,7 +2144,7 @@
         this.particles.update(dt, this.world);
         return;
       }
-      if ((this.state === 'paused' || this.state === 'settings') && !VX.Coop.active) return;
+      if ((this.state === 'paused' || this.state === 'settings' || this.state === 'rescue') && !VX.Coop.active) return;
 
       const P = this.player;
       if (this.state === 'playing') {
@@ -2254,7 +2287,7 @@
       if (this.blasts.length) this.blasts = VX.M.compact(this.blasts, (bl) => bl.t < (bl.pop ? 1.4 : 4));
       this.updateRises(dt);
       this.checkSecret();
-      if (this.state === 'playing' && this.mode !== 'horde' && VX.Input.wasPressed(VX.Settings.key('map'))) this.hud.showMap(this);
+      if (this.state === 'playing' && this.mode !== 'horde' && (VX.Input.wasPressed(VX.Settings.key('map')) || VX.Input.wasPressed('Tab'))) this.hud.showMap(this);
       if (this.state === 'playing') this.runTime += dt;
       for (const e of this.pendingExplosions) { e.delay -= dt; if (e.delay <= 0) { e.done = true; this.explode(e); } }
       this.pendingExplosions = VX.M.compact(this.pendingExplosions, (e) => !e.done);

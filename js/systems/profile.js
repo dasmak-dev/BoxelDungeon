@@ -8,7 +8,7 @@
     v: 2, kills: 0, headshots: 0, bosses: 0, bestFloor: 0, knifeKills: 0, runs: 0,
     unlocked: [], skinSel: {}, wstats: {},
     essence: 0, perks: {}, weapons: ['pistol'], startWeapon: 'pistol', shopUnlocks: [],
-    codex: { enemies: {}, ups: [] }, best: null, secrets: 0,
+    codex: { enemies: {}, ups: [] }, best: null, secrets: 0, invest: 0,
   });
 
   // Bendiciones: mejoras permanentes que se compran con esencia en el Santuario
@@ -24,6 +24,7 @@
     { id: 'punteria', name: 'Puntería', desc: '-10% de dispersión de las balas', max: 3, cost: (l) => 40 + l * 35 },
     { id: 'segunda', name: 'Segunda oportunidad', desc: 'Una vez por partida, revives con media vida', max: 1, cost: () => 250 },
     { id: 'doble', name: 'Doble salto', desc: 'Puedes volver a saltar una vez en el aire', max: 1, cost: () => 220 },
+    { id: 'pedestales', name: 'Pedestales', desc: 'Una mejora más a elegir en las salas de recompensa (2 y luego 3)', max: 2, cost: (l) => 90 + l * 90 },
     { id: 'objetivos', name: 'Objetivos de partida', desc: 'Cada partida trae 3 objetivos que dan esencia (nivel 2: 4 objetivos y +25 % de esencia). También se desbloquea venciendo a tu primer jefe o en el Relicario', max: 2, cost: (l) => 120 + l * 180 },
   ];
 
@@ -65,6 +66,8 @@
     bosses: (n, w) => n === 1 ? `Remata a un jefe con ${w}` : `Remata a ${n} jefes con ${w}`,
     elites: (n, w) => `Mata ${n} zombis élite con ${w}`,
     floor: (n, w) => `Llega al piso ${n} llevando ${w}`,
+    invested: (n, w) => `Consigue los otros camuflajes de ${w} y mete ${n} de oro en la máquina del mercader con ella en la mano`,
+    allGold: (n) => `Consigue la skin de Oro en las ${n} armas`,
     allSkins: (n, w) => `Consigue los ${n} camuflajes de ${w}`,
     scoped: (n, w) => `Mata ${n} zombis apuntando con la mirilla de ${w}`,
     long: (n, w) => `Mata ${n} zombis a más de 20 m con ${w}`,
@@ -82,6 +85,28 @@
     dirty: false,
     PERKS, ARSENAL, SHOPUPS,
     shopUp(id) { return ((this.data.shopUps || {})[id]) || 0; },
+    // (0.63) hucha del mercader: el oro que dejas en las tiendas (para siempre) hace prosperar la tienda
+    INVEST: [
+      { n: 300, txt: 'Estandartes y más velas' },
+      { n: 800, txt: 'Tienda más grande, lámpara de araña y la Tarjeta VIP a la venta' },
+      { n: 1600, txt: 'Molduras de oro, más género raro y el Interés compuesto a la venta' },
+      { n: 3000, txt: 'Estatuas, más luz y las Balas de oro a la venta' },
+      { n: 5000, txt: 'Tienda de lujo: columnas de oro y siempre una mejora rara' },
+    ],
+    // (0.63.5) hitos extra de la caja (contenido): se ven en la máquina junto a los niveles
+    INVEST_EXTRA: [
+      { n: 1200, txt: 'Granadas, molotovs y señuelos a la venta aunque no los hayas desbloqueado' },
+      { n: 2000, txt: 'El mapa del cartógrafo revela 4 salas más' },
+      { n: 4000, txt: 'Campana del vendedor en todas las tiendas, con el primer toque gratis' },
+    ],
+    investAt(n) { return (this.data.invest || 0) >= n; },
+    nextMilestone() {
+      const v = this.data.invest || 0;
+      return this.INVEST.concat(this.INVEST_EXTRA, [{ n: 10000, txt: 'El vendedor te ofrece la caja fuerte' }]).filter((x) => x.n > v).sort((a, b) => a.n - b.n)[0] || null;
+    },
+    RESCUE_COST: 1000,
+    investTier(v = this.data.invest || 0) { let t = 0; for (const x of this.INVEST) if (v >= x.n) t++; return t; },
+    rewardPicks() { return 1 + Math.min(2, this.data.perks.pedestales || 0); },
     buyShopUp(id) {
       const u = SHOPUPS.find((x) => x.id === id), l = this.shopUp(id);
       if (!u || l >= u.max || this.data.essence < u.cost(l)) return false;
@@ -151,7 +176,8 @@
 
     statValue(skin, weapon) {
       if (!skin.cond) return 0;
-      if (skin.cond.stat === 'allSkins') return VX.Weapons.SKINS.filter((s) => s.cond && !s.ultimate && this.isUnlocked(weapon, s.id)).length;
+      if (skin.cond.stat === 'allSkins') return VX.Weapons.SKINS.filter((s) => s.cond && !s.ultimate && !s.meta && this.isUnlocked(weapon, s.id)).length;
+      if (skin.cond.stat === 'allGold') return WEAPON_IDS().filter((w) => this.isUnlocked(w, 'oro')).length;
       return (this.data.wstats[weapon] || {})[skin.cond.stat] || 0;
     },
 
@@ -175,7 +201,7 @@
     gearValue(cond) { return cond.w ? ((this.data.wstats[cond.w] || {})[cond.stat] || 0) : (this.data[cond.stat] || 0); },
     gearUnlocked(id) { const g = this.gearList().find((x) => x.id === id); return !g || !g.cond || (this.data.gear || []).includes(id); },
     attachUnlocked(a) { return this.gearUnlocked('att:' + a); },
-    throwUnlocked(t) { return this.gearUnlocked('thr:' + t); },
+    throwUnlocked(t) { return this.gearUnlocked('thr:' + t) || this.investAt(1200); },
     // las misiones (equipo y skins) que tienes más cerca de cumplir, para la pantalla de muerte
     nearestGoals(k = 3) {
       const out = [];
@@ -221,10 +247,13 @@
       if (VX.Weapons && VX.Weapons.KNIVES) this.checkKnives(game);
       if (VX.Weapons && VX.Weapons.PISTOLS) this.checkPistols(game);
       const list = onlyWeapon ? [onlyWeapon] : WEAPON_IDS();
+      let goldNow = false;
       for (const w of list) {
         for (const s of VX.Weapons.skinsFor(w)) {
           if (!s.cond || this.isUnlocked(w, s.id)) continue;
+          if (s.needsAll && !this.goldReady(w)) continue;   // (0.63.4) el Oro, sólo con los demás camuflajes
           if (this.statValue(s, w) >= s.cond.n) {
+            if (s.id === 'oro') goldNow = true;
             this.data.unlocked.push(w + ':' + s.id);
             this.dirty = true;
             if (game && game.hud && game.state === 'playing') {
@@ -234,9 +263,14 @@
           }
         }
       }
+      // si alguna arma acaba de conseguir el Oro, el Diamante puede desbloquearse en todas
+      if (goldNow && onlyWeapon) this.checkUnlocks(game);
     },
 
     // ---- modelos de pistola ----
+    // (0.63.4) ¿tiene ya esta arma todos sus camuflajes comunes (sin contar Oro, Diamante, la especial ni la legendaria)?
+    goldReady(w) { return VX.Weapons.SKINS.filter((s) => s.cond && !s.ultimate && !s.meta && !s.needsAll).every((s) => this.isUnlocked(w, s.id)); },
+    WEAPON_IDS() { return WEAPON_IDS(); },
     pistolUnlocked(id) { return id === 'pistola' || (this.data.pistols || []).includes(id); },
     pistolForm() { const f = this.data.pistolForm || 'pistola'; return this.pistolUnlocked(f) ? f : 'pistola'; },
     setPistolForm(id) { if (this.pistolUnlocked(id)) { this.data.pistolForm = id; this.save(); VX.Weapons.applyPistolForm(id); } },

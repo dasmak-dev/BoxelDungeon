@@ -20,7 +20,7 @@
     window.addEventListener('keydown', (e) => {
       if (!Input.keys[e.code]) Input.pressed[e.code] = true;
       Input.keys[e.code] = true;
-      if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+      if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code) || (e.code === 'Tab' && VX.game && VX.game.state === 'playing')) e.preventDefault();   // (jugando, Tab abre el mapa: que no salte el foco)
       // con el ratón capturado, evita los atajos del navegador con Ctrl (salvo Ctrl+W, que el navegador no deja bloquear)
       if (Input.locked && (e.ctrlKey || e.code.startsWith('Control'))) e.preventDefault();
     });

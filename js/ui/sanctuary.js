@@ -25,7 +25,7 @@
         return P.PERKS.map((p) => { const l = lv[p.id]; return { key: 'perk:' + p.id, name: p.name, desc: p.desc, lvl: l, max: p.max, cost: l >= p.max ? 0 : p.cost(l), done: l >= p.max }; });
       }
       if (tab === 'shop') return P.SHOPUPS.map((u) => { const l = P.shopUp(u.id); return { key: 'shopup:' + u.id, name: u.name, desc: u.desc, lvl: l, max: u.max, cost: l >= u.max ? 0 : u.cost(l), done: l >= u.max }; });
-      if (tab === 'goods') return VX.Upgrades.list.filter((u) => u.shop).map((u) => { const own = d.shopUnlocks.includes(u.id); return { key: 'shop:' + u.id, name: u.name, desc: u.desc, cost: own ? 0 : u.unlock, done: own, doneTxt: 'A LA VENTA' }; });
+      if (tab === 'goods') return VX.Upgrades.list.filter((u) => u.shop && !u.invest).map((u) => { const own = d.shopUnlocks.includes(u.id); return { key: 'shop:' + u.id, name: u.name, desc: u.desc, cost: own ? 0 : u.unlock, done: own, doneTxt: 'A LA VENTA' }; });
       return P.ARSENAL.map((w) => {
         const own = d.weapons.includes(w.id), sel = d.startWeapon === w.id;
         return { key: 'weapon:' + w.id, name: VX.Weapons.DEFS[w.id].name, desc: 'Mejoras: ' + VX.Upgrades.POOL_NAME[VX.Upgrades.POOL_OF[w.id]], cost: own ? 0 : w.cost, done: own, on: sel, doneTxt: sel ? 'ARMA INICIAL' : 'TUYA · ELEGIR', click: own };

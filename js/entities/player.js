@@ -261,6 +261,8 @@
         }
         // cooperativo: caes al suelo y un compañero te puede levantar
         if (VX.Coop.active) { VX.Coop.goDown(game); return; }
+        // (0.63.5) rescate del mercader (lo pagas con lo ahorrado en su caja)
+        if (game.canRescue && game.canRescue()) { this.hp = 0; game.offerRescue(); return; }
         this.hp = 0; this.dead = true; game.gameOver();
       }
     }

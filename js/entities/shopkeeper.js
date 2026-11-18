@@ -53,7 +53,8 @@
     get regenK() { return Math.pow(0.78, this.power); }
 
     build(rage) {
-      const body = new VX.VoxelBody(VX.Models.merchant({ seed: this.seed, rage }), 1);
+      // (0.63.5) se viste mejor cuanto más oro le has dejado en la caja
+      const body = new VX.VoxelBody(VX.Models.merchant({ seed: this.seed, rage, lux: VX.Profile ? VX.Profile.investTier() : 0 }), 1);
       body.x = this.x; body.z = this.z; body.y = this.y; body.yaw = this.yaw;
       this.body = body;
       this.maxHp = 180 * Math.pow(1.4, this.power);

@@ -1,4 +1,6 @@
 // Interfaz en pantalla (DOM superpuesto al canvas).
+  // (0.61.6) iconos de pixel para las mejoras (7×7), uno por forma
+  const UP_GLYPH = {"bullet": "M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1z", "flame": "M3 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1z", "arrow": "M3 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM3 3h1v1h-1zM3 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1z", "bolt": "M4 0h1v1h-1zM5 0h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1z", "mag": "M1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM1 2h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM4 5h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z", "auto": "M0 0h1v1h-1zM2 0h1v1h-1zM4 0h1v1h-1zM6 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1z", "blade": "M6 0h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM0 6h1v1h-1zM2 6h1v1h-1z", "boot": "M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1z", "clock": "M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z", "coin": "M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z", "crystal": "M3 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM3 6h1v1h-1z", "drop": "M3 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z", "eye": "M2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM1 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM1 4h1v1h-1zM5 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1z", "grenade": "M2 0h1v1h-1zM3 0h1v1h-1zM3 1h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1z", "heart": "M1 0h1v1h-1zM2 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM3 6h1v1h-1z", "multi": "M0 0h1v1h-1zM2 0h1v1h-1zM4 0h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1z", "pierce": "M3 0h1v1h-1zM3 1h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM3 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM3 5h1v1h-1zM3 6h1v1h-1z", "plus": "M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z", "scope": "M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM3 5h1v1h-1zM5 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z", "skull": "M1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM1 6h1v1h-1zM3 6h1v1h-1zM5 6h1v1h-1z", "star": "M3 0h1v1h-1zM3 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM1 6h1v1h-1zM5 6h1v1h-1z"};
 (function () {
   const $ = (id) => document.getElementById(id);
   const M0 = (a, b) => a + Math.random() * (b - a);
@@ -178,7 +180,7 @@
       };
       let h = `<div class="mtitle"><h2>${I('map', 22)} MAPA · ${game.floor === 0 ? 'Entrada' : 'Piso ' + game.floor} · ${zn.name}</h2>`;
       h += `<div class="msub">${reveal ? `Mapa del cartógrafo: ves las salas de detrás de cada puerta, lo que esconden y las siguientes <b>(${game.mapReveal} salas más)</b>` : 'Busca la Sala del cartógrafo para ver qué hay más allá de las puertas'}</div></div>`;
-      h += '<div class="mcols"><div class="mleft"><canvas id="mapCanvas" width="640" height="470"></canvas></div>';
+      h += `<div class="mcols"><div class="mleft"><canvas id="mapCanvas" width="640" height="470"></canvas></div>`;
       // ---- panel derecho ----
       const alive = game.enemies.filter((e) => !e.dead), el2 = alive.filter((e) => e.elite || e.champion).length;
       h += '<div class="mright">';
@@ -223,7 +225,8 @@
       // recorrido
       const path = (game.mapPath || []).slice(-12);
       h += '<h3>Recorrido</h3><div class="mrow">' + path.map((p, i) => `<span class="mstep${i === path.length - 1 ? ' mcurs' : ''}">${I(p.type, 16)}</span>`).join('<span class="mlink">›</span>') + '</div>';
-      h += '</div></div><div class="mhint">' + VX.Settings.tag('map') + ' cerrar</div>';
+      if (game.mode !== 'horde') h += this.buildPanel(game);
+      h += '</div></div><div class="mhint">[Tab] o ' + VX.Settings.tag('map') + ' cerrar</div>';
       el.innerHTML = h;
       el.classList.remove('hidden');
       this.mapOpen = true; this.mapT = 0;
@@ -237,14 +240,51 @@
       VX.Carto.drawIso(cv, game, this.mapRoute);
     },
 
+    // (0.61.6) mejoras de la partida: icono de pixel, cuántas veces la llevas, sinergias activas y las que
+    // tienes a un paso. Arriba a la izquierda, compacto; en el mapa (Tab), con todo el detalle.
+    upIcon(shape, color, px = 14) {
+      const c = Array.isArray(color) ? `rgb(${color.map((x) => Math.round(Math.min(1, x) * 255)).join(',')})` : color;
+      return `<svg class="upi" width="${px}" height="${px}" viewBox="0 0 7 7" shape-rendering="crispEdges"><path d="${UP_GLYPH[shape] || UP_GLYPH.star}" fill="${c}"/></svg>`;
+    },
+    buildInfo(game) {
+      const U = VX.Upgrades, counts = {}, order = [];
+      for (const u of game.upgradesTaken) { if (!counts[u.id]) order.push(u.id); counts[u.id] = (counts[u.id] || 0) + 1; }
+      const have = new Set(order), syn = game.synergies || [];
+      const active = U.SYNERGIES.filter((x) => syn.includes(x.id));
+      const near = U.SYNERGIES.filter((x) => !syn.includes(x.id) && x.needs.filter((n) => have.has(n)).length === x.needs.length - 1)
+        .map((x) => ({ s: x, miss: x.needs.filter((n) => !have.has(n)).map((n) => (U.byId[n] || { name: n }).name) }));
+      const items = order.map((id) => { const u = U.byId[id]; const n = counts[id]; const maxed = n > 1 && u.available && !u.available(game); return { u, n, maxed }; });
+      return { items, active, near };
+    },
     refreshUpgrades(game) {
-      const counts = {};
-      for (const u of game.upgradesTaken) counts[u.id] = (counts[u.id] || 0) + 1;
-      this.el.ups.innerHTML = Object.keys(counts).map((id) => {
-        const u = VX.Upgrades.byId[id];
-        const c = u.color.map((x) => Math.round(x * 255)).join(',');
-        return `<div class="up">${u.name}${counts[id] > 1 ? ' x' + counts[id] : ''}<span class="sw" style="background:rgb(${c})"></span></div>`;
-      }).join('');
+      const B = this.buildInfo(game);
+      let h = B.items.map(({ u, n, maxed }) => `<div class="up${u.curse ? ' ucurse' : u.rare ? ' urare' : ''}">${this.upIcon(u.shape, u.color)}<span class="un">${u.name}</span>${n > 1 ? `<span class="ux${maxed ? ' umax' : ''}">×${n}${maxed ? ' MÁX' : ''}</span>` : ''}</div>`).join('');
+      if (B.active.length) h += B.active.map((x) => `<div class="up usyn">${this.upIcon('star', '#ffd23f')}<span class="un">${x.name}</span></div>`).join('');
+      if (B.near.length) h += B.near.slice(0, 2).map((x) => `<div class="up unear">${this.upIcon('star', '#7a6a4a')}<span class="un">${x.s.name}: falta ${x.miss[0]}</span></div>`).join('');
+      this.el.ups.innerHTML = h;
+      this.el.ups.classList.toggle('ucols', B.items.length + B.active.length > 11);
+    },
+    // panel de la partida dentro del mapa
+    buildPanel(game) {
+      const B = this.buildInfo(game);
+      if (!B.items.length) return '';
+      const AMMO = new Set(['bullet', 'flame', 'crystal', 'drop', 'pierce', 'grenade', 'multi']), YOU = new Set(['boot', 'heart', 'coin', 'plus']);
+      const cat = (u) => u.curse ? 'Maldiciones' : AMMO.has(u.shape) || ['ricochet', 'shock', 'explosive', 'frost', 'toxic', 'fire', 'lifesteal'].includes(u.id) ? 'Munición' : YOU.has(u.shape) ? 'Tú' : u.shape === 'blade' ? 'Cuerpo a cuerpo' : 'Arma';
+      const groups = {};
+      for (const it of B.items) (groups[cat(it.u)] = groups[cat(it.u)] || []).push(it);
+      let h = '<div class="mbuild"><h3>Tu partida</h3><div class="mbgrid">';
+      for (const g of ['Munición', 'Arma', 'Cuerpo a cuerpo', 'Tú', 'Maldiciones']) {
+        if (!groups[g]) continue;
+        h += `<div class="mbcol"><div class="mbcat">${g}</div>` + groups[g].map(({ u, n, maxed }) => `<div class="mbitem${u.curse ? ' ucurse' : u.rare ? ' urare' : ''}">${this.upIcon(u.shape, u.color, 18)}<div><b>${u.name}</b>${n > 1 ? ` <span class="ux${maxed ? ' umax' : ''}">×${n}${maxed ? ' MÁX' : ''}</span>` : ''}<div class="mbd">${u.desc}${n > 1 ? ' (acumulado)' : ''}</div></div></div>`).join('') + '</div>';
+      }
+      h += '</div>';
+      if (B.active.length || B.near.length) {
+        h += '<div class="mbsyn">';
+        h += B.active.map((x) => `<div class="mbitem usyn">${this.upIcon('star', '#ffd23f', 18)}<div><b>${x.name}</b> <span class="mbtag">SINERGIA</span><div class="mbd">${x.desc}</div></div></div>`).join('');
+        h += B.near.map((x) => `<div class="mbitem unear">${this.upIcon('star', '#7a6a4a', 18)}<div><b>${x.s.name}</b> <span class="mbtag dim">a un paso</span><div class="mbd">Te falta <b>${x.miss.join(', ')}</b> · ${x.s.desc}</div></div></div>`).join('');
+        h += '</div>';
+      }
+      return h + '</div>';
     },
 
     update(dt, game) {
@@ -285,9 +325,12 @@
       el.hpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp}`;
       const melee = W.def.melee;
       const DU = !melee && W.def.dual ? W.dualAmmo() : null, red = (n) => n <= 0 ? ' style="color:#ff5a4a"' : '';
-      el.ammo.innerHTML = melee ? `<small>${W.name.toUpperCase()}</small>` : W.reloading ? `<small>RECARGANDO</small>` :
+      // (0.61.9) Cinta de munición: icono junto a la munición; se enciende y late mientras recupera balas
+      const hasBelt = !melee && W.mods.belt && !W.def.grenade, beltOn = hasBelt && (W.beltFeed || 0) > 0.2;
+      el.ammo.classList.toggle('beltFeed', !!beltOn);
+      el.ammo.innerHTML = (hasBelt ? `<span class="beltIco${beltOn ? ' on' : ''}" title="Cinta de munición" style="${beltOn ? `transform:scale(${(1 + 0.18 * Math.abs(Math.sin((game.time || 0) * 9))).toFixed(2)})` : ''}">${this.upIcon('auto', beltOn ? '#ffd27a' : '#8a7550', 20)}${beltOn ? '<i>+</i>' : ''}</span>` : '') + (melee ? `<small>${W.name.toUpperCase()}</small>` : W.reloading ? `<small>RECARGANDO</small>` :
         DU ? `<span${red(DU.L)}>${DU.L}</span><small> · </small><span${red(DU.R)}>${DU.R}</span> <small>/ ${W.limited ? (W.slot.reserve || 0) : DU.hr}</small>` :
-        W.limited ? `${W.ammo} <small style="${(W.slot.reserve || 0) <= 0 ? 'color:#ff5a4a' : ''}">/ ${W.slot.reserve || 0}</small>` : `${W.ammo} <small>/ ${W.magSize}</small>`;
+        W.limited ? `${W.ammo} <small style="${(W.slot.reserve || 0) <= 0 ? 'color:#ff5a4a' : ''}">/ ${W.slot.reserve || 0}</small>` : `${W.ammo} <small>/ ${W.magSize}</small>`);
       const sk = W.slots.map((s) => s.id + (s.lvl || 1)).join('|') + W.cur + (W.kickBuff > 0 ? 'k' : '');
       if (sk !== this.slotKey) {
         this.slotKey = sk;
@@ -333,7 +376,7 @@
         const can = f.price <= game.stats.gold;
         const price = f.price > 0 ? ` · <span class="${can ? 'price' : 'bad'}">${f.price} oro</span>` : (f.kind === 'keyAltar' ? (() => { const K = game.keys || {}, n = (K.wood || 0) + (K.silver || 0) + (K.gold || 0); return ` · <span class="${n ? 'price' : 'bad'}">1 llave${n ? ' (tienes ' + n + ')' : ' (no tienes)'}</span>`; })()
           : f.kind === 'stairs' && VX.Coop.active ? ' · <span class="price">se vota</span>'
-          : f.kind === 'rest' || f.kind === 'supply' || f.kind === 'secretChest' || f.kind === 'stairs' || f.kind === 'lockdoor' ? '' : ' · <span class="price">GRATIS</span>');
+          : f.kind === 'rest' || f.kind === 'vault' || f.kind === 'vaultTalk' || f.kind === 'supply' || f.kind === 'secretChest' || f.kind === 'stairs' || f.kind === 'lockdoor' ? '' : ' · <span class="price">GRATIS</span>');
         const act = f.action || (f.price > 0 ? 'Comprar' : 'Recoger');
         el.prompt.innerHTML = `<b>${f.title}</b> — ${f.desc}<br>${VX.Settings.tag('use')} ${act}${price}` + (f.kind === 'weapon' ? this.weaponCompare(game, f.weapon) : '');
         el.prompt.classList.remove('hidden');
